@@ -18,6 +18,11 @@ Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
     return response()->json($questions);
 });
 
+Route::get('/api/questions/random-test', function () {
+    $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
+    return response()->json($questions);
+});
+
 // Guest Chat API Endpoints
 Route::get('/api/chat/messages', function (Request $request) {
     $sessionId = session()->getId();

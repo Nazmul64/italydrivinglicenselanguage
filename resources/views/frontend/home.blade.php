@@ -204,32 +204,114 @@
 
             <!-- SCREEN: Test (Practice Quiz) -->
             <div id="screen-test" class="screen">
-                <div class="section-header">
-                    <span class="section-title">কুইজ প্র্যাকটিস</span>
-                    <span class="section-subtitle" id="quiz-progress-text">প্রশ্ন: ১/৩</span>
+                <!-- 1. Question Pagination Bar -->
+                <div class="test-pagination-container">
+                    <div class="test-pagination-tabs">
+                        <span class="test-tab-btn active" id="test-tab-btn-1" onclick="switchTestQuestionTab(1)">Domande da 1 a 10</span>
+                        <span class="test-tab-btn" id="test-tab-btn-2" onclick="switchTestQuestionTab(2)">Domande da 11 a 20</span>
+                        <span class="test-tab-btn" id="test-tab-btn-3" onclick="switchTestQuestionTab(3)">Domande da 21 a 30</span>
+                    </div>
+                    <div class="test-pagination-numbers" id="test-num-grid">
+                        <!-- Questions 1-10 or 11-20 or 21-30 injected by JS -->
+                    </div>
                 </div>
-                
-                <div class="content-card quiz-box">
-                    <div class="question-text" id="quiz-question-it">La carreggiata può essere a senso unico di circolazione.</div>
-                    <div class="question-bangla" id="quiz-question-bn">ক্যারিজওয়ে (মূল রাস্তা) একমুখী চলাচলের জন্য হতে পারে।</div>
+
+                <!-- 2. Question Text Display -->
+                <div class="test-question-box">
+                    <div class="test-question-it" id="test-question-it">Caricamento delle domande...</div>
+                    <div class="test-question-bn" id="test-question-bn" style="display: none;">প্রশ্ন লোড হচ্ছে...</div>
+                </div>
+
+                <!-- 3. Bottom Controls Row -->
+                <div class="test-bottom-section">
                     
-                    <div class="answer-buttons">
-                        <button class="ans-btn btn-vero" onclick="checkQuizAnswer(true)">
-                            <i class="fa-solid fa-check"></i> VERO
-                        </button>
-                        <button class="ans-btn btn-falso" onclick="checkQuizAnswer(false)">
-                            <i class="fa-solid fa-xmark"></i> FALSO
-                        </button>
+                    <!-- Horizontal Options Bar overlay (shown when Opzioni clicked) -->
+                    <div class="test-options-bar" id="test-options-bar" style="display: none;">
+                        <div class="opt-btn-item" onclick="showToast('টিউটর স্যারকে নক করা হয়েছে')">
+                            <div class="opt-icon-wrapper" style="position: relative;">
+                                <i class="fa-solid fa-user-tie"></i>
+                                <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background-color: var(--accent-red); border-radius: 50%;"></span>
+                            </div>
+                        </div>
+                        <div class="opt-btn-item" onclick="toggleTestTranslation()" title="Translate">
+                            <div class="opt-icon-wrapper"><i class="fa-solid fa-language"></i></div>
+                        </div>
+                        <div class="opt-btn-item" onclick="showToast('বুকমার্ক করা হয়েছে')">
+                            <div class="opt-icon-wrapper"><i class="fa-regular fa-bookmark"></i></div>
+                        </div>
+                        <div class="opt-btn-item" onclick="showToast('নোটপ্যাড ওপেন হয়েছে')">
+                            <div class="opt-icon-wrapper"><i class="fa-regular fa-note-sticky"></i></div>
+                        </div>
+                        <div class="opt-btn-item" onclick="showToast('অধ্যায়ের তথ্য')">
+                            <div class="opt-icon-wrapper"><i class="fa-solid fa-circle-info"></i></div>
+                        </div>
+                        <div class="opt-btn-item" onclick="showToast('পরীক্ষার সংক্ষিপ্ত বিবরণ')">
+                            <div class="opt-icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
+                        </div>
+                        <div class="opt-btn-item close" onclick="closeTestExam()" title="Chiudi Esame">
+                            <div class="opt-icon-wrapper"><i class="fa-solid fa-circle-xmark"></i></div>
+                            <span style="font-size: 8px; color: var(--text-secondary); margin-top: 2px;">Chiudi</span>
+                        </div>
                     </div>
 
-                    <div class="feedback-box" id="quiz-feedback">
-                        সঠিক উত্তর!
+                    <!-- Main Bottom Controls Layout -->
+                    <div class="test-controls-row">
+                        <!-- Left Controls Column (Opzioni, Speaker, Play Progress) -->
+                        <div class="test-controls-left">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <button class="test-ctrl-btn opt" onclick="toggleTestOptions()">
+                                    <i class="fa-solid fa-table-cells-large" style="color: var(--accent-green);"></i>
+                                </button>
+                                <span class="test-ctrl-label" style="color: var(--text-primary);">Opzioni</span>
+                            </div>
+                            
+                            <!-- Circular Blue Speaker -->
+                            <button class="test-speaker-btn" onclick="readItalianQuestionOutLoud()">
+                                <i class="fa-solid fa-volume-high"></i>
+                                <span>Italiano</span>
+                            </button>
+
+                            <!-- Play Progress Row -->
+                            <div class="test-audio-progress-bar">
+                                <button class="test-play-btn" onclick="readItalianQuestionOutLoud()">
+                                    <i class="fa-solid fa-play" style="color: var(--accent-green);"></i>
+                                </button>
+                                <input type="range" class="test-slider" id="test-audio-slider" min="0" max="100" value="0" oninput="changeAudioProgress(this.value)">
+                            </div>
+                        </div>
+
+                        <!-- Right Controls Column (VERO, FALSO and Navigation) -->
+                        <div class="test-controls-right">
+                            <div class="vero-falso-grid">
+                                <button class="vf-btn vero" id="test-vero-btn" onclick="selectTestAnswer(true)">
+                                    <div class="vf-letter">V</div>
+                                    <span class="vf-label">VERO</span>
+                                </button>
+                                <button class="vf-btn falso" id="test-falso-btn" onclick="selectTestAnswer(false)">
+                                    <div class="vf-letter">F</div>
+                                    <span class="vf-label">FALSO</span>
+                                </button>
+                            </div>
+                            
+                            <div class="nav-arrows-grid">
+                                <button class="test-nav-arrow" onclick="prevTestQuestion()">
+                                    <i class="fa-solid fa-chevron-left" style="color: var(--accent-green);"></i>
+                                    <span>Indietro</span>
+                                </button>
+                                <button class="test-nav-arrow" onclick="nextTestQuestion()">
+                                    <span>Avanti</span>
+                                    <i class="fa-solid fa-chevron-right" style="color: var(--accent-green);"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Left Bottom Corner Timer Placement -->
+                    <div style="margin-top: 14px; text-align: left; display: inline-block;">
+                        <div class="test-timer-pill" id="test-timer">20:00</div>
+                        <div class="test-timer-label">Tempo a Disposizione</div>
                     </div>
                 </div>
-
-                <button class="action-btn" id="next-quiz-btn" style="display: none; background-color: var(--accent-green); color: white;" onclick="nextQuizQuestion()">
-                    পরবর্তী প্রশ্ন <i class="fa-solid fa-arrow-right"></i>
-                </button>
             </div>
 
             <!-- SCREEN: Argomenti (Topics) -->
@@ -646,7 +728,9 @@
 
             syncBottomNav(screenId);
 
-            if (screenId === 'argomenti') {
+            if (screenId === 'test') {
+                initRandomTestQuiz();
+            } else if (screenId === 'argomenti') {
                 renderArgomentiList();
             } else if (screenId === 'dizionario') {
                 initDictionary();
@@ -1191,6 +1275,305 @@
                 fetchGuestChatMessages();
             })
             .catch(err => console.error("Error sending message: ", err));
+        }
+
+        // --- 13. Mobile Exam Simulator (TEST) AJAX Logic ---
+        let testQuestions = [];
+        let currentTestIndex = 0;
+        let testAnswers = Array(30).fill(null);
+        let testTimerSeconds = 1200; // 20 minutes
+        let testTimerInterval = null;
+        let testTranslationActive = false;
+        let currentTestTab = 1; // 1: 1-10, 2: 11-20, 3: 21-30
+        let audioProgressInterval = null;
+
+        function initRandomTestQuiz() {
+            // Stop existing timer
+            if (testTimerInterval) {
+                clearInterval(testTimerInterval);
+            }
+            // Reset state variables
+            testQuestions = [];
+            currentTestIndex = 0;
+            testAnswers = Array(30).fill(null);
+            testTimerSeconds = 1200;
+            testTranslationActive = false;
+            currentTestTab = 1;
+            
+            document.getElementById('test-question-it').innerText = 'Caricamento delle domande...';
+            document.getElementById('test-question-bn').innerText = 'প্রশ্ন লোড হচ্ছে...';
+            document.getElementById('test-question-bn').style.display = 'none';
+            document.getElementById('test-options-bar').style.display = 'none';
+
+            // Fetch 30 random questions
+            fetch('/api/questions/random-test')
+                .then(res => res.json())
+                .then(data => {
+                    testQuestions = data;
+                    if (testQuestions.length === 0) {
+                        document.getElementById('test-question-it').innerText = 'Nessuna domanda trovata nel database.';
+                        return;
+                    }
+                    
+                    // Render UI
+                    switchTestQuestionTab(1);
+                    showTestQuestion();
+                    
+                    // Start timer
+                    startTestTimer();
+                })
+                .catch(err => {
+                    console.error("Error loading random test questions: ", err);
+                    showToast('প্রশ্ন লোড করতে সমস্যা হয়েছে');
+                });
+        }
+
+        function startTestTimer() {
+            updateTestTimerDisplay();
+            testTimerInterval = setInterval(() => {
+                testTimerSeconds--;
+                updateTestTimerDisplay();
+                if (testTimerSeconds <= 0) {
+                    clearInterval(testTimerInterval);
+                    showToast('সময় শেষ! পরীক্ষাটি জমা হচ্ছে।');
+                    submitTestExam();
+                }
+            }, 1000);
+        }
+
+        function updateTestTimerDisplay() {
+            const minutes = Math.floor(testTimerSeconds / 60);
+            const seconds = testTimerSeconds % 60;
+            document.getElementById('test-timer').innerText = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function switchTestQuestionTab(tab) {
+            currentTestTab = tab;
+            // Update active tab styling
+            document.querySelectorAll('.test-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`test-tab-btn-${tab}`).classList.add('active');
+
+            // Render numbers grid based on tab
+            const startNum = (tab - 1) * 10 + 1;
+            const endNum = tab * 10;
+            const container = document.getElementById('test-num-grid');
+            container.innerHTML = '';
+
+            for (let i = startNum; i <= endNum; i++) {
+                const box = document.createElement('span');
+                box.className = 'test-num-box';
+                box.id = `test-num-${i - 1}`;
+                box.innerText = i;
+                box.onclick = () => jumpToTestQuestion(i - 1);
+                
+                // Set state styling (active or answered VERO/FALSO)
+                if (i - 1 === currentTestIndex) {
+                    box.classList.add('active');
+                } else {
+                    const ans = testAnswers[i - 1];
+                    if (ans === true) {
+                        box.classList.add('answered-vero');
+                    } else if (ans === false) {
+                        box.classList.add('answered-falso');
+                    }
+                }
+                container.appendChild(box);
+            }
+        }
+
+        function jumpToTestQuestion(index) {
+            currentTestIndex = index;
+            // Sync active tab based on question index
+            const expectedTab = Math.floor(index / 10) + 1;
+            if (expectedTab !== currentTestTab) {
+                switchTestQuestionTab(expectedTab);
+            } else {
+                // Just refresh current tab rendering to move active class
+                switchTestQuestionTab(currentTestTab);
+            }
+            showTestQuestion();
+        }
+
+        function showTestQuestion() {
+            if (testQuestions.length === 0) return;
+            const q = testQuestions[currentTestIndex];
+            
+            document.getElementById('test-question-it').innerText = q.italian;
+            document.getElementById('test-question-bn').innerText = q.bangla;
+            
+            // Sync translation view
+            document.getElementById('test-question-bn').style.display = testTranslationActive ? 'block' : 'none';
+
+            // Sync VERO/FALSO selected styling
+            document.getElementById('test-vero-btn').classList.remove('active');
+            document.getElementById('test-falso-btn').classList.remove('active');
+            
+            const currentAns = testAnswers[currentTestIndex];
+            if (currentAns === true) {
+                document.getElementById('test-vero-btn').classList.add('active');
+            } else if (currentAns === false) {
+                document.getElementById('test-falso-btn').classList.add('active');
+            }
+            
+            // Reset slider progress
+            document.getElementById('test-audio-slider').value = 0;
+            if (audioProgressInterval) {
+                clearInterval(audioProgressInterval);
+            }
+        }
+
+        function selectTestAnswer(ans) {
+            if (testQuestions.length === 0) return;
+            testAnswers[currentTestIndex] = ans;
+            
+            // Refresh display
+            showTestQuestion();
+            switchTestQuestionTab(currentTestTab);
+            
+            // Auto advance after short delay
+            setTimeout(() => {
+                nextTestQuestion();
+            }, 400);
+        }
+
+        function prevTestQuestion() {
+            if (currentTestIndex > 0) {
+                jumpToTestQuestion(currentTestIndex - 1);
+            }
+        }
+
+        function nextTestQuestion() {
+            if (currentTestIndex < 29) {
+                jumpToTestQuestion(currentTestIndex + 1);
+            } else {
+                // If on last question, submit confirmation
+                if (confirm("আপনি কি পরীক্ষা সমাপ্ত করে জমা দিতে চান?")) {
+                    submitTestExam();
+                }
+            }
+        }
+
+        function toggleTestOptions() {
+            const bar = document.getElementById('test-options-bar');
+            bar.style.display = bar.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        function toggleTestTranslation() {
+            testTranslationActive = !testTranslationActive;
+            document.getElementById('test-question-bn').style.display = testTranslationActive ? 'block' : 'none';
+            if (testTranslationActive) {
+                readItalianQuestionOutLoud();
+            }
+        }
+
+        function readItalianQuestionOutLoud() {
+            if (testQuestions.length === 0) return;
+            const q = testQuestions[currentTestIndex];
+            
+            // Speak text using Web Speech Synthesis
+            if ('speechSynthesis' in window) {
+                // Cancel any currently running voice output
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(q.italian);
+                utterance.lang = 'it-IT';
+                
+                // Handle progress slider emulation matching standard text length speech
+                let slider = document.getElementById('test-audio-slider');
+                slider.value = 0;
+                let stepCount = 0;
+                let durationSteps = Math.max(20, Math.floor(q.italian.length / 3)); // simple approximation
+                
+                if (audioProgressInterval) {
+                    clearInterval(audioProgressInterval);
+                }
+                
+                audioProgressInterval = setInterval(() => {
+                    stepCount++;
+                    let prg = Math.min(100, Math.floor((stepCount / durationSteps) * 100));
+                    slider.value = prg;
+                    if (prg >= 100) {
+                        clearInterval(audioProgressInterval);
+                    }
+                }, 200);
+
+                utterance.onend = () => {
+                    clearInterval(audioProgressInterval);
+                    slider.value = 100;
+                };
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
+            }
+        }
+
+        function changeAudioProgress(val) {
+            // Mock manual slider change
+        }
+
+        function closeTestExam() {
+            if (confirm("আপনি কি পরীক্ষা বাতিল করে হোম স্ক্রিনে ফিরে যেতে চান?")) {
+                if (testTimerInterval) {
+                    clearInterval(testTimerInterval);
+                }
+                if (audioProgressInterval) {
+                    clearInterval(audioProgressInterval);
+                }
+                window.speechSynthesis.cancel();
+                openScreen('home', 'mbanglapatenteb');
+            }
+        }
+
+        function submitTestExam() {
+            if (testQuestions.length === 0) return;
+            if (testTimerInterval) {
+                clearInterval(testTimerInterval);
+            }
+            if (audioProgressInterval) {
+                clearInterval(audioProgressInterval);
+            }
+            window.speechSynthesis.cancel();
+            
+            let errors = 0;
+            let unanswered = 0;
+
+            for (let i = 0; i < 30; i++) {
+                const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1';
+                if (testAnswers[i] === null) {
+                    errors++;
+                    unanswered++;
+                } else if (testAnswers[i] !== databaseIsVero) {
+                    errors++;
+                }
+            }
+
+            const passed = errors <= 4;
+
+            const modal = document.getElementById('exam-result-modal');
+            const statusBadge = document.getElementById('result-badge-status');
+            const errorsCount = document.getElementById('result-errors-count');
+            const resultMsg = document.getElementById('result-message');
+
+            errorsCount.innerText = `${errors} টি ভুল`;
+            
+            if (passed) {
+                statusBadge.className = 'result-badge passed';
+                statusBadge.innerText = 'উত্তীর্ণ (IDONEO)';
+                resultMsg.innerHTML = `অভিনন্দন! আপনি পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
+                playAppSound(true);
+            } else {
+                statusBadge.className = 'result-badge failed';
+                statusBadge.innerText = 'অকৃতকার্য (RESPINTO)';
+                resultMsg.innerHTML = `দুঃখিত! আপনি পরীক্ষায় পাস করতে পারেননি। সর্বোচ্চ ৪টি ভুল গ্রহণযোগ্য ছিল।<br><small>মোট ভুল: ${errors}টি (অনুত্তরিত সহ)</small>`;
+                playAppSound(false);
+            }
+
+            modal.style.display = 'flex';
+
+            let completedExamsCount = parseInt(document.getElementById('stats-exams').innerText) || 0;
+            document.getElementById('stats-exams').innerText = completedExamsCount + 1;
         }
     </script>
 </body>
