@@ -17,7 +17,7 @@ class CategoryController extends Controller
     }
 
     /**
-     * Store a newly created category.
+     * Store a newly created category. 
      */
     public function store(Request $request)
     {

@@ -1572,3 +1572,234 @@ body.dark-mode .opt-icon-wrapper {
     margin-top: 4px;
     text-align: center;
 }
+
+/* Detailed results breakdown styles */
+.detail-toggle-btn {
+    border: 2px solid var(--border-card);
+    background-color: var(--bg-card);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.detail-toggle-btn.corrette {
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+.detail-toggle-btn.corrette.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.detail-toggle-btn.errori {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.detail-toggle-btn.errori.active {
+    background-color: #ef4444;
+    color: white;
+}
+
+.detail-toggle-btn.nondate {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.detail-toggle-btn.nondate.active {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.detail-toggle-btn.show-all {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+.detail-toggle-btn.show-all.active {
+    background-color: var(--text-primary);
+    color: var(--bg-card);
+}
+
+.detail-q-card {
+    background-color: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border-left: 6px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px var(--shadow-card);
+    border-top: 1px solid var(--border-card);
+    border-right: 1px solid var(--border-card);
+    border-bottom: 1px solid var(--border-card);
+}
+
+.detail-q-card.correct {
+    border-left-color: #4CAF50;
+}
+
+.detail-q-card.incorrect {
+    border-left-color: #ef4444;
+}
+
+.detail-q-num {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.detail-q-text-it {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.45;
+}
+
+.detail-q-text-bn {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-card);
+}
+
+/* Audio Speed Control Button Dropdown Style */
+.speed-popover {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    width: 120px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    z-index: 1000;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.speed-option-item {
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.15s;
+}
+
+.speed-option-item:hover {
+    background-color: var(--bg-page);
+}
+
+.speed-option-item.selected {
+    color: var(--accent-green);
+    background-color: rgba(76, 175, 80, 0.08);
+}
+
+/* Category pills and dropdown selection styling */
+.pill-btn {
+    border: 1px solid var(--border-card);
+    background-color: var(--bg-card);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pill-btn.active {
+    background-color: var(--accent-green);
+    color: white;
+    border-color: var(--accent-green);
+}
+
+.chapter-selector-trigger {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px var(--shadow-card);
+    transition: background-color 0.15s;
+}
+
+.chapter-selector-trigger:hover {
+    background-color: var(--bg-page);
+}
+
+.chapter-dropdown-list-panel {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 1200;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    padding: 6px;
+}
+
+.chapter-dropdown-item {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.15s;
+}
+
+.chapter-dropdown-item:hover {
+    background-color: var(--bg-page);
+}
+
+.chapter-dropdown-item.active {
+    color: var(--accent-green);
+    background-color: rgba(76, 175, 80, 0.08);
+}
+
+.chapter-card-illustration {
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.vf-btn.correct-highlight {
+    background-color: #4CAF50 !important;
+    color: white !important;
+    border-color: #4CAF50 !important;
+}
+
+.vf-btn.wrong-highlight {
+    background-color: #ef4444 !important;
+    color: white !important;
+    border-color: #ef4444 !important;
+}
+
+
+

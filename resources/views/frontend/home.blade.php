@@ -256,8 +256,8 @@
 
                     <!-- Main Bottom Controls Layout -->
                     <div class="test-controls-row">
-                        <!-- Left Controls Column (Opzioni, Speaker, Play Progress) -->
-                        <div class="test-controls-left">
+                        <!-- Left Controls Column (Opzioni, Speaker, Play/Pause, Progress, Speed) -->
+                        <div class="test-controls-left" style="position: relative; display: flex; align-items: center; gap: 10px; flex: 1.1;">
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                                 <button class="test-ctrl-btn opt" onclick="toggleTestOptions()">
                                     <i class="fa-solid fa-table-cells-large" style="color: var(--accent-green);"></i>
@@ -271,12 +271,25 @@
                                 <span>Italiano</span>
                             </button>
 
-                            <!-- Play Progress Row -->
-                            <div class="test-audio-progress-bar">
-                                <button class="test-play-btn" onclick="readItalianQuestionOutLoud()">
-                                    <i class="fa-solid fa-play" style="color: var(--accent-green);"></i>
+                            <!-- Circular Pause/Play Toggle Button -->
+                            <button class="test-ctrl-btn" id="test-audio-play-btn" onclick="togglePlayPauseSpeech()" style="background-color: var(--bg-card); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: none; cursor: pointer;">
+                                <i class="fa-solid fa-play" style="color: var(--text-primary);"></i>
+                            </button>
+
+                            <!-- Progress Slider -->
+                            <input type="range" class="test-slider" id="test-audio-slider" min="0" max="100" value="0" style="margin: 0 4px; flex: 1;" oninput="changeAudioProgress(this.value)">
+
+                            <!-- Speed Trigger Button -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <button class="test-ctrl-btn" onclick="toggleSpeedDropdown()" style="background-color: var(--bg-card); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: none; cursor: pointer;">
+                                    <i class="fa-solid fa-gauge-high" style="color: var(--text-primary);"></i>
                                 </button>
-                                <input type="range" class="test-slider" id="test-audio-slider" min="0" max="100" value="0" oninput="changeAudioProgress(this.value)">
+                                <span class="test-ctrl-label" style="color: var(--text-primary);">Speed</span>
+                            </div>
+
+                            <!-- Speed Dropdown Popover overlay -->
+                            <div class="speed-popover" id="test-speed-popover" style="display: none;">
+                                <!-- Speed items populated dynamically via JS -->
                             </div>
                         </div>
 
@@ -314,15 +327,93 @@
                 </div>
             </div>
 
-            <!-- SCREEN: Argomenti (Topics) -->
-            <div id="screen-argomenti" class="screen">
-                <div class="section-header">
-                    <span class="section-title">অধ্যায়ভিত্তিক প্রস্তুতি</span>
-                    <span class="section-subtitle">২৫টি অধ্যায়</span>
+            <!-- SCREEN: Test Results Detailed Breakdown -->
+            <div id="screen-test-results-detail" class="screen">
+                <div class="result-details-header" style="text-align: center; padding: 20px 10px; background-color: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-card); margin-bottom: 16px; box-shadow: 0 4px 6px -1px var(--shadow-card);">
+                    <div id="detail-outcome-emoji" style="font-size: 56px; margin-bottom: 10px;">🙄</div>
+                    <h2 id="detail-outcome-title" style="font-size: 24px; font-weight: 800; color: var(--accent-red); margin-bottom: 4px;">Bocciato</h2>
+                    <p id="detail-outcome-time" style="font-size: 13px; color: var(--text-secondary); font-weight: bold;">Tempo: 3 minuti 3 secondi</p>
                 </div>
 
-                <div id="argomenti-list" style="display: flex; flex-direction: column; gap: 14px;">
-                    <!-- Chapters rendered dynamically via JavaScript -->
+                <!-- Toggles grid matching screenshot -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px;">
+                    <button class="detail-toggle-btn corrette" id="btn-toggle-corrette" onclick="filterDetailResults('correct')">
+                        Corrette: <span id="detail-count-corrette">10</span> <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button class="detail-toggle-btn errori" id="btn-toggle-errori" onclick="filterDetailResults('incorrect')">
+                        Errori: <span id="detail-count-errori">6</span> <i class="fa-regular fa-eye"></i>
+                    </button>
+                    <button class="detail-toggle-btn nondate" id="btn-toggle-nondate" onclick="filterDetailResults('unanswered')">
+                        Non risposte: <span id="detail-count-nondate">14</span> <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+
+                <!-- Show all option toggle -->
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <button class="detail-toggle-btn show-all" id="btn-toggle-all" onclick="filterDetailResults('all')" style="border-color: var(--text-primary); color: var(--text-primary); padding: 6px 16px; border-radius: 30px;">
+                        Mostra tutte <i class="fa-regular fa-eye-slash"></i>
+                    </button>
+                </div>
+
+                <!-- Split ratio progress bar -->
+                <div style="height: 12px; background-color: var(--border-card); border-radius: 6px; display: flex; overflow: hidden; margin-bottom: 24px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                    <div id="split-bar-giusto" style="background-color: #4CAF50; width: 33.3%;"></div>
+                    <div id="split-bar-sbagliato" style="background-color: #ef4444; width: 20%;"></div>
+                    <div id="split-bar-nondate" style="background-color: #f59e0b; width: 46.7%;"></div>
+                </div>
+
+                <!-- Detailed Card List Container -->
+                <div id="detail-cards-list-container" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px;">
+                    <!-- Question detail card list injected dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- SCREEN: Argomenti (Scegli Categoria) -->
+            <div id="screen-argomenti" class="screen">
+                <div class="category-header-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                    <h3 style="font-size: 20px; font-weight: 800; color: var(--text-primary);">Scegli Categoria</h3>
+                    <div style="font-size: 11px; color: var(--text-secondary); font-weight: bold; background-color: var(--bg-card); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border-card);">25 Capitoli</div>
+                </div>
+
+                <!-- Custom Pills bar matching screenshot -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; justify-content: flex-start;">
+                    <button class="pill-btn" onclick="showToast('Unselected all categories')">Unselect All</button>
+                    <button class="pill-btn active" onclick="showToast('Active selection')">Select</button>
+                    <button class="pill-btn" onclick="showToast('Selected all categories')">Select All</button>
+                </div>
+
+                <div id="argomenti-list" style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 40px;">
+                    <!-- Chapter category cards injected dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- SCREEN: Argomenti Schede (Scegli Scheda) -->
+            <div id="screen-argomenti-schede" class="screen">
+                <div class="category-header-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                    <h3 style="font-size: 20px; font-weight: 800; color: var(--text-primary);">Scegli Scheda</h3>
+                </div>
+
+                <!-- Dropdown Selector Wrapper -->
+                <div style="position: relative; margin-bottom: 16px;">
+                    <div class="chapter-selector-trigger" onclick="toggleChapterDropdownList()">
+                        <span id="selected-chapter-display-label">Capitolo 1) DOVERI NELL'USO DELLA STRADA</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-secondary);"></i>
+                    </div>
+                    <!-- Dropdown Panel (Screenshot 4 list) -->
+                    <div class="chapter-dropdown-list-panel" id="chapter-dropdown-list-panel" style="display: none;">
+                        <!-- Dropdown list options injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Pills matching screenshot -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; justify-content: flex-start;">
+                    <button class="pill-btn" onclick="showToast('Unselected all sheets')">Unselect All</button>
+                    <button class="pill-btn active" onclick="showToast('Active selection')">Select</button>
+                    <button class="pill-btn" onclick="showToast('Selected all sheets')">Select All</button>
+                </div>
+
+                <div id="argomenti-schede-list" style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px;">
+                    <!-- Sheet cards injected dynamically via JS -->
                 </div>
             </div>
 
@@ -665,38 +756,373 @@
             { id: 25, name: "Definizioni generali e classificazione dei veicoli", bn: "যানবাহনের প্রকারভেদ এবং সাধারণ পরিচিতি" }
         ];
 
+        const chapterTotals = {
+            1: 227, 2: 276, 3: 289, 4: 264, 5: 302, 6: 289, 7: 290, 8: 276, 9: 268, 10: 267,
+            11: 313, 12: 285, 13: 289, 14: 293, 15: 263, 16: 282, 17: 277, 18: 309, 19: 277,
+            20: 307, 21: 283, 22: 270, 23: 273, 24: 240, 25: 291
+        };
+
+        function getChapterIllustrationSVG(chapterId) {
+            if (chapterId === 1) {
+                return `
+                <div class="chapter-card-illustration">
+                    <svg viewBox="0 0 400 130" style="background:#e2e8f0; width:100%; height:130px; display:block;">
+                        <rect width="400" height="130" fill="#a3b8cc"/>
+                        <rect y="100" width="400" height="30" fill="#7ba37b"/>
+                        <rect y="0" width="400" height="30" fill="#7ba37b"/>
+                        <rect y="85" width="400" height="15" fill="#c2c7cc"/>
+                        <rect y="30" width="400" height="15" fill="#c2c7cc"/>
+                        <rect y="45" width="400" height="40" fill="#4a4a4a"/>
+                        <line x1="0" y1="65" x2="400" y2="65" stroke="white" stroke-width="3" stroke-dasharray="20,15"/>
+                        <text x="200" y="70" fill="white" font-size="11" font-weight="800" text-anchor="middle">CARREGGIATA</text>
+                        <text x="200" y="20" fill="#2d3748" font-size="14" font-weight="900" text-anchor="middle">LA STRADA</text>
+                    </svg>
+                </div>`;
+            } else if (chapterId === 2) {
+                return `
+                <div class="chapter-card-illustration">
+                    <svg viewBox="0 0 400 130" style="background:#f7fafc; width:100%; height:130px; display:block;">
+                        <polygon points="100,20 60,90 140,90" fill="white" stroke="#e53e3e" stroke-width="8"/>
+                        <polygon points="100,20 60,90 140,90" fill="none" stroke="black" stroke-width="1"/>
+                        <path d="M90,80 Q100,60 110,80" fill="none" stroke="black" stroke-width="5" stroke-linecap="round"/>
+                        
+                        <polygon points="300,20 260,90 340,90" fill="white" stroke="#e53e3e" stroke-width="8"/>
+                        <polygon points="300,20 260,90 340,90" fill="none" stroke="black" stroke-width="1"/>
+                        <path d="M290,70 L310,70 M300,60 L300,80" fill="none" stroke="black" stroke-width="5" stroke-linecap="round"/>
+                        <text x="200" y="115" fill="#2d3748" font-size="14" font-weight="900" text-anchor="middle">SEGNALI DI PERICOLO</text>
+                    </svg>
+                </div>`;
+            } else if (chapterId === 3) {
+                return `
+                <div class="chapter-card-illustration">
+                    <svg viewBox="0 0 400 130" style="background:#f7fafc; width:100%; height:130px; display:block;">
+                        <circle cx="100" cy="55" r="30" fill="white" stroke="#e53e3e" stroke-width="8"/>
+                        <line x1="78" y1="33" x2="122" y2="77" stroke="#e53e3e" stroke-width="8"/>
+                        
+                        <circle cx="300" cy="55" r="30" fill="white" stroke="#e53e3e" stroke-width="8"/>
+                        <rect x="280" y="51" width="40" height="8" fill="#e53e3e"/>
+                        <text x="200" y="110" fill="#2d3748" font-size="14" font-weight="900" text-anchor="middle">SEGNALI DI DIVIETO</text>
+                    </svg>
+                </div>`;
+            } else if (chapterId === 4) {
+                return `
+                <div class="chapter-card-illustration">
+                    <svg viewBox="0 0 400 130" style="background:#f7fafc; width:100%; height:130px; display:block;">
+                        <circle cx="100" cy="55" r="30" fill="#3182ce"/>
+                        <path d="M100,35 L100,75 M88,63 L100,75 L112,63" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                        
+                        <circle cx="300" cy="55" r="30" fill="#3182ce"/>
+                        <path d="M285,55 L315,55 M303,43 L315,55 L303,67" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <text x="200" y="110" fill="#2d3748" font-size="14" font-weight="900" text-anchor="middle">SEGNALI D’OBBLIGO</text>
+                    </svg>
+                </div>`;
+            } else {
+                return `
+                <div class="chapter-card-illustration">
+                    <svg viewBox="0 0 400 130" style="background:#f7fafc; width:100%; height:130px; display:block;">
+                        <rect width="400" height="130" fill="#edf2f7"/>
+                        <path d="M170,65 L230,65 L200,35 Z" fill="#3182ce" opacity="0.8"/>
+                        <circle cx="200" cy="80" r="12" fill="#4a5568"/>
+                        <text x="200" y="115" fill="#4a5568" font-size="13" font-weight="bold" text-anchor="middle">Capitolo ${chapterId}</text>
+                    </svg>
+                </div>`;
+            }
+        }
+
+        function getSheetName(chapterId, sheetIndex) {
+            const chapter1Sheets = [
+                "Definizioni stradali: la strada",
+                "Definizioni stradali: la carreggiata",
+                "Definizioni stradali: parti della carreggiata",
+                "Definizioni stradali: le corsie",
+                "Definizioni stradali: marciapiede e banchina",
+                "Definizioni stradali: isola di traffico",
+                "Definizioni stradali: salvagente",
+                "Definizioni stradali: passaggio a livello",
+                "Definizioni stradali: pista ciclabile",
+                "Definizioni stradali: area pedonale",
+                "Definizioni stradali: zona a traffico limitato",
+                "Definizioni stradali: isola pedonale",
+                "Definizioni stradali: autostrada",
+                "Definizioni stradali: carreggiata e corsia d'emergenza",
+                "Definizioni stradali: strada extraurbana",
+                "Definizioni stradali: curva e dosso",
+                "Definizioni stradali: incrocio o intersezione",
+                "Definizioni stradali: passaggio pedonale",
+                "Definizioni stradali: passo carrabile",
+                "Definizioni stradali: isola spartitraffico",
+                "Definizioni stradali: banchina stradale",
+                "Definizioni stradali: corsia di decelerazione",
+                "Definizioni stradali: corsia di accelerazione"
+            ];
+            
+            const chapter2Sheets = [
+                "Segnali di pericolo: strada deformata",
+                "Segnali di pericolo: dosso",
+                "Segnali di pericolo: cunetta",
+                "Segnali di pericolo: curva pericolosa a destra",
+                "Segnali di pericolo: curva pericolosa a sinistra",
+                "Segnali di pericolo: doppia curva",
+                "Segnali di pericolo: passaggio a livello con barriere",
+                "Segnali di pericolo: passaggio a livello senza barriere",
+                "Segnali di pericolo: croce di S. Andrea",
+                "Segnali di pericolo: pannelli distanziometrici",
+                "Segnali di pericolo: incrocio con precedenza a destra",
+                "Segnali di pericolo: discesa pericolosa",
+                "Segnali di pericolo: salita ripida",
+                "Segnali di pericolo: strettoia simmetrica",
+                "Segnali di pericolo: strettoia asimmetrica",
+                "Segnali di pericolo: ponte mobile",
+                "Segnali di pericolo: banchina pericolosa",
+                "Segnali di pericolo: strada sdrucciolevole",
+                "Segnali di pericolo: bambini",
+                "Segnali di pericolo: animali domestici",
+                "Segnali di pericolo: animali selvatici",
+                "Segnali di pericolo: doppio senso di marcia",
+                "Segnali di pericolo: circolazione rotatoria",
+                "Segnali di pericolo: sbocco su molo",
+                "Segnali di pericolo: caduta massi",
+                "Segnali di pericolo: semaforo",
+                "Segnali di pericolo: aeromobili",
+                "Segnali di pericolo: forte vento laterale"
+            ];
+
+            if (chapterId === 1 && chapter1Sheets[sheetIndex]) return chapter1Sheets[sheetIndex];
+            if (chapterId === 2 && chapter2Sheets[sheetIndex]) return chapter2Sheets[sheetIndex];
+            
+            const chapters = chaptersList.find(c => c.id === chapterId);
+            const prefix = chapters ? chapters.name.split("e")[0].split("(")[0].trim() : "Sezione";
+            return `${prefix}: Parte ${sheetIndex + 1}`;
+        }
+
+        function saveQuestionAnswerStat(qId, chapterNum, state) {
+            let stats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+            stats[qId] = {
+                chapter: parseInt(chapterNum),
+                state: state // 'correct' | 'wrong'
+            };
+            localStorage.setItem('user_question_stats', JSON.stringify(stats));
+        }
+
         function renderArgomentiList() {
             const container = document.getElementById('argomenti-list');
             if (!container) return;
             container.innerHTML = '';
 
-            const stats = JSON.parse(localStorage.getItem('chapter_progress') || '{}');
+            const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
 
             chaptersList.forEach(ch => {
-                const progress = stats[ch.id] || 0;
+                // Calculate correct, wrong, unanswered counts for this chapter from userStats
+                let correct = 0;
+                let wrong = 0;
+                for (let key in userStats) {
+                    let record = userStats[key];
+                    let chNum = (typeof record === 'object') ? record.chapter : null;
+                    let stState = (typeof record === 'object') ? record.state : record;
+                    
+                    if (chNum === ch.id) {
+                        if (stState === 'correct') correct++;
+                        else if (stState === 'wrong') wrong++;
+                    }
+                }
+                const total = chapterTotals[ch.id] || 100;
+                const unanswered = Math.max(0, total - correct - wrong);
+
                 const card = document.createElement('div');
                 card.className = 'content-card';
                 card.style.cursor = 'pointer';
-                card.onclick = () => startChapterQuiz(ch.id, ch.name);
-                
-                let colorClass = '#3B82F6';
-                if (ch.id % 3 === 0) colorClass = 'var(--accent-green)';
-                else if (ch.id % 3 === 1) colorClass = 'var(--accent-red)';
+                card.style.padding = '18px';
+                card.onclick = () => openChapterSheetsScreen(ch.id);
 
                 card.innerHTML = `
+                    ${getChapterIllustrationSVG(ch.id)}
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 800;">
-                            <span>${ch.id}. ${ch.name}</span>
-                            <span style="color: ${colorClass};">${progress}% সম্পন্ন</span>
+                        <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 2px;">
+                            ${ch.id}) ${ch.name}
+                        </h4>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: bold;">
+                            ${ch.bn}
                         </div>
-                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">${ch.bn}</div>
-                        <div style="height: 6px; background-color: var(--border-card); border-radius: 3px; overflow: hidden;">
-                            <div style="width: ${progress}%; height: 100%; background-color: ${colorClass}; transition: width 0.5s ease;"></div>
+                        
+                        <!-- Statistics counters layout matching Screenshot 2 -->
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">
+                            <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
+                            <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
+                            <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
+                            <span>Totale: <strong>${total}</strong></span>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div style="height: 10px; background-color: var(--border-card); border-radius: 6px; display: flex; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                            <div style="background-color: #4CAF50; width: ${(correct / total) * 100}%;"></div>
+                            <div style="background-color: #ef4444; width: ${(wrong / total) * 100}%;"></div>
+                            <div style="background-color: #f59e0b; width: ${(unanswered / total) * 100}%;"></div>
                         </div>
                     </div>
                 `;
                 container.appendChild(card);
             });
+        }
+
+        // --- Scegli Scheda (Sheets Selection Screen) Operations ---
+        let activeChapterId = null;
+        let activeChapterQuestions = [];
+        let activeSheetIndex = null;
+
+        function openChapterSheetsScreen(chapterId) {
+            activeChapterId = chapterId;
+            const chMeta = chaptersList.find(c => c.id === chapterId);
+            if (!chMeta) return;
+
+            // Sync Dropdown display label
+            document.getElementById('selected-chapter-display-label').innerText = `Capitolo ${chapterId}) ${chMeta.name}`;
+
+            // Populate chapters list dropdown options
+            populateChapterDropdownOptions();
+
+            // Load sheets layout
+            const container = document.getElementById('argomenti-schede-list');
+            container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
+            
+            // Navigate to Scegli Scheda screen
+            openScreen('argomenti-schede', 'Scegli Scheda');
+
+            // Fetch questions from API
+            fetch(`/api/questions/chapter/${chapterId}`)
+                .then(res => res.json())
+                .then(questions => {
+                    activeChapterQuestions = questions;
+                    if (questions.length === 0) {
+                        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna domanda trovata per questo capitolo.</div>`;
+                        return;
+                    }
+                    renderSheetsList();
+                })
+                .catch(err => {
+                    console.error("Error loading chapter questions: ", err);
+                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle domande.</div>`;
+                });
+        }
+
+        function renderSheetsList() {
+            const container = document.getElementById('argomenti-schede-list');
+            container.innerHTML = '';
+
+            const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+            const totalSheets = Math.ceil(activeChapterQuestions.length / 10);
+
+            for (let i = 0; i < totalSheets; i++) {
+                const sheetQuestions = activeChapterQuestions.slice(i * 10, (i + 1) * 10);
+                
+                // Calculate correct, wrong, unanswered stats for this 10-question sheet
+                let correct = 0;
+                let wrong = 0;
+                sheetQuestions.forEach(q => {
+                    let record = userStats[q.id];
+                    let stState = (typeof record === 'object') ? record.state : record;
+                    if (stState === 'correct') correct++;
+                    else if (stState === 'wrong') wrong++;
+                });
+                
+                const total = sheetQuestions.length;
+                const unanswered = total - correct - wrong;
+
+                const card = document.createElement('div');
+                card.className = 'content-card';
+                card.style.cursor = 'pointer';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.gap = '10px';
+                card.style.padding = '16px';
+                card.onclick = () => startSheetQuiz(i);
+
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
+                            ${i + 1}) ${getSheetName(activeChapterId, i)}
+                        </span>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
+                    </div>
+
+                    <!-- Statistics line matching Screenshot 3 -->
+                    <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary);">
+                        <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
+                        <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
+                        <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
+                        <span>Totale: <strong>${total}</strong></span>
+                    </div>
+
+                    <!-- Custom segment progress bar -->
+                    <div style="height: 8px; background-color: var(--border-card); border-radius: 4px; display: flex; overflow: hidden;">
+                        <div style="background-color: #4CAF50; width: ${(correct / total) * 100}%;"></div>
+                        <div style="background-color: #ef4444; width: ${(wrong / total) * 100}%;"></div>
+                        <div style="background-color: #f59e0b; width: ${(unanswered / total) * 100}%;"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        // Chapter selector dropdown panel operations
+        function toggleChapterDropdownList() {
+            const panel = document.getElementById('chapter-dropdown-list-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function populateChapterDropdownOptions() {
+            const panel = document.getElementById('chapter-dropdown-list-panel');
+            panel.innerHTML = '';
+
+            chaptersList.forEach(ch => {
+                const item = document.createElement('div');
+                item.className = `chapter-dropdown-item ${ch.id === activeChapterId ? 'active' : ''}`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    selectChapterFromDropdown(ch.id);
+                };
+                item.innerText = `Capitolo ${ch.id}) ${ch.name}`;
+                panel.appendChild(item);
+            });
+        }
+
+        function selectChapterFromDropdown(chapterId) {
+            document.getElementById('chapter-dropdown-list-panel').style.display = 'none';
+            openChapterSheetsScreen(chapterId);
+        }
+
+        // Click wrapper to close dropdown when clicking outside
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.chapter-selector-trigger')) {
+                const panel = document.getElementById('chapter-dropdown-list-panel');
+                if (panel) panel.style.display = 'none';
+            }
+        });
+
+        // Start Sheet MCQ Quiz Practice
+        function startSheetQuiz(sheetIndex) {
+            practiceMode = 'sheet';
+            activeSheetIndex = sheetIndex;
+
+            // Load 10 sheet questions
+            testQuestions = activeChapterQuestions.slice(sheetIndex * 10, (sheetIndex + 1) * 10);
+            currentTestIndex = 0;
+            testAnswers = Array(testQuestions.length).fill(null);
+
+            // Sync layout: replace timer with nice badge, hide tabs and numbers grid
+            const timerPill = document.getElementById('test-timer');
+            timerPill.innerText = `SCHEDA ${sheetIndex + 1}`;
+            timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+            timerPill.style.borderColor = 'var(--accent-green)';
+            timerPill.style.color = 'var(--accent-green)';
+            document.querySelector('.test-timer-label').innerText = 'Modalità Esercitazione';
+
+            // Show screen
+            openScreen('test', 'Scheda Practice');
+            
+            // Render pagination numbers (1 to 10)
+            switchTestQuestionTab(1);
+            showTestQuestion();
         }
 
         // --- 5. Navigation Logic ---
@@ -729,7 +1155,10 @@
             syncBottomNav(screenId);
 
             if (screenId === 'test') {
-                initRandomTestQuiz();
+                if (typeof practiceMode === 'undefined' || practiceMode !== 'sheet') {
+                    practiceMode = 'exam';
+                    initRandomTestQuiz();
+                }
             } else if (screenId === 'argomenti') {
                 renderArgomentiList();
             } else if (screenId === 'dizionario') {
@@ -740,6 +1169,26 @@
         }
 
         function navigateBack() {
+            if (screenHistory.length > 0) {
+                const activeScreen = screenHistory[screenHistory.length - 1];
+                if (activeScreen === 'test-results-detail') {
+                    openScreen('home', 'mbanglapatenteb');
+                    return;
+                }
+                if (activeScreen === 'test' && typeof practiceMode !== 'undefined' && practiceMode === 'sheet') {
+                    if (confirm("আপনি কি প্র্যাকটিস বাতিল করে ফিরে যেতে চান?")) {
+                        if ('speechSynthesis' in window) {
+                            window.speechSynthesis.cancel();
+                        }
+                        openScreen('argomenti-schede', 'Scegli Scheda');
+                    }
+                    return;
+                }
+                if (activeScreen === 'argomenti-schede') {
+                    openScreen('argomenti', 'Argomenti');
+                    return;
+                }
+            }
             if (screenHistory.length > 1) {
                 screenHistory.pop();
                 const prevScreen = screenHistory[screenHistory.length - 1];
@@ -748,6 +1197,7 @@
                 if (prevScreen === 'lezioni') title = 'Lezioni';
                 else if (prevScreen === 'test') title = 'Test Practice';
                 else if (prevScreen === 'argomenti') title = 'Argomenti';
+                else if (prevScreen === 'argomenti-schede') title = 'Scegli Scheda';
                 else if (prevScreen === 'eclass') title = 'E-Class';
                 else if (prevScreen === 'sfida') title = 'Sfida';
                 else if (prevScreen === 'scheda-esame') title = 'Scheda Esame';
@@ -1350,17 +1800,31 @@
 
         function switchTestQuestionTab(tab) {
             currentTestTab = tab;
-            // Update active tab styling
-            document.querySelectorAll('.test-tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`test-tab-btn-${tab}`).classList.add('active');
+            
+            // Toggle tab header visibility based on mode
+            const tabHeader = document.querySelector('.test-pagination-tabs');
+            if (tabHeader) {
+                tabHeader.style.display = (practiceMode === 'sheet') ? 'none' : 'flex';
+            }
 
             // Render numbers grid based on tab
-            const startNum = (tab - 1) * 10 + 1;
-            const endNum = tab * 10;
+            let startNum = (tab - 1) * 10 + 1;
+            let endNum = tab * 10;
+            
+            // Force 1-10 if in sheet mode
+            if (practiceMode === 'sheet') {
+                startNum = 1;
+                endNum = 10;
+            }
+
             const container = document.getElementById('test-num-grid');
             container.innerHTML = '';
 
+            const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+
             for (let i = startNum; i <= endNum; i++) {
+                if (i - 1 >= testQuestions.length) break;
+
                 const box = document.createElement('span');
                 box.className = 'test-num-box';
                 box.id = `test-num-${i - 1}`;
@@ -1371,11 +1835,23 @@
                 if (i - 1 === currentTestIndex) {
                     box.classList.add('active');
                 } else {
-                    const ans = testAnswers[i - 1];
-                    if (ans === true) {
-                        box.classList.add('answered-vero');
-                    } else if (ans === false) {
-                        box.classList.add('answered-falso');
+                    if (practiceMode === 'sheet') {
+                        // Check exact correctness state from user stats
+                        const qId = testQuestions[i - 1].id;
+                        const record = userStats[qId];
+                        const stState = (typeof record === 'object') ? record.state : record;
+                        if (stState === 'correct') {
+                            box.classList.add('answered-vero'); // Green
+                        } else if (stState === 'wrong') {
+                            box.classList.add('answered-falso'); // Red
+                        }
+                    } else {
+                        const ans = testAnswers[i - 1];
+                        if (ans === true) {
+                            box.classList.add('answered-vero');
+                        } else if (ans === false) {
+                            box.classList.add('answered-falso');
+                        }
                     }
                 }
                 container.appendChild(box);
@@ -1383,20 +1859,37 @@
         }
 
         function jumpToTestQuestion(index) {
+            if (index >= testQuestions.length) return;
             currentTestIndex = index;
-            // Sync active tab based on question index
-            const expectedTab = Math.floor(index / 10) + 1;
-            if (expectedTab !== currentTestTab) {
-                switchTestQuestionTab(expectedTab);
+            
+            if (practiceMode === 'sheet') {
+                switchTestQuestionTab(1);
             } else {
-                // Just refresh current tab rendering to move active class
-                switchTestQuestionTab(currentTestTab);
+                // Sync active tab based on question index
+                const expectedTab = Math.floor(index / 10) + 1;
+                if (expectedTab !== currentTestTab) {
+                    switchTestQuestionTab(expectedTab);
+                } else {
+                    switchTestQuestionTab(currentTestTab);
+                }
             }
             showTestQuestion();
         }
 
         function showTestQuestion() {
             if (testQuestions.length === 0) return;
+            
+            // Cancel active speech to keep UI fresh
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            isSpeechSpeaking = false;
+            document.getElementById('test-audio-play-btn').innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
+
+            // Remove highlight classes
+            document.getElementById('test-vero-btn').classList.remove('correct-highlight', 'wrong-highlight', 'active');
+            document.getElementById('test-falso-btn').classList.remove('correct-highlight', 'wrong-highlight', 'active');
+
             const q = testQuestions[currentTestIndex];
             
             document.getElementById('test-question-it').innerText = q.italian;
@@ -1406,9 +1899,6 @@
             document.getElementById('test-question-bn').style.display = testTranslationActive ? 'block' : 'none';
 
             // Sync VERO/FALSO selected styling
-            document.getElementById('test-vero-btn').classList.remove('active');
-            document.getElementById('test-falso-btn').classList.remove('active');
-            
             const currentAns = testAnswers[currentTestIndex];
             if (currentAns === true) {
                 document.getElementById('test-vero-btn').classList.add('active');
@@ -1427,14 +1917,55 @@
             if (testQuestions.length === 0) return;
             testAnswers[currentTestIndex] = ans;
             
-            // Refresh display
-            showTestQuestion();
-            switchTestQuestionTab(currentTestTab);
-            
-            // Auto advance after short delay
-            setTimeout(() => {
-                nextTestQuestion();
-            }, 400);
+            const q = testQuestions[currentTestIndex];
+            const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+            const isCorrect = (ans === databaseIsVero);
+
+            if (practiceMode === 'sheet') {
+                // Immediate validation feedback and save to localStorage
+                saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+                playAppSound(isCorrect);
+
+                // Highlight correct and wrong buttons
+                if (ans === true) {
+                    // Selected VERO
+                    if (isCorrect) {
+                        document.getElementById('test-vero-btn').classList.add('correct-highlight');
+                    } else {
+                        document.getElementById('test-vero-btn').classList.add('wrong-highlight');
+                        document.getElementById('test-falso-btn').classList.add('correct-highlight');
+                    }
+                } else {
+                    // Selected FALSO
+                    if (isCorrect) {
+                        document.getElementById('test-falso-btn').classList.add('correct-highlight');
+                    } else {
+                        document.getElementById('test-falso-btn').classList.add('wrong-highlight');
+                        document.getElementById('test-vero-btn').classList.add('correct-highlight');
+                    }
+                }
+
+                // Refresh pagination numbers showing color state immediately
+                switchTestQuestionTab(1);
+
+                // Delay auto-advance for feedback
+                setTimeout(() => {
+                    if (currentTestIndex < testQuestions.length - 1) {
+                        jumpToTestQuestion(currentTestIndex + 1);
+                    } else {
+                        finishSheetPractice();
+                    }
+                }, 1000);
+
+            } else {
+                // Exam mode
+                showTestQuestion();
+                switchTestQuestionTab(currentTestTab);
+                
+                setTimeout(() => {
+                    nextTestQuestion();
+                }, 400);
+            }
         }
 
         function prevTestQuestion() {
@@ -1444,14 +1975,37 @@
         }
 
         function nextTestQuestion() {
-            if (currentTestIndex < 29) {
+            if (currentTestIndex < testQuestions.length - 1) {
                 jumpToTestQuestion(currentTestIndex + 1);
             } else {
-                // If on last question, submit confirmation
-                if (confirm("আপনি কি পরীক্ষা সমাপ্ত করে জমা দিতে চান?")) {
-                    submitTestExam();
+                if (practiceMode === 'sheet') {
+                    if (confirm("আপনি কি প্র্যাকটিস শেষ করে সাবমিট করতে চান?")) {
+                        finishSheetPractice();
+                    }
+                } else {
+                    if (confirm("আপনি কি পরীক্ষা সমাপ্ত করে জমা দিতে চান?")) {
+                        submitTestExam();
+                    }
                 }
             }
+        }
+
+        function finishSheetPractice() {
+            let correctCount = 0;
+            const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+
+            testQuestions.forEach(q => {
+                const record = userStats[q.id];
+                const stState = (typeof record === 'object') ? record.state : record;
+                if (stState === 'correct') {
+                    correctCount++;
+                }
+            });
+
+            alert(`প্র্যাকটিস সম্পন্ন হয়েছে!\nসঠিক উত্তর: ${correctCount}/১০\nভুল উত্তর: ${10 - correctCount}/১০`);
+            
+            // Go back and refresh sheets list progress
+            openChapterSheetsScreen(activeChapterId);
         }
 
         function toggleTestOptions() {
@@ -1467,23 +2021,78 @@
             }
         }
 
+        // Speed Dropdown Populate & Select
+        function populateSpeedOptions() {
+            const container = document.getElementById('test-speed-popover');
+            container.innerHTML = '';
+            
+            speedOptionsList.forEach(rate => {
+                const item = document.createElement('div');
+                item.className = `speed-option-item ${rate === testAudioSpeed ? 'selected' : ''}`;
+                item.onclick = () => selectAudioSpeed(rate);
+                item.innerHTML = `
+                    <span>${rate}</span>
+                    ${rate === testAudioSpeed ? '<i class="fa-solid fa-check" style="font-size:10px;"></i>' : ''}
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function toggleSpeedDropdown() {
+            const popover = document.getElementById('test-speed-popover');
+            popover.style.display = popover.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        function selectAudioSpeed(rate) {
+            testAudioSpeed = rate;
+            populateSpeedOptions();
+            document.getElementById('test-speed-popover').style.display = 'none';
+            showToast(`গতি নির্ধারণ করা হয়েছে: ${rate}x`);
+            
+            // If already speaking, restart with new speed
+            if (isSpeechSpeaking) {
+                readItalianQuestionOutLoud();
+            }
+        }
+
+        function togglePlayPauseSpeech() {
+            if (isSpeechSpeaking) {
+                // Cancel/Pause speech
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+                isSpeechSpeaking = false;
+                document.getElementById('test-audio-play-btn').innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
+                if (audioProgressInterval) {
+                    clearInterval(audioProgressInterval);
+                }
+            } else {
+                readItalianQuestionOutLoud();
+            }
+        }
+
         function readItalianQuestionOutLoud() {
             if (testQuestions.length === 0) return;
             const q = testQuestions[currentTestIndex];
             
             // Speak text using Web Speech Synthesis
             if ('speechSynthesis' in window) {
-                // Cancel any currently running voice output
                 window.speechSynthesis.cancel();
                 
                 const utterance = new SpeechSynthesisUtterance(q.italian);
                 utterance.lang = 'it-IT';
+                utterance.rate = testAudioSpeed;
                 
-                // Handle progress slider emulation matching standard text length speech
+                // Track state
+                isSpeechSpeaking = true;
+                document.getElementById('test-audio-play-btn').innerHTML = '<i class="fa-solid fa-pause" style="color: var(--text-primary);"></i>';
+                
+                // Animate progress bar slider smoothly
                 let slider = document.getElementById('test-audio-slider');
                 slider.value = 0;
                 let stepCount = 0;
-                let durationSteps = Math.max(20, Math.floor(q.italian.length / 3)); // simple approximation
+                // Speak speed duration approximation
+                let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
                 
                 if (audioProgressInterval) {
                     clearInterval(audioProgressInterval);
@@ -1501,6 +2110,14 @@
                 utterance.onend = () => {
                     clearInterval(audioProgressInterval);
                     slider.value = 100;
+                    isSpeechSpeaking = false;
+                    document.getElementById('test-audio-play-btn').innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
+                };
+
+                utterance.onerror = () => {
+                    clearInterval(audioProgressInterval);
+                    isSpeechSpeaking = false;
+                    document.getElementById('test-audio-play-btn').innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
                 };
 
                 window.speechSynthesis.speak(utterance);
@@ -1510,7 +2127,7 @@
         }
 
         function changeAudioProgress(val) {
-            // Mock manual slider change
+            // Mock manual slider change handler
         }
 
         function closeTestExam() {
@@ -1521,7 +2138,9 @@
                 if (audioProgressInterval) {
                     clearInterval(audioProgressInterval);
                 }
-                window.speechSynthesis.cancel();
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
                 openScreen('home', 'mbanglapatenteb');
             }
         }
@@ -1534,46 +2153,274 @@
             if (audioProgressInterval) {
                 clearInterval(audioProgressInterval);
             }
-            window.speechSynthesis.cancel();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
             
-            let errors = 0;
-            let unanswered = 0;
+            let correctAnswers = 0;
+            let wrongAnswers = 0;
+            let unansweredAnswers = 0;
 
             for (let i = 0; i < 30; i++) {
                 const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1';
                 if (testAnswers[i] === null) {
-                    errors++;
-                    unanswered++;
-                } else if (testAnswers[i] !== databaseIsVero) {
-                    errors++;
+                    unansweredAnswers++;
+                } else if (testAnswers[i] === databaseIsVero) {
+                    correctAnswers++;
+                } else {
+                    wrongAnswers++;
                 }
             }
 
-            const passed = errors <= 4;
+            const passed = wrongAnswers <= 4;
 
+            // Configure statistics outcome in popup modal
+            document.getElementById('txt-giusto').innerText = correctAnswers;
+            document.getElementById('txt-sbagliato').innerText = wrongAnswers;
+            document.getElementById('txt-nondate').innerText = unansweredAnswers;
+
+            // Set progress bar ratios
+            document.getElementById('bar-giusto').style.width = `${(correctAnswers / 30) * 100}%`;
+            document.getElementById('bar-sbagliato').style.width = `${(wrongAnswers / 30) * 100}%`;
+            document.getElementById('bar-nondate').style.width = `${(unansweredAnswers / 30) * 100}%`;
+
+            // Emoji outcome
+            document.getElementById('test-result-emoji').innerText = passed ? '😊' : '😢';
+
+            // Show results popup
             const modal = document.getElementById('exam-result-modal');
-            const statusBadge = document.getElementById('result-badge-status');
-            const errorsCount = document.getElementById('result-errors-count');
-            const resultMsg = document.getElementById('result-message');
-
-            errorsCount.innerText = `${errors} টি ভুল`;
-            
-            if (passed) {
-                statusBadge.className = 'result-badge passed';
-                statusBadge.innerText = 'উত্তীর্ণ (IDONEO)';
-                resultMsg.innerHTML = `অভিনন্দন! আপনি পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
-                playAppSound(true);
-            } else {
-                statusBadge.className = 'result-badge failed';
-                statusBadge.innerText = 'অকৃতকার্য (RESPINTO)';
-                resultMsg.innerHTML = `দুঃখিত! আপনি পরীক্ষায় পাস করতে পারেননি। সর্বোচ্চ ৪টি ভুল গ্রহণযোগ্য ছিল।<br><small>মোট ভুল: ${errors}টি (অনুত্তরিত সহ)</small>`;
-                playAppSound(false);
-            }
-
             modal.style.display = 'flex';
 
             let completedExamsCount = parseInt(document.getElementById('stats-exams').innerText) || 0;
             document.getElementById('stats-exams').innerText = completedExamsCount + 1;
+        }
+
+        // --- 14. Detailed Results Card List Operations ---
+        let currentDetailFilter = 'all'; // all, correct, incorrect, unanswered
+        let playingDetailSpeechIndex = null;
+        let detailSpeechInterval = null;
+
+        function openTestDetailsView() {
+            // Close popup modal
+            document.getElementById('exam-result-modal').style.display = 'none';
+
+            // Compute elapsed time
+            let timeSpent = 1200 - testTimerSeconds;
+            let mins = Math.floor(timeSpent / 60);
+            let secs = timeSpent % 60;
+            document.getElementById('detail-outcome-time').innerText = `Tempo: ${mins} minuti ${secs} secondi`;
+
+            // Calculate metrics
+            let correctAnswers = 0;
+            let wrongAnswers = 0;
+            let unansweredAnswers = 0;
+
+            for (let i = 0; i < 30; i++) {
+                const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1';
+                if (testAnswers[i] === null) {
+                    unansweredAnswers++;
+                } else if (testAnswers[i] === databaseIsVero) {
+                    correctAnswers++;
+                } else {
+                    wrongAnswers++;
+                }
+            }
+
+            const passed = wrongAnswers <= 4;
+
+            // Setup Header Output View
+            const emojiEl = document.getElementById('detail-outcome-emoji');
+            const titleEl = document.getElementById('detail-outcome-title');
+            
+            if (passed) {
+                emojiEl.innerText = '😊';
+                titleEl.innerText = 'Idoneo';
+                titleEl.style.color = '#4CAF50';
+            } else {
+                emojiEl.innerText = '🙄';
+                titleEl.innerText = 'Bocciato';
+                titleEl.style.color = '#ef4444';
+            }
+
+            // Sync counts
+            document.getElementById('detail-count-corrette').innerText = correctAnswers;
+            document.getElementById('detail-count-errori').innerText = wrongAnswers;
+            document.getElementById('detail-count-nondate').innerText = unansweredAnswers;
+
+            // Sync split progress bars
+            document.getElementById('split-bar-giusto').style.width = `${(correctAnswers / 30) * 100}%`;
+            document.getElementById('split-bar-sbagliato').style.width = `${(wrongAnswers / 30) * 100}%`;
+            document.getElementById('split-bar-nondate').style.width = `${(unansweredAnswers / 30) * 100}%`;
+
+            // Navigate to results screen
+            openScreen('test-results-detail', 'Test Details');
+            
+            // Set default list filter to show all
+            filterDetailResults('all');
+        }
+
+        function filterDetailResults(filterType) {
+            currentDetailFilter = filterType;
+            
+            // Sync toggle button active states
+            document.querySelectorAll('.detail-toggle-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (filterType === 'correct') {
+                document.getElementById('btn-toggle-corrette').classList.add('active');
+            } else if (filterType === 'incorrect') {
+                document.getElementById('btn-toggle-errori').classList.add('active');
+            } else if (filterType === 'unanswered') {
+                document.getElementById('btn-toggle-nondate').classList.add('active');
+            } else {
+                document.getElementById('btn-toggle-all').classList.add('active');
+            }
+
+            renderDetailResultsList();
+        }
+
+        function renderDetailResultsList() {
+            const container = document.getElementById('detail-cards-list-container');
+            container.innerHTML = '';
+
+            let shownCount = 0;
+
+            for (let i = 0; i < 30; i++) {
+                const q = testQuestions[i];
+                const userAnswer = testAnswers[i];
+                const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+                
+                const isCorrect = (userAnswer === databaseIsVero);
+
+                // Filter logic
+                if (currentDetailFilter === 'correct' && (!isCorrect || userAnswer === null)) continue;
+                if (currentDetailFilter === 'incorrect' && (isCorrect || userAnswer === null)) continue;
+                if (currentDetailFilter === 'unanswered' && userAnswer !== null) continue;
+
+                shownCount++;
+
+                const card = document.createElement('div');
+                card.className = `detail-q-card ${userAnswer === null ? 'incorrect' : (isCorrect ? 'correct' : 'incorrect')}`;
+                
+                card.innerHTML = `
+                    <div class="detail-q-num">Domanda #${i + 1}</div>
+                    <div class="detail-q-text-it">${q.italian}</div>
+                    
+                    <!-- Bangla Translation Overlay inside card -->
+                    <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none;">${q.bangla}</div>
+
+                    <!-- Mini Options toolbar inside card -->
+                    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
+                        
+                        <!-- Mini Speaker Play Button -->
+                        <button class="test-speaker-btn" onclick="readDetailQuestionSpeech(${i})" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;">
+                            <i class="fa-solid fa-volume-high" style="font-size:11px;"></i>
+                        </button>
+
+                        <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="readDetailQuestionSpeech(${i})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+
+                        <!-- Progress Bar slider -->
+                        <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1;" readonly>
+
+                        <!-- Translate A-Z icon button -->
+                        <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Translate">
+                            <i class="fa-solid fa-language" style="color: var(--accent-green);"></i>
+                        </button>
+
+                        <!-- Static placeholders matching Screenshot -->
+                        <button class="test-ctrl-btn" style="width:34px; height:34px; min-width:34px; font-size:12px; opacity:0.6; pointer-events:none;"><i class="fa-regular fa-bookmark"></i></button>
+                        <button class="test-ctrl-btn" style="width:34px; height:34px; min-width:34px; font-size:12px; opacity:0.6; pointer-events:none;"><i class="fa-regular fa-note-sticky"></i></button>
+                    </div>
+
+                    <!-- Output Answer Verdict section -->
+                    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="color: var(--text-primary);">Risposta Corretta: <span style="color:#4CAF50;">${databaseIsVero ? 'V' : 'F'}</span></div>
+                        <div style="color: ${userAnswer === null ? '#ef4444' : (isCorrect ? '#4CAF50' : '#ef4444')};">
+                            (TU) Hai risposto: ${userAnswer === null ? 'Non hai risposto' : (userAnswer ? 'V' : 'F')}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+
+            if (shownCount === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">Nessuna domanda in questo filtro</div>`;
+            }
+        }
+
+        function toggleDetailTranslation(index) {
+            const bnBox = document.getElementById(`detail-q-bn-${index}`);
+            const isVisible = bnBox.style.display === 'block';
+            bnBox.style.display = isVisible ? 'none' : 'block';
+            
+            // Speak if opening translation
+            if (!isVisible) {
+                readDetailQuestionSpeech(index);
+            }
+        }
+
+        function readDetailQuestionSpeech(index) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                
+                // If it was already playing this specific index, clicking again stops it
+                if (playingDetailSpeechIndex === index) {
+                    playingDetailSpeechIndex = null;
+                    if (detailSpeechInterval) clearInterval(detailSpeechInterval);
+                    document.getElementById(`detail-play-btn-${index}`).innerHTML = '<i class="fa-solid fa-play"></i>';
+                    document.getElementById(`detail-audio-slider-${index}`).value = 0;
+                    return;
+                }
+
+                // Reset old playing card buttons
+                if (playingDetailSpeechIndex !== null) {
+                    const oldBtn = document.getElementById(`detail-play-btn-${playingDetailSpeechIndex}`);
+                    const oldSlider = document.getElementById(`detail-audio-slider-${playingDetailSpeechIndex}`);
+                    if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                    if (oldSlider) oldSlider.value = 0;
+                }
+
+                playingDetailSpeechIndex = index;
+                if (detailSpeechInterval) clearInterval(detailSpeechInterval);
+
+                const q = testQuestions[index];
+                const utterance = new SpeechSynthesisUtterance(q.italian);
+                utterance.lang = 'it-IT';
+                utterance.rate = testAudioSpeed;
+
+                document.getElementById(`detail-play-btn-${index}`).innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+
+                let slider = document.getElementById(`detail-audio-slider-${index}`);
+                slider.value = 0;
+                let stepCount = 0;
+                let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
+
+                detailSpeechInterval = setInterval(() => {
+                    stepCount++;
+                    let prg = Math.min(100, Math.floor((stepCount / durationSteps) * 100));
+                    slider.value = prg;
+                    if (prg >= 100) {
+                        clearInterval(detailSpeechInterval);
+                    }
+                }, 200);
+
+                utterance.onend = () => {
+                    if (detailSpeechInterval) clearInterval(detailSpeechInterval);
+                    slider.value = 100;
+                    document.getElementById(`detail-play-btn-${index}`).innerHTML = '<i class="fa-solid fa-play"></i>';
+                    playingDetailSpeechIndex = null;
+                };
+
+                utterance.onerror = () => {
+                    if (detailSpeechInterval) clearInterval(detailSpeechInterval);
+                    slider.value = 0;
+                    document.getElementById(`detail-play-btn-${index}`).innerHTML = '<i class="fa-solid fa-play"></i>';
+                    playingDetailSpeechIndex = null;
+                };
+
+                window.speechSynthesis.speak(utterance);
+            }
         }
     </script>
 </body>
