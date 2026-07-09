@@ -229,4 +229,14 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         
         return response()->json($message);
     });
+
+    // Admin Category CRUD API Endpoints
+    Route::get('/admin/api/categories', [\App\Http\Controllers\CategoryController::class, 'index']);
+    Route::get('/admin/api/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'show']);
+    Route::post('/admin/api/categories/store', [\App\Http\Controllers\CategoryController::class, 'store']);
+    Route::post('/admin/api/categories/update/{id}', [\App\Http\Controllers\CategoryController::class, 'update']);
+    Route::post('/admin/api/categories/delete/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
 });
+
+// Guest Categories API
+Route::get('/api/categories', [\App\Http\Controllers\CategoryController::class, 'index']);

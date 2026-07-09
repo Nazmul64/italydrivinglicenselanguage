@@ -94,6 +94,13 @@
                 </span>
             </div>
 
+            <div class="menu-item" onclick="switchPanel('categories')" id="menu-categories">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-list"></i>
+                    <span>Categories</span>
+                </span>
+            </div>
+
             <div class="menu-item" onclick="showToast('ব্যবহারকারী সেটিংস ডেমো মোড')">
                 <span class="menu-link-group">
                     <i class="fa-solid fa-users"></i>
@@ -466,6 +473,37 @@
                 </div>
             </div>
 
+            <!-- PANEL 5: Admin Categories CRUD -->
+            <div id="panel-categories" class="crud-panel">
+                <div class="welcome-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                        <div>
+                            <h2 class="welcome-title">Categories Settings</h2>
+                            <p class="welcome-subtitle">Manage driving categories, descriptions, and details.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddCategoryModal()">
+                            <i class="fa-solid fa-plus"></i> Add Category
+                        </button>
+                    </div>
+                </div>
+
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th style="width: 250px;">Category Name</th>
+                                <th>Description</th>
+                                <th style="width: 150px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categories-table-body">
+                            <!-- Categories injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -548,6 +586,35 @@
         </div>
     </div>
 
+    <!-- 3. Add/Edit Category Modal -->
+    <div class="modal-overlay" id="category-modal">
+        <div class="modal-card">
+            <div class="modal-header-row">
+                <h3 class="modal-title" id="category-modal-title">Add New Category</h3>
+                <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCategoryModal()"></i>
+            </div>
+            
+            <form id="category-form" onsubmit="saveCategoryData(event)">
+                <input type="hidden" id="form-category-id">
+                
+                <div class="form-group">
+                    <label class="form-label" for="form-category-name">Category Name</label>
+                    <input type="text" class="form-control" id="form-category-name" required placeholder="e.g. Patente B">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-category-desc">Description</label>
+                    <textarea class="form-control" id="form-category-desc" rows="4" placeholder="Optional description..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast notification Panel -->
     <div class="toast" id="toast-message">
         <i class="fa-solid fa-circle-info" style="color: var(--accent-teal);"></i>
@@ -610,6 +677,10 @@
                 document.getElementById('menu-chat-room').classList.add('active');
                 document.getElementById('dashboard-submenu').classList.remove('open');
                 startAdminChatPolling();
+            } else if (panelId === 'categories') {
+                document.getElementById('menu-categories').classList.add('active');
+                document.getElementById('dashboard-submenu').classList.remove('open');
+                fetchCategories();
             }
         }
 
@@ -1073,6 +1144,119 @@
                 fetchConversationMessages(activeChatSessionId, true);
             })
             .catch(err => console.error("Error sending message: ", err));
+        }
+
+        // --- 9. Category Management Operations ---
+        let categoriesData = [];
+
+        function fetchCategories() {
+            fetch('/admin/api/categories')
+                .then(res => res.json())
+                .then(data => {
+                    categoriesData = data;
+                    renderCategoriesTable();
+                })
+                .catch(err => {
+                    console.error("Error loading categories: ", err);
+                    showToast('ক্যাটাগরি লোড করতে সমস্যা হয়েছে');
+                });
+        }
+
+        function renderCategoriesTable() {
+            const tbody = document.getElementById('categories-table-body');
+            tbody.innerHTML = '';
+
+            if (categoriesData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px;">কোনো ক্যাটাগরি পাওয়া যায়নি। নতুন ক্যাটাগরি তৈরি করুন!</td></tr>`;
+                return;
+            }
+
+            categoriesData.forEach(cat => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>#${cat.id}</strong></td>
+                    <td><strong>${cat.name}</strong></td>
+                    <td style="color: var(--text-secondary); font-size: 12px;">${cat.description || 'No description provided'}</td>
+                    <td>
+                        <div class="table-actions" style="justify-content: flex-end;">
+                            <button class="action-btn edit" onclick="openEditCategoryModal(${cat.id}, '${cat.name.replace(/'/g, "\\'")}', '${(cat.description || '').replace(/'/g, "\\'")}')" title="Edit Category">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="action-btn delete" onclick="deleteCategory(${cat.id})" title="Delete Category">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAddCategoryModal() {
+            document.getElementById('category-form').reset();
+            document.getElementById('form-category-id').value = '';
+            document.getElementById('category-modal-title').innerText = 'Add New Category';
+            document.getElementById('category-modal').style.display = 'flex';
+        }
+
+        function openEditCategoryModal(id, name, desc) {
+            document.getElementById('form-category-id').value = id;
+            document.getElementById('form-category-name').value = name;
+            document.getElementById('form-category-desc').value = desc;
+            document.getElementById('category-modal-title').innerText = 'Edit Category';
+            document.getElementById('category-modal').style.display = 'flex';
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('category-modal').style.display = 'none';
+        }
+
+        function saveCategoryData(e) {
+            e.preventDefault();
+            const id = document.getElementById('form-category-id').value;
+            const name = document.getElementById('form-category-name').value;
+            const desc = document.getElementById('form-category-desc').value;
+
+            const url = id ? `/admin/api/categories/update/${id}` : '/admin/api/categories/store';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ name: name, description: desc })
+            })
+            .then(res => res.json())
+            .then(data => {
+                closeCategoryModal();
+                showToast(id ? 'ক্যাটাগরি সফলভাবে আপডেট করা হয়েছে' : 'নতুন ক্যাটাগরি সফলভাবে যোগ করা হয়েছে');
+                fetchCategories();
+            })
+            .catch(err => {
+                console.error("Error saving category: ", err);
+                showToast('ক্যাটাগরি সংরক্ষণ করতে সমস্যা হয়েছে');
+            });
+        }
+
+        function deleteCategory(id) {
+            if (confirm("আপনি কি নিশ্চিতভাবে এই ক্যাটাগরি মুছে ফেলতে চান?")) {
+                fetch(`/admin/api/categories/delete/${id}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    showToast('ক্যাটাগরি সফলভাবে মুছে ফেলা হয়েছে');
+                    fetchCategories();
+                })
+                .catch(err => {
+                    console.error("Error deleting category: ", err);
+                    showToast('ক্যাটাগরি মুছতে সমস্যা হয়েছে');
+                });
+            }
         }
     </script>
 </body>
