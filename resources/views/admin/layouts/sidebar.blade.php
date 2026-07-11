@@ -11,31 +11,8 @@
         <div class="menu-item active" onclick="switchPanel('dashboard')" id="menu-dashboard">
             <span class="menu-link-group">
                 <i class="fa-solid fa-house"></i>
-                <span>Dashboards</span>
+                <span>Dashboard</span>
             </span>
-            <i class="fa-solid fa-angle-right" style="font-size: 10px; display: none;"></i>
-        </div>
-        
-        <div class="menu-submenu open" id="dashboard-submenu">
-            <a href="#" class="submenu-item active" style="color: #fbbf24; font-weight: bold;"><i class="fa-solid fa-circle" style="font-size: 5px; margin-right: 8px;"></i> Default</a>
-            <a href="#" class="submenu-item" onclick="showToast('ই-কমার্স প্যানেল ডেমো মোড')"><i class="fa-solid fa-circle" style="font-size: 5px; margin-right: 8px;"></i> Ecommerce</a>
-            <a href="#" class="submenu-item" onclick="showToast('প্রজেক্ট ম্যানেজমেন্ট ডেমো মোড')"><i class="fa-solid fa-circle" style="font-size: 5px; margin-right: 8px;"></i> Project</a>
-        </div>
-
-        <div class="menu-item" onclick="showToast('উইজেট মডিউল ডেমো মোড')">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-shapes"></i>
-                <span>Widgets</span>
-            </span>
-            <i class="fa-solid fa-angle-right" style="font-size: 11px;"></i>
-        </div>
-
-        <div class="menu-item" onclick="showToast('লেআউট কন্ট্রোলার ডেমো মোড')">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-window-maximize"></i>
-                <span>Page Layout</span>
-            </span>
-            <i class="fa-solid fa-angle-right" style="font-size: 11px;"></i>
         </div>
 
         <div class="menu-header">Applications</div>
@@ -56,17 +33,17 @@
             </span>
         </div>
 
-        <div class="menu-item" onclick="showToast('ফাইল ম্যানেজার ডেমো মোড')">
+        <div class="menu-item" onclick="switchPanel('mcq-exams')" id="menu-exams">
             <span class="menu-link-group">
-                <i class="fa-solid fa-folder-open"></i>
-                <span>File Manager</span>
+                <i class="fa-solid fa-file-invoice"></i>
+                <span>Scheda Esame Scheduler</span>
             </span>
         </div>
 
-        <div class="menu-item" onclick="showToast('কানবান বোর্ড ডেমো মোড')">
+        <div class="menu-item" onclick="switchPanel('file-manager')" id="menu-file-manager">
             <span class="menu-link-group">
-                <i class="fa-solid fa-circle-nodes"></i>
-                <span>Kanban Board</span>
+                <i class="fa-solid fa-folder-open"></i>
+                <span>File Manager</span>
             </span>
         </div>
 
@@ -81,6 +58,115 @@
             <span class="menu-link-group">
                 <i class="fa-solid fa-list"></i>
                 <span>Categories</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sliders')" id="menu-sliders">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-images"></i>
+                <span>Manage Sliders</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('popup-promo')" id="menu-popup-promo">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-rectangle-ad"></i>
+                <span>Popup Promo Settings</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('home-cards')" id="menu-home-cards">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-shapes"></i>
+                <span>Home Cards (Icons)</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('classes')" id="menu-classes">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-video"></i>
+                <span>Manage Lecture Videos</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('live-classes')" id="menu-live-classes">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-tower-broadcast"></i>
+                <span>Manage Live Sessions</span>
+            </span>
+        </div>
+
+        <div class="menu-header">Cartelli MCQ Module</div>
+
+        <div class="menu-item" onclick="switchPanel('cartelli-categories')" id="menu-cartelli-categories">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-list-ul" style="color: #fbbf24;"></i>
+                <span>অধ্যায় (Category)</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('cartelli-chapters')" id="menu-cartelli-chapters">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-book" style="color: #60a5fa;"></i>
+                <span>Chapter</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('cartelli-pages')" id="menu-cartelli-pages">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-file-invoice" style="color: #34d399;"></i>
+                <span>Page</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('cartelli-mcqs')" id="menu-cartelli-mcqs">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-circle-question" style="color: #f472b6;"></i>
+                <span>MCQ</span>
+            </span>
+        </div>
+
+        <div class="menu-header">System</div>
+
+        <div class="menu-item" onclick="switchPanel('sys-errors')" id="menu-sys-errors">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-bug"></i>
+                <span>Error Logs</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sys-health')" id="menu-sys-health">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>System Health</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sys-api')" id="menu-sys-api">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-network-wired"></i>
+                <span>API Monitor</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sys-logs')" id="menu-sys-logs">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>Log Viewer</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sys-env')" id="menu-sys-env">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Env & Security</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('sys-backups')" id="menu-sys-backups">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Backup & Diagnostics</span>
             </span>
         </div>
 

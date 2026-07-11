@@ -1063,3 +1063,17 @@ body {
 .chat-send-btn:hover {
     background-color: #0b766c;
 }
+
+/* Active / Inactive Client status box */
+.client-status-box.active {
+    background-color: #4CAF50 !important; /* Green */
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+}
+.client-status-box.inactive {
+    background-color: #ef4444 !important; /* Red */
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+.client-status-box:hover {
+    transform: scale(1.15);
+}
+
