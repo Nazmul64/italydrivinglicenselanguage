@@ -25,8 +25,10 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Set starting auto-increment value to 6240
-        \Illuminate\Support\Facades\DB::statement('ALTER TABLE exam_sheets AUTO_INCREMENT = 6240;');
+        // Set starting auto-increment value to 6240 if using mysql
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE exam_sheets AUTO_INCREMENT = 6240;');
+        }
     }
 
     /**

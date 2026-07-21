@@ -16,12 +16,12 @@ return new class extends Migration
     public function up(): void
     {
         // Drop old placeholder tables if they exist (from 2026_07_10_104624)
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('cartello_questions');
         Schema::dropIfExists('cartelli');
         Schema::dropIfExists('cartello_categories');
         Schema::dropIfExists('cartelli_and_cartello_question_tables');
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        Schema::enableForeignKeyConstraints();
 
         // 1. Categories table
         Schema::create('cartello_categories', function (Blueprint $table) {

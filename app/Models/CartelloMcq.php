@@ -10,21 +10,22 @@ class CartelloMcq extends Model
 
     protected $fillable = [
         'page_id',
+        'sort_order',
         'question',
         'bn_question',
-        'option_a',
-        'bn_option_a',
-        'option_b',
-        'bn_option_b',
-        'option_c',
-        'bn_option_c',
-        'option_d',
-        'bn_option_d',
         'correct_answer',
         'explanation',
         'bn_explanation',
         'image',
+        'voice',
+        'video',
+        'vocabulary',
         'status',
+    ];
+
+    protected $casts = [
+        'vocabulary' => 'array',
+        'status'     => 'boolean',
     ];
 
     public function page()

@@ -31,12 +31,27 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="form-italian">Italian Statement (Vero/Falso text)</label>
+                    <label class="form-label" for="form-question-sort-order">Question Serial Number / Sort Order (সিরিয়াল নাম্বার)</label>
+                    <input type="number" class="form-control" id="form-question-sort-order" placeholder="e.g. 1" min="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-italian" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Italian Statement (Vero/Falso text)</span>
+                        <button type="button" class="btn btn-sm" onclick="toggleUnderlineOnSelection(document.getElementById('form-italian')); updateQuestionUnderlinedWordsList();" title="Underline selected text (Ctrl+U)" style="padding: 2px 8px; font-size: 10px; background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); font-weight: bold; border-radius: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-underline"></i> Underline
+                        </button>
+                    </label>
                     <textarea class="form-control" id="form-italian" rows="3" required></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="form-bangla">Bangla Meaning</label>
+                    <label class="form-label" for="form-bangla" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Bangla Meaning</span>
+                        <button type="button" class="btn btn-sm" onclick="toggleUnderlineOnSelection(document.getElementById('form-bangla')); updateQuestionUnderlinedWordsList();" title="Underline selected text (Ctrl+U)" style="padding: 2px 8px; font-size: 10px; background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); font-weight: bold; border-radius: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-underline"></i> Underline
+                        </button>
+                    </label>
                     <textarea class="form-control" id="form-bangla" rows="3" required></textarea>
                 </div>
 
@@ -48,6 +63,73 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label" for="form-question-img-file">Question Image</label>
+                    <input type="file" class="form-control" id="form-question-img-file" accept="image/*" onchange="previewQuestionImage(this)">
+                    <div id="question-img-preview-container" style="margin-top: 10px; display: none;">
+                        <img src="" id="question-img-preview-img" style="height: 60px; border-radius: 6px; object-fit: cover;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-question-audio-file">Audio Voiceover</label>
+                    <input type="file" class="form-control" id="form-question-audio-file" accept="audio/*" onchange="previewQuestionAudio(this)">
+                    <div id="question-audio-preview-container" style="margin-top: 10px; display: none;">
+                        <audio src="" id="question-audio-preview-player" controls style="width: 100%; height: 35px;"></audio>
+                    </div>
+                </div>
+
+                <div class="form-group" style="background: rgba(0,0,0,0.02); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label class="form-label" for="form-question-video-url" style="margin-bottom: 0; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-film" style="color: #ef4444;"></i>
+                            <span>Video File (MP4) or YouTube URL</span>
+                        </label>
+                        
+                        <!-- Video ON / OFF Toggle Switch with FontAwesome Icons -->
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="question-video-toggle-label" style="font-size: 11px; font-weight: 800; color: #4CAF50; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid fa-video" id="question-video-status-icon"></i>
+                                <span id="question-video-toggle-text">ON (ফ্রন্টে দেখাবে)</span>
+                            </span>
+                            <label class="switch-container" style="position: relative; display: inline-block; width: 46px; height: 26px; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="form-question-video-toggle" checked onchange="toggleQuestionVideoInput(this.checked)">
+                                <span class="slider-toggle" id="question-video-toggle-span" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4CAF50; transition: .4s; border-radius: 26px;"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="question-video-inputs-wrapper" style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <input type="file" class="form-control" id="form-question-video-file" accept="video/*" style="flex: 1;" onchange="previewQuestionVideo(this)">
+                        <input type="text" class="form-control" id="form-question-video-url" placeholder="Or YouTube Video URL..." style="flex: 1;">
+                    </div>
+                    <div id="question-video-preview-container" style="margin-top: 10px; display: none;">
+                        <video src="" id="question-video-preview-player" controls style="width: 100%; max-height: 150px; border-radius: 8px; background: #000;"></video>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; font-weight: bold;">
+                        <span>Question Vocabulary Underlines (দাগ এবং শব্দের অর্থ)</span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addQuestionVocabRow()" style="padding: 4px 8px; font-size: 11px;">+ Add Word</button>
+                    </label>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; background: var(--bg-content);">
+                        <table class="table table-bordered table-sm" style="margin-bottom: 0; font-size: 12px; width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Italian Word</th>
+                                    <th style="width: 30%;">Bangla Translation</th>
+                                    <th style="width: 30%;">Image (Optional)</th>
+                                    <th style="width: 10%; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="question-vocab-tbody">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closeQuestionModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Question</button>
@@ -56,118 +138,9 @@
         </div>
     </div>
 
-    <!-- 2. Edit Chapter Modal -->
-    <div class="modal-overlay" id="chapter-modal">
-        <div class="modal-card">
-            <div class="modal-header-row">
-                <h3 class="modal-title">Edit Chapter Title</h3>
-                <i class="fa-solid fa-xmark modal-close-btn" onclick="closeChapterModal()"></i>
-            </div>
-            
-            <form id="chapter-form" onsubmit="saveChapter(event)" enctype="multipart/form-data">
-                <input type="hidden" id="form-chapter-id-val">
-                
-                <div class="form-group">
-                    <label class="form-label">Chapter ID</label>
-                    <input type="text" class="form-control" id="form-chapter-num-display" readonly>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-chapter-title-val">Chapter Name (Italian)</label>
-                    <input type="text" class="form-control" id="form-chapter-title-val" required>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-chapter-title-bn">Chapter Name (Bangla)</label>
-                    <input type="text" class="form-control" id="form-chapter-title-bn">
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-chapter-image">Cover Thumbnail</label>
-                    <input type="file" class="form-control" id="form-chapter-image" accept="image/*">
-                </div>
-
-                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
-                    <button type="button" class="btn btn-secondary" onclick="closeChapterModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Chapter</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- 2b. Add/Edit Page Modal -->
-    <div class="modal-overlay" id="page-modal">
-        <div class="modal-card">
-            <div class="modal-header-row">
-                <h3 class="modal-title" id="page-modal-title">Add New Page</h3>
-                <i class="fa-solid fa-xmark modal-close-btn" onclick="closePageModal()"></i>
-            </div>
-            
-            <form id="page-form" onsubmit="savePage(event)" enctype="multipart/form-data">
-                <input type="hidden" id="form-page-id">
-                <input type="hidden" id="form-page-chapter-id">
-                
-                <div class="form-group">
-                    <label class="form-label" for="form-page-title">Page Title (Italian)</label>
-                    <input type="text" class="form-control" id="form-page-title" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-title-bn">Page Title (Bangla)</label>
-                    <input type="text" class="form-control" id="form-page-title-bn">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-content">Page Content / Text</label>
-                    <textarea class="form-control" id="form-page-content" rows="4"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-image">Upload Image</label>
-                    <input type="file" class="form-control" id="form-page-image" accept="image/*">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-audio">Upload Audio / Voiceover</label>
-                    <input type="file" class="form-control" id="form-page-audio" accept="audio/*">
-                </div>
-
-                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
-                    <button type="button" class="btn btn-secondary" onclick="closePageModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Page</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- 2c. Assign Questions Modal -->
-    <div class="modal-overlay" id="assign-questions-modal">
-        <div class="modal-card">
-            <div class="modal-header-row">
-                <h3 class="modal-title">Assign Questions to Page</h3>
-                <i class="fa-solid fa-xmark modal-close-btn" onclick="closeAssignQuestionsModal()"></i>
-            </div>
-            
-            <form id="assign-questions-form" onsubmit="saveAssignedQuestions(event)">
-                <input type="hidden" id="form-assign-page-id">
-                
-                <div class="form-group">
-                    <label class="form-label">Page Title</label>
-                    <input type="text" class="form-control" id="form-assign-page-title" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-assign-question-ids">Question IDs (Comma separated, e.g. 101, 102, 103)</label>
-                    <textarea class="form-control" id="form-assign-question-ids" rows="4" placeholder="Enter question IDs to link..." required></textarea>
-                </div>
-
-                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
-                    <button type="button" class="btn btn-secondary" onclick="closeAssignQuestionsModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Assign Questions</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- 3. Add/Edit Category Modal -->
     <div class="modal-overlay" id="category-modal">
@@ -193,6 +166,69 @@
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3a. Add/Edit Dictionary Term Modal -->
+    <div class="modal-overlay" id="dizionario-modal">
+        <div class="modal-card">
+            <div class="modal-header-row">
+                <h3 class="modal-title" id="dizionario-modal-title">Add Dictionary Term</h3>
+                <i class="fa-solid fa-xmark modal-close-btn" onclick="closeDizionarioModal()"></i>
+            </div>
+            
+            <form id="dizionario-form" onsubmit="saveDizionario(event)" enctype="multipart/form-data">
+                <input type="hidden" id="form-dizionario-id">
+                
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-word">Word (Italian)</label>
+                    <input type="text" class="form-control" id="form-dizionario-word" required placeholder="e.g. Carreggiata">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-bn">Bangla Translation</label>
+                    <input type="text" class="form-control" id="form-dizionario-bn" required placeholder="e.g. ক্যারিজওয়ে / মূল রাস্তা">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-desc-it">Definition (Italian)</label>
+                    <textarea class="form-control" id="form-dizionario-desc-it" rows="3" placeholder="Italian definition..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-desc-bn">Definition (Bangla)</label>
+                    <textarea class="form-control" id="form-dizionario-desc-bn" rows="3" placeholder="Bangla explanation..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-image">Illustration Image</label>
+                    <input type="file" class="form-control" id="form-dizionario-image" accept="image/*">
+                    <div id="dizionario-image-preview-container" style="display: none; margin-top: 10px;">
+                        <img id="dizionario-image-preview" src="" style="max-width: 150px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-audio">Audio Recording (Voice)</label>
+                    <input type="file" class="form-control" id="form-dizionario-audio" accept="audio/*">
+                    <div id="dizionario-audio-preview-container" style="display: none; margin-top: 10px;">
+                        <audio id="dizionario-audio-preview" src="" controls style="width: 100%; max-width: 250px;"></audio>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-dizionario-video">Video File (Clips)</label>
+                    <input type="file" class="form-control" id="form-dizionario-video" accept="video/*">
+                    <div id="dizionario-video-preview-container" style="display: none; margin-top: 10px;">
+                        <video id="dizionario-video-preview" src="" controls style="width: 100%; max-width: 250px; border-radius: 8px;"></video>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeDizionarioModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Word</button>
                 </div>
             </form>
         </div>
@@ -456,6 +492,15 @@
                 <input type="hidden" id="form-chapter-crud-id">
                 
                 <div class="form-group">
+                    <label class="form-label" for="form-chapter-category-id">Category</label>
+                    <select class="form-control" id="form-chapter-category-id" required>
+                        <option value="1">Patente AM</option>
+                        <option value="2" selected>Patente B</option>
+                        <option value="3">Patente C</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" for="form-chapter-number">Chapter Number</label>
                     <input type="number" class="form-control" id="form-chapter-number" required placeholder="e.g. 1">
                 </div>
@@ -470,18 +515,7 @@
                     <input type="text" class="form-control" id="form-chapter-name-bn" placeholder="e.g. রাস্তা এবং ট্রাফিকের ধারণা">
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-chapter-desc">Description</label>
-                    <textarea class="form-control" id="form-chapter-desc" rows="3" placeholder="Enter chapter explanation..."></textarea>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-chapter-thumb-file">Chapter Thumbnail</label>
-                    <input type="file" class="form-control" id="form-chapter-thumb-file" accept="image/*">
-                    <div id="chapter-thumb-preview-container" style="margin-top: 10px; display: none;">
-                        <img src="" id="chapter-thumb-preview-img" style="height: 60px; border-radius: 6px; object-fit: cover;">
-                    </div>
-                </div>
 
                 <div class="form-group">
                     <label class="form-label" for="form-chapter-cover-file">Chapter Cover Image</label>
@@ -508,8 +542,14 @@
             </div>
             <form id="page-form" onsubmit="savePage(event)">
                 <input type="hidden" id="form-page-crud-id">
-                <input type="hidden" id="form-page-chapter-id">
-                
+                <div class="form-group">
+                    <label class="form-label" for="form-page-chapter-id">Selected Chapter</label>
+                    <select class="form-control" id="form-page-chapter-id" style="font-weight: bold; border-radius: 8px; background: var(--bg-page); border: 1px solid var(--border-card); height: 38px;">
+                        <!-- Chapters list dynamically populated -->
+                    </select>
+                    <input type="hidden" id="form-page-chapter-name-display">
+                </div>
+
                 <div class="form-group">
                     <label class="form-label" for="form-page-order">Sort Order</label>
                     <input type="number" class="form-control" id="form-page-order" required value="0">
@@ -517,7 +557,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="form-page-title-it">Page Title (Italian)</label>
-                    <input type="text" class="form-control" id="form-page-title-it" required placeholder="e.g. La strada e le sue parti">
+                    <input type="text" class="form-control" id="form-page-title-it" placeholder="e.g. La strada e le sue parti">
                 </div>
 
                 <div class="form-group">
@@ -525,45 +565,6 @@
                     <input type="text" class="form-control" id="form-page-title-bn" placeholder="e.g. রাস্তা এবং এর অংশসমূহ">
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-page-content">Page Content (Rich Text Description)</label>
-                    <textarea class="form-control" id="form-page-content" rows="6" placeholder="Enter page text content..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-img-file">Page Image</label>
-                    <input type="file" class="form-control" id="form-page-img-file" accept="image/*">
-                    <div id="page-img-preview-container" style="margin-top: 10px; display: none;">
-                        <img src="" id="page-img-preview-img" style="height: 60px; border-radius: 6px; object-fit: cover;">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-audio-file">Audio Voiceover</label>
-                    <input type="file" class="form-control" id="form-page-audio-file" accept="audio/*">
-                    <div id="page-audio-preview-container" style="margin-top: 10px; display: none;">
-                        <audio src="" id="page-audio-preview-player" controls style="width: 100%; height: 35px;"></audio>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-video-file">Video File (MP4) or YouTube URL</label>
-                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-                        <input type="file" class="form-control" id="form-page-video-file" accept="video/*" style="flex: 1;">
-                        <input type="text" class="form-control" id="form-page-video-url" placeholder="Or YouTube Video URL..." style="flex: 1;">
-                    </div>
-                    <div id="page-video-preview-container" style="margin-top: 10px; display: none;">
-                        <video src="" id="page-video-preview-player" controls style="width: 100%; max-height: 150px; border-radius: 8px; background: #000;"></video>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-page-pdf-file">PDF File (Optional)</label>
-                    <input type="file" class="form-control" id="form-page-pdf-file" accept="application/pdf">
-                    <div id="page-pdf-preview-container" style="margin-top: 10px; display: none;">
-                        <a href="" id="page-pdf-preview-link" target="_blank" style="color: var(--accent-teal); font-size: 12px; font-weight: bold;"><i class="fa-solid fa-file-pdf"></i> View PDF</a>
-                    </div>
-                </div>
 
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closePageModal()">Cancel</button>
@@ -720,161 +721,212 @@
         </div>
     </div>
 
-    <!-- 2. CHAPTER MODAL -->
+    <!-- 2. CARTELLI CHAPTER MODAL -->
     <div class="modal-overlay" id="cartello-chapter-modal">
         <div class="modal-card" style="max-width:500px;">
             <div class="modal-header-row">
-                <h3 class="modal-title" id="cartello-chapter-modal-title">নতুন চ্যাপ্টার তৈরি করুন</h3>
+                <h3 class="modal-title" id="cartello-chapter-modal-title">Add New Chapter</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloChapterModal()"></i>
             </div>
-            <form id="cartello-chapter-form" onsubmit="saveCartelloChapter(event)">
+            <form id="cartello-chapter-form" onsubmit="saveCartelloChapter(event)" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label class="form-label" for="cch-category-id">অধ্যায় (Category) <span style="color:var(--accent-red);">*</span></label>
+                    <label class="form-label" for="cch-category-id">CATEGORY <span style="color:var(--accent-red);">*</span></label>
                     <select class="form-control" id="cch-category-id" name="category_id" required>
-                        <option value="">ক্যাটাগরি নির্বাচন করুন...</option>
+                        <option value="">Patente B</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cch-name">Chapter Name (Italian) <span style="color:var(--accent-red);">*</span></label>
-                    <input type="text" class="form-control" id="cch-name" name="name" placeholder="e.g. Segnali di Pericolo" required>
+                    <label class="form-label" for="cch-chapter-number">CHAPTER NUMBER <span style="color:var(--accent-red);">*</span></label>
+                    <input type="number" class="form-control" id="cch-chapter-number" name="chapter_number" placeholder="e.g. 1" min="1" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cch-bn-name">চ্যাপ্টার নাম (বাংলা) <span style="color:var(--accent-red);">*</span></label>
-                    <input type="text" class="form-control" id="cch-bn-name" name="bn_name" placeholder="e.g. বিপদজনক সাইনসমূহ" required>
+                    <label class="form-label" for="cch-name">CHAPTER NAME (ITALIAN) <span style="color:var(--accent-red);">*</span></label>
+                    <input type="text" class="form-control" id="cch-name" name="name" placeholder="e.g. Definizioni della strada" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cch-chapter-number">Chapter Number (সর্বোচ্চ ২৫) <span style="color:var(--accent-red);">*</span></label>
-                    <input type="number" class="form-control" id="cch-chapter-number" name="chapter_number" placeholder="e.g. 1" min="1" max="25" required>
+                    <label class="form-label" for="cch-bn-name">CHAPTER NAME (BANGLA) <span style="color:var(--accent-red);">*</span></label>
+                    <input type="text" class="form-control" id="cch-bn-name" name="bn_name" placeholder="e.g. রাস্তা এবং ট্রাফিকের ধারণা" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cch-sort-order">ক্রম (Sort Order)</label>
-                    <input type="number" class="form-control" id="cch-sort-order" name="sort_order" value="0" min="0">
+                    <label class="form-label" for="cch-sort-order">SORT ORDER</label>
+                    <input type="number" class="form-control" id="cch-sort-order" name="sort_order" placeholder="0">
                 </div>
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-save"></i> সংরক্ষণ করুন</button>
-                    <button type="button" class="btn" style="flex:1; background:var(--surface-2);" onclick="closeCartelloChapterModal()">বাতিল</button>
+                <div class="form-group">
+                    <label class="form-label" for="cch-cover-file">CHAPTER COVER IMAGE</label>
+                    <input type="file" class="form-control" id="cch-cover-file" name="image" accept="image/*">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCartelloChapterModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #009688; border: none; font-weight: bold;">Save Chapter</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 3. PAGE MODAL -->
+    <!-- 3. CARTELLI PAGE MODAL -->
     <div class="modal-overlay" id="cartello-page-modal">
-        <div class="modal-card" style="max-width:550px;">
+        <div class="modal-card" style="max-width:500px;">
             <div class="modal-header-row">
-                <h3 class="modal-title" id="cartello-page-modal-title">নতুন পেজ তৈরি করুন</h3>
+                <h3 class="modal-title" id="cartello-page-modal-title">Add New Page</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloPageModal()"></i>
             </div>
             <form id="cartello-page-form" onsubmit="saveCartelloPage(event)" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label class="form-label" for="cpage-category-id">অধ্যায় (Category) <span style="color:var(--accent-red);">*</span></label>
-                    <select class="form-control" id="cpage-category-id" onchange="handleCategoryChange('cpage-category-id', 'cpage-chapter-id')" required>
-                        <option value="">ক্যাটাগরি নির্বাচন করুন...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cpage-chapter-id">Chapter <span style="color:var(--accent-red);">*</span></label>
+                    <label class="form-label" for="cpage-chapter-id">SELECTED CHAPTER <span style="color:var(--accent-red);">*</span></label>
                     <select class="form-control" id="cpage-chapter-id" name="chapter_id" required>
-                        <option value="">প্রথমে ক্যাটাগরি সিলেক্ট করুন...</option>
+                        <option value="">Select Chapter...</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cpage-page-number">Page Number <span style="color:var(--accent-red);">*</span></label>
-                    <input type="number" class="form-control" id="cpage-page-number" name="page_number" placeholder="e.g. 1" min="1" required>
+                    <label class="form-label" for="cpage-page-number">PAGE NUMBER <span style="color:var(--accent-red);">*</span></label>
+                    <input type="number" class="form-control" id="cpage-page-number" name="page_number" placeholder="e.g. 1" value="1" min="1" required>
+                    <input type="hidden" id="cpage-sort-order" name="sort_order" value="1">
+                    <input type="hidden" id="cpage-is-vero" name="is_vero" value="1">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cpage-title">Page Title (Italian) <span style="color:var(--accent-red);">*</span></label>
-                    <input type="text" class="form-control" id="cpage-title" name="title" placeholder="Italian title..." required>
+                    <label class="form-label" for="cpage-title">PAGE TITLE (ITALIAN) <span style="color:var(--accent-red);">*</span></label>
+                    <input type="text" class="form-control" id="cpage-title" name="title" placeholder="e.g. La strada e le sue parti" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cpage-bn-title">পেজ শিরোনাম (বাংলা) <span style="color:var(--accent-red);">*</span></label>
-                    <input type="text" class="form-control" id="cpage-bn-title" name="bn_title" placeholder="বাংলা শিরোনাম..." required>
+                    <label class="form-label" for="cpage-bn-title">PAGE TITLE (BANGLA) <span style="color:var(--accent-red);">*</span></label>
+                    <input type="text" class="form-control" id="cpage-bn-title" name="bn_title" placeholder="e.g. রাস্তা এবং এর অংশসমূহ" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cpage-description">Description (Italian)</label>
-                    <textarea class="form-control" id="cpage-description" name="description" placeholder="Italian description..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cpage-bn-description">বিবরণ (বাংলা)</label>
-                    <textarea class="form-control" id="cpage-bn-description" name="bn_description" placeholder="বাংলা বিবরণ..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cpage-image">Image Upload</label>
+                    <label class="form-label" for="cpage-image">PAGE IMAGE</label>
+                    <div id="cpage-current-image-preview-container" style="display: none; margin-bottom: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 4px;">CURRENT IMAGE:</span>
+                        <img id="cpage-current-image-preview" src="" style="max-height: 90px; width: auto; border-radius: 6px; border: 1px solid var(--border-card); object-fit: contain;">
+                    </div>
                     <input type="file" class="form-control" id="cpage-image" name="image" accept="image/*">
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="cpage-video">Video Upload</label>
-                    <input type="file" class="form-control" id="cpage-video" name="video" accept="video/*">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cpage-sort-order">ক্রম (Sort Order)</label>
-                    <input type="number" class="form-control" id="cpage-sort-order" name="sort_order" value="0" min="0">
-                </div>
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-save"></i> সংরক্ষণ করুন</button>
-                    <button type="button" class="btn" style="flex:1; background:var(--surface-2);" onclick="closeCartelloPageModal()">বাতিল</button>
+                <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCartelloPageModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #009688; border: none; font-weight: bold;">Save Page</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 4. MCQ MODAL -->
+    <!-- 4. CARTELLI MCQ MODAL -->
     <div class="modal-overlay" id="cartello-mcq-modal">
-        <div class="modal-card" style="max-width:600px;">
+        <div class="modal-card" style="max-width:650px;">
             <div class="modal-header-row">
-                <h3 class="modal-title" id="cartello-mcq-modal-title">নতুন MCQ প্রশ্ন তৈরি করুন</h3>
+                <h3 class="modal-title" id="cartello-mcq-modal-title">Add New Question</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloMcqModal()"></i>
             </div>
             <form id="cartello-mcq-form" onsubmit="saveCartelloMcq(event)" enctype="multipart/form-data">
+                <input type="hidden" id="cmcq-id" name="id">
+                
                 <div class="form-group">
-                    <label class="form-label" for="cmcq-category-id">অধ্যায় (Category) <span style="color:var(--accent-red);">*</span></label>
-                    <select class="form-control" id="cmcq-category-id" onchange="handleCategoryChange('cmcq-category-id', 'cmcq-chapter-id')" required>
-                        <option value="">ক্যাটাগরি নির্বাচন করুন...</option>
+                    <label class="form-label" for="cmcq-chapter-id">CHAPTER NUMBER <span style="color:var(--accent-red);">*</span></label>
+                    <select class="form-control" id="cmcq-chapter-id-select" onchange="handleCartelloMcqChapterSelectChange(this.value)" required>
+                        <option value="">6. Scendi fino in fondo, poi gira a destra</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cmcq-chapter-id">Chapter <span style="color:var(--accent-red);">*</span></label>
-                    <select class="form-control" id="cmcq-chapter-id" onchange="handleChapterChange('cmcq-chapter-id', 'cmcq-page-id')" required>
-                        <option value="">প্রথমে ক্যাটাগরি সিলেক্ট করুন...</option>
-                    </select>
+                    <label class="form-label" for="cmcq-chapter-name-display">CHAPTER NAME</label>
+                    <input type="text" class="form-control" id="cmcq-chapter-name-display" readonly placeholder="Scendi fino in fondo, poi gira a destra">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="cmcq-page-id">Page <span style="color:var(--accent-red);">*</span></label>
+                    <label class="form-label" for="cmcq-page-id">PAGE / SUBCHAPTER <span style="color:var(--accent-red);">*</span></label>
                     <select class="form-control" id="cmcq-page-id" name="page_id" required>
-                        <option value="">প্রথমে চ্যাপ্টার সিলেক্ট করুন...</option>
+                        <option value="">Select Page...</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cmcq-question">Question (Italian) <span style="color:var(--accent-red);">*</span></label>
-                    <textarea class="form-control" id="cmcq-question" name="question" rows="2" placeholder="Italian question..." required></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cmcq-bn-question">প্রশ্ন (বাংলা অর্থ) <span style="color:var(--accent-red);">*</span></label>
-                    <textarea class="form-control" id="cmcq-bn-question" name="bn_question" rows="2" placeholder="বাংলা অর্থ..." required></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="cmcq-correct-answer">Correct Answer <span style="color:var(--accent-red);">*</span></label>
+                    <label class="form-label" for="cmcq-sort-order">QUESTION SERIAL NUMBER / SORT ORDER (সিরিয়াল নাম্বার)</label>
+                    <input type="number" class="form-control" id="cmcq-sort-order" name="sort_order" value="0" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cmcq-question" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>ITALIAN STATEMENT (VERO/FALSO TEXT) <span style="color:var(--accent-red);">*</span></span>
+                        <button type="button" class="btn btn-sm" onclick="toggleUnderlineOnSelection(document.getElementById('cmcq-question')); updateCartelloMcqUnderlinedWordsList();" title="Underline selected text (Ctrl+U)" style="padding: 2px 8px; font-size: 10px; background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); font-weight: bold; border-radius: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-underline"></i> Underline
+                        </button>
+                    </label>
+                    <textarea class="form-control" id="cmcq-question" name="question" rows="3" placeholder="Italian question..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cmcq-bn-question" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>BANGLA MEANING <span style="color:var(--accent-red);">*</span></span>
+                        <button type="button" class="btn btn-sm" onclick="toggleUnderlineOnSelection(document.getElementById('cmcq-bn-question')); updateCartelloMcqUnderlinedWordsList();" title="Underline selected text (Ctrl+U)" style="padding: 2px 8px; font-size: 10px; background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); font-weight: bold; border-radius: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-underline"></i> Underline
+                        </button>
+                    </label>
+                    <textarea class="form-control" id="cmcq-bn-question" name="bn_question" rows="3" placeholder="বাংলা অর্থ..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cmcq-correct-answer">CORRECT ANSWER <span style="color:var(--accent-red);">*</span></label>
                     <select class="form-control" id="cmcq-correct-answer" name="correct_answer" required>
-                        <option value="vero">VERO (সত্য)</option>
+                        <option value="vero">VERO (সঠিক)</option>
                         <option value="falso">FALSO (মিথ্যা)</option>
                     </select>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="cmcq-explanation">Explanation (Italian)</label>
-                    <textarea class="form-control" id="cmcq-explanation" name="explanation" placeholder="Italian explanation..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cmcq-bn-explanation">ব্যাখ্যা (বাংলা)</label>
-                    <textarea class="form-control" id="cmcq-bn-explanation" name="bn_explanation" placeholder="বাংলা ব্যাখ্যা..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="cmcq-image">Image Upload (Optional)</label>
+                    <label class="form-label" for="cmcq-image">QUESTION IMAGE</label>
                     <input type="file" class="form-control" id="cmcq-image" name="image" accept="image/*">
                 </div>
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-save"></i> সংরক্ষণ করুন</button>
-                    <button type="button" class="btn" style="flex:1; background:var(--surface-2);" onclick="closeCartelloMcqModal()">বাতিল</button>
+
+                <div class="form-group">
+                    <label class="form-label" for="cmcq-audio">AUDIO VOICEOVER</label>
+                    <input type="file" class="form-control" id="cmcq-audio" name="audio" accept="audio/*">
+                </div>
+
+                <div class="form-group" style="background: rgba(0,0,0,0.02); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label class="form-label" for="cmcq-video-url" style="margin-bottom: 0; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-film" style="color: #ef4444;"></i>
+                            <span>VIDEO FILE (MP4) OR YOUTUBE URL</span>
+                        </label>
+                        
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="cmcq-video-toggle-label" style="font-size: 11px; font-weight: 800; color: #4CAF50; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid fa-video" id="cmcq-video-status-icon"></i>
+                                <span id="cmcq-video-toggle-text">ON (ফ্রন্টে দেখাবে)</span>
+                            </span>
+                            <label class="switch-container" style="position: relative; display: inline-block; width: 46px; height: 26px; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="cmcq-video-toggle" checked onchange="toggleCartelloMcqVideoInput(this.checked)">
+                                <span class="slider-toggle" id="cmcq-video-toggle-span" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4CAF50; transition: .4s; border-radius: 26px;"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="cmcq-video-inputs-wrapper" style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <input type="file" class="form-control" id="cmcq-video-file" name="video_file" accept="video/*" style="flex: 1;">
+                        <input type="text" class="form-control" id="cmcq-video-url" name="video_url" placeholder="Or YouTube Video URL..." style="flex: 1;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; font-weight: bold;">
+                        <span>QUESTION VOCABULARY UNDERLINES (দাগ এবং শব্দের অর্থ)</span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addCartelloMcqVocabRow()" style="padding: 4px 8px; font-size: 11px; background-color: #009688; border: none; font-weight: bold;">+ Add Word</button>
+                    </label>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; background: var(--bg-content);">
+                        <table class="table table-bordered table-sm" style="margin-bottom: 0; font-size: 12px; width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Italian Word</th>
+                                    <th style="width: 30%;">Bangla Translation</th>
+                                    <th style="width: 30%;">Image (Optional)</th>
+                                    <th style="width: 10%; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cartello-mcq-vocab-tbody">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCartelloMcqModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #009688; border: none; font-weight: bold;">Save Question</button>
                 </div>
             </form>
         </div>

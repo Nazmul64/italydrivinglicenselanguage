@@ -4,6 +4,8 @@
     <div class="card p-4 text-center mb-4 border-0 shadow-sm" style="background-color: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-card) !important;">
         <div id="detail-outcome-emoji" class="display-3 mb-2">🙄</div>
         <h2 id="detail-outcome-title" class="fw-bold mb-1" style="color: var(--accent-red); font-size: 28px;">Bocciato</h2>
+        <div id="detail-outcome-status" class="fw-bold mb-1" style="font-size: 18px; color: var(--accent-red);">Result: Fail</div>
+        <div id="detail-outcome-score" class="fw-bold mb-2" style="font-size: 18px; color: var(--accent-teal);">Score: 0%</div>
         <p id="detail-outcome-time" class="text-muted fw-semibold mb-0" style="font-size: 14px;">Tempo: 3 minuti 3 secondi</p>
     </div>
 
@@ -53,6 +55,17 @@
         <div id="split-bar-nondate" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
     </div>
 
+    <!-- Topic Performance Analysis -->
+    <div class="card p-4 mb-4 border-0 shadow-sm" style="background-color: var(--bg-card); border-radius: 16px; border: 1px solid var(--border-card) !important;">
+        <h4 style="font-weight: 800; font-size: 15px; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-chart-pie" style="color: var(--accent-green);"></i>
+            Analisi delle prestazioni per argomento (টপিক পারফরম্যান্স বিশ্লেষণ)
+        </h4>
+        <div id="test-results-topics-analysis" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Topics list dynamically populated by JS -->
+        </div>
+    </div>
+
     <!-- Navigation Toggles / Filter Buttons -->
     <div class="d-flex gap-2 flex-wrap justify-content-center mb-3">
         <button class="detail-toggle-btn corrette btn px-3 py-2 fw-bold" id="btn-toggle-corrette" onclick="filterDetailResults('correct')">
@@ -74,7 +87,7 @@
     </div>
 
     <!-- Detailed Card List Container -->
-    <div id="detail-cards-list-container" class="d-flex flex-column gap-3 mb-5">
+    <div id="detail-cards-list-container" class="test-results-detail-list">
         <!-- Question detail card list injected dynamically via JS -->
     </div>
 </div>

@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mbanglapatenteb Admin Login</title>
+    <title>{{ $gSettings->app_name }} Admin Login</title>
+    @if($gSettings->favicon)
+        <link rel="icon" type="image/x-icon" href="{{ asset($gSettings->favicon) }}">
+    @endif
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome Vector Icons -->
@@ -16,7 +19,11 @@
 
     <div class="login-card">
         <span class="brand-logo">
-            <i class="fa-solid fa-graduation-cap"></i> mbanglapatenteb
+            @if($gSettings->app_logo)
+                <img src="{{ asset($gSettings->app_logo) }}" alt="{{ $gSettings->app_name }}" style="max-height: 48px; object-fit: contain; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">
+            @else
+                <i class="fa-solid fa-graduation-cap"></i> {{ $gSettings->app_name }}
+            @endif
         </span>
 
         <h2 class="login-title">Sign in to account</h2>

@@ -22,7 +22,7 @@
         <button class="pill-btn active" onclick="selectAllSheets()">Select All</button>
     </div>
 
-    <div id="argomenti-schede-list" style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px;">
+    <div id="argomenti-schede-list" class="argomenti-schede-grid">
         <!-- Sheet cards injected dynamically via JS -->
     </div>
 

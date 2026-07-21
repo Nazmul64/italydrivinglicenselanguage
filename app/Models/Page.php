@@ -17,9 +17,16 @@ class Page extends Model
         'image',
         'audio',
         'video',
+        'video_status',
         'sort_order',
         'pdf_path',
         'status',
+        'vocabulary',
+        'estimated_minutes',
+    ];
+
+    protected $casts = [
+        'vocabulary' => 'array',
     ];
 
     public function chapter()

@@ -6,7 +6,7 @@
     </div>
 
     <!-- Scrollable content lists -->
-    <div id="saved-mcqs-list-container" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px;">
+    <div id="saved-mcqs-list-container" class="saved-mcqs-list">
         <!-- Saved MCQ cards injected dynamically by JS -->
     </div>
 </div>

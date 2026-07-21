@@ -82,215 +82,6 @@
             </div>
         </div>
 
-        <!-- Grid Layout Matching Screenshot -->
-        <div class="dashboard-grid">
-            <!-- Revenue Growth SVG Chart -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Revenue Growth</span>
-                    <span class="badge" style="background-color: var(--bg-content); color: var(--text-secondary); font-size: 12px; font-weight: bold; border: 1px solid var(--border-color);">This Year <i class="fa-solid fa-chevron-down" style="font-size: 9px; margin-left: 6px;"></i></span>
-                </div>
-                
-                <div class="revenue-chart-container">
-                    <!-- Premium Handcrafted Responsive Line Chart SVG -->
-                    <svg viewBox="0 0 500 150" width="100%" height="100%">
-                        <!-- Grids -->
-                        <line x1="0" y1="20" x2="500" y2="20" stroke="var(--border-color)" stroke-dasharray="3" stroke-width="0.7"></line>
-                        <line x1="0" y1="60" x2="500" y2="60" stroke="var(--border-color)" stroke-dasharray="3" stroke-width="0.7"></line>
-                        <line x1="0" y1="100" x2="500" y2="100" stroke="var(--border-color)" stroke-dasharray="3" stroke-width="0.7"></line>
-                        <line x1="0" y1="140" x2="500" y2="140" stroke="var(--border-color)" stroke-dasharray="3" stroke-width="0.7"></line>
-                        
-                        <!-- Online Sale Line (Greenish Teal) -->
-                        <path d="M 0 100 Q 50 110 100 80 T 200 70 T 300 45 T 400 65 T 500 35" fill="none" stroke="var(--accent-teal)" stroke-width="3" stroke-linecap="round"></path>
-                        <path d="M 0 100 Q 50 110 100 80 T 200 70 T 300 45 T 400 65 T 500 35 L 500 150 L 0 150 Z" fill="url(#tealGradient)" opacity="0.08"></path>
-                        
-                        <!-- Marketing Sale Line (Orange/Yellow) -->
-                        <path d="M 0 125 Q 50 135 100 110 T 200 105 T 300 90 T 400 100 T 500 80" fill="none" stroke="var(--accent-orange)" stroke-width="3" stroke-linecap="round"></path>
-                        
-                        <!-- Gradients definitions -->
-                        <defs>
-                            <linearGradient id="tealGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="var(--accent-teal)"></stop>
-                                <stop offset="100%" stop-color="var(--accent-teal)" stop-opacity="0"></stop>
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-
-                <div class="chart-stats-row">
-                    <div class="chart-stat-item">
-                        <div class="chart-stat-label">Total Sales</div>
-                        <div class="chart-stat-value" id="dash-total-sales">7000 questions</div>
-                        <div class="chart-stat-sub" style="color: var(--accent-green);"><i class="fa-solid fa-arrow-up"></i> +40.15% than last year</div>
-                    </div>
-                    <div class="chart-stat-item">
-                        <div class="chart-stat-label">Total Purchase</div>
-                        <div class="chart-stat-value">$42,256.26</div>
-                        <div class="chart-stat-sub" style="color: var(--accent-red);"><i class="fa-solid fa-arrow-down"></i> -20.25% than last year</div>
-                    </div>
-                    <div class="chart-stat-item" style="border-right: none;">
-                        <div class="chart-stat-label">Total Returns</div>
-                        <div class="chart-stat-value">$5,215.62</div>
-                        <div class="chart-stat-sub" style="color: var(--accent-green);"><i class="fa-solid fa-arrow-up"></i> +18.15% than last year</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Boost Your Sale Promo Card -->
-            <div class="card promo-card">
-                <div class="promo-content">
-                    <h3>Boost up your sale</h3>
-                    <p>by upgrading your account you can increase your sale by 30% more.</p>
-                </div>
-                <button class="promo-btn" onclick="switchPanel('mcq-questions')">Upgrade Now</button>
-            </div>
-
-            <!-- Deliveries Progress Widget -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Deliveries</span>
-                    <i class="fa-solid fa-ellipsis-vertical action-icon"></i>
-                </div>
-                
-                <div class="delivery-item">
-                    <div class="delivery-meta">
-                        <span>On Time Delivery</span>
-                        <span style="color: var(--accent-teal);">80%</span>
-                    </div>
-                    <div class="delivery-progress">
-                        <div class="progress-fill" style="width: 80%; background-color: var(--accent-teal);"></div>
-                    </div>
-                </div>
-
-                <div class="delivery-item" style="margin-top: 24px;">
-                    <div class="delivery-meta">
-                        <span>Delayed Delivery</span>
-                        <span style="color: var(--accent-orange);">15%</span>
-                    </div>
-                    <div class="delivery-progress">
-                        <div class="progress-fill" style="width: 15%; background-color: var(--accent-orange);"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Row Grids -->
-        <div class="dashboard-bottom-grid">
-            <!-- Top Product Card -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Top Product</span>
-                    <span class="badge" style="background-color: var(--bg-content); color: var(--text-secondary); cursor: pointer;" onclick="showToast('সব প্রোডাক্টের তালিকা')">View All</span>
-                </div>
-                
-                <div class="product-list">
-                    <div class="product-item">
-                        <div class="product-info">
-                            <div class="product-img"><i class="fa-solid fa-clock"></i></div>
-                            <div>
-                                <div class="product-name">Huawei Smart Watch</div>
-                                <div class="product-sku">SKU90400</div>
-                            </div>
-                        </div>
-                        <div class="product-stats">
-                            <div class="product-qty">QTY: 12</div>
-                            <div class="product-revenue">Profit: $15</div>
-                        </div>
-                    </div>
-
-                    <div class="product-item">
-                        <div class="product-info">
-                            <div class="product-img"><i class="fa-solid fa-headphones"></i></div>
-                            <div>
-                                <div class="product-name">Noise - Wireless Headphone</div>
-                                <div class="product-sku">SKU78589</div>
-                            </div>
-                        </div>
-                        <div class="product-stats">
-                            <div class="product-qty">QTY: 19</div>
-                            <div class="product-revenue">Profit: $9</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- New Users Card -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">New User</span>
-                    <span class="badge" style="background-color: var(--bg-content); color: var(--text-secondary); cursor: pointer;" onclick="showToast('সব ইউজারের তালিকা')">View All</span>
-                </div>
-
-                <div class="user-list">
-                    <div class="user-item">
-                        <div class="user-profile-meta">
-                            <div class="user-avatar-circle">SJ</div>
-                            <div>
-                                <div class="user-title">Smith John</div>
-                                <div class="user-country">India</div>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-ellipsis-vertical action-icon" onclick="showToast('Smith John এর সেটিংস')"></i>
-                    </div>
-
-                    <div class="user-item">
-                        <div class="user-profile-meta">
-                            <div class="user-avatar-circle" style="background-color: #fef3c7; color: #d97706;">RF</div>
-                            <div>
-                                <div class="user-title">Robert Fox</div>
-                                <div class="user-country">Afghanistan</div>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-ellipsis-vertical action-icon" onclick="showToast('Robert Fox এর সেটিংস')"></i>
-                    </div>
-
-                    <div class="user-item">
-                        <div class="user-profile-meta">
-                            <div class="user-avatar-circle" style="background-color: #fee2e2; color: #dc2626;">DR</div>
-                            <div>
-                                <div class="user-title">Darlene Robtson</div>
-                                <div class="user-country">Georgia</div>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-ellipsis-vertical action-icon" onclick="showToast('Darlene Robtson এর সেটিংস')"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Team Activity Card -->
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Team Activity</span>
-                    <span class="badge" style="background-color: var(--bg-content); color: var(--text-secondary); cursor: pointer;" onclick="showToast('সব অ্যাক্টিভিটি লগ')">View All</span>
-                </div>
-
-                <div class="activity-list">
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">Floyd Miles</span> has moved to the warehouse.
-                            <div class="activity-time">5 min ago</div>
-                        </div>
-                    </div>
-
-                    <div class="activity-item">
-                        <div class="activity-dot" style="background-color: var(--accent-orange);"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">Ralph Edwards</span> solved Mr. Williams' project questions.
-                            <div class="activity-time">6 min ago</div>
-                        </div>
-                    </div>
-
-                    <div class="activity-item">
-                        <div class="activity-dot" style="background-color: var(--accent-blue);"></div>
-                        <div class="activity-content">
-                            <span class="activity-user">Esther Howard</span> updated lesson videos.
-                            <div class="activity-time">10 min ago</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- PANEL 2: MCQ Questions Management CRUD -->
@@ -301,37 +92,53 @@
         </div>
 
         <div class="crud-top-bar">
-            <div class="crud-filters">
-                <select class="form-select" id="filter-chapter" onchange="fetchQuestions()">
+            <div class="crud-filters" style="display: flex; gap: 10px;">
+                <select class="form-select" id="filter-chapter" onchange="onFilterChapterChange(this.value)">
                     <option value="">সকল অধ্যায় (All Chapters)</option>
-                    <!-- Chapters injected here -->
+                </select>
+                <select class="form-select" id="filter-page" onchange="fetchQuestions()" style="display: none; min-width: 180px;">
+                    <option value="">সকল পেজ (All Pages)</option>
                 </select>
                 <input type="text" class="form-input" id="search-question" placeholder="ইতালীয় বা বাংলা প্রশ্ন দিয়ে খুঁজুন..." oninput="fetchQuestions()">
             </div>
-            <button class="btn btn-primary" onclick="openAddQuestionModal()">
-                <i class="fa-solid fa-plus"></i> Add Question
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-danger" id="btn-bulk-delete-questions" onclick="bulkDeleteItems('questions')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                    <i class="fa-solid fa-trash-can"></i> Delete Selected
+                </button>
+                <button class="btn btn-primary" onclick="openAddQuestionModal()">
+                    <i class="fa-solid fa-plus"></i> Add Question
+                </button>
+            </div>
         </div>
 
-        <!-- Data Table for Questions -->
+        <div id="bulk-select-all-banner-questions" style="display: none; background: var(--bg-content); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+            All <span id="bulk-select-page-count-questions" style="font-weight: bold; color: var(--accent-orange);">0</span> questions on this page are selected. 
+            <a href="#" onclick="selectAllAcrossPages('questions'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Select all <span id="bulk-select-total-count-questions">0</span> questions in MCQ Database Manager</a>
+        </div>
+        <div id="bulk-select-all-banner-active-questions" style="display: none; background: var(--bg-content); border: 1px solid var(--accent-orange); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+            All <span id="bulk-select-total-active-count-questions" style="font-weight: bold; color: var(--accent-orange);">0</span> questions in MCQ Database Manager are selected. 
+            <a href="#" onclick="clearAllSelection('questions'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Clear selection</a>
+        </div>
+
         <div class="data-table-container">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 70px;">Ch</th>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-questions" onchange="toggleSelectAll('questions', this.checked)"></th>
+                        <th style="width: 70px; text-align: center;">Serial</th>
+                        <th style="width: 70px; text-align: center;">Chapter</th>
+                        <th style="width: 120px;">Page / Subchapter</th>
                         <th>Italian Statement</th>
                         <th>Bangla Meaning</th>
-                        <th style="width: 90px;">Answer</th>
+                        <th style="width: 90px; text-align: center;">Answer</th>
                         <th style="width: 110px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="questions-table-body">
-                    <!-- Injected by AJAX -->
                 </tbody>
             </table>
         </div>
 
-        <!-- Table Pagination -->
         <div class="pagination-container">
             <span class="pagination-info" id="pagination-status">Showing 0 of 0 entries</span>
             <div class="pagination-buttons">
@@ -354,7 +161,7 @@
             <button class="btn btn-secondary" id="tab-btn-pages" onclick="switchAdminSubTab('pages')" style="font-weight: bold; border-radius: 8px; font-size: 13px;">Pages</button>
         </div>
 
-        <!-- Sub Panel 1: Chapters -->
+         <!-- Sub Panel 1: Chapters -->
         <div id="admin-sub-panel-chapters">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -366,15 +173,31 @@
                         <option value="100">100</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" onclick="openAddChapterModal()">
-                    <i class="fa-solid fa-plus"></i> Add New Chapter
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-chapters" onclick="bulkDeleteItems('chapters')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddChapterModal()">
+                        <i class="fa-solid fa-plus"></i> Add New Chapter
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bulk Selection Across Pages Banners -->
+            <div id="bulk-select-all-banner-chapters" style="display: none; background: var(--bg-content); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+                All <span id="bulk-select-page-count-chapters" style="font-weight: bold; color: var(--accent-orange);">0</span> chapters on this page are selected. 
+                <a href="#" onclick="selectAllAcrossPages('chapters'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Select all <span id="bulk-select-total-count-chapters">0</span> chapters matching this search</a>
+            </div>
+            <div id="bulk-select-all-banner-active-chapters" style="display: none; background: var(--bg-content); border: 1px solid var(--accent-orange); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+                All <span id="bulk-select-total-active-count-chapters" style="font-weight: bold; color: var(--accent-orange);">0</span> chapters matching this search are selected. 
+                <a href="#" onclick="clearAllSelection('chapters'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Clear selection</a>
             </div>
 
             <div class="data-table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-chapters" onchange="toggleSelectAll('chapters', this.checked)"></th>
                             <th style="width: 80px;">ID</th>
                             <th style="width: 80px; text-align: center;">Number</th>
                             <th style="width: 100px; text-align: center;">Thumbnail</th>
@@ -401,7 +224,7 @@
             </div>
         </div>
 
-        <!-- Sub Panel 2: Pages -->
+         <!-- Sub Panel 2: Pages -->
         <div id="admin-sub-panel-pages" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -417,9 +240,24 @@
                         <option value="100">100</option>
                     </select>
                 </div>
-                <button class="btn btn-primary" onclick="openAddPageModal()">
-                    <i class="fa-solid fa-plus"></i> Add New Page
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-pages" onclick="bulkDeleteItems('pages')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddPageModal()">
+                        <i class="fa-solid fa-plus"></i> Add New Page
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bulk Selection Across Pages Banners -->
+            <div id="bulk-select-all-banner-pages" style="display: none; background: var(--bg-content); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+                All <span id="bulk-select-page-count-pages" style="font-weight: bold; color: var(--accent-orange);">0</span> pages on this page are selected. 
+                <a href="#" onclick="selectAllAcrossPages('pages'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Select all <span id="bulk-select-total-count-pages">0</span> pages in this chapter</a>
+            </div>
+            <div id="bulk-select-all-banner-active-pages" style="display: none; background: var(--bg-content); border: 1px solid var(--accent-orange); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+                All <span id="bulk-select-total-active-count-pages" style="font-weight: bold; color: var(--accent-orange);">0</span> pages in this chapter are selected. 
+                <a href="#" onclick="clearAllSelection('pages'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Clear selection</a>
             </div>
 
             <!-- List of pages -->
@@ -427,6 +265,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-pages" onchange="toggleSelectAll('pages', this.checked)"></th>
                             <th style="width: 60px;">ID</th>
                             <th style="width: 80px; text-align: center;">Order</th>
                             <th>Page Title (Italian)</th>
@@ -535,9 +374,14 @@
                     <h2 class="welcome-title">Categories Settings</h2>
                     <p class="welcome-subtitle">Manage driving categories, descriptions, and details.</p>
                 </div>
-                <button class="btn btn-primary" onclick="openAddCategoryModal()">
-                    <i class="fa-solid fa-plus"></i> Add Category
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-categories" onclick="bulkDeleteItems('categories')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddCategoryModal()">
+                        <i class="fa-solid fa-plus"></i> Add Category
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -545,6 +389,7 @@
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-categories" onchange="toggleSelectAll('categories', this.checked)"></th>
                         <th style="width: 80px;">ID</th>
                         <th style="width: 250px;">Category Name</th>
                         <th>Description</th>
@@ -555,6 +400,64 @@
                     <!-- Categories injected dynamically -->
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- PANEL 5.5: Admin Dictionary CRUD (Dizionario) -->
+    <div id="panel-dizionario" class="crud-panel">
+        <div class="welcome-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h2 class="welcome-title">Manage Dictionary (Dizionario)</h2>
+                    <p class="welcome-subtitle">Create and configure dictionary terms with translation, definition, and audio/video files.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-dizionario" onclick="bulkDeleteDizionarioWords()" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddDizionarioModal()">
+                        <i class="fa-solid fa-plus"></i> Add Dictionary Word
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="text" class="form-control" id="dizionario-search-input" placeholder="Search dictionary terms..." oninput="fetchDizionario()" style="width: 250px; height: 38px;">
+                <select class="form-control" id="dizionario-per-page" onchange="fetchDizionario()" style="width: 80px; height: 38px;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-dizionario" onchange="toggleSelectAll('dizionario', this.checked)"></th>
+                        <th style="width: 80px;">ID</th>
+                        <th style="width: 150px;">Word (IT)</th>
+                        <th style="width: 180px;">Translation (BN)</th>
+                        <th>Definition / Description</th>
+                        <th style="width: 150px; text-align: center;">Media</th>
+                        <th style="width: 180px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="dizionario-table-body">
+                    <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Loading dictionary...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container" id="dizionario-pagination-row">
+            <span class="pagination-info" id="dizionario-pagination-status">Showing 0 of 0 entries</span>
+            <div class="pagination-buttons">
+                <button class="btn btn-secondary btn-sm" id="btn-dizionario-prev" onclick="prevDizionarioPage()"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+                <button class="btn btn-secondary btn-sm" id="btn-dizionario-next" onclick="nextDizionarioPage()">Next <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
         </div>
     </div>
 
@@ -764,9 +667,14 @@
                     <h2 class="welcome-title"><i class="fa-solid fa-list-ul" style="color: #fbbf24;"></i> অধ্যায় (Category)</h2>
                     <p class="welcome-subtitle">রোড সাইন অধ্যায় (Category) সমূহ পরিচালনা করুন।</p>
                 </div>
-                <button class="btn btn-primary" onclick="openAddCartelloCatModal()">
-                    <i class="fa-solid fa-plus"></i> নতুন ক্যাটাগরি তৈরি করুন
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-cartello-categories" onclick="bulkDeleteItems('cartello-categories')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddCartelloCatModal()">
+                        <i class="fa-solid fa-plus"></i> নতুন ক্যাটাগরি তৈরি করুন
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -780,6 +688,7 @@
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-categories" onchange="toggleSelectAll('cartello-categories', this.checked)"></th>
                         <th style="width: 80px;">ID</th>
                         <th>ক্যাটাগরি নাম (Italian & বাংলা)</th>
                         <th style="width: 150px;">মোট চ্যাপ্টার</th>
@@ -794,104 +703,118 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- 2. CARTELLI CHAPTERS PANEL                               -->
+    <!-- 2. CARTELLI CHAPTERS & PAGES PANEL                       -->
     <!-- ======================================================== -->
     <div id="panel-cartelli-chapters" class="crud-panel">
         <div class="welcome-header">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <h2 class="welcome-title"><i class="fa-solid fa-book" style="color: #60a5fa;"></i> Chapter (অধ্যায়)</h2>
-                    <p class="welcome-subtitle">প্রতিটি অধ্যায় (Category) এর অধীনে চ্যাপ্টার সমূহ পরিচালনা করুন (সর্বোচ্চ ২৫টি)।</p>
+            <h2 class="welcome-title">Chapters & Pages Settings (Cartelli)</h2>
+            <p class="welcome-subtitle">Manage Cartelli chapter names, uploaded thumbnails, chapter pages, voiceovers and question mappings.</p>
+        </div>
+
+        <!-- Tab switches for Chapters and Pages -->
+        <div class="admin-tabs" style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+            <button class="btn" id="cartello-tab-btn-chapters" onclick="switchCartelloAdminSubTab('chapters')" style="background-color: var(--accent-orange); color: white; font-weight: 800; border-radius: 8px; font-size: 13px;">Chapters</button>
+            <button class="btn btn-secondary" id="cartello-tab-btn-pages" onclick="switchCartelloAdminSubTab('pages')" style="font-weight: bold; border-radius: 8px; font-size: 13px;">Pages</button>
+        </div>
+
+        <!-- Sub Panel 1: Chapters -->
+        <div id="cartello-sub-panel-chapters">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <select class="form-control" id="filter-chapter-category-id" onchange="fetchCartelloChapters()" style="width: 220px; height: 38px;">
+                        <option value="">সব ক্যাটাগরি</option>
+                    </select>
+                    <input type="text" class="form-control" id="cartello-chapter-search" placeholder="Search chapter..." oninput="fetchCartelloChapters()" style="width: 220px; height: 38px;">
                 </div>
-                <button class="btn btn-primary" onclick="openAddCartelloChapterModal()">
-                    <i class="fa-solid fa-plus"></i> নতুন চ্যাপ্টার তৈরি করুন
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-cartello-chapters" onclick="bulkDeleteItems('cartello-chapters')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddCartelloChapterModal()">
+                        <i class="fa-solid fa-plus"></i> Add New Chapter
+                    </button>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-chapters" onchange="toggleSelectAll('cartello-chapters', this.checked)"></th>
+                            <th style="width: 80px;">ID</th>
+                            <th style="width: 120px;">NUMBER</th>
+                            <th>CHAPTER NAME (ITALIAN)</th>
+                            <th>CHAPTER NAME (BANGLA)</th>
+                            <th>CATEGORY</th>
+                            <th style="width: 150px; text-align: right;">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartello-chapters-tbody">
+                        <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-            <select class="form-control" id="filter-chapter-category-id" onchange="fetchCartelloChapters()" style="width: 220px; height: 38px;">
-                <option value="">সব ক্যাটাগরি</option>
-            </select>
-            <input type="text" class="form-control" id="cartello-chapter-search" placeholder="চ্যাপ্টার খুঁজুন..." oninput="fetchCartelloChapters()" style="width: 220px; height: 38px;">
-        </div>
-
-        <div class="data-table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th style="width: 120px;">চ্যাপ্টার নং</th>
-                        <th>চ্যাপ্টার নাম (Italian & বাংলা)</th>
-                        <th>অধ্যায় (Category)</th>
-                        <th style="width: 150px; text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="cartello-chapters-tbody">
-                    <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- ======================================================== -->
-    <!-- 3. CARTELLI PAGES PANEL                                  -->
-    <!-- ======================================================== -->
-    <div id="panel-cartelli-pages" class="crud-panel">
-        <div class="welcome-header">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <h2 class="welcome-title"><i class="fa-solid fa-file-invoice" style="color: #34d399;"></i> Page (পৃষ্ঠা)</h2>
-                    <p class="welcome-subtitle">চ্যাপ্টারের অধীনে মাল্টি-ল্যাঙ্গুয়েজ পৃষ্ঠা ও ছবি/ভিডিও আপলোড পরিচালনা করুন।</p>
+        <!-- Sub Panel 2: Pages -->
+        <div id="cartello-sub-panel-pages" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <select class="form-control" id="filter-page-category-id" onchange="handleCategoryChange('filter-page-category-id', 'filter-page-chapter-id'); fetchCartelloPages();" style="width: 200px; height: 38px;">
+                        <option value="">সব ক্যাটাগরি</option>
+                    </select>
+                    <select class="form-control" id="filter-page-chapter-id" onchange="fetchCartelloPages()" style="width: 200px; height: 38px;">
+                        <option value="">সব চ্যাপ্টার</option>
+                    </select>
+                    <input type="text" class="form-control" id="cartello-page-search" placeholder="Search page..." oninput="fetchCartelloPages()" style="width: 200px; height: 38px;">
                 </div>
-                <button class="btn btn-primary" onclick="openAddCartelloPageModal()">
-                    <i class="fa-solid fa-plus"></i> নতুন পেজ তৈরি করুন
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-cartello-pages" onclick="bulkDeleteItems('cartello-pages')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddCartelloPageModal()">
+                        <i class="fa-solid fa-plus"></i> Add New Page
+                    </button>
+                </div>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-pages" onchange="toggleSelectAll('cartello-pages', this.checked)"></th>
+                            <th style="width: 80px;">ID</th>
+                            <th style="width: 120px;">ORDER</th>
+                            <th>PAGE TITLE (ITALIAN)</th>
+                            <th>PAGE TITLE (BANGLA)</th>
+                            <th style="width: 100px; text-align: center;">MEDIA</th>
+                            <th style="width: 150px; text-align: right;">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartello-pages-tbody">
+                        <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-            <select class="form-control" id="filter-page-category-id" onchange="handleCategoryChange('filter-page-category-id', 'filter-page-chapter-id'); fetchCartelloPages();" style="width: 200px; height: 38px;">
-                <option value="">সব ক্যাটাগরি</option>
-            </select>
-            <select class="form-control" id="filter-page-chapter-id" onchange="fetchCartelloPages()" style="width: 200px; height: 38px;">
-                <option value="">সব চ্যাপ্টার</option>
-            </select>
-            <input type="text" class="form-control" id="cartello-page-search" placeholder="পেজ খুঁজুন..." oninput="fetchCartelloPages()" style="width: 200px; height: 38px;">
-        </div>
-
-        <div class="data-table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th style="width: 120px;">পেজ নং</th>
-                        <th>পেজ শিরোনাম (Italian & বাংলা)</th>
-                        <th>চ্যাপ্টার</th>
-                        <th style="width: 100px; text-align: center;">মিডিয়া</th>
-                        <th style="width: 150px; text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="cartello-pages-tbody">
-                    <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
-                </tbody>
-            </table>
-        </div>
     </div>
 
-    <!-- ======================================================== -->
-    <!-- 4. CARTELLI MCQS PANEL                                   -->
-    <!-- ======================================================== -->
+    <!-- 4. CARTELLI MCQS PANEL -->
     <div id="panel-cartelli-mcqs" class="crud-panel">
         <div class="welcome-header">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
                 <div>
-                    <h2 class="welcome-title"><i class="fa-solid fa-circle-question" style="color: #f472b6;"></i> MCQ (বহুনির্বাচনী প্রশ্ন)</h2>
-                    <p class="welcome-subtitle">অধ্যায়, চ্যাপ্টার এবং পেজ নির্ধারণ করে MCQ প্রশ্ন ও উত্তরসমূহ পরিচালনা করুন।</p>
+                    <h2 class="welcome-title"><i class="fa-solid fa-circle-question" style="color: #f472b6;"></i> Cartelli MCQs (বহুনির্বাচনী প্রশ্ন)</h2>
+                    <p class="welcome-subtitle">অধ্যায়, চ্যাপ্টার এবং পেজ নির্ধারণ করে Cartelli MCQ প্রশ্ন ও উত্তরসমূহ পরিচালনা করুন।</p>
                 </div>
-                <button class="btn btn-primary" onclick="openAddCartelloMcqModal()">
-                    <i class="fa-solid fa-plus"></i> নতুন MCQ তৈরি করুন
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" id="btn-bulk-delete-cartello-mcqs" onclick="bulkDeleteItems('cartello-mcqs')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
+                        <i class="fa-solid fa-trash-can"></i> Delete Selected
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddCartelloMcqModal()">
+                        <i class="fa-solid fa-plus"></i> নতুন Cartelli MCQ তৈরি করুন
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -908,10 +831,20 @@
             <input type="text" class="form-control" id="cartello-mcq-search" placeholder="প্রশ্ন খুঁজুন..." oninput="fetchCartelloMcqs(1)" style="width: 200px; height: 38px;">
         </div>
 
+        <div id="bulk-select-all-banner-cartello-mcqs" style="display: none; background: var(--bg-content); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+            All <span id="bulk-select-page-count-cartello-mcqs" style="font-weight: bold; color: var(--accent-orange);">0</span> MCQs on this page are selected. 
+            <a href="#" onclick="selectAllAcrossPages('cartello-mcqs'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Select all <span id="bulk-select-total-count-cartello-mcqs">0</span> MCQs matching this filter</a>
+        </div>
+        <div id="bulk-select-all-banner-active-cartello-mcqs" style="display: none; background: var(--bg-content); border: 1px solid var(--accent-orange); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--text-primary);">
+            All <span id="bulk-select-total-active-count-cartello-mcqs" style="font-weight: bold; color: var(--accent-orange);">0</span> MCQs matching this filter are selected. 
+            <a href="#" onclick="clearAllSelection('cartello-mcqs'); return false;" style="color: var(--accent-blue); font-weight: bold; text-decoration: underline; margin-left: 8px;">Clear selection</a>
+        </div>
+
         <div class="data-table-container">
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-mcqs" onchange="toggleSelectAll('cartello-mcqs', this.checked)"></th>
                         <th style="width: 80px;">ID</th>
                         <th style="width: 180px;">ক্যাটাগরি / চ্যাপ্টার (পেজ নং)</th>
                         <th>প্রশ্ন (Italian & বাংলা অর্থ)</th>
@@ -1456,6 +1389,59 @@
                     <!-- Backups list injected dynamically -->
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- PANEL 14: General Settings Manager -->
+    <div id="panel-general-settings" class="crud-panel">
+        <div class="welcome-header">
+            <div>
+                <h2 class="welcome-title">General Settings Manager</h2>
+                <p class="welcome-subtitle">Configure application title, brand logo, and favicon.</p>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 24px; max-width: 700px;">
+            <form id="general-settings-form" onsubmit="saveGeneralSettingsForm(event)">
+                @csrf
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Application Name</label>
+                    <input type="text" id="settings-app-name" name="app_name" class="form-control" style="width: 100%;" required>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">This title is used as the browser tab title and default application brand name.</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Application Logo</label>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div id="settings-logo-preview-container" style="width: 80px; height: 80px; border-radius: 12px; border: 1.5px solid var(--border-card); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
+                            <img id="settings-logo-preview" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;">
+                            <span id="settings-logo-placeholder" style="font-size: 12px; color: var(--text-secondary);">No Logo</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <input type="file" id="settings-app-logo" name="app_logo" accept="image/*" class="form-control" style="width: 100%;">
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">Select a brand logo image file (JPEG, PNG, SVG, WebP).</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Browser Favicon</label>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div id="settings-favicon-preview-container" style="width: 48px; height: 48px; border-radius: 8px; border: 1.5px solid var(--border-card); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
+                            <img id="settings-favicon-preview" src="" style="width: 32px; height: 32px; object-fit: contain; display: none;">
+                            <span id="settings-favicon-placeholder" style="font-size: 10px; color: var(--text-secondary);">No Icon</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <input type="file" id="settings-favicon" name="favicon" accept="image/*" class="form-control" style="width: 100%;">
+                            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">Select a favicon image file (ICO, PNG, WebP, etc.).</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="save-settings-btn">
+                    <i class="fa-solid fa-save"></i> Save Settings
+                </button>
+            </form>
         </div>
     </div>
 @endsection

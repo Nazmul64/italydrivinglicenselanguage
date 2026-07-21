@@ -49,6 +49,7 @@ function switchPanel(panelId) {
     if (panelId === 'dashboard') {
         fetchStats();
     } else if (panelId === 'mcq-questions') {
+        currentPage = 1;
         fetchQuestions();
     } else if (panelId === 'mcq-chapters') {
         fetchChaptersAdmin();
@@ -88,11 +89,15 @@ function switchPanel(panelId) {
     } else if (panelId === 'cartelli-categories') {
         initCartelloCategories();
     } else if (panelId === 'cartelli-chapters') {
-        initCartelloChapters();
+        switchCartelloAdminSubTab('chapters');
     } else if (panelId === 'cartelli-pages') {
         initCartelloPages();
     } else if (panelId === 'cartelli-mcqs') {
         initCartelloMcqs();
+    } else if (panelId === 'dizionario') {
+        fetchDizionario();
+    } else if (panelId === 'general-settings') {
+        fetchGeneralSettings();
     }
 }
 
@@ -140,39 +145,14 @@ function fetchStats() {
 }
 fetchStats();
 
-// 25 Chapters local metadata dictionary to sync option lists
-const chaptersDict = {
-    1: "Definizioni stradali e doveri dell'uso della strada",
-    2: "Segnali di pericolo",
-    3: "Segnali di divieto",
-    4: "Segnali di obbligo",
-    5: "Segnali orizzontali e segni sulla strada",
-    6: "Segnalazioni semaforiche e degli agenti del traffico",
-    7: "Pericolo e intralcio, limiti di velocità, distanza di sicurezza",
-    8: "Norme sulla circolazione dei veicoli (precedenze)",
-    9: "Esempi di precedenza (rappresentazioni grafiche)",
-    10: "Norme sul sorpasso",
-    11: "Fermata, sosta, partenza e ingombro della carreggiata",
-    12: "Norme sull'uso delle luci, dispositivi acustici, spie",
-    13: "Cinture di sicurezza, sistemi di ritenuta, casco",
-    14: "Patenti di guida, documenti, punti patente",
-    15: "Incidenti stradali e primo soccorso",
-    16: "Guida in relazione alle condizioni ambientali",
-    17: "Responsabilità civile, penale, amministrativa, assicurazione",
-    18: "Limitazione dei consumi, inquinamento, elementi del veicolo",
-    19: "Dispositivi di equipaggiamento e specchietti retrovisori",
-    20: "Uso ed efficienza dei dispositivi del veicolo",
-    21: "Comportamenti alla guida in autostrada e strade extraurbane",
-    22: "Segnali di indicazione, pannelli integrativi, segnali turistici",
-    23: "Uso corretto della strada e comportamenti precauzionali",
-    24: "Segnali luminosi e indicazioni degli agenti di polizia",
-    25: "Definizioni generali e classificazione dei veicoli"
-};
+// Dynamic Chapters dictionary to sync option lists
+let chaptersDict = {};
 
 // Populate Chapter dropdown selection lists
 function populateChaptersSelectors() {
     const filterCh = document.getElementById('filter-chapter');
     const formCh = document.getElementById('form-chapter');
+    if (!filterCh || !formCh) return;
 
     filterCh.innerHTML = '<option value="">সকল অধ্যায় (All Chapters)</option>';
     formCh.innerHTML = '';
@@ -182,7 +162,64 @@ function populateChaptersSelectors() {
         formCh.innerHTML += `<option value="${id}">${id}. ${chaptersDict[id]}</option>`;
     }
 }
-populateChaptersSelectors();
+
+// Function to fetch chapters and update dropdowns dynamically
+function loadChaptersData(onComplete = null) {
+    return fetch('/admin/api/chapters')
+        .then(res => res.json())
+        .then(data => {
+            chaptersDict = {};
+            data.forEach(ch => {
+                chaptersDict[ch.id] = ch.name;
+            });
+            populateChaptersSelectors();
+
+            const sel = document.getElementById('admin-page-chapter-select');
+            if (sel) {
+                const prevVal = sel.value;
+                sel.innerHTML = '';
+                data.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = `Ch#${ch.id} - ${ch.name}`;
+                    sel.appendChild(opt);
+                });
+
+                if (data.length > 0) {
+                    if (prevVal && data.some(ch => ch.id == prevVal)) {
+                        sel.value = prevVal;
+                    } else {
+                        sel.value = data[0].id;
+                        loadAdminPagesForSelectedChapter(data[0].id);
+                    }
+                }
+            }
+
+            const modalSel = document.getElementById('form-page-chapter-id');
+            if (modalSel) {
+                modalSel.innerHTML = '';
+                data.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.textContent = `Ch#${ch.id} - ${ch.name}`;
+                    modalSel.appendChild(opt);
+                });
+            }
+
+            // Sync MCQ question modal select chapter if it's set
+            const formCh = document.getElementById('form-chapter');
+            if (formCh && formCh.value) {
+                syncChapterName(formCh.value);
+            } else if (formCh && Object.keys(chaptersDict).length > 0) {
+                const firstId = Object.keys(chaptersDict)[0];
+                formCh.value = firstId;
+                syncChapterName(firstId);
+            }
+
+            if (onComplete) onComplete(data);
+        })
+        .catch(err => console.error("Error loading chapters data:", err));
+}
 
 function syncChapterName(val) {
     document.getElementById('form-chapter-name').value = chaptersDict[val] || '';
@@ -195,14 +232,16 @@ function fetchPagesForChapterSelect(chapterId, selectedPageId = null) {
 
     pageSelect.innerHTML = '<option value="">Loading pages...</option>';
 
-    fetch(`/api/chapters/${chapterId}/pages`)
+    fetch(`/admin/api/chapters/${chapterId}/pages`)
         .then(res => res.json())
         .then(pages => {
             pageSelect.innerHTML = '<option value="">Select Page...</option>';
-            pages.forEach(p => {
-                const selectedAttr = (selectedPageId && parseInt(selectedPageId) === p.id) ? 'selected' : '';
-                pageSelect.innerHTML += `<option value="${p.id}" ${selectedAttr}>${p.id}. ${p.title} (${p.bn_title || ''})</option>`;
-            });
+            if (Array.isArray(pages)) {
+                pages.forEach(p => {
+                    const selectedAttr = (selectedPageId && parseInt(selectedPageId) === p.id) ? 'selected' : '';
+                    pageSelect.innerHTML += `<option value="${p.id}" ${selectedAttr}>${p.id}. ${p.title} (${p.bn_title || ''})</option>`;
+                });
+            }
         })
         .catch(err => {
             console.error(err);
@@ -211,18 +250,58 @@ function fetchPagesForChapterSelect(chapterId, selectedPageId = null) {
 }
 syncChapterName(1);
 
+function onFilterChapterChange(chapterId) {
+    const pageSelect = document.getElementById('filter-page');
+    if (!pageSelect) return;
+
+    if (!chapterId) {
+        pageSelect.style.display = 'none';
+        pageSelect.value = '';
+        pageSelect.innerHTML = '<option value="">সকল পেজ (All Pages)</option>';
+        fetchQuestions();
+        return;
+    }
+
+    pageSelect.innerHTML = '<option value="">Loading pages...</option>';
+    pageSelect.style.display = 'block';
+
+    fetch(`/admin/api/chapters/${chapterId}/pages`)
+        .then(res => res.json())
+        .then(pages => {
+            pageSelect.innerHTML = '<option value="">সকল পেজ (All Pages)</option>';
+            if (Array.isArray(pages)) {
+                pages.forEach(p => {
+                    pageSelect.innerHTML += `<option value="${p.id}">${p.id}. ${p.title}</option>`;
+                });
+            }
+            fetchQuestions();
+        })
+        .catch(err => {
+            console.error(err);
+            pageSelect.innerHTML = '<option value="">Error loading pages</option>';
+            fetchQuestions();
+        });
+}
+
 // Fetch Questions paginated list via AJAX
 function fetchQuestions() {
     const chapter = document.getElementById('filter-chapter').value;
+    const pageSelect = document.getElementById('filter-page');
+    const pageId = pageSelect ? pageSelect.value : '';
     const search = document.getElementById('search-question').value;
 
     let url = `/admin/api/questions?page=${currentPage}`;
     if (chapter) url += `&chapter=${chapter}`;
+    if (pageId) url += `&page_id=${pageId}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
     fetch(url)
         .then(res => res.json())
         .then(data => {
+            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
+                selectAllAcrossPagesFlag['questions'] = false;
+            }
+            questionsTotalCount = data.total || 0;
             renderQuestionsTable(data.data);
             updatePaginationControls(data);
         })
@@ -237,19 +316,28 @@ function renderQuestionsTable(questions) {
     const tbody = document.getElementById('questions-table-body');
     tbody.innerHTML = '';
 
+    const masterSelect = document.getElementById('bulk-select-questions');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('questions');
+
     if (!questions || questions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 30px;">কোনো প্রশ্ন পাওয়া যায়নি</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 30px;">কোনো প্রশ্ন পাওয়া যায়নি</td></tr>';
         return;
     }
 
     questions.forEach(q => {
         const tr = document.createElement('tr');
         const isVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+        const pageTitle = q.page ? `${q.page.id}. ${q.page.title}` : '<span style="opacity: 0.5;">Not Assigned</span>';
+
         tr.innerHTML = `
-                    <td style="font-weight: 700; color: var(--accent-teal);">${q.chapter}</td>
+                    <td style="text-align: center;"><input type="checkbox" class="select-question-checkbox" value="${q.id}" onchange="updateBulkDeleteButton('questions')"></td>
+                    <td style="text-align: center; font-weight: bold; color: var(--text-secondary);">${q.sort_order || 0}</td>
+                    <td style="text-align: center; font-weight: 700; color: var(--accent-teal);">${q.chapter}</td>
+                    <td style="font-size: 11px; font-weight: 600; color: var(--text-primary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${q.page ? q.page.title : ''}">${pageTitle}</td>
                     <td style="font-weight: 500;">${q.italian}</td>
                     <td style="color: var(--text-secondary); font-size: 12px;">${q.bangla}</td>
-                    <td>
+                    <td style="text-align: center;">
                         <span class="badge ${isVero ? 'badge-vero' : 'badge-falso'}">
                             ${isVero ? 'VERO' : 'FALSO'}
                         </span>
@@ -285,17 +373,116 @@ function nextPage() {
     fetchQuestions();
 }
 
+function previewQuestionImage(input) {
+    const preview = document.getElementById('question-img-preview-img');
+    const container = document.getElementById('question-img-preview-container');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            container.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.src = '';
+        container.style.display = 'none';
+    }
+}
+
+function previewQuestionAudio(input) {
+    const preview = document.getElementById('question-audio-preview-player');
+    const container = document.getElementById('question-audio-preview-container');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            container.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.src = '';
+        container.style.display = 'none';
+    }
+}
+
+function previewQuestionVideo(input) {
+    const preview = document.getElementById('question-video-preview-player');
+    const container = document.getElementById('question-video-preview-container');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            container.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.src = '';
+        container.style.display = 'none';
+    }
+}
+
+function toggleQuestionVideoInput(enabled) {
+    const wrapper = document.getElementById('question-video-inputs-wrapper');
+    const labelContainer = document.getElementById('question-video-toggle-label');
+    const statusIcon = document.getElementById('question-video-status-icon');
+    const toggleText = document.getElementById('question-video-toggle-text');
+    const previewContainer = document.getElementById('question-video-preview-container');
+    const toggleSpan = document.getElementById('question-video-toggle-span');
+
+    if (enabled) {
+        if (wrapper) wrapper.style.display = 'flex';
+        if (statusIcon) statusIcon.className = 'fa-solid fa-video';
+        if (toggleText) toggleText.innerText = 'ON (ফ্রন্টে দেখাবে)';
+        if (labelContainer) labelContainer.style.color = '#4CAF50';
+        if (toggleSpan) toggleSpan.style.backgroundColor = '#4CAF50';
+    } else {
+        if (wrapper) wrapper.style.display = 'none';
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (statusIcon) statusIcon.className = 'fa-solid fa-eye-slash';
+        if (toggleText) toggleText.innerText = 'OFF (ফ্রন্টে দেখাবে না)';
+        if (labelContainer) labelContainer.style.color = '#EF4444';
+        if (toggleSpan) toggleSpan.style.backgroundColor = '#EF4444';
+    }
+}
+
 // Add / Edit Question Modals logic
 function openAddQuestionModal() {
     document.getElementById('question-modal-title').innerText = 'Add New Question';
     document.getElementById('form-question-id').value = '';
+    document.getElementById('form-question-sort-order').value = '0';
     document.getElementById('form-italian').value = '';
     document.getElementById('form-bangla').value = '';
     document.getElementById('form-is-vero').value = '1';
+    document.getElementById('question-vocab-tbody').innerHTML = '';
+
+    document.getElementById('form-question-img-file').value = '';
+    document.getElementById('form-question-audio-file').value = '';
+    document.getElementById('form-question-video-file').value = '';
+    document.getElementById('form-question-video-url').value = '';
+    document.getElementById('question-img-preview-container').style.display = 'none';
+    document.getElementById('question-audio-preview-container').style.display = 'none';
+    document.getElementById('question-video-preview-container').style.display = 'none';
+
+    const videoToggle = document.getElementById('form-question-video-toggle');
+    if (videoToggle) {
+        videoToggle.checked = true;
+        toggleQuestionVideoInput(true);
+    }
 
     const firstChapter = Object.keys(chaptersDict)[0];
     document.getElementById('form-chapter').value = firstChapter;
     syncChapterName(firstChapter);
+
+    const itInput = document.getElementById('form-italian');
+    const bnInput = document.getElementById('form-bangla');
+    if (itInput && !itInput.dataset.listenerAttached) {
+        itInput.addEventListener('input', updateQuestionUnderlinedWordsList);
+        itInput.dataset.listenerAttached = 'true';
+    }
+    if (bnInput && !bnInput.dataset.listenerAttached) {
+        bnInput.addEventListener('input', updateQuestionUnderlinedWordsList);
+        bnInput.dataset.listenerAttached = 'true';
+    }
 
     document.getElementById('question-modal').style.display = 'flex';
 }
@@ -303,15 +490,73 @@ function openAddQuestionModal() {
 function openEditQuestionModal(q) {
     document.getElementById('question-modal-title').innerText = 'Edit Question';
     document.getElementById('form-question-id').value = q.id;
+    document.getElementById('form-question-sort-order').value = q.sort_order || 0;
     document.getElementById('form-chapter').value = q.chapter;
     document.getElementById('form-chapter-name').value = q.chapter_name || '';
     document.getElementById('form-italian').value = q.italian;
     document.getElementById('form-bangla').value = q.bangla;
+    document.getElementById('question-vocab-tbody').innerHTML = '';
+
+    document.getElementById('form-question-img-file').value = '';
+    document.getElementById('form-question-audio-file').value = '';
+    document.getElementById('form-question-video-file').value = '';
+    document.getElementById('form-question-video-url').value = '';
+
+    if (q.image) {
+        document.getElementById('question-img-preview-img').src = q.image;
+        document.getElementById('question-img-preview-container').style.display = 'block';
+    } else {
+        document.getElementById('question-img-preview-container').style.display = 'none';
+    }
+
+    if (q.audio) {
+        document.getElementById('question-audio-preview-player').src = q.audio;
+        document.getElementById('question-audio-preview-container').style.display = 'block';
+    } else {
+        document.getElementById('question-audio-preview-container').style.display = 'none';
+    }
+
+    const videoToggle = document.getElementById('form-question-video-toggle');
+    if (q.video && q.video.trim() !== '') {
+        if (videoToggle) videoToggle.checked = true;
+        toggleQuestionVideoInput(true);
+        if (q.video.startsWith('http') || q.video.includes('youtube.com') || q.video.includes('youtu.be')) {
+            document.getElementById('form-question-video-url').value = q.video;
+            document.getElementById('question-video-preview-container').style.display = 'none';
+        } else {
+            document.getElementById('form-question-video-url').value = '';
+            document.getElementById('question-video-preview-player').src = q.video;
+            document.getElementById('question-video-preview-container').style.display = 'block';
+        }
+    } else {
+        if (videoToggle) videoToggle.checked = false;
+        toggleQuestionVideoInput(false);
+        document.getElementById('question-video-preview-container').style.display = 'none';
+    }
+
+    let vocabArr = [];
+    try {
+        vocabArr = typeof q.vocabulary === 'string' ? JSON.parse(q.vocabulary) : q.vocabulary;
+    } catch (e) { }
+    if (Array.isArray(vocabArr)) {
+        vocabArr.forEach(item => addQuestionVocabRow(item.italian, item.bangla, item.image));
+    }
 
     const isVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
     document.getElementById('form-is-vero').value = isVero ? '1' : '0';
 
     fetchPagesForChapterSelect(q.chapter, q.page_id);
+
+    const itInput = document.getElementById('form-italian');
+    const bnInput = document.getElementById('form-bangla');
+    if (itInput && !itInput.dataset.listenerAttached) {
+        itInput.addEventListener('input', updateQuestionUnderlinedWordsList);
+        itInput.dataset.listenerAttached = 'true';
+    }
+    if (bnInput && !bnInput.dataset.listenerAttached) {
+        bnInput.addEventListener('input', updateQuestionUnderlinedWordsList);
+        bnInput.dataset.listenerAttached = 'true';
+    }
 
     document.getElementById('question-modal').style.display = 'flex';
 }
@@ -327,20 +572,68 @@ function saveQuestion(e) {
     const chapter = document.getElementById('form-chapter').value;
     const chapter_name = document.getElementById('form-chapter-name').value;
     const page_id = document.getElementById('form-page-id').value;
+    const sort_order = document.getElementById('form-question-sort-order').value;
     const italian = document.getElementById('form-italian').value;
     const bangla = document.getElementById('form-bangla').value;
     const is_vero = document.getElementById('form-is-vero').value === '1';
 
-    const payload = { chapter, chapter_name, page_id, italian, bangla, is_vero };
+    const isVideoToggleOn = document.getElementById('form-question-video-toggle') ? document.getElementById('form-question-video-toggle').checked : true;
+    const imgFile = document.getElementById('form-question-img-file').files[0];
+    const audioFile = document.getElementById('form-question-audio-file').files[0];
+    const videoFile = document.getElementById('form-question-video-file').files[0];
+    const videoUrl = document.getElementById('form-question-video-url').value.trim();
+
+    const vocabRows = document.querySelectorAll('#question-vocab-tbody tr');
+    const vocabulary = [];
+    const formData = new FormData();
+
+    vocabRows.forEach((row, index) => {
+        const itInput = row.querySelector('.vocab-it');
+        const bnInput = row.querySelector('.vocab-bn');
+        const fileInput = row.querySelector('.vocab-img-file');
+        const pathInput = row.querySelector('.vocab-img-path');
+        const it = itInput ? itInput.value.trim() : '';
+        const bn = bnInput ? bnInput.value.trim() : '';
+        const existingPath = pathInput ? pathInput.value : '';
+
+        if (it && bn) {
+            const item = { italian: it, bangla: bn, image: existingPath };
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                formData.append(`vocab_image_${index}`, fileInput.files[0]);
+                item.image_index = index;
+            }
+            vocabulary.push(item);
+        }
+    });
+
+    formData.append('chapter', chapter);
+    formData.append('chapter_name', chapter_name);
+    formData.append('page_id', page_id);
+    formData.append('sort_order', sort_order);
+    formData.append('italian', italian);
+    formData.append('bangla', bangla);
+    formData.append('is_vero', is_vero ? '1' : '0');
+    formData.append('vocabulary', JSON.stringify(vocabulary));
+
+    if (imgFile) formData.append('image', imgFile);
+    if (audioFile) formData.append('audio', audioFile);
+
+    if (isVideoToggleOn) {
+        if (videoFile) formData.append('video', videoFile);
+        else if (videoUrl) formData.append('video', videoUrl);
+    } else {
+        formData.append('clear_video', '1');
+        formData.append('video', '');
+    }
+
     const url = id ? `/admin/api/questions/update/${id}` : '/admin/api/questions/store';
 
     fetch(url, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken
         },
-        body: JSON.stringify(payload)
+        body: formData
     })
         .then(res => res.json())
         .then(data => {
@@ -428,55 +721,6 @@ function renderChaptersGrid(chapters) {
     });
 }
 
-function openEditChapterModal(id, name, bnName) {
-    document.getElementById('form-chapter-id-val').value = id;
-    document.getElementById('form-chapter-num-display').value = id;
-    document.getElementById('form-chapter-title-val').value = name;
-    document.getElementById('form-chapter-title-bn').value = bnName || '';
-    document.getElementById('form-chapter-image').value = '';
-    document.getElementById('chapter-modal').style.display = 'flex';
-}
-
-function closeChapterModal() {
-    document.getElementById('chapter-modal').style.display = 'none';
-}
-
-function saveChapter(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-chapter-id-val').value;
-    const name = document.getElementById('form-chapter-title-val').value;
-    const bnName = document.getElementById('form-chapter-title-bn').value;
-    const imageFile = document.getElementById('form-chapter-image').files[0];
-
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('bn_name', bnName);
-    if (imageFile) {
-        formData.append('image', imageFile);
-    }
-
-    fetch(`/admin/api/chapters/update/${id}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: formData
-    })
-        .then(res => res.json())
-        .then(data => {
-            closeChapterModal();
-            showToast('অধ্যায় সফলভাবে আপডেট করা হয়েছে');
-
-            // Re-sync local dictionary and re-render grid
-            chaptersDict[id] = name;
-            populateChaptersSelectors();
-            fetchChapters();
-        })
-        .catch(err => {
-            console.error(err);
-            showToast('অধ্যায় আপডেট করতে সমস্যা হয়েছে');
-        });
-}
 
 // ==========================================
 // Admin Pages Management Operations
@@ -534,6 +778,18 @@ function populateAdminChapterSelectDropdown() {
                 select.appendChild(opt);
             });
 
+            // Populate the modal's chapter select dropdown
+            const modalSelect = document.getElementById('form-page-chapter-id');
+            if (modalSelect) {
+                modalSelect.innerHTML = '';
+                chapters.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch.id;
+                    opt.innerText = `Capitolo ${ch.id}) ${ch.name}`;
+                    modalSelect.appendChild(opt);
+                });
+            }
+
             if (chapters.length > 0) {
                 select.value = activeAdminChapterId;
                 loadAdminPagesForSelectedChapter(activeAdminChapterId);
@@ -579,7 +835,6 @@ function loadAdminPagesForSelectedChapter(chapterId) {
                             <td style="text-align: center;"><span style="font-weight:bold; background-color: var(--bg-content); padding: 2px 8px; border-radius: 10px; font-size:11px; border:1px solid var(--border-color);">${p.questions_count || 0} MCQs</span></td>
                             <td style="text-align: right;">
                                 <div style="display: flex; gap: 6px; justify-content: flex-end;">
-                                    <button class="btn btn-secondary btn-sm" onclick="openAssignQuestionsModal(${p.id}, '${p.title.replace(/'/g, "\\'")}')" title="Assign MCQs" style="padding: 4px 8px; font-size:11px;"><i class="fa-solid fa-link"></i> Link MCQs</button>
                                     <button class="btn btn-secondary btn-sm" onclick="openEditPageModal(${p.id}, '${p.title.replace(/'/g, "\\'")}', '${(p.bn_title || '').replace(/'/g, "\\'")}', '${(p.content || '').replace(/'/g, "\\'").replace(/\n/g, "\\n")}')" title="Edit Page" style="padding: 4px 8px; font-size:11px;"><i class="fa-solid fa-pencil"></i></button>
                                     <button class="btn btn-danger btn-sm" onclick="deletePage(${p.id})" title="Delete Page" style="padding: 4px 8px; font-size:11px;"><i class="fa-solid fa-trash"></i></button>
                                 </div>
@@ -594,143 +849,6 @@ function loadAdminPagesForSelectedChapter(chapterId) {
         });
 }
 
-function openAddPageModal() {
-    document.getElementById('page-modal-title').innerText = 'Add New Page';
-    document.getElementById('form-page-id').value = '';
-    document.getElementById('form-page-chapter-id').value = activeAdminChapterId;
-    document.getElementById('form-page-title').value = '';
-    document.getElementById('form-page-title-bn').value = '';
-    document.getElementById('form-page-content').value = '';
-    document.getElementById('form-page-image').value = '';
-    document.getElementById('form-page-audio').value = '';
-    document.getElementById('page-modal').style.display = 'flex';
-}
-
-function openEditPageModal(id, title, bnTitle, content) {
-    document.getElementById('page-modal-title').innerText = 'Edit Page details';
-    document.getElementById('form-page-id').value = id;
-    document.getElementById('form-page-chapter-id').value = activeAdminChapterId;
-    document.getElementById('form-page-title').value = title;
-    document.getElementById('form-page-title-bn').value = bnTitle || '';
-    document.getElementById('form-page-content').value = content || '';
-    document.getElementById('form-page-image').value = '';
-    document.getElementById('form-page-audio').value = '';
-    document.getElementById('page-modal').style.display = 'flex';
-}
-
-function closePageModal() {
-    document.getElementById('page-modal').style.display = 'none';
-}
-
-function savePage(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-page-id').value;
-    const chapterId = document.getElementById('form-page-chapter-id').value;
-    const title = document.getElementById('form-page-title').value;
-    const bnTitle = document.getElementById('form-page-title-bn').value;
-    const content = document.getElementById('form-page-content').value;
-    const imageFile = document.getElementById('form-page-image').files[0];
-    const audioFile = document.getElementById('form-page-audio').files[0];
-
-    const formData = new FormData();
-    formData.append('chapter_id', chapterId);
-    formData.append('title', title);
-    formData.append('bn_title', bnTitle);
-    formData.append('content', content);
-    if (imageFile) formData.append('image', imageFile);
-    if (audioFile) formData.append('audio', audioFile);
-
-    const url = id ? `/admin/api/pages/update/${id}` : `/admin/api/pages/store`;
-
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: formData
-    })
-        .then(res => res.json())
-        .then(data => {
-            closePageModal();
-            showToast(id ? 'পৃষ্ঠা সফলভাবে আপডেট করা হয়েছে' : 'নতুন পৃষ্ঠা সফলভাবে তৈরি করা হয়েছে');
-            loadAdminPagesForSelectedChapter(activeAdminChapterId);
-        })
-        .catch(err => {
-            console.error("Error saving page: ", err);
-            showToast('পৃষ্ঠা সংরক্ষণ করতে সমস্যা হয়েছে');
-        });
-}
-
-function deletePage(pageId) {
-    if (confirm("আপনি কি নিশ্চিতভাবে এই পৃষ্ঠাটি মুছে ফেলতে চান? এর অধীনে থাকা ফাইলগুলোও মুছে যাবে।")) {
-        fetch(`/admin/api/pages/delete/${pageId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': csrfToken
-            }
-        })
-            .then(res => res.json())
-            .then(data => {
-                showToast('পৃষ্ঠাটি মুছে ফেলা হয়েছে');
-                loadAdminPagesForSelectedChapter(activeAdminChapterId);
-            })
-            .catch(err => {
-                console.error("Error deleting page: ", err);
-                showToast('পৃষ্ঠাটি মুছতে সমস্যা হয়েছে');
-            });
-    }
-}
-
-function openAssignQuestionsModal(pageId, pageTitle) {
-    document.getElementById('form-assign-page-id').value = pageId;
-    document.getElementById('form-assign-page-title').value = pageTitle;
-    document.getElementById('form-assign-question-ids').value = '';
-
-    // Fetch current questions assigned to this page to display
-    fetch(`/api/pages/${pageId}`)
-        .then(res => res.json())
-        .then(page => {
-            if (page.questions && page.questions.length > 0) {
-                const ids = page.questions.map(q => q.id).join(', ');
-                document.getElementById('form-assign-question-ids').value = ids;
-            }
-        });
-
-    document.getElementById('assign-questions-modal').style.display = 'flex';
-}
-
-function closeAssignQuestionsModal() {
-    document.getElementById('assign-questions-modal').style.display = 'none';
-}
-
-function saveAssignedQuestions(e) {
-    e.preventDefault();
-    const pageId = document.getElementById('form-assign-page-id').value;
-    const rawIds = document.getElementById('form-assign-question-ids').value;
-
-    const questionIds = rawIds.split(',')
-        .map(id => parseInt(id.trim()))
-        .filter(id => !isNaN(id));
-
-    fetch(`/admin/api/pages/${pageId}/assign-questions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({ question_ids: questionIds })
-    })
-        .then(res => res.json())
-        .then(data => {
-            closeAssignQuestionsModal();
-            showToast('প্রশ্নসমূহ সফলভাবে লিঙ্ক করা হয়েছে');
-            loadAdminPagesForSelectedChapter(activeAdminChapterId);
-        })
-        .catch(err => {
-            console.error("Error assigning questions: ", err);
-            showToast('প্রশ্নসমূহ লিঙ্ক করতে সমস্যা হয়েছে');
-        });
-}
 
 // Toggle user profile dropdown menu
 function toggleUserDropdown(e) {
@@ -1060,14 +1178,19 @@ function renderCategoriesTable() {
     const tbody = document.getElementById('categories-table-body');
     tbody.innerHTML = '';
 
+    const masterSelect = document.getElementById('bulk-select-categories');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('categories');
+
     if (categoriesData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px;">কোনো ক্যাটাগরি পাওয়া যায়নি। নতুন ক্যাটাগরি তৈরি করুন!</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 30px;">কোনো ক্যাটাগরি পাওয়া যায়নি। নতুন ক্যাটাগরি তৈরি করুন!</td></tr>`;
         return;
     }
 
     categoriesData.forEach(cat => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
+                    <td style="text-align: center;"><input type="checkbox" class="select-category-checkbox" value="${cat.id}" onchange="updateBulkDeleteButton('categories')"></td>
                     <td><strong>#${cat.id}</strong></td>
                     <td><strong>${cat.name}</strong></td>
                     <td style="color: var(--text-secondary); font-size: 12px;">${cat.description || 'No description provided'}</td>
@@ -1754,34 +1877,29 @@ function verifyPermission(module) {
 
 // Initialize Editors and Dropdowns
 document.addEventListener("DOMContentLoaded", () => {
-    if (document.querySelector('#form-page-content')) {
-        ClassicEditor.create(document.querySelector('#form-page-content'))
-            .then(editor => { pageEditorInstance = editor; })
-            .catch(err => console.error(err));
-    }
+    // Keep form-page-content as a normal textarea to support selection underlining and Ctrl+U
     if (document.querySelector('#form-chapter-desc')) {
         ClassicEditor.create(document.querySelector('#form-chapter-desc'))
             .then(editor => { chapterEditorInstance = editor; })
             .catch(err => console.error(err));
     }
-    // Populate chapter select dropdowns
-    fetch('/admin/api/chapters')
-        .then(res => res.json())
-        .then(data => {
-            const sel = document.getElementById('admin-page-chapter-select');
-            if (sel) {
-                sel.innerHTML = '';
-                data.forEach(ch => {
-                    const opt = document.createElement('option');
-                    opt.value = ch.id;
-                    opt.textContent = `Ch#${ch.id} - ${ch.name}`;
-                    sel.appendChild(opt);
-                });
-                if (data.length > 0) {
-                    loadAdminPagesForSelectedChapter(data[0].id);
-                }
-            }
-        });
+    // Populate chapter select dropdowns dynamically
+    loadChaptersData();
+
+    // Listen for inputs changes to auto-update underlined words list
+    const inputsToWatch = [
+        'form-page-title-it',
+        'form-page-title-bn',
+        'form-page-content',
+        'form-page-content-bn'
+    ];
+    inputsToWatch.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateUnderlinedWordsList);
+            el.addEventListener('change', updateUnderlinedWordsList);
+        }
+    });
 });
 
 // Tab switching inside Chapters & Pages settings
@@ -1828,26 +1946,36 @@ function fetchChaptersAdmin(page = 1) {
     const perPage = document.getElementById('chapter-per-page').value;
     const tbody = document.getElementById('admin-chapters-table-body');
 
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px;">Loading chapters...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading chapters...</td></tr>`;
+
+    const masterSelect = document.getElementById('bulk-select-chapters');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('chapters');
 
     fetch(`/admin/api/chapters/list?page=${page}&search=${search}&per_page=${perPage}`)
         .then(res => res.json())
         .then(data => {
+            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
+                selectAllAcrossPagesFlag['chapters'] = false;
+            }
+            chaptersTotalCount = data.total || 0;
             tbody.innerHTML = '';
             if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 30px;">No chapters found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 30px;">No chapters found.</td></tr>`;
                 return;
             }
 
             data.data.forEach(ch => {
-                const thumb = ch.image
-                    ? `<img src="${ch.image}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 4px;">`
+                const coverUrl = ch.cover_image || ch.image;
+                const thumb = coverUrl
+                    ? `<img src="${coverUrl}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 4px;" onerror="this.src='/images/signs/generic_pericolo.png'">`
                     : `<div style="width: 50px; height: 35px; background: var(--bg-page); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-secondary);">None</div>`;
 
                 const statusChecked = ch.status ? 'checked' : '';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                            <td style="text-align: center;"><input type="checkbox" class="select-chapter-checkbox" value="${ch.id}" onchange="updateBulkDeleteButton('chapters')"></td>
                             <td>${ch.id}</td>
                             <td style="text-align: center; font-weight: bold; color: var(--accent-orange);">${ch.chapter_number || ch.id}</td>
                             <td style="text-align: center;">${thumb}</td>
@@ -1909,12 +2037,11 @@ function toggleChapterStatus(id) {
 function openAddChapterModal() {
     document.getElementById('chapter-modal-title').textContent = 'Add New Chapter';
     document.getElementById('form-chapter-crud-id').value = '';
+    document.getElementById('form-chapter-category-id').value = '2';
     document.getElementById('form-chapter-number').value = '';
     document.getElementById('form-chapter-name-it').value = '';
     document.getElementById('form-chapter-name-bn').value = '';
-    document.getElementById('form-chapter-thumb-file').value = '';
     document.getElementById('form-chapter-cover-file').value = '';
-    document.getElementById('chapter-thumb-preview-container').style.display = 'none';
     document.getElementById('chapter-cover-preview-container').style.display = 'none';
     if (chapterEditorInstance) chapterEditorInstance.setData('');
     document.getElementById('chapter-modal').style.display = 'flex';
@@ -1923,18 +2050,11 @@ function openAddChapterModal() {
 function openEditChapterModal(id, ch) {
     document.getElementById('chapter-modal-title').textContent = 'Edit Chapter';
     document.getElementById('form-chapter-crud-id').value = ch.id;
+    document.getElementById('form-chapter-category-id').value = ch.category_id || '2';
     document.getElementById('form-chapter-number').value = ch.chapter_number || ch.id;
     document.getElementById('form-chapter-name-it').value = ch.name;
     document.getElementById('form-chapter-name-bn').value = ch.bn_name || '';
-    document.getElementById('form-chapter-thumb-file').value = '';
     document.getElementById('form-chapter-cover-file').value = '';
-
-    if (ch.image) {
-        document.getElementById('chapter-thumb-preview-img').src = ch.image;
-        document.getElementById('chapter-thumb-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('chapter-thumb-preview-container').style.display = 'none';
-    }
 
     if (ch.cover_image) {
         document.getElementById('chapter-cover-preview-img').src = ch.cover_image;
@@ -1945,8 +2065,6 @@ function openEditChapterModal(id, ch) {
 
     if (chapterEditorInstance) {
         chapterEditorInstance.setData(ch.description || '');
-    } else {
-        document.getElementById('form-chapter-desc').value = ch.description || '';
     }
 
     document.getElementById('chapter-modal').style.display = 'flex';
@@ -1959,21 +2077,19 @@ function closeChapterModal() {
 function saveChapter(e) {
     e.preventDefault();
     const id = document.getElementById('form-chapter-crud-id').value;
+    const categoryId = document.getElementById('form-chapter-category-id').value;
     const number = document.getElementById('form-chapter-number').value;
     const nameIt = document.getElementById('form-chapter-name-it').value;
     const nameBn = document.getElementById('form-chapter-name-bn').value;
-    const desc = chapterEditorInstance ? chapterEditorInstance.getData() : document.getElementById('form-chapter-desc').value;
 
-    const thumbFile = document.getElementById('form-chapter-thumb-file').files[0];
     const coverFile = document.getElementById('form-chapter-cover-file').files[0];
 
     const formData = new FormData();
+    formData.append('category_id', categoryId);
     formData.append('name', nameIt);
     formData.append('bn_name', nameBn);
     formData.append('chapter_number', number);
-    formData.append('description', desc);
 
-    if (thumbFile) formData.append('image', thumbFile);
     if (coverFile) formData.append('cover_image', coverFile);
 
     const url = id ? `/admin/api/chapters/update/${id}` : '/admin/api/chapters/store';
@@ -1983,7 +2099,14 @@ function saveChapter(e) {
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(errData => {
+                    throw new Error(errData.message || 'Validation error');
+                });
+            }
+            return res.json();
+        })
         .then(data => {
             closeChapterModal();
             Swal.fire({
@@ -1994,11 +2117,16 @@ function saveChapter(e) {
                 showConfirmButton: false
             });
             fetchChaptersAdmin(chapterPage);
+            loadChaptersData();
             fetchStats();
         })
         .catch(err => {
             console.error(err);
-            showToast('অধ্যায় সংরক্ষণ করতে সমস্যা হয়েছে');
+            Swal.fire({
+                title: 'Error!',
+                text: err.message || 'অধ্যায় সংরক্ষণ করতে সমস্যা হয়েছে',
+                icon: 'error'
+            });
         });
 }
 
@@ -2021,6 +2149,7 @@ function deleteChapter(id) {
                 .then(data => {
                     Swal.fire('Deleted!', 'Chapter and its pages have been deleted.', 'success');
                     fetchChaptersAdmin(chapterPage);
+                    loadChaptersData();
                     fetchStats();
                 })
                 .catch(err => showToast('অধ্যায় ডিলিট করতে সমস্যা হয়েছে'));
@@ -2038,14 +2167,22 @@ function loadAdminPagesForSelectedChapter(chapterId, page = 1) {
     const perPage = document.getElementById('page-per-page').value;
     const tbody = document.getElementById('admin-pages-table-body');
 
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 30px;">Loading pages...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 30px;">Loading pages...</td></tr>`;
+
+    const masterSelect = document.getElementById('bulk-select-pages');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('pages');
 
     fetch(`/admin/api/chapters/${chapterId}/pages/list?page=${page}&search=${search}&per_page=${perPage}`)
         .then(res => res.json())
         .then(data => {
+            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
+                selectAllAcrossPagesFlag['pages'] = false;
+            }
+            pagesTotalCount = data.total || 0;
             tbody.innerHTML = '';
             if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">No pages found in this chapter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">No pages found in this chapter.</td></tr>`;
                 return;
             }
 
@@ -2064,6 +2201,7 @@ function loadAdminPagesForSelectedChapter(chapterId, page = 1) {
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                            <td style="text-align: center;"><input type="checkbox" class="select-page-checkbox" value="${p.id}" onchange="updateBulkDeleteButton('pages')"></td>
                             <td>${p.id}</td>
                             <td style="text-align: center; font-weight: bold; color: var(--text-secondary);">${p.sort_order}</td>
                             <td style="font-weight: bold; color: var(--text-primary);">${p.title}</td>
@@ -2080,7 +2218,6 @@ function loadAdminPagesForSelectedChapter(chapterId, page = 1) {
                             </td>
                             <td style="text-align: right;">
                                 <button class="btn btn-secondary btn-sm" onclick="openEditPageModal(${JSON.stringify(p).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-primary btn-sm" onclick="openAssignQuestionsModal(${p.id})" style="padding: 4px 8px; font-size: 11px; background-color: var(--accent-blue); border-color: var(--accent-blue);"><i class="fa-solid fa-link"></i> Map Qs</button>
                                 <button class="btn btn-danger btn-sm" onclick="deletePage(${p.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
                             </td>
                         `;
@@ -2126,84 +2263,40 @@ function togglePageStatus(id) {
 }
 
 function openAddPageModal() {
-    const chapterId = document.getElementById('admin-page-chapter-select').value;
-    if (!chapterId) {
-        showToast('অনুগ্রহ করে আগে একটি অধ্যায় নির্বাচন করুন');
+    const chapterSelect = document.getElementById('admin-page-chapter-select');
+    if (!chapterSelect || chapterSelect.selectedIndex < 0) {
+        Swal.fire('Error', 'Please select a chapter first.', 'error');
         return;
     }
+    const chapterId = chapterSelect.value;
+    const chapterName = chapterSelect.options[chapterSelect.selectedIndex].text;
 
     document.getElementById('page-modal-title').textContent = 'Add New Page';
     document.getElementById('form-page-crud-id').value = '';
     document.getElementById('form-page-chapter-id').value = chapterId;
+    document.getElementById('form-page-chapter-name-display').value = chapterName;
     document.getElementById('form-page-order').value = '0';
-    document.getElementById('form-page-title-it').value = '';
-    document.getElementById('form-page-title-bn').value = '';
-    document.getElementById('form-page-img-file').value = '';
-    document.getElementById('form-page-audio-file').value = '';
-    document.getElementById('form-page-video-file').value = '';
-    document.getElementById('form-page-video-url').value = '';
-    document.getElementById('form-page-pdf-file').value = '';
-    document.getElementById('page-img-preview-container').style.display = 'none';
-    document.getElementById('page-audio-preview-container').style.display = 'none';
-    document.getElementById('page-video-preview-container').style.display = 'none';
-    document.getElementById('page-pdf-preview-container').style.display = 'none';
+    const titleItEl = document.getElementById('form-page-title-it');
+    if (titleItEl) titleItEl.value = '';
+    const titleBnEl = document.getElementById('form-page-title-bn');
+    if (titleBnEl) titleBnEl.value = '';
 
-    if (pageEditorInstance) pageEditorInstance.setData('');
     document.getElementById('page-modal').style.display = 'flex';
 }
 
 function openEditPageModal(p) {
+    const chapterSelect = document.getElementById('admin-page-chapter-select');
+    const chapterName = chapterSelect.querySelector(`option[value="${p.chapter_id}"]`)?.text || (chapterSelect.selectedIndex >= 0 ? chapterSelect.options[chapterSelect.selectedIndex].text : '');
+
     document.getElementById('page-modal-title').textContent = 'Edit Page Details';
     document.getElementById('form-page-crud-id').value = p.id;
     document.getElementById('form-page-chapter-id').value = p.chapter_id;
+    document.getElementById('form-page-chapter-name-display').value = chapterName;
     document.getElementById('form-page-order').value = p.sort_order || 0;
-    document.getElementById('form-page-title-it').value = p.title;
-    document.getElementById('form-page-title-bn').value = p.bn_title || '';
-    document.getElementById('form-page-img-file').value = '';
-    document.getElementById('form-page-audio-file').value = '';
-    document.getElementById('form-page-video-file').value = '';
-    document.getElementById('form-page-video-url').value = '';
-    document.getElementById('form-page-pdf-file').value = '';
-
-    if (p.image) {
-        document.getElementById('page-img-preview-img').src = p.image;
-        document.getElementById('page-img-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('page-img-preview-container').style.display = 'none';
-    }
-
-    if (p.audio) {
-        document.getElementById('page-audio-preview-player').src = p.audio;
-        document.getElementById('page-audio-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('page-audio-preview-container').style.display = 'none';
-    }
-
-    if (p.video) {
-        if (p.video.startsWith('http') || p.video.includes('youtube.com') || p.video.includes('youtu.be')) {
-            document.getElementById('form-page-video-url').value = p.video;
-            document.getElementById('page-video-preview-container').style.display = 'none';
-        } else {
-            document.getElementById('form-page-video-url').value = '';
-            document.getElementById('page-video-preview-player').src = p.video;
-            document.getElementById('page-video-preview-container').style.display = 'block';
-        }
-    } else {
-        document.getElementById('page-video-preview-container').style.display = 'none';
-    }
-
-    if (p.pdf_path) {
-        document.getElementById('page-pdf-preview-link').href = p.pdf_path;
-        document.getElementById('page-pdf-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('page-pdf-preview-container').style.display = 'none';
-    }
-
-    if (pageEditorInstance) {
-        pageEditorInstance.setData(p.content || '');
-    } else {
-        document.getElementById('form-page-content').value = p.content || '';
-    }
+    const titleItEl2 = document.getElementById('form-page-title-it');
+    if (titleItEl2) titleItEl2.value = p.title;
+    const titleBnEl2 = document.getElementById('form-page-title-bn');
+    if (titleBnEl2) titleBnEl2.value = p.bn_title || '';
 
     document.getElementById('page-modal').style.display = 'flex';
 }
@@ -2217,28 +2310,15 @@ function savePage(e) {
     const id = document.getElementById('form-page-crud-id').value;
     const chapterId = document.getElementById('form-page-chapter-id').value;
     const order = document.getElementById('form-page-order').value;
-    const titleIt = document.getElementById('form-page-title-it').value;
-    const titleBn = document.getElementById('form-page-title-bn').value;
-    const content = pageEditorInstance ? pageEditorInstance.getData() : document.getElementById('form-page-content').value;
-
-    const imgFile = document.getElementById('form-page-img-file').files[0];
-    const audioFile = document.getElementById('form-page-audio-file').files[0];
-    const videoFile = document.getElementById('form-page-video-file').files[0];
-    const videoUrl = document.getElementById('form-page-video-url').value.trim();
-    const pdfFile = document.getElementById('form-page-pdf-file').files[0];
+    const titleIt = document.getElementById('form-page-title-it')?.value?.trim() || 'Page';
+    const titleBn = document.getElementById('form-page-title-bn')?.value?.trim() || titleIt;
 
     const formData = new FormData();
     formData.append('chapter_id', chapterId);
     formData.append('sort_order', order);
     formData.append('title', titleIt);
     formData.append('bn_title', titleBn);
-    formData.append('content', content);
-
-    if (imgFile) formData.append('image', imgFile);
-    if (audioFile) formData.append('audio', audioFile);
-    if (videoFile) formData.append('video', videoFile);
-    else if (videoUrl) formData.append('video', videoUrl);
-    if (pdfFile) formData.append('pdf_file', pdfFile);
+    formData.append('mcqs', '[]');
 
     const url = id ? `/admin/api/pages/update/${id}` : '/admin/api/pages/store';
 
@@ -2247,7 +2327,14 @@ function savePage(e) {
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(errData => {
+                    throw new Error(errData.message || 'Validation error');
+                });
+            }
+            return res.json();
+        })
         .then(data => {
             closePageModal();
             Swal.fire({
@@ -2262,7 +2349,11 @@ function savePage(e) {
         })
         .catch(err => {
             console.error(err);
-            showToast('পেইজ সংরক্ষণ করতে সমস্যা হয়েছে');
+            Swal.fire({
+                title: 'Error!',
+                text: err.message || 'পেইজ সংরক্ষণ করতে সমস্যা হয়েছে',
+                icon: 'error'
+            });
         });
 }
 
@@ -3877,6 +3968,43 @@ function initCartelloChapters() {
     fetchCartelloChapters();
 }
 
+function switchCartelloAdminSubTab(tab) {
+    const btnChapters = document.getElementById('cartello-tab-btn-chapters');
+    const btnPages = document.getElementById('cartello-tab-btn-pages');
+    const subChapters = document.getElementById('cartello-sub-panel-chapters');
+    const subPages = document.getElementById('cartello-sub-panel-pages');
+
+    if (tab === 'chapters') {
+        if (btnChapters) {
+            btnChapters.style.backgroundColor = 'var(--accent-orange)';
+            btnChapters.style.color = 'white';
+            btnChapters.classList.remove('btn-secondary');
+        }
+        if (btnPages) {
+            btnPages.classList.add('btn-secondary');
+            btnPages.style.backgroundColor = 'transparent';
+            btnPages.style.color = 'var(--text-secondary)';
+        }
+        if (subChapters) subChapters.style.display = 'block';
+        if (subPages) subPages.style.display = 'none';
+        initCartelloChapters();
+    } else {
+        if (btnPages) {
+            btnPages.style.backgroundColor = 'var(--accent-orange)';
+            btnPages.style.color = 'white';
+            btnPages.classList.remove('btn-secondary');
+        }
+        if (btnChapters) {
+            btnChapters.classList.add('btn-secondary');
+            btnChapters.style.backgroundColor = 'transparent';
+            btnChapters.style.color = 'var(--text-secondary)';
+        }
+        if (subPages) subPages.style.display = 'block';
+        if (subChapters) subChapters.style.display = 'none';
+        initCartelloPages();
+    }
+}
+
 // 3. Init Pages Panel
 function initCartelloPages() {
     loadCategoryDropdown('filter-page-category-id');
@@ -3904,10 +4032,10 @@ function loadCategoryDropdown(selectId, selectedId = null) {
     fetch('/admin/api/cartello-categories', { headers: { 'X-CSRF-TOKEN': csrfToken } })
         .then(r => r.json())
         .then(data => {
-            let html = selectId.includes('filter') 
-                ? '<option value="">সব ক্যাটাগরি</option>' 
+            let html = selectId.includes('filter')
+                ? '<option value="">সব ক্যাটাগরি</option>'
                 : '<option value="">ক্যাটাগরি নির্বাচন করুন...</option>';
-            
+
             data.forEach(cat => {
                 html += `<option value="${cat.id}">${cat.name} (${cat.bn_name})</option>`;
             });
@@ -3940,7 +4068,7 @@ function handleCategoryChange(categorySelectId, chapterSelectId, selectedChapter
             let html = chapterSelectId.includes('filter')
                 ? '<option value="">সব চ্যাপ্টার</option>'
                 : '<option value="">চ্যাপ্টার নির্বাচন করুন...</option>';
-            
+
             chapters.forEach(ch => {
                 html += `<option value="${ch.id}">Ch ${ch.chapter_number}: ${ch.name} (${ch.bn_name || ''})</option>`;
             });
@@ -3975,7 +4103,7 @@ function handleChapterChange(chapterSelectId, pageSelectId, selectedPageId = nul
             let html = pageSelectId.includes('filter')
                 ? '<option value="">সব পেজ</option>'
                 : '<option value="">পেজ নির্বাচন করুন...</option>';
-            
+
             pages.forEach(pg => {
                 html += `<option value="${pg.id}">Page ${pg.page_number}: ${pg.title} (${pg.bn_title})</option>`;
             });
@@ -4001,13 +4129,19 @@ function renderCartelloCategoriesTable(cats) {
     const tbody = document.getElementById('cartello-cats-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const masterSelect = document.getElementById('bulk-select-cartello-categories');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('cartello-categories');
+
     if (cats.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">কোনো ক্যাটাগরি পাওয়া যায়নি</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">কোনো ক্যাটাগরি পাওয়া যায়নি</td></tr>';
         return;
     }
     cats.forEach(cat => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td style="text-align: center;"><input type="checkbox" class="select-cartello-category-checkbox" value="${cat.id}" onchange="updateBulkDeleteButton('cartello-categories')"></td>
             <td><strong>#${cat.id}</strong></td>
             <td>
                 <div style="font-weight:700;">${cat.name}</div>
@@ -4062,17 +4196,17 @@ function saveCartelloCategory(e) {
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success || data.id) {
-            showToast(isEdit ? 'ক্যাটাগরি আপডেট করা হয়েছে' : 'ক্যাটাগরি তৈরি করা হয়েছে');
-            closeCartelloCatModal();
-            fetchCartelloCategories();
-        } else {
-            showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
-        }
-    })
-    .catch(() => showToast('নেটওয়ার্ক সমস্যা'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success || data.id) {
+                showToast(isEdit ? 'ক্যাটাগরি আপডেট করা হয়েছে' : 'ক্যাটাগরি তৈরি করা হয়েছে');
+                closeCartelloCatModal();
+                fetchCartelloCategories();
+            } else {
+                showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+            }
+        })
+        .catch(() => showToast('নেটওয়ার্ক সমস্যা'));
 }
 
 function deleteCartelloCategory(id) {
@@ -4081,16 +4215,16 @@ function deleteCartelloCategory(id) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('ক্যাটাগরি ডিলিট করা হয়েছে');
-            fetchCartelloCategories();
-        } else {
-            showToast(data.message || 'ডিলিট করা যায়নি');
-        }
-    })
-    .catch(err => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট ডাটা চেক করুন।'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('ক্যাটাগরি ডিলিট করা হয়েছে');
+                fetchCartelloCategories();
+            } else {
+                showToast(data.message || 'ডিলিট করা যায়নি');
+            }
+        })
+        .catch(err => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট ডাটা চেক করুন।'));
 }
 
 // ================================================================
@@ -4115,13 +4249,19 @@ function renderCartelloChaptersTable(chaps) {
     const tbody = document.getElementById('cartello-chapters-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const masterSelect = document.getElementById('bulk-select-cartello-chapters');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('cartello-chapters');
+
     if (chaps.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">কোনো চ্যাপ্টার পাওয়া যায়নি</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">কোনো চ্যাপ্টার পাওয়া যায়নি</td></tr>';
         return;
     }
     chaps.forEach(ch => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td style="text-align: center;"><input type="checkbox" class="select-cartello-chapter-checkbox" value="${ch.id}" onchange="updateBulkDeleteButton('cartello-chapters')"></td>
             <td><strong>#${ch.id}</strong></td>
             <td><span style="background:var(--accent-orange); color:#000; padding:2px 8px; border-radius:4px; font-weight:700;">Ch ${ch.chapter_number}</span></td>
             <td>
@@ -4159,7 +4299,8 @@ function openEditCartelloChapterModal(id) {
     document.getElementById('cch-name').value = ch.name;
     document.getElementById('cch-bn-name').value = ch.bn_name || '';
     document.getElementById('cch-chapter-number').value = ch.chapter_number;
-    document.getElementById('cch-sort-order').value = ch.sort_order || 0;
+    const sortOrderEl = document.getElementById('cch-sort-order');
+    if (sortOrderEl) sortOrderEl.value = ch.sort_order || 0;
     document.getElementById('cartello-chapter-modal').style.display = 'flex';
 }
 
@@ -4178,17 +4319,17 @@ function saveCartelloChapter(e) {
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast(isEdit ? 'চ্যাপ্টার আপডেট করা হয়েছে' : 'চ্যাপ্টার তৈরি করা হয়েছে');
-            closeCartelloChapterModal();
-            fetchCartelloChapters();
-        } else {
-            showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
-        }
-    })
-    .catch(() => showToast('নেটওয়ার্ক সমস্যা বা ক্যাটাগরি চ্যাপ্টার লিমিট পূর্ণ হয়েছে'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(isEdit ? 'চ্যাপ্টার আপডেট করা হয়েছে' : 'চ্যাপ্টার তৈরি করা হয়েছে');
+                closeCartelloChapterModal();
+                fetchCartelloChapters();
+            } else {
+                showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+            }
+        })
+        .catch(() => showToast('নেটওয়ার্ক সমস্যা বা ক্যাটাগরি চ্যাপ্টার লিমিট পূর্ণ হয়েছে'));
 }
 
 function deleteCartelloChapter(id) {
@@ -4197,16 +4338,16 @@ function deleteCartelloChapter(id) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('চ্যাপ্টার ডিলিট করা হয়েছে');
-            fetchCartelloChapters();
-        } else {
-            showToast(data.message || 'ডিলিট করা যায়নি');
-        }
-    })
-    .catch(() => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট পেজ চেক করুন।'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('চ্যাপ্টার ডিলিট করা হয়েছে');
+                fetchCartelloChapters();
+            } else {
+                showToast(data.message || 'ডিলিট করা যায়নি');
+            }
+        })
+        .catch(() => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট পেজ চেক করুন।'));
 }
 
 // ================================================================
@@ -4231,14 +4372,24 @@ function renderCartelloPagesTable(pages) {
     const tbody = document.getElementById('cartello-pages-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const masterSelect = document.getElementById('bulk-select-cartello-pages');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('cartello-pages');
+
     if (pages.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">কোনো পেজ পাওয়া যায়নি</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">কোনো পেজ পাওয়া যায়নি</td></tr>';
         return;
     }
     pages.forEach(p => {
+        let mediaSrc = p.image || '';
+        if (mediaSrc && !mediaSrc.startsWith('/') && !mediaSrc.startsWith('http')) {
+            mediaSrc = '/' + mediaSrc;
+        }
+        const mediaHtml = mediaSrc ? `<img src="${mediaSrc}" style="width:50px; height:35px; object-fit:contain; border-radius:4px;" onerror="this.src='/images/signs/generic_pericolo.png'">` : 'N/A';
         const tr = document.createElement('tr');
-        const mediaHtml = p.image ? `<img src="/${p.image}" style="width:50px; height:35px; object-fit:cover; border-radius:4px;">` : 'N/A';
         tr.innerHTML = `
+            <td style="text-align: center;"><input type="checkbox" class="select-cartello-page-checkbox" value="${p.id}" onchange="updateBulkDeleteButton('cartello-pages')"></td>
             <td><strong>#${p.id}</strong></td>
             <td><span style="background:var(--accent-teal); color:#fff; padding:2px 8px; border-radius:4px; font-weight:700;">Page ${p.page_number}</span></td>
             <td>
@@ -4260,12 +4411,45 @@ function renderCartelloPagesTable(pages) {
     });
 }
 
+function loadCartelloPageChaptersDropdown(selectedChapterId = null) {
+    const selectEl = document.getElementById('cpage-chapter-id');
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">Loading chapters...</option>';
+
+    fetch('/api/cartello-chapters')
+        .then(res => res.json())
+        .then(chapters => {
+            selectEl.innerHTML = '<option value="">Select Chapter...</option>';
+            if (!Array.isArray(chapters) || chapters.length === 0) {
+                selectEl.innerHTML = '<option value="">No Chapters Found (Create Chapter First)</option>';
+                return;
+            }
+
+            chapters.forEach((ch, idx) => {
+                const opt = document.createElement('option');
+                opt.value = ch.id;
+                const displayNum = ch.chapter_number || (idx + 1);
+                opt.textContent = `Ch#${displayNum} - ${ch.name}`;
+                if (selectedChapterId && ch.id == selectedChapterId) {
+                    opt.selected = true;
+                }
+                selectEl.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            console.error("Error loading chapters for page modal: ", err);
+            selectEl.innerHTML = '<option value="">Error loading chapters</option>';
+        });
+}
+
 function openAddCartelloPageModal() {
     editingCartelloPageId = null;
     document.getElementById('cartello-page-modal-title').textContent = 'নতুন পেজ তৈরি করুন';
     document.getElementById('cartello-page-form').reset();
-    document.getElementById('cpage-chapter-id').innerHTML = '<option value="">প্রথমে ক্যাটাগরি নির্বাচন করুন...</option>';
-    loadCategoryDropdown('cpage-category-id');
+    const imgPreviewCont = document.getElementById('cpage-current-image-preview-container');
+    if (imgPreviewCont) imgPreviewCont.style.display = 'none';
+
+    loadCartelloPageChaptersDropdown();
     document.getElementById('cartello-page-modal').style.display = 'flex';
 }
 
@@ -4274,17 +4458,28 @@ function openEditCartelloPageModal(id) {
     if (!p) return;
     editingCartelloPageId = id;
     document.getElementById('cartello-page-modal-title').textContent = 'পেজ সম্পাদনা করুন';
-    loadCategoryDropdown('cpage-category-id', p.chapter ? p.chapter.category_id : null);
-    setTimeout(() => {
-        if (p.chapter) {
-            handleCategoryChange('cpage-category-id', 'cpage-chapter-id', p.chapter_id);
+    loadCartelloPageChaptersDropdown(p.chapter_id);
+
+    const imgPreviewCont = document.getElementById('cpage-current-image-preview-container');
+    const imgPreview = document.getElementById('cpage-current-image-preview');
+    if (p.image && imgPreview && imgPreviewCont) {
+        let mediaSrc = p.image;
+        if (!mediaSrc.startsWith('/') && !mediaSrc.startsWith('http')) {
+            mediaSrc = '/' + mediaSrc;
         }
-    }, 300);
-    document.getElementById('cpage-page-number').value = p.page_number;
+        imgPreview.src = mediaSrc;
+        imgPreviewCont.style.display = 'block';
+    } else if (imgPreviewCont) {
+        imgPreviewCont.style.display = 'none';
+    }
+
+    if (document.getElementById('cpage-page-number')) document.getElementById('cpage-page-number').value = p.page_number || 1;
     document.getElementById('cpage-title').value = p.title;
     document.getElementById('cpage-bn-title').value = p.bn_title;
-    document.getElementById('cpage-description').value = p.description || '';
-    document.getElementById('cpage-bn-description').value = p.bn_description || '';
+    if (document.getElementById('cpage-description')) document.getElementById('cpage-description').value = p.description || '';
+    if (document.getElementById('cpage-bn-description')) document.getElementById('cpage-bn-description').value = p.bn_description || '';
+    if (document.getElementById('cpage-translation')) document.getElementById('cpage-translation').value = p.translation || '';
+    if (document.getElementById('cpage-is-vero')) document.getElementById('cpage-is-vero').value = p.is_vero ? "1" : "0";
     document.getElementById('cpage-sort-order').value = p.sort_order || 0;
     document.getElementById('cartello-page-modal').style.display = 'flex';
 }
@@ -4304,17 +4499,17 @@ function saveCartelloPage(e) {
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast(isEdit ? 'পেজ আপডেট করা হয়েছে' : 'পেজ তৈরি করা হয়েছে');
-            closeCartelloPageModal();
-            fetchCartelloPages();
-        } else {
-            showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
-        }
-    })
-    .catch(() => showToast('নেটওয়ার্ক সমস্যা বা ফাইল আপলোড সাইজ বেশি'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(isEdit ? 'পেজ আপডেট করা হয়েছে' : 'পেজ তৈরি করা হয়েছে');
+                closeCartelloPageModal();
+                fetchCartelloPages();
+            } else {
+                showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+            }
+        })
+        .catch(() => showToast('নেটওয়ার্ক সমস্যা বা ফাইল আপলোড সাইজ বেশি'));
 }
 
 function deleteCartelloPage(id) {
@@ -4323,16 +4518,16 @@ function deleteCartelloPage(id) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('পেজ ডিলিট করা হয়েছে');
-            fetchCartelloPages();
-        } else {
-            showToast(data.message || 'ডিলিট করা যায়নি');
-        }
-    })
-    .catch(() => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট MCQ চেক করুন।'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('পেজ ডিলিট করা হয়েছে');
+                fetchCartelloPages();
+            } else {
+                showToast(data.message || 'ডিলিট করা যায়নি');
+            }
+        })
+        .catch(() => showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট MCQ চেক করুন।'));
 }
 
 // ================================================================
@@ -4355,6 +4550,10 @@ function fetchCartelloMcqs(page = 1) {
     fetch(url, { headers: { 'X-CSRF-TOKEN': csrfToken } })
         .then(r => r.json())
         .then(data => {
+            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
+                selectAllAcrossPagesFlag['cartello-mcqs'] = false;
+            }
+            cartelloMcqsTotalCount = data.total || 0;
             cartelloMcqsCache = data.data || [];
             renderCartelloMcqsTable(cartelloMcqsCache);
             renderCartelloMcqPagination(data);
@@ -4366,8 +4565,13 @@ function renderCartelloMcqsTable(mcqs) {
     const tbody = document.getElementById('cartello-mcqs-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const masterSelect = document.getElementById('bulk-select-cartello-mcqs');
+    if (masterSelect) masterSelect.checked = false;
+    updateBulkDeleteButton('cartello-mcqs');
+
     if (mcqs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">কোনো MCQ পাওয়া যায়নি</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">কোনো MCQ পাওয়া যায়নি</td></tr>';
         return;
     }
     mcqs.forEach(q => {
@@ -4378,6 +4582,7 @@ function renderCartelloMcqsTable(mcqs) {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td style="text-align: center;"><input type="checkbox" class="select-cartello-mcq-checkbox" value="${q.id}" onchange="updateBulkDeleteButton('cartello-mcqs')"></td>
             <td><strong>#${q.id}</strong></td>
             <td>
                 <div style="font-weight:700;">${catName}</div>
@@ -4417,14 +4622,167 @@ function renderCartelloMcqPagination(data) {
     wrap.innerHTML = html;
 }
 
+function addCartelloMcqVocabRow(italianWord = '', banglaTranslation = '', imagePath = '') {
+    const tbody = document.getElementById('cartello-mcq-vocab-tbody');
+    if (!tbody) return;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm cartello-vocab-italian" name="vocab_italian[]" value="${italianWord}" placeholder="e.g. STRADA"></td>
+        <td><input type="text" class="form-control form-control-sm cartello-vocab-bangla" name="vocab_bangla[]" value="${banglaTranslation}" placeholder="e.g. রাস্তা"></td>
+        <td><input type="file" class="form-control form-control-sm cartello-vocab-image" name="vocab_image[]" accept="image/*"></td>
+        <td style="text-align: center; vertical-align: middle;">
+            <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()" style="padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-trash"></i></button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function updateCartelloMcqUnderlinedWordsList() {
+    const qIt = document.getElementById('cmcq-question')?.value || '';
+    const qBn = document.getElementById('cmcq-bn-question')?.value || '';
+    const regex = /<u>(.*?)<\/u>/gi;
+    const foundWords = new Set();
+    let match;
+
+    while ((match = regex.exec(qIt)) !== null) {
+        if (match[1] && match[1].trim()) {
+            foundWords.add(match[1].trim());
+        }
+    }
+    while ((match = regex.exec(qBn)) !== null) {
+        if (match[1] && match[1].trim()) {
+            foundWords.add(match[1].trim());
+        }
+    }
+
+    const tbody = document.getElementById('cartello-mcq-vocab-tbody');
+    if (!tbody) return;
+
+    const existingRows = Array.from(tbody.querySelectorAll('tr'));
+    const existingWordsMap = new Map();
+    existingRows.forEach(tr => {
+        const itVal = tr.querySelector('.cartello-vocab-italian')?.value || '';
+        const bnVal = tr.querySelector('.cartello-vocab-bangla')?.value || '';
+        if (itVal) existingWordsMap.set(itVal.toLowerCase(), { bnVal, tr });
+    });
+
+    foundWords.forEach(word => {
+        if (!existingWordsMap.has(word.toLowerCase())) {
+            addCartelloMcqVocabRow(word, '');
+        }
+    });
+}
+
+let adminCartelloChaptersList = [];
+
+function loadCartelloMcqChaptersDropdown(selectedChapId = null, targetPageId = null) {
+    const selectEl = document.getElementById('cmcq-chapter-id-select');
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">Select Chapter...</option>';
+
+    fetch('/api/cartello-chapters')
+        .then(res => res.json())
+        .then(chapters => {
+            adminCartelloChaptersList = chapters || [];
+            chapters.forEach((ch, idx) => {
+                const opt = document.createElement('option');
+                opt.value = ch.id;
+                const displayNum = ch.chapter_number || (idx + 1);
+                opt.textContent = `${displayNum}. ${ch.name}`;
+                if (selectedChapId && ch.id == selectedChapId) {
+                    opt.selected = true;
+                }
+                selectEl.appendChild(opt);
+            });
+
+            if (selectedChapId) {
+                handleCartelloMcqChapterSelectChange(selectedChapId, targetPageId);
+            } else if (chapters.length > 0) {
+                selectEl.value = chapters[0].id;
+                handleCartelloMcqChapterSelectChange(chapters[0].id);
+            }
+        })
+        .catch(err => console.error("Error loading cartello chapters for modal: ", err));
+}
+
+function handleCartelloMcqChapterSelectChange(chapterId, targetPageId = null) {
+    const nameInput = document.getElementById('cmcq-chapter-name-display');
+    const pageSelect = document.getElementById('cmcq-page-id');
+
+    if (!chapterId) {
+        if (nameInput) nameInput.value = '';
+        if (pageSelect) pageSelect.innerHTML = '<option value="">Select Page...</option>';
+        return;
+    }
+
+    const ch = adminCartelloChaptersList.find(c => c.id == chapterId);
+    if (ch && nameInput) {
+        nameInput.value = ch.name;
+    }
+
+    if (pageSelect) {
+        pageSelect.innerHTML = '<option value="">Loading pages...</option>';
+    }
+
+    fetch(`/api/cartello-chapters/${chapterId}/pages`)
+        .then(res => res.json())
+        .then(pages => {
+            if (!pageSelect) return;
+            pageSelect.innerHTML = '<option value="">Select Page...</option>';
+
+            if (!Array.isArray(pages) || pages.length === 0) {
+                pageSelect.innerHTML = '<option value="">No Pages Found (Create Pages First)</option>';
+                return;
+            }
+
+            pages.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `Page ${p.page_number}) ${p.title} (${p.bn_title || ''})`;
+                if (targetPageId && p.id == targetPageId) {
+                    opt.selected = true;
+                }
+                pageSelect.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            console.error("Error loading cartello pages for chapter: ", err);
+            if (pageSelect) pageSelect.innerHTML = '<option value="">Error loading pages</option>';
+        });
+}
+
 function openAddCartelloMcqModal() {
     editingCartelloMcqId = null;
-    document.getElementById('cartello-mcq-modal-title').textContent = 'নতুন MCQ প্রশ্ন তৈরি করুন';
+    document.getElementById('cartello-mcq-modal-title').textContent = 'Add New Question';
     document.getElementById('cartello-mcq-form').reset();
-    document.getElementById('cmcq-chapter-id').innerHTML = '<option value="">প্রথমে ক্যাটাগরি নির্বাচন করুন...</option>';
-    document.getElementById('cmcq-page-id').innerHTML = '<option value="">প্রথমে চ্যাপ্টার নির্বাচন করুন...</option>';
-    loadCategoryDropdown('cmcq-category-id');
+    const vocabTbody = document.getElementById('cartello-mcq-vocab-tbody');
+    if (vocabTbody) vocabTbody.innerHTML = '';
+
+    loadCartelloMcqChaptersDropdown();
     document.getElementById('cartello-mcq-modal').style.display = 'flex';
+}
+
+function toggleCartelloMcqVideoInput(enabled) {
+    const wrapper = document.getElementById('cmcq-video-inputs-wrapper');
+    const labelContainer = document.getElementById('cmcq-video-toggle-label');
+    const statusIcon = document.getElementById('cmcq-video-status-icon');
+    const toggleText = document.getElementById('cmcq-video-toggle-text');
+    const toggleSpan = document.getElementById('cmcq-video-toggle-span');
+
+    if (enabled) {
+        if (wrapper) wrapper.style.display = 'flex';
+        if (statusIcon) statusIcon.className = 'fa-solid fa-video';
+        if (toggleText) toggleText.innerText = 'ON (ফ্রন্টে দেখাবে)';
+        if (labelContainer) labelContainer.style.color = '#4CAF50';
+        if (toggleSpan) toggleSpan.style.backgroundColor = '#4CAF50';
+    } else {
+        if (wrapper) wrapper.style.display = 'none';
+        if (statusIcon) statusIcon.className = 'fa-solid fa-eye-slash';
+        if (toggleText) toggleText.innerText = 'OFF (ফ্রন্টে দেখাবে না)';
+        if (labelContainer) labelContainer.style.color = '#EF4444';
+        if (toggleSpan) toggleSpan.style.backgroundColor = '#EF4444';
+    }
 }
 
 function openEditCartelloMcqModal(id) {
@@ -4432,26 +4790,15 @@ function openEditCartelloMcqModal(id) {
     if (!q) return;
     editingCartelloMcqId = id;
     document.getElementById('cartello-mcq-modal-title').textContent = 'MCQ প্রশ্ন সম্পাদনা করুন';
-    const catId = q.page && q.page.chapter ? q.page.chapter.category_id : null;
-    const chapId = q.page ? q.page.chapter_id : null;
 
-    loadCategoryDropdown('cmcq-category-id', catId);
-    setTimeout(() => {
-        if (catId) {
-            handleCategoryChange('cmcq-category-id', 'cmcq-chapter-id', chapId);
-        }
-    }, 300);
-    setTimeout(() => {
-        if (chapId) {
-            handleChapterChange('cmcq-chapter-id', 'cmcq-page-id', q.page_id);
-        }
-    }, 600);
+    const chapId = q.page ? q.page.chapter_id : null;
+    loadCartelloMcqChaptersDropdown(chapId, q.page_id);
 
     document.getElementById('cmcq-question').value = q.question;
     document.getElementById('cmcq-bn-question').value = q.bn_question;
     document.getElementById('cmcq-correct-answer').value = q.correct_answer;
-    document.getElementById('cmcq-explanation').value = q.explanation || '';
-    document.getElementById('cmcq-bn-explanation').value = q.bn_explanation || '';
+    if (document.getElementById('cmcq-explanation')) document.getElementById('cmcq-explanation').value = q.explanation || '';
+    if (document.getElementById('cmcq-bn-explanation')) document.getElementById('cmcq-bn-explanation').value = q.bn_explanation || '';
     document.getElementById('cartello-mcq-modal').style.display = 'flex';
 }
 
@@ -4465,22 +4812,27 @@ function saveCartelloMcq(e) {
     const url = isEdit ? `/admin/api/cartello-mcqs/update/${editingCartelloMcqId}` : '/admin/api/cartello-mcqs/store';
 
     const formData = new FormData(document.getElementById('cartello-mcq-form'));
+    const isVideoToggleOn = document.getElementById('cmcq-video-toggle') ? document.getElementById('cmcq-video-toggle').checked : true;
+    if (!isVideoToggleOn) {
+        formData.append('clear_video', '1');
+    }
+
     fetch(url, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken },
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast(isEdit ? 'MCQ আপডেট করা হয়েছে' : 'MCQ তৈরি করা হয়েছে');
-            closeCartelloMcqModal();
-            fetchCartelloMcqs(cartelloQCurrentPage);
-        } else {
-            showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
-        }
-    })
-    .catch(() => showToast('নেটওয়ার্ক সমস্যা'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(isEdit ? 'MCQ আপডেট করা হয়েছে' : 'MCQ তৈরি করা হয়েছে');
+                closeCartelloMcqModal();
+                fetchCartelloMcqs(cartelloQCurrentPage);
+            } else {
+                showToast(data.message || 'সংরক্ষণ ব্যর্থ হয়েছে');
+            }
+        })
+        .catch(() => showToast('নেটওয়ার্ক সমস্যা'));
 }
 
 function deleteCartelloMcq(id) {
@@ -4489,14 +4841,1117 @@ function deleteCartelloMcq(id) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken }
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('MCQ ডিলিট করা হয়েছে');
-            fetchCartelloMcqs(cartelloQCurrentPage);
-        } else {
-            showToast(data.message || 'ডিলিট করা যায়নি');
-        }
-    })
-    .catch(() => showToast('ডিলিট করা যায়নি'));
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('MCQ ডিলিট করা হয়েছে');
+                fetchCartelloMcqs(cartelloQCurrentPage);
+            } else {
+                showToast(data.message || 'ডিলিট করা যায়নি');
+            }
+        })
+        .catch(() => showToast('ডিলিট করা যায়নি'));
 }
+
+// ==========================================
+// BULK DELETE HELPER FUNCTIONS WITH CROSS-PAGE SELECT ALL SUPPORT
+// ==========================================
+let selectAllAcrossPagesFlag = {};
+let questionsTotalCount = 0;
+let chaptersTotalCount = 0;
+let pagesTotalCount = 0;
+let cartelloMcqsTotalCount = 0;
+
+function toggleSelectAll(type, checked) {
+    let checkboxClass = `select-${type.slice(0, -1)}-checkbox`;
+    if (type === 'cartello-categories') checkboxClass = 'select-cartello-category-checkbox';
+    else if (type === 'cartello-chapters') checkboxClass = 'select-cartello-chapter-checkbox';
+    else if (type === 'cartello-pages') checkboxClass = 'select-cartello-page-checkbox';
+    else if (type === 'cartello-mcqs') checkboxClass = 'select-cartello-mcq-checkbox';
+    else if (type === 'dizionario') checkboxClass = 'select-dizionario-checkbox';
+
+    const checkboxes = document.querySelectorAll('.' + checkboxClass);
+    checkboxes.forEach(cb => cb.checked = checked);
+
+    if (!checked) {
+        selectAllAcrossPagesFlag[type] = false;
+    }
+    updateBulkDeleteButton(type);
+}
+
+function updateBulkDeleteButton(type) {
+    let checkboxClass = `select-${type.slice(0, -1)}-checkbox`;
+    if (type === 'cartello-categories') checkboxClass = 'select-cartello-category-checkbox';
+    else if (type === 'cartello-chapters') checkboxClass = 'select-cartello-chapter-checkbox';
+    else if (type === 'cartello-pages') checkboxClass = 'select-cartello-page-checkbox';
+    else if (type === 'cartello-mcqs') checkboxClass = 'select-cartello-mcq-checkbox';
+    else if (type === 'dizionario') checkboxClass = 'select-dizionario-checkbox';
+
+    const checkboxes = document.querySelectorAll(`.${checkboxClass}`);
+    const checkedCount = document.querySelectorAll(`.${checkboxClass}:checked`).length;
+    const totalOnPage = checkboxes.length;
+
+    const bulkBtn = document.getElementById(`btn-bulk-delete-${type}`);
+    if (bulkBtn) {
+        if (checkedCount > 0 || selectAllAcrossPagesFlag[type]) {
+            bulkBtn.style.display = 'inline-block';
+        } else {
+            bulkBtn.style.display = 'none';
+        }
+    }
+
+    const masterSelect = document.getElementById(`bulk-select-${type}`);
+    if (masterSelect) {
+        if (checkedCount === totalOnPage && totalOnPage > 0) {
+            masterSelect.checked = true;
+        } else {
+            masterSelect.checked = false;
+        }
+    }
+
+    // Paginated banners
+    if (['questions', 'chapters', 'pages', 'cartello-mcqs'].includes(type)) {
+        let totalCount = 0;
+        if (type === 'questions') totalCount = questionsTotalCount;
+        else if (type === 'chapters') totalCount = chaptersTotalCount;
+        else if (type === 'pages') totalCount = pagesTotalCount;
+        else if (type === 'cartello-mcqs') totalCount = cartelloMcqsTotalCount;
+
+        const bannerNormal = document.getElementById(`bulk-select-all-banner-${type}`);
+        const bannerActive = document.getElementById(`bulk-select-all-banner-active-${type}`);
+
+        if (bannerNormal && bannerActive) {
+            if (selectAllAcrossPagesFlag[type]) {
+                bannerNormal.style.display = 'none';
+                bannerActive.style.display = 'block';
+                const countSpan = document.getElementById(`bulk-select-total-active-count-${type}`);
+                if (countSpan) countSpan.textContent = totalCount;
+            } else if (checkedCount === totalOnPage && totalCount > totalOnPage) {
+                bannerNormal.style.display = 'block';
+                bannerActive.style.display = 'none';
+                const pageSpan = document.getElementById(`bulk-select-page-count-${type}`);
+                const totalSpan = document.getElementById(`bulk-select-total-count-${type}`);
+                if (pageSpan) pageSpan.textContent = totalOnPage;
+                if (totalSpan) totalSpan.textContent = totalCount;
+            } else {
+                bannerNormal.style.display = 'none';
+                bannerActive.style.display = 'none';
+            }
+        }
+    }
+}
+
+function selectAllAcrossPages(type) {
+    selectAllAcrossPagesFlag[type] = true;
+    updateBulkDeleteButton(type);
+}
+
+function clearAllSelection(type) {
+    selectAllAcrossPagesFlag[type] = false;
+    toggleSelectAll(type, false);
+}
+
+function bulkDeleteItems(type) {
+    let checkboxClass = `select-${type.slice(0, -1)}-checkbox`;
+    if (type === 'cartello-categories') checkboxClass = 'select-cartello-category-checkbox';
+    else if (type === 'cartello-chapters') checkboxClass = 'select-cartello-chapter-checkbox';
+    else if (type === 'cartello-pages') checkboxClass = 'select-cartello-page-checkbox';
+    else if (type === 'cartello-mcqs') checkboxClass = 'select-cartello-mcq-checkbox';
+
+    const isAll = !!selectAllAcrossPagesFlag[type];
+    let bodyData = {};
+
+    if (isAll) {
+        let totalCount = 0;
+        if (type === 'questions') totalCount = questionsTotalCount;
+        else if (type === 'chapters') totalCount = chaptersTotalCount;
+        else if (type === 'pages') totalCount = pagesTotalCount;
+        else if (type === 'cartello-mcqs') totalCount = cartelloMcqsTotalCount;
+
+        if (!confirm(`আপনি কি নিশ্চিতভাবে এই তালিকার সবকয়টি (${totalCount}টি) আইটেম এক ক্লিকে ডিলিট করতে চান? এই কাজ আর ফেরত নেওয়া যাবে না!`)) return;
+
+        bodyData.all = true;
+        if (type === 'questions') {
+            bodyData.chapter = document.getElementById('filter-chapter').value;
+            bodyData.search = document.getElementById('search-question').value;
+        } else if (type === 'chapters') {
+            bodyData.search = document.getElementById('chapter-search').value;
+        } else if (type === 'pages') {
+            bodyData.chapter_id = document.getElementById('admin-page-chapter-select').value;
+            bodyData.search = document.getElementById('page-search').value;
+        } else if (type === 'cartello-mcqs') {
+            bodyData.page_id = document.getElementById('filter-mcq-page-id')?.value || '';
+            bodyData.chapter_id = document.getElementById('filter-mcq-chapter-id')?.value || '';
+            bodyData.category_id = document.getElementById('filter-mcq-category-id')?.value || '';
+            bodyData.search = document.getElementById('cartello-mcq-search')?.value || '';
+        }
+    } else {
+        const checkedBoxes = document.querySelectorAll(`.${checkboxClass}:checked`);
+        if (checkedBoxes.length === 0) return;
+        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+        if (!confirm(`আপনি কি নিশ্চিতভাবে নির্বাচিত ${ids.length}টি আইটেম ডিলিট করতে চান?`)) return;
+
+        bodyData.ids = ids;
+    }
+
+    const url = `/admin/api/${type}/bulk-delete`;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify(bodyData)
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('আইটেমসমূহ সফলভাবে ডিলিট করা হয়েছে');
+                selectAllAcrossPagesFlag[type] = false;
+
+                // Reload corresponding table
+                if (type === 'questions') fetchQuestions();
+                else if (type === 'chapters') fetchChaptersAdmin(chapterPage);
+                else if (type === 'pages') {
+                    const chapterId = document.getElementById('admin-page-chapter-select').value;
+                    loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage);
+                }
+                else if (type === 'categories') fetchCategories();
+                else if (type === 'cartello-categories') fetchCartelloCategories();
+                else if (type === 'cartello-chapters') fetchCartelloChapters();
+                else if (type === 'cartello-pages') fetchCartelloPages();
+                else if (type === 'cartello-mcqs') fetchCartelloMcqs(cartelloQCurrentPage);
+            } else {
+                showToast(data.message || 'ডিলিট করতে সমস্যা হয়েছে');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('ডিলিট করা যায়নি। অনুগ্রহ করে ডিপেন্ডেন্ট ডাটা চেক করুন।');
+        });
+}
+
+// ==========================================
+// 17. DICTIONARY (DIZIONARIO) CRUD ACTIONS
+// ==========================================
+let dizionarioCurrentPage = 1;
+let dizionarioTotalCount = 0;
+
+function fetchDizionario(page = 1) {
+    dizionarioCurrentPage = page;
+    const searchInput = document.getElementById('dizionario-search-input');
+    const search = searchInput ? searchInput.value.trim() : '';
+    const perPageSelect = document.getElementById('dizionario-per-page');
+    const perPage = perPageSelect ? perPageSelect.value : 10;
+
+    const tbody = document.getElementById('dizionario-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+    fetch(`/admin/api/dizionario/list?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${page}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            dizionarioTotalCount = data.total;
+
+            // Update bulk select checkbox status
+            const bulkSelect = document.getElementById('bulk-select-dizionario');
+            if (bulkSelect) bulkSelect.checked = false;
+            const bulkBtn = document.getElementById('btn-bulk-delete-dizionario');
+            if (bulkBtn) bulkBtn.style.display = 'none';
+
+            if (data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">No dictionary words found.</td></tr>';
+                document.getElementById('dizionario-pagination-status').innerText = 'Showing 0 of 0 entries';
+                return;
+            }
+
+            data.data.forEach(item => {
+                const tr = document.createElement('tr');
+
+                // Media badges
+                let mediaBadges = '';
+                if (item.image) mediaBadges += '<span class="badge" style="background-color: #3b82f6; color: white; margin-right: 4px;">IMG</span>';
+                if (item.audio) mediaBadges += '<span class="badge" style="background-color: #10b981; color: white; margin-right: 4px;">AUD</span>';
+                if (item.video) mediaBadges += '<span class="badge" style="background-color: #ef4444; color: white; margin-right: 4px;">VID</span>';
+                if (!mediaBadges) mediaBadges = '<span style="color: var(--text-secondary); font-size:11px;">None</span>';
+
+                tr.innerHTML = `
+                    <td style="text-align: center;"><input type="checkbox" class="select-dizionario-checkbox" value="${item.id}" onchange="updateDizionarioBulkDeleteButton()"></td>
+                    <td>${item.id}</td>
+                    <td style="font-weight: bold; color: var(--text-primary);">${item.word}</td>
+                    <td>${item.bn}</td>
+                    <td>
+                        <div style="font-size:12px; color: var(--text-secondary); line-height: 1.4;">
+                            <strong>IT:</strong> ${item.desc_it || ''}<br>
+                            <strong>BN:</strong> ${item.desc_bn || ''}
+                        </div>
+                    </td>
+                    <td style="text-align: center;">${mediaBadges}</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-secondary btn-sm" onclick='openEditDizionarioModal(${JSON.stringify(item).replace(/'/g, "&apos;")})' style="margin-right: 4px;">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteDizionarioWord(${item.id})">
+                            <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Update pagination status
+            const from = data.from || 0;
+            const to = data.to || 0;
+            document.getElementById('dizionario-pagination-status').innerText = `Showing ${from} to ${to} of ${data.total} entries`;
+        })
+        .catch(err => {
+            console.error("Error fetching dictionary:", err);
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--accent-red);">Error loading dictionary.</td></tr>';
+        });
+}
+
+function prevDizionarioPage() {
+    if (dizionarioCurrentPage > 1) {
+        fetchDizionario(dizionarioCurrentPage - 1);
+    }
+}
+
+function nextDizionarioPage() {
+    fetchDizionario(dizionarioCurrentPage + 1);
+}
+
+function openAddDizionarioModal() {
+    document.getElementById('dizionario-modal-title').textContent = 'Add Dictionary Term';
+    document.getElementById('form-dizionario-id').value = '';
+    document.getElementById('form-dizionario-word').value = '';
+    document.getElementById('form-dizionario-bn').value = '';
+    document.getElementById('form-dizionario-desc-it').value = '';
+    document.getElementById('form-dizionario-desc-bn').value = '';
+
+    // Clear inputs & previews
+    document.getElementById('form-dizionario-image').value = '';
+    document.getElementById('form-dizionario-audio').value = '';
+    document.getElementById('form-dizionario-video').value = '';
+    document.getElementById('dizionario-image-preview-container').style.display = 'none';
+    document.getElementById('dizionario-audio-preview-container').style.display = 'none';
+    document.getElementById('dizionario-video-preview-container').style.display = 'none';
+
+    document.getElementById('dizionario-modal').style.display = 'flex';
+}
+
+function openEditDizionarioModal(item) {
+    document.getElementById('dizionario-modal-title').textContent = 'Edit Dictionary Term';
+    document.getElementById('form-dizionario-id').value = item.id;
+    document.getElementById('form-dizionario-word').value = item.word;
+    document.getElementById('form-dizionario-bn').value = item.bn;
+    document.getElementById('form-dizionario-desc-it').value = item.desc_it || '';
+    document.getElementById('form-dizionario-desc-bn').value = item.desc_bn || '';
+
+    // Clear file inputs
+    document.getElementById('form-dizionario-image').value = '';
+    document.getElementById('form-dizionario-audio').value = '';
+    document.getElementById('form-dizionario-video').value = '';
+
+    // Handle previews
+    if (item.image) {
+        document.getElementById('dizionario-image-preview').src = item.image;
+        document.getElementById('dizionario-image-preview-container').style.display = 'block';
+    } else {
+        document.getElementById('dizionario-image-preview-container').style.display = 'none';
+    }
+
+    if (item.audio) {
+        document.getElementById('dizionario-audio-preview').src = item.audio;
+        document.getElementById('dizionario-audio-preview-container').style.display = 'block';
+    } else {
+        document.getElementById('dizionario-audio-preview-container').style.display = 'none';
+    }
+
+    if (item.video) {
+        document.getElementById('dizionario-video-preview').src = item.video;
+        document.getElementById('dizionario-video-preview-container').style.display = 'block';
+    } else {
+        document.getElementById('dizionario-video-preview-container').style.display = 'none';
+    }
+
+    document.getElementById('dizionario-modal').style.display = 'flex';
+}
+
+function closeDizionarioModal() {
+    document.getElementById('dizionario-modal').style.display = 'none';
+}
+
+function saveDizionario(e) {
+    e.preventDefault();
+    const id = document.getElementById('form-dizionario-id').value;
+    const word = document.getElementById('form-dizionario-word').value.trim();
+    const bn = document.getElementById('form-dizionario-bn').value.trim();
+    const descIt = document.getElementById('form-dizionario-desc-it').value.trim();
+    const descBn = document.getElementById('form-dizionario-desc-bn').value.trim();
+
+    const imgFile = document.getElementById('form-dizionario-image').files[0];
+    const audioFile = document.getElementById('form-dizionario-audio').files[0];
+    const videoFile = document.getElementById('form-dizionario-video').files[0];
+
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('bn', bn);
+    formData.append('desc_it', descIt);
+    formData.append('desc_bn', descBn);
+
+    if (imgFile) formData.append('image', imgFile);
+    if (audioFile) formData.append('audio', audioFile);
+    if (videoFile) formData.append('video', videoFile);
+
+    const url = id ? `/admin/api/dizionario/update/${id}` : '/admin/api/dizionario/store';
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken },
+        body: formData
+    })
+        .then(res => res.json())
+        .then(data => {
+            closeDizionarioModal();
+            Swal.fire({
+                title: 'Success!',
+                text: id ? 'Word details updated successfully.' : 'New word added successfully.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            fetchDizionario(dizionarioCurrentPage);
+            fetchStats();
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('শব্দটি সংরক্ষণ করতে সমস্যা হয়েছে');
+        });
+}
+
+function deleteDizionarioWord(id) {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "Do you really want to delete this word and its uploaded media files?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/admin/api/dizionario/delete/${id}`, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    Swal.fire('Deleted!', 'Word has been deleted.', 'success');
+                    fetchDizionario(dizionarioCurrentPage);
+                    fetchStats();
+                })
+                .catch(err => showToast('শব্দটি ডিলিট করতে সমস্যা হয়েছে'));
+        }
+    });
+}
+
+function updateDizionarioBulkDeleteButton() {
+    const checkboxes = document.querySelectorAll('.select-dizionario-checkbox');
+    const checkedCount = document.querySelectorAll('.select-dizionario-checkbox:checked').length;
+    const totalOnPage = checkboxes.length;
+
+    const bulkBtn = document.getElementById('btn-bulk-delete-dizionario');
+    if (bulkBtn) {
+        bulkBtn.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+    }
+
+    const masterSelect = document.getElementById('bulk-select-dizionario');
+    if (masterSelect) {
+        masterSelect.checked = (checkedCount === totalOnPage && totalOnPage > 0);
+    }
+}
+
+function bulkDeleteDizionarioWords() {
+    const checkedBoxes = document.querySelectorAll('.select-dizionario-checkbox:checked');
+    if (checkedBoxes.length === 0) return;
+    const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+    Swal.fire({
+        title: 'Are you sure?',
+        text: `Do you really want to delete the selected ${ids.length} words and their media files?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete them!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('/admin/api/dizionario/bulk-delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ ids: ids })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Deleted!', 'Selected words have been deleted.', 'success');
+                        fetchDizionario(dizionarioCurrentPage);
+                        fetchStats();
+                    } else {
+                        showToast(data.message || 'ডিলিট করতে সমস্যা হয়েছে');
+                    }
+                })
+                .catch(err => showToast('ডিলিট করা যায়নি'));
+        }
+    });
+}
+
+function updateQuestionUnderlinedWordsList() {
+    const tbody = document.getElementById('question-vocab-tbody');
+    if (!tbody) return;
+
+    const itVal = document.getElementById('form-italian')?.value || '';
+    const bnVal = document.getElementById('form-bangla')?.value || '';
+    const combinedText = `${itVal} ${bnVal}`;
+
+    const regex = /<u>([\s\S]*?)<\/u>/gi;
+    let match;
+    const detectedWords = new Set();
+    while ((match = regex.exec(combinedText)) !== null) {
+        if (match[1] && match[1].trim()) {
+            detectedWords.add(match[1].trim());
+        }
+    }
+
+    // Keep existing items map
+    const currentRows = Array.from(tbody.querySelectorAll('tr'));
+    const currentWordsMap = new Map();
+    currentRows.forEach(row => {
+        const it = row.querySelector('.vocab-it')?.value;
+        if (it) currentWordsMap.set(it, row);
+    });
+
+    // Delete removed ones
+    currentRows.forEach(row => {
+        const it = row.querySelector('.vocab-it')?.value;
+        if (it && !detectedWords.has(it)) {
+            row.remove();
+        }
+    });
+
+    // Add new ones
+    detectedWords.forEach(word => {
+        if (!currentWordsMap.has(word)) {
+            addQuestionVocabRow(word, '', '');
+        }
+    });
+}
+
+function addQuestionVocabRow(italian = '', bangla = '', image = '') {
+    const tbody = document.getElementById('question-vocab-tbody');
+    if (!tbody) return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="vocab-it form-control form-control-sm" value="${italian.replace(/"/g, '&quot;')}" style="width: 100%; font-size: 12px; padding: 4px;" required placeholder="e.g. strada"></td>
+        <td><input type="text" class="vocab-bn form-control form-control-sm" value="${bangla.replace(/"/g, '&quot;')}" style="width: 100%; font-size: 12px; padding: 4px;" required placeholder="e.g. রাস্তা"></td>
+        <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="file" class="vocab-img-file" accept="image/*" style="font-size: 11px; max-width: 120px;" onchange="previewVocabRowImage(this)">
+                <input type="hidden" class="vocab-img-path" value="${image}">
+                <img class="vocab-img-preview" src="${image}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; ${image ? 'display: block;' : 'display: none;'}">
+            </div>
+        </td>
+        <td style="text-align: center; vertical-align: middle;"><button type="button" class="btn btn-sm btn-danger" style="padding: 2px 6px; font-size: 10px;" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function addPageVocabRow(italian = '', bangla = '', image = '') {
+    const list = document.getElementById('page-vocab-list');
+    if (!list) return;
+
+    // Check if a row for this word already exists
+    const existing = Array.from(list.querySelectorAll('.vocab-card-item')).find(row => {
+        const valEl = row.querySelector('.vocab-it');
+        return valEl && valEl.value === italian;
+    });
+    if (existing) {
+        const bnInput = existing.querySelector('.vocab-bn');
+        if (bnInput && bangla) bnInput.value = bangla;
+        const pathInput = existing.querySelector('.vocab-img-path');
+        if (pathInput && image) {
+            pathInput.value = image;
+            const previewImg = existing.querySelector('.vocab-img-preview');
+            if (previewImg) {
+                previewImg.src = image;
+                previewImg.style.display = 'block';
+            }
+        }
+        return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'vocab-card-item';
+    card.style.cssText = 'display: flex; gap: 12px; align-items: center; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 10px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); transition: all 0.2s; margin-bottom: 2px;';
+    card.innerHTML = `
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="hidden" class="vocab-it" value="${italian.replace(/"/g, '&quot;')}">
+                <span style="font-size: 13px; font-weight: bold; color: var(--accent-green); min-width: 100px; display: inline-block;">Word: <u>${italian}</u></span>
+                <input type="text" class="vocab-bn form-control form-control-sm" value="${bangla.replace(/"/g, '&quot;')}" required placeholder="Translate / Definition" style="border-radius: 6px; font-size: 13px; font-weight: bold; background: var(--bg-page); color: var(--text-primary); border: 1px solid var(--border-card); padding: 6px 10px; flex: 1;">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px;">
+                <span style="font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px;">
+                    <i class="fa-regular fa-image"></i> Image Upload (Optional)
+                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="file" class="vocab-img-file" accept="image/*" style="font-size: 11px; max-width: 140px; cursor: pointer;" onchange="previewVocabRowImage(this)">
+                    <input type="hidden" class="vocab-img-path" value="${image}">
+                    <img class="vocab-img-preview" src="${image}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-card); ${image ? 'display: block;' : 'display: none;'}">
+                </div>
+            </div>
+        </div>
+    `;
+    list.appendChild(card);
+}
+
+function updateUnderlinedWordsList() {
+    const listContainer = document.getElementById('page-vocab-list');
+    if (!listContainer) return;
+
+    const titleIt = document.getElementById('form-page-title-it')?.value || '';
+    const titleBn = document.getElementById('form-page-title-bn')?.value || '';
+    const contentIt = document.getElementById('form-page-content')?.value || '';
+    const contentBn = document.getElementById('form-page-content-bn')?.value || '';
+
+    const combinedText = `${titleIt} ${titleBn} ${contentIt} ${contentBn}`;
+
+    const regex = /<u>([\s\S]*?)<\/u>/gi;
+    let match;
+    const detectedWords = new Set();
+    while ((match = regex.exec(combinedText)) !== null) {
+        const word = match[1].trim();
+        if (word) {
+            detectedWords.add(word);
+        }
+    }
+
+    const currentRows = listContainer.querySelectorAll('.vocab-card-item');
+    const currentWordsMap = new Map();
+    currentRows.forEach(row => {
+        const wordInput = row.querySelector('.vocab-it');
+        if (wordInput) {
+            currentWordsMap.set(wordInput.value, row);
+        }
+    });
+
+    currentWordsMap.forEach((row, word) => {
+        if (!detectedWords.has(word)) {
+            row.remove();
+        }
+    });
+
+    detectedWords.forEach(word => {
+        if (!currentWordsMap.has(word)) {
+            addPageVocabRow(word, '', '');
+        }
+    });
+}
+
+function previewVocabRowImage(input) {
+    const preview = input.closest('.vocab-card-item').querySelector('.vocab-img-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        const pathInput = input.closest('.vocab-card-item').querySelector('.vocab-img-path');
+        if (pathInput && pathInput.value) {
+            preview.src = pathInput.value;
+            preview.style.display = 'block';
+        } else {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+    }
+}
+
+function updateMcqDropdownColor(select) {
+    if (select.value === '1') {
+        select.style.color = '#4CAF50';
+        select.style.borderColor = 'rgba(76, 175, 80, 0.4)';
+        select.style.backgroundColor = 'rgba(76, 175, 80, 0.05)';
+    } else {
+        select.style.color = '#ef4444';
+        select.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        select.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+    }
+}
+
+function toggleMcqMediaSection(btn) {
+    const container = btn.closest('.mcq-card-item').querySelector('.mcq-media-vocab-container');
+    if (!container) return;
+    const isHidden = container.style.display === 'none';
+    container.style.display = isHidden ? 'flex' : 'none';
+    btn.querySelector('span').innerText = isHidden ? 'Hide Media & Vocabulary Details' : 'Show Media & Vocabulary Details';
+}
+
+function previewMcqImage(input) {
+    const preview = input.closest('.mcq-card-item').querySelector('.mcq-image-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function previewMcqAudio(input) {
+    const preview = input.closest('.mcq-card-item').querySelector('.mcq-audio-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function previewMcqVideo(input) {
+    const preview = input.closest('.mcq-card-item').querySelector('.mcq-video-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function updateMcqVocabList(card) {
+    const itInput = card.querySelector('.mcq-it');
+    const bnInput = card.querySelector('.mcq-bn');
+    const listContainer = card.querySelector('.mcq-vocab-list');
+    if (!itInput || !listContainer) return;
+
+    const itVal = itInput.value || '';
+    const bnVal = bnInput ? bnInput.value || '' : '';
+    const combinedText = `${itVal} ${bnVal}`;
+
+    const regex = /<u>([\s\S]*?)<\/u>/gi;
+    let match;
+    const detectedWords = new Set();
+    while ((match = regex.exec(combinedText)) !== null) {
+        if (match[1] && match[1].trim()) {
+            detectedWords.add(match[1].trim());
+        }
+    }
+
+    const currentRows = Array.from(listContainer.querySelectorAll('.vocab-card-item'));
+    const currentWordsMap = new Map();
+    currentRows.forEach(row => {
+        const it = row.querySelector('.vocab-it')?.value;
+        if (it) currentWordsMap.set(it, row);
+    });
+
+    currentRows.forEach(row => {
+        const it = row.querySelector('.vocab-it')?.value;
+        if (it && !detectedWords.has(it)) {
+            row.remove();
+        }
+    });
+
+    detectedWords.forEach(word => {
+        if (!currentWordsMap.has(word)) {
+            addMcqVocabRow(listContainer, word, '', '');
+        }
+    });
+}
+
+function addMcqVocabRow(container, italian = '', bangla = '', image = '') {
+    const card = document.createElement('div');
+    card.className = 'vocab-card-item';
+    card.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 4px;';
+    card.innerHTML = `
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-card); border-radius: 6px; padding: 6px;">
+            <div style="display: flex; gap: 6px; align-items: center; justify-content: space-between;">
+                <input type="hidden" class="vocab-it" value="${italian.replace(/"/g, '&quot;')}">
+                <span style="font-size: 11px; font-weight: bold; color: var(--accent-green);">Word: <u>${italian}</u></span>
+                <input type="text" class="vocab-bn form-control form-control-sm" value="${bangla.replace(/"/g, '&quot;')}" required placeholder="Translation" style="border-radius: 6px; font-size: 11px; font-weight: bold; background: var(--bg-page); color: var(--text-primary); border: 1px solid var(--border-card); padding: 2px 6px; max-width: 140px; height: 26px;">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px;">
+                <span style="font-size: 9px; color: var(--text-secondary);">Image (Optional)</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <input type="file" class="vocab-img-file" accept="image/*" style="font-size: 9px; max-width: 100px; cursor: pointer;" onchange="previewVocabRowImage(this)">
+                    <input type="hidden" class="vocab-img-path" value="${image}">
+                    <img class="vocab-img-preview" src="${image}" style="width: 22px; height: 22px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-card); ${image ? 'display: block;' : 'display: none;'}">
+                </div>
+            </div>
+        </div>
+    `;
+    container.appendChild(card);
+}
+
+function addPageMcqRow(id = '', italian = '', bangla = '', isVero = '1', sortOrder = 0, qImage = '', qAudio = '', qVideo = '', qVocab = null) {
+    const list = document.getElementById('page-mcq-list');
+    if (!list) return;
+    const card = document.createElement('div');
+    card.className = 'mcq-card-item';
+    card.style.cssText = 'display: flex; flex-direction: column; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; padding: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); position: relative; transition: all 0.2s; margin-bottom: 4px;';
+    const isVeroVal = (isVero === true || isVero === 1 || isVero === '1' || isVero === 'true') ? '1' : '0';
+
+    card.innerHTML = `
+        <input type="hidden" class="mcq-id" value="${id}">
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-card); padding-bottom: 6px; margin-bottom: 4px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-circle-question" style="color: var(--accent-orange);"></i>
+                Question Statement
+            </span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <button type="button" class="btn btn-sm btn-underline-it" style="background: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); border-radius: 6px; padding: 2px 8px; font-size: 10px; font-weight: bold; cursor: pointer;" title="Underline selected Italian text (Ctrl+U)"><i class="fa-solid fa-underline"></i> IT</button>
+                <button type="button" class="btn btn-sm btn-underline-bn" style="background: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); border-radius: 6px; padding: 2px 8px; font-size: 10px; font-weight: bold; cursor: pointer;" title="Underline selected Bangla text (Ctrl+U)"><i class="fa-solid fa-underline"></i> BN</button>
+                <button type="button" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.1); border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; transition: all 0.2s;" onclick="this.closest('.mcq-card-item').remove()" title="Delete MCQ">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="text" class="mcq-it form-control form-control-sm" value="${italian.replace(/"/g, '&quot;')}" required placeholder="Italian Statement" style="border-radius: 8px; font-size: 13px; font-weight: 600; background: var(--bg-page); color: var(--text-primary); border: 1px solid var(--border-card); height: 36px; width: 100%;">
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+                <input type="text" class="mcq-bn form-control form-control-sm" value="${bangla.replace(/"/g, '&quot;')}" placeholder="Bangla Translation" style="border-radius: 8px; font-size: 13px; font-weight: 600; background: var(--bg-page); color: var(--text-primary); border: 1px solid var(--border-card); height: 36px; width: 100%;">
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary);">Serial/Order:</span>
+                <input type="number" class="mcq-sort-order form-control form-control-sm" value="${sortOrder}" style="width: 60px; height: 28px; border-radius: 6px; font-weight: 800; text-align: center; background: var(--bg-page); border: 1px solid var(--border-card);">
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-key" style="color: var(--accent-green);"></i> Correct Answer
+                </span>
+                <select class="mcq-is-vero form-control form-control-sm" style="border-radius: 8px; font-size: 12px; font-weight: bold; background: var(--bg-page); border: 1px solid var(--border-card); padding: 4px 10px; max-width: 140px; height: 32px; cursor: pointer; transition: all 0.2s;" onchange="updateMcqDropdownColor(this)">
+                    <option value="1" ${isVeroVal === '1' ? 'selected' : ''}>VERO (সত্য)</option>
+                    <option value="0" ${isVeroVal === '0' ? 'selected' : ''}>FALSO (মিথ্যা)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Toggle for Media & Vocab -->
+        <div style="margin-top: 6px;">
+            <button type="button" class="btn btn-sm btn-outline-secondary toggle-mcq-media" style="width: 100%; border-radius: 8px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-card);" onclick="toggleMcqMediaSection(this)">
+                <i class="fa-solid fa-photo-film" style="color: var(--accent-green);"></i>
+                <span>Show Media & Vocabulary Details</span>
+            </button>
+        </div>
+
+        <!-- MCQ Media & Vocabulary Area (Hidden by default) -->
+        <div class="mcq-media-vocab-container" style="display: none; flex-direction: column; gap: 10px; border-top: 1.5px dashed var(--border-card); margin-top: 10px; padding-top: 10px;">
+            
+            <!-- MCQ Vocabulary Underlines -->
+            <div class="form-group">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-bottom: 4px; display: block;">
+                    Vocabulary Translation & Word Images
+                </label>
+                <div class="mcq-vocab-list" style="display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--border-card); border-radius: 8px; background: rgba(0,0,0,0.01); max-height: 150px; overflow-y: auto;">
+                    <!-- Auto populated based on <u> tags -->
+                </div>
+            </div>
+
+            <!-- MCQ Image -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary);">Question Image</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" class="mcq-image-file form-control form-control-sm" accept="image/*" style="flex: 1;" onchange="previewMcqImage(this)">
+                    <input type="hidden" class="mcq-image-path" value="${qImage}">
+                    <img class="mcq-image-preview" src="${qImage}" style="width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border-card); object-fit: cover; ${qImage ? 'display: block;' : 'display: none;'}">
+                </div>
+            </div>
+
+            <!-- MCQ Audio -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary);">Audio Voiceover File</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" class="mcq-audio-file form-control form-control-sm" accept="audio/*" style="flex: 1;" onchange="previewMcqAudio(this)">
+                    <input type="hidden" class="mcq-audio-path" value="${qAudio}">
+                    <audio class="mcq-audio-preview" src="${qAudio}" controls style="width: 120px; height: 28px; ${qAudio ? 'display: block;' : 'display: none;'}"></audio>
+                </div>
+            </div>
+
+            <!-- MCQ Video -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary);">Video File or YouTube URL</label>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <input type="file" class="mcq-video-file form-control form-control-sm" accept="video/*" style="flex: 1; min-width: 140px;" onchange="previewMcqVideo(this)">
+                    <input type="text" class="mcq-video-url form-control form-control-sm" value="${qVideo && qVideo.startsWith('http') ? qVideo : ''}" placeholder="Or YouTube Video URL..." style="flex: 1; min-width: 140px;">
+                    <input type="hidden" class="mcq-video-path" value="${qVideo && !qVideo.startsWith('http') ? qVideo : ''}">
+                </div>
+                <video class="mcq-video-preview" src="${qVideo && !qVideo.startsWith('http') ? qVideo : ''}" controls style="width: 100%; max-height: 80px; border-radius: 6px; background: #000; margin-top: 4px; ${qVideo && !qVideo.startsWith('http') ? 'display: block;' : 'display: none;'}"></video>
+            </div>
+
+        </div>
+    `;
+    list.appendChild(card);
+
+    // Style select initial state
+    const select = card.querySelector('.mcq-is-vero');
+    if (select) updateMcqDropdownColor(select);
+
+    // Bind Underline helpers
+    const itBtn = card.querySelector('.btn-underline-it');
+    const bnBtn = card.querySelector('.btn-underline-bn');
+    const itInput = card.querySelector('.mcq-it');
+    const bnInput = card.querySelector('.mcq-bn');
+    const listContainer = card.querySelector('.mcq-vocab-list');
+
+    // Load initial vocabulary if any
+    if (qVocab) {
+        let vocabArr = [];
+        try {
+            vocabArr = typeof qVocab === 'string' ? JSON.parse(qVocab) : qVocab;
+        } catch (e) { }
+        if (Array.isArray(vocabArr)) {
+            vocabArr.forEach(item => addMcqVocabRow(listContainer, item.italian, item.bangla, item.image));
+        }
+    }
+
+    if (itBtn && itInput) {
+        itBtn.onclick = (e) => {
+            e.preventDefault();
+            toggleUnderlineOnSelection(itInput);
+            updateMcqVocabList(card);
+        };
+    }
+    if (bnBtn && bnInput) {
+        bnBtn.onclick = (e) => {
+            e.preventDefault();
+            toggleUnderlineOnSelection(bnInput);
+            updateMcqVocabList(card);
+        };
+    }
+
+    itInput.addEventListener('input', () => updateMcqVocabList(card));
+    bnInput.addEventListener('input', () => updateMcqVocabList(card));
+}
+
+// Global text underline toggle helper
+window.toggleUnderlineOnSelection = function (inputEl) {
+    if (!inputEl) return;
+    const start = inputEl.selectionStart;
+    const end = inputEl.selectionEnd;
+    if (start === end) {
+        // If no text is selected, show toast
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: 'শব্দটি সিলেক্ট করে বাটন ক্লিক করুন!',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        }
+        return;
+    }
+
+    const value = inputEl.value;
+    const selectedText = value.substring(start, end);
+
+    // Check if selected text is already wrapped in <u>...</u>
+    const uReg = /^<u>([\s\S]*)<\/u>$/i;
+    let newValue;
+    let newSelectionStart;
+    let newSelectionEnd;
+
+    if (uReg.test(selectedText)) {
+        // Unwrap
+        const unwrapped = selectedText.replace(uReg, '$1');
+        newValue = value.substring(0, start) + unwrapped + value.substring(end);
+        newSelectionStart = start;
+        newSelectionEnd = start + unwrapped.length;
+    } else {
+        // Wrap
+        const wrapped = `<u>${selectedText}</u>`;
+        newValue = value.substring(0, start) + wrapped + value.substring(end);
+        newSelectionStart = start;
+        newSelectionEnd = start + wrapped.length;
+    }
+
+    inputEl.value = newValue;
+    inputEl.focus();
+    inputEl.setSelectionRange(newSelectionStart, newSelectionEnd);
+
+    // Trigger input event
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
+// Listen for Ctrl+U key shortcut globally on appropriate inputs
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            const isTargetInput = active.id === 'form-page-title-it' ||
+                active.id === 'form-page-title-bn' ||
+                active.id === 'form-page-content' ||
+                active.id === 'form-page-content-bn' ||
+                active.classList.contains('mcq-it') ||
+                active.classList.contains('mcq-bn');
+            if (isTargetInput) {
+                e.preventDefault();
+                toggleUnderlineOnSelection(active);
+            }
+        }
+    }
+});
+
+// General Settings Functions
+function fetchGeneralSettings() {
+    fetch('/admin/api/settings')
+        .then(response => response.json())
+        .then(settings => {
+            document.getElementById('settings-app-name').value = settings.app_name || '';
+
+            // Logo preview
+            const logoPreview = document.getElementById('settings-logo-preview');
+            const logoPlaceholder = document.getElementById('settings-logo-placeholder');
+            if (settings.app_logo) {
+                logoPreview.src = settings.app_logo;
+                logoPreview.style.display = 'block';
+                logoPlaceholder.style.display = 'none';
+            } else {
+                logoPreview.src = '';
+                logoPreview.style.display = 'none';
+                logoPlaceholder.style.display = 'block';
+            }
+
+            // Favicon preview
+            const faviconPreview = document.getElementById('settings-favicon-preview');
+            const faviconPlaceholder = document.getElementById('settings-favicon-placeholder');
+            if (settings.favicon) {
+                faviconPreview.src = settings.favicon;
+                faviconPreview.style.display = 'block';
+                faviconPlaceholder.style.display = 'none';
+            } else {
+                faviconPreview.src = '';
+                faviconPreview.style.display = 'none';
+                faviconPlaceholder.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error("Error fetching general settings: ", err);
+            showToast("সেটিংস লোড করতে ব্যর্থ হয়েছে", "error");
+        });
+}
+
+function saveGeneralSettingsForm(e) {
+    e.preventDefault();
+    const btn = document.getElementById('save-settings-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    const form = document.getElementById('general-settings-form');
+    const formData = new FormData(form);
+
+    fetch('/admin/api/settings/update', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: formData
+    })
+        .then(response => response.json())
+        .then(res => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save Settings';
+            if (res.success) {
+                showToast("সেটিংস সফলভাবে সংরক্ষিত হয়েছে");
+                fetchGeneralSettings();
+                
+                // Live update the sidebar branding
+                const brandText = document.querySelector('.sidebar-brand');
+                if (brandText) {
+                    brandText.innerHTML = `<span class="brand-logo"><i class="fa-solid fa-graduation-cap"></i> ${res.data.app_name}</span><i class="fa-solid fa-bars-staggered action-icon" style="color: white; font-size: 16px;"></i>`;
+                }
+
+                // If favicon updated, reload page to apply immediately
+                if (res.data.favicon) {
+                    const faviconLink = document.querySelector("link[rel*='icon']");
+                    if (faviconLink) {
+                        faviconLink.href = res.data.favicon + '?t=' + new Date().getTime();
+                    }
+                }
+                document.title = res.data.app_name + ' - Admin Panel';
+            } else {
+                let errorMsg = res.message || "সেটিংস সংরক্ষণ করা যায়নি";
+                if (res.errors) {
+                    errorMsg = Object.values(res.errors).flat().join('\n');
+                }
+                showToast(errorMsg, "error");
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save Settings';
+            console.error("Error saving general settings: ", err);
+            showToast("সার্ভার ত্রুটি, আবার চেষ্টা করুন", "error");
+        });
+}
+
+// Hook up change listeners for image file inputs to show live preview before saving
+document.addEventListener('DOMContentLoaded', () => {
+    const appLogoInput = document.getElementById('settings-app-logo');
+    if (appLogoInput) {
+        appLogoInput.addEventListener('change', function() {
+            const preview = document.getElementById('settings-logo-preview');
+            const placeholder = document.getElementById('settings-logo-placeholder');
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    placeholder.style.display = 'none';
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+
+    const faviconInput = document.getElementById('settings-favicon');
+    if (faviconInput) {
+        faviconInput.addEventListener('change', function() {
+            const preview = document.getElementById('settings-favicon-preview');
+            const placeholder = document.getElementById('settings-favicon-placeholder');
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    placeholder.style.display = 'none';
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+});
+
+
+

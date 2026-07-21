@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
 Route::get('/', function () {
-    $sliders = \App\Models\Slider::orderBy('id', 'asc')->get();
+    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
     $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
     $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
     $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
@@ -12,62 +12,70 @@ Route::get('/', function () {
     return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo'));
 });
 
-// Front-end MCQ API Endpoints
-Route::get('/api/questions/exam', function () {
-    $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
-    return response()->json($questions);
+Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(function () {
+    // Front-end MCQ API Endpoints
+    Route::get('/api/questions/exam', function () {
+        $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
+        return response()->json($questions);
+    });
+
+    Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
+        $questions = \App\Models\Question::where('chapter', $chapter)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        return response()->json($questions);
+    });
+
+    Route::get('/api/questions/custom-quiz', function (Request $request) {
+        $chapters = $request->query('chapters');
+        if (!$chapters) {
+            return response()->json([]);
+        }
+        $chapterList = explode(',', $chapters);
+        $questions = \App\Models\Question::whereIn('chapter', $chapterList)
+            ->inRandomOrder()
+            ->limit(30)
+            ->get();
+        return response()->json($questions);
+    });
+
+    Route::get('/api/questions/random-test', function () {
+        $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
+        return response()->json($questions);
+    });
+
+    // Public Classes API
+    Route::get('/api/classes', [\App\Http\Controllers\DynamicContentController::class, 'getLectureClasses']);
+    Route::get('/api/live-classes', [\App\Http\Controllers\DynamicContentController::class, 'getLiveClasses']);
+
+    // Dizionario Public API Endpoints
+    Route::get('/api/dizionario', [\App\Http\Controllers\DizionarioController::class, 'getDictionary']);
+
+    // Argomenti Public API Endpoints
+    Route::get('/api/chapters', [\App\Http\Controllers\ArgomentiController::class, 'getChapters']);
+    Route::get('/api/chapters/{id}/pages', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPages']);
+    Route::get('/api/pages/{id}', [\App\Http\Controllers\ArgomentiController::class, 'getPageDetails']);
+    Route::get('/api/saved-mcqs', [\App\Http\Controllers\ArgomentiController::class, 'getSavedMcqs']);
+    Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\ArgomentiController::class, 'toggleSavedMcq']);
+    Route::get('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'getNotes']);
+    Route::post('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'saveNote']);
+    Route::delete('/api/notes/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deleteNote']);
+    Route::post('/api/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+    Route::get('/api/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+
+    // Exam Module Public Routes
+    Route::get('/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
+    Route::get('/api/exams/{id}', [\App\Http\Controllers\ExamSheetController::class, 'getExamDetails']);
+    Route::post('/api/exams/{id}/submit', [\App\Http\Controllers\ExamSheetController::class, 'submitExam']);
 });
 
-Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
-    $questions = \App\Models\Question::where('chapter', $chapter)->get();
-    return response()->json($questions);
-});
-
-Route::get('/api/questions/custom-quiz', function (Request $request) {
-    $chapters = $request->query('chapters');
-    if (!$chapters) {
-        return response()->json([]);
-    }
-    $chapterList = explode(',', $chapters);
-    $questions = \App\Models\Question::whereIn('chapter', $chapterList)
-        ->inRandomOrder()
-        ->limit(30)
-        ->get();
-    return response()->json($questions);
-});
-
-Route::get('/api/questions/random-test', function () {
-    $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
-    return response()->json($questions);
-});
-
-// Public Sliders & Classes API
+// Public Sliders & Promo API (accessible without license activation)
 Route::get('/api/sliders', [\App\Http\Controllers\DynamicContentController::class, 'getSliders']);
-Route::get('/api/classes', [\App\Http\Controllers\DynamicContentController::class, 'getLectureClasses']);
-Route::get('/api/live-classes', [\App\Http\Controllers\DynamicContentController::class, 'getLiveClasses']);
 Route::get('/api/popup-promo', [\App\Http\Controllers\DynamicContentController::class, 'getActivePopupPromo']);
-
-
-// Argomenti Public API Endpoints
-Route::get('/api/chapters', [\App\Http\Controllers\ArgomentiController::class, 'getChapters']);
-Route::get('/api/chapters/{id}/pages', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPages']);
-Route::get('/api/pages/{id}', [\App\Http\Controllers\ArgomentiController::class, 'getPageDetails']);
-Route::get('/api/saved-mcqs', [\App\Http\Controllers\ArgomentiController::class, 'getSavedMcqs']);
-Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\ArgomentiController::class, 'toggleSavedMcq']);
-Route::get('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'getNotes']);
-Route::post('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'saveNote']);
-Route::delete('/api/notes/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deleteNote']);
-
-// Exam Module Public Routes
-Route::get('/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
-Route::get('/api/exams/{id}', [\App\Http\Controllers\ExamSheetController::class, 'getExamDetails']);
-Route::post('/api/exams/{id}/submit', [\App\Http\Controllers\ExamSheetController::class, 'submitExam']);
 
 // Client Status & Verification Routes
 Route::get('/api/client/status', [\App\Http\Controllers\DynamicContentController::class, 'getClientStatus']);
 Route::post('/api/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
 Route::post('/api/client/activate', function (\Illuminate\Http\Request $request) {
-    $sessionId = session()->getId();
+    $sessionId = $request->input('session_id') ?: session()->getId();
     $days = intval($request->input('days', 365));
     
     $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
@@ -80,15 +88,36 @@ Route::post('/api/client/activate', function (\Illuminate\Http\Request $request)
         $client->stars = 4;
         $client->progress = 55;
     }
+    // Check if the client already has the welcome message in their chat history
+    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)
+        ->where('message', 'like', '%🎉 ধন্যবাদ!%')
+        ->exists();
+
     $client->is_active = true;
     $client->expires_at = now()->addDays($days);
     $client->save();
+
+    if (!$hasWelcome) {
+        $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা।\n"
+                     . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন।\n"
+                     . "নিয়মিত পড়াশোনা করুন, মনোযোগ দিয়ে পরীক্ষা দিন।\n"
+                     . "আশা করি আপনার সফলতার যাত্রায় আমাদের এই Platform গুরুত্বপূর্ণ ভূমিকা রাখবে।\n"
+                     . "আপনার জন্য রইল অনেক শুভকামনা।";
+        
+        \App\Models\Message::create([
+            'session_id' => $sessionId,
+            'sender' => 'admin',
+            'sender_name' => 'Admin',
+            'message' => $welcomeText
+        ]);
+    }
+
     return response()->json(['success' => true]);
 });
 
 // Guest Chat API Endpoints
 Route::get('/api/chat/messages', function (Request $request) {
-    $sessionId = session()->getId();
+    $sessionId = $request->query('session_id') ?: $request->input('session_id') ?: session()->getId();
     $messages = \App\Models\Message::where('session_id', $sessionId)
         ->orderBy('created_at', 'asc')
         ->get();
@@ -101,7 +130,7 @@ Route::post('/api/chat/messages', function (Request $request) {
         'file' => 'nullable|image|max:10240',
     ]);
     
-    $sessionId = session()->getId();
+    $sessionId = $request->input('session_id') ?: session()->getId();
     
     $attachmentPath = null;
     if ($request->hasFile('file')) {
@@ -164,6 +193,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         return view('admin.dashboard');
     });
 
+    // Admin Settings API Endpoints
+    Route::get('/admin/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+    Route::post('/admin/api/settings/update', [\App\Http\Controllers\SettingsController::class, 'updateSettings']);
+
     Route::get('/admin/api/stats', function () {
         return response()->json([
             'total_chapters'      => \App\Models\Chapter::count(),
@@ -187,10 +220,14 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     });
 
     Route::get('/admin/api/questions', function (Request $request) {
-        $query = \App\Models\Question::query();
+        $query = \App\Models\Question::with('page');
         
         if ($request->has('chapter') && $request->chapter !== '') {
             $query->where('chapter', $request->chapter);
+        }
+
+        if ($request->has('page_id') && $request->page_id !== '') {
+            $query->where('page_id', $request->page_id);
         }
         
         if ($request->has('search') && $request->search !== '') {
@@ -202,7 +239,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             });
         }
         
-        $questions = $query->orderBy('id', 'desc')->paginate(15);
+        $questions = $query->orderBy('sort_order', 'asc')->orderBy('id', 'desc')->paginate(15);
         return response()->json($questions);
     });
 
@@ -338,8 +375,6 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                 $client->stars = 4;
                 $client->progress = 50;
             }
-            $client->is_active = true;
-            $client->expires_at = now()->addDays($days);
             $client->save();
             
             // 1. Create License Card Message
@@ -409,6 +444,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/categories/store', [\App\Http\Controllers\CategoryController::class, 'store']);
     Route::post('/admin/api/categories/update/{id}', [\App\Http\Controllers\CategoryController::class, 'update']);
     Route::post('/admin/api/categories/delete/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
+    Route::post('/admin/api/categories/bulk-delete', [\App\Http\Controllers\CategoryController::class, 'bulkDestroy']);
 
     // Admin Chapters and Pages CRUD API Endpoints
     Route::get('/admin/api/chapters/list', [\App\Http\Controllers\ArgomentiController::class, 'getChaptersAdmin']);
@@ -416,6 +452,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/chapters/update/{id}', [\App\Http\Controllers\ArgomentiController::class, 'updateChapter']);
     Route::post('/admin/api/chapters/toggle-status/{id}', [\App\Http\Controllers\ArgomentiController::class, 'toggleChapterStatus']);
     Route::post('/admin/api/chapters/delete/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deleteChapter']);
+    Route::post('/admin/api/chapters/bulk-delete', [\App\Http\Controllers\ArgomentiController::class, 'bulkDeleteChapter']);
     
     Route::get('/admin/api/chapters/{id}/pages', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPages']);
     Route::get('/admin/api/chapters/{id}/pages/list', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPagesAdmin']);
@@ -423,7 +460,15 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/pages/update/{id}', [\App\Http\Controllers\ArgomentiController::class, 'updatePage']);
     Route::post('/admin/api/pages/toggle-status/{id}', [\App\Http\Controllers\ArgomentiController::class, 'togglePageStatus']);
     Route::post('/admin/api/pages/delete/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deletePage']);
+    Route::post('/admin/api/pages/bulk-delete', [\App\Http\Controllers\ArgomentiController::class, 'bulkDeletePage']);
     Route::post('/admin/api/pages/{id}/assign-questions', [\App\Http\Controllers\ArgomentiController::class, 'assignQuestionsToPage']);
+
+    // Admin Dizionario CRUD API Endpoints
+    Route::get('/admin/api/dizionario/list', [\App\Http\Controllers\DizionarioController::class, 'getDictionaryAdmin']);
+    Route::post('/admin/api/dizionario/store', [\App\Http\Controllers\DizionarioController::class, 'storeWord']);
+    Route::post('/admin/api/dizionario/update/{id}', [\App\Http\Controllers\DizionarioController::class, 'updateWord']);
+    Route::post('/admin/api/dizionario/delete/{id}', [\App\Http\Controllers\DizionarioController::class, 'deleteWord']);
+    Route::post('/admin/api/dizionario/bulk-delete', [\App\Http\Controllers\DizionarioController::class, 'bulkDeleteWord']);
 
     // Admin Question CRUD with image support (multipart)
     Route::post('/admin/api/questions/store', function (Request $request) {
@@ -431,6 +476,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'chapter'       => 'required|integer',
             'chapter_name'  => 'required|string',
             'page_id'       => 'nullable|integer',
+            'sort_order'    => 'nullable|integer',
             'italian'       => 'required|string',
             'bangla'        => 'required|string',
             'question_type' => 'nullable|in:vero_falso,mcq',
@@ -442,6 +488,9 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'correct_answer'=> 'nullable|string',
             'explanation'   => 'nullable|string',
             'image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'audio'         => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'video'         => 'nullable',
+            'vocabulary'    => 'nullable|string',
         ]);
 
         $qType = $request->question_type ?? 'vero_falso';
@@ -451,6 +500,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'chapter_name'  => $request->chapter_name,
             'question_type' => $qType,
             'page_id'       => $request->page_id ?? null,
+            'sort_order'    => $request->sort_order ?? 0,
             'italian'       => $request->italian,
             'bangla'        => $request->bangla,
             'is_vero'       => ($qType === 'vero_falso') ? ($request->is_vero ? 1 : 0) : 0,
@@ -460,7 +510,27 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'option_d'      => $request->option_d,
             'correct_answer'=> $request->correct_answer,
             'explanation'   => $request->explanation,
+            'vocabulary'    => null,
         ];
+
+        $vocabulary = $request->vocabulary ? json_decode($request->vocabulary, true) : null;
+        if (is_array($vocabulary)) {
+            foreach ($vocabulary as $index => &$item) {
+                $fileKey = "vocab_image_{$index}";
+                if ($request->hasFile($fileKey)) {
+                    $file = $request->file($fileKey);
+                    $filename = 'vocab_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+                    $destinationPath = public_path('uploads/vocabulary');
+                    if (!file_exists($destinationPath)) {
+                        mkdir($destinationPath, 0777, true);
+                    }
+                    $file->move($destinationPath, $filename);
+                    $item['image'] = '/uploads/vocabulary/' . $filename;
+                }
+                unset($item['image_index']);
+            }
+        }
+        $data['vocabulary'] = $vocabulary;
 
         $question = \App\Models\Question::create($data);
 
@@ -472,6 +542,28 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $question->save();
         }
 
+        if ($request->hasFile('audio')) {
+            $file = $request->file('audio');
+            $fileName = 'q_aud_' . $question->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/questions/audios'), $fileName);
+            $question->audio = '/uploads/questions/audios/' . $fileName;
+            $question->save();
+        }
+
+        if ($request->input('clear_video') == '1' || $request->input('clear_video') === 'true') {
+            $question->video = null;
+            $question->save();
+        } elseif ($request->hasFile('video')) {
+            $file = $request->file('video');
+            $fileName = 'q_vid_' . $question->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/questions/videos'), $fileName);
+            $question->video = '/uploads/questions/videos/' . $fileName;
+            $question->save();
+        } elseif ($request->filled('video')) {
+            $question->video = $request->video;
+            $question->save();
+        }
+
         return response()->json($question);
     });
 
@@ -480,6 +572,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'chapter'       => 'required|integer',
             'chapter_name'  => 'required|string',
             'page_id'       => 'nullable|integer',
+            'sort_order'    => 'nullable|integer',
             'italian'       => 'required|string',
             'bangla'        => 'required|string',
             'question_type' => 'nullable|in:vero_falso,mcq',
@@ -491,6 +584,9 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'correct_answer'=> 'nullable|string',
             'explanation'   => 'nullable|string',
             'image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'audio'         => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'video'         => 'nullable',
+            'vocabulary'    => 'nullable|string',
         ]);
 
         $question  = \App\Models\Question::findOrFail($id);
@@ -499,6 +595,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         $question->chapter       = $request->chapter;
         $question->chapter_name  = $request->chapter_name;
         $question->page_id       = $request->page_id ?? null;
+        $question->sort_order    = $request->sort_order ?? 0;
         $question->question_type = $qType;
         $question->italian       = $request->italian;
         $question->bangla        = $request->bangla;
@@ -509,6 +606,24 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         $question->option_d      = $request->option_d;
         $question->correct_answer= $request->correct_answer;
         $question->explanation   = $request->explanation;
+        $vocabulary = $request->vocabulary ? json_decode($request->vocabulary, true) : null;
+        if (is_array($vocabulary)) {
+            foreach ($vocabulary as $index => &$item) {
+                $fileKey = "vocab_image_{$index}";
+                if ($request->hasFile($fileKey)) {
+                    $file = $request->file($fileKey);
+                    $filename = 'vocab_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+                    $destinationPath = public_path('uploads/vocabulary');
+                    if (!file_exists($destinationPath)) {
+                        mkdir($destinationPath, 0777, true);
+                    }
+                    $file->move($destinationPath, $filename);
+                    $item['image'] = '/uploads/vocabulary/' . $filename;
+                }
+                unset($item['image_index']);
+            }
+        }
+        $question->vocabulary    = $vocabulary;
 
         if ($request->hasFile('image')) {
             if ($question->image && file_exists(public_path($question->image))) {
@@ -518,6 +633,33 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $fileName = 'q_img_' . $id . '_' . time() . '.' . $file->getClientOriginalExtension();
             $file->move(public_path('uploads/questions/images'), $fileName);
             $question->image = '/uploads/questions/images/' . $fileName;
+        }
+
+        if ($request->hasFile('audio')) {
+            if ($question->audio && file_exists(public_path($question->audio))) {
+                @unlink(public_path($question->audio));
+            }
+            $file = $request->file('audio');
+            $fileName = 'q_aud_' . $id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/questions/audios'), $fileName);
+            $question->audio = '/uploads/questions/audios/' . $fileName;
+        }
+
+        if ($request->input('clear_video') == '1' || $request->input('clear_video') === 'true') {
+            if ($question->video && file_exists(public_path($question->video))) {
+                @unlink(public_path($question->video));
+            }
+            $question->video = null;
+        } elseif ($request->hasFile('video')) {
+            if ($question->video && file_exists(public_path($question->video))) {
+                @unlink(public_path($question->video));
+            }
+            $file = $request->file('video');
+            $fileName = 'q_vid_' . $id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/questions/videos'), $fileName);
+            $question->video = '/uploads/questions/videos/' . $fileName;
+        } elseif ($request->filled('video')) {
+            $question->video = $request->video;
         }
 
         $question->save();
@@ -530,6 +672,47 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             @unlink(public_path($question->image));
         }
         $question->delete();
+        return response()->json(['success' => true]);
+    });
+
+    Route::post('/admin/api/questions/bulk-delete', function (Request $request) {
+        if ($request->input('all') === true) {
+            $query = \App\Models\Question::query();
+            
+            if ($request->has('chapter') && $request->chapter !== '') {
+                $query->where('chapter', $request->chapter);
+            }
+            
+            if ($request->has('search') && $request->search !== '') {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('italian', 'like', "%{$search}%")
+                      ->orWhere('bangla', 'like', "%{$search}%")
+                      ->orWhere('chapter_name', 'like', "%{$search}%");
+                });
+            }
+            
+            $questions = $query->get();
+            foreach ($questions as $question) {
+                if ($question->image && file_exists(public_path($question->image))) {
+                    @unlink(public_path($question->image));
+                }
+                $question->delete();
+            }
+            return response()->json(['success' => true]);
+        }
+
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:questions,id',
+        ]);
+        $questions = \App\Models\Question::whereIn('id', $request->ids)->get();
+        foreach ($questions as $question) {
+            if ($question->image && file_exists(public_path($question->image))) {
+                @unlink(public_path($question->image));
+            }
+            $question->delete();
+        }
         return response()->json(['success' => true]);
     });
 
@@ -619,24 +802,28 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/cartello-categories/store', [\App\Http\Controllers\CartelloController::class, 'storeCategory']);
     Route::post('/admin/api/cartello-categories/update/{id}', [\App\Http\Controllers\CartelloController::class, 'updateCategory']);
     Route::post('/admin/api/cartello-categories/delete/{id}', [\App\Http\Controllers\CartelloController::class, 'deleteCategory']);
+    Route::post('/admin/api/cartello-categories/bulk-delete', [\App\Http\Controllers\CartelloController::class, 'bulkDeleteCategory']);
 
     // Chapters
     Route::get('/admin/api/cartello-chapters', [\App\Http\Controllers\CartelloController::class, 'getChapters']);
     Route::post('/admin/api/cartello-chapters/store', [\App\Http\Controllers\CartelloController::class, 'storeChapter']);
     Route::post('/admin/api/cartello-chapters/update/{id}', [\App\Http\Controllers\CartelloController::class, 'updateChapter']);
     Route::post('/admin/api/cartello-chapters/delete/{id}', [\App\Http\Controllers\CartelloController::class, 'deleteChapter']);
+    Route::post('/admin/api/cartello-chapters/bulk-delete', [\App\Http\Controllers\CartelloController::class, 'bulkDeleteChapter']);
 
     // Pages
     Route::get('/admin/api/cartello-pages', [\App\Http\Controllers\CartelloController::class, 'getPages']);
     Route::post('/admin/api/cartello-pages/store', [\App\Http\Controllers\CartelloController::class, 'storePage']);
     Route::post('/admin/api/cartello-pages/update/{id}', [\App\Http\Controllers\CartelloController::class, 'updatePage']);
     Route::post('/admin/api/cartello-pages/delete/{id}', [\App\Http\Controllers\CartelloController::class, 'deletePage']);
+    Route::post('/admin/api/cartello-pages/bulk-delete', [\App\Http\Controllers\CartelloController::class, 'bulkDeletePage']);
 
     // MCQs
     Route::get('/admin/api/cartello-mcqs', [\App\Http\Controllers\CartelloController::class, 'getMcqs']);
     Route::post('/admin/api/cartello-mcqs/store', [\App\Http\Controllers\CartelloController::class, 'storeMcq']);
     Route::post('/admin/api/cartello-mcqs/update/{id}', [\App\Http\Controllers\CartelloController::class, 'updateMcq']);
     Route::post('/admin/api/cartello-mcqs/delete/{id}', [\App\Http\Controllers\CartelloController::class, 'deleteMcq']);
+    Route::post('/admin/api/cartello-mcqs/bulk-delete', [\App\Http\Controllers\CartelloController::class, 'bulkDeleteMcq']);
 });
 
 // Guest Categories API
@@ -645,5 +832,6 @@ Route::get('/api/categories', [\App\Http\Controllers\CategoryController::class, 
 // Public Cartelli (Road Signs) API
 Route::get('/api/cartello-categories', [\App\Http\Controllers\CartelloController::class, 'publicGetCategories']);
 Route::get('/api/cartello-categories/{categoryId}/chapters', [\App\Http\Controllers\CartelloController::class, 'publicGetChapters']);
+Route::get('/api/cartello-chapters', [\App\Http\Controllers\CartelloController::class, 'publicGetAllChapters']);
 Route::get('/api/cartello-chapters/{chapterId}/pages', [\App\Http\Controllers\CartelloController::class, 'publicGetPages']);
 Route::get('/api/cartello-pages/{pageId}/mcqs', [\App\Http\Controllers\CartelloController::class, 'publicGetPageMcqs']);

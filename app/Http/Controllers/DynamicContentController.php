@@ -43,6 +43,10 @@ class DynamicContentController extends Controller
 
         $query = Slider::query();
 
+        if (!$request->is('admin/*')) {
+            $query->where('status', 1);
+        }
+
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -595,7 +599,7 @@ class DynamicContentController extends Controller
 
     public function getClientStatus()
     {
-        $sessionId = session()->getId();
+        $sessionId = request()->input('session_id') ?: session()->getId();
         $client = AppClient::where('session_id', $sessionId)->first();
         
         if ($client && $client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
@@ -622,19 +626,40 @@ class DynamicContentController extends Controller
             'phone' => 'required|string|max:50',
         ]);
 
-        $sessionId = session()->getId();
-        $client = AppClient::where('session_id', $sessionId)->first();
-        if (!$client) {
-            $client = new AppClient();
-            $client->session_id = $sessionId;
+        $sessionId = $request->input('session_id') ?: session()->getId();
+        
+        // Find existing client by phone number
+        $client = AppClient::where('phone', $request->phone)->first();
+        
+        if ($client) {
+            $oldSessionId = $client->session_id;
+            
+            // If session ID has changed, update it and migrate historical data
+            if ($oldSessionId !== $sessionId) {
+                $client->session_id = $sessionId;
+                $client->first_name = $request->first_name;
+                $client->last_name = $request->last_name;
+                
+                \App\Models\Message::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\Note::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+            }
+        } else {
+            // Find existing client by session ID, or create new
+            $client = AppClient::where('session_id', $sessionId)->first();
+            if (!$client) {
+                $client = new AppClient();
+                $client->session_id = $sessionId;
+            }
+            $client->first_name = $request->first_name;
+            $client->last_name = $request->last_name;
+            $client->phone = $request->phone;
+            $client->is_active = false; // Requires admin activation
+            $client->stars = rand(3, 5); // Default stars
+            $client->progress = rand(30, 80); // Default progress
         }
-
-        $client->first_name = $request->first_name;
-        $client->last_name = $request->last_name;
-        $client->phone = $request->phone;
-        $client->is_active = false; // Requires admin activation
-        $client->stars = rand(3, 5); // Default stars
-        $client->progress = rand(30, 80); // Default progress
+        
         $client->save();
 
         return response()->json([

@@ -7,7 +7,14 @@
         </button>
 
         <!-- Centered App Name -->
-        <div class="app-title" id="app-header-title">mbanglapatenteb</div>
+        <!-- Centered App Name or Logo Image -->
+        <div class="app-title" id="app-header-title">
+            @if($gSettings->app_logo)
+                <img src="{{ asset($gSettings->app_logo) }}" alt="{{ $gSettings->app_name }}" style="max-height: 36px; object-fit: contain;">
+            @else
+                {{ $gSettings->app_name }}
+            @endif
+        </div>
 
         <div style="display: flex; gap: 12px; align-items: center;">
             <!-- Theme Switcher -->

@@ -1,17 +1,33 @@
-<!-- SCREEN: Cartelli (Traffic Signs) -->
+<!-- SCREEN: Cartelli (Scegli Scheda / Traffic Signs) -->
 <div id="screen-cartelli" class="screen">
-    <div class="signs-tabs">
-        <span class="sign-tab active" id="tab-pericolo" onclick="setSignCategory('pericolo')">Pericolo (বিপদ)</span>
-        <span class="sign-tab" id="tab-divieto" onclick="setSignCategory('divieto')">Divieto (নিষেধ)</span>
-        <span class="sign-tab" id="tab-obbligo" onclick="setSignCategory('obbligo')">Obbligo (বাধ্যতা)</span>
+    <div class="category-header-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <h3 style="font-size: 20px; font-weight: 800; color: var(--text-primary);">Scegli Scheda</h3>
     </div>
 
-    <!-- Search Bar matching screenshot -->
-    <div style="margin-bottom: 16px;">
-        <input type="text" id="cartelli-search-input" placeholder="Search here" oninput="filterCartelliSigns()" style="width: 100%; border-radius: 18px; padding: 12px 18px; border: 1px solid var(--border-card); background-color: var(--bg-card); color: var(--text-primary); font-weight: 700; font-size: 13px; outline: none; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+    <!-- Chapter Selector Dropdown -->
+    <div style="position: relative; margin-bottom: 16px;">
+        <div class="chapter-selector-trigger" onclick="toggleCartelliChapterDropdown()">
+            <span id="selected-cartelli-chapter-display-label">Caricamento capitoli...</span>
+            <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-secondary);"></i>
+        </div>
+        <div class="chapter-dropdown-list-panel" id="cartelli-chapter-dropdown-panel" style="display: none;">
+            <!-- Dropdown list options injected via JS -->
+        </div>
     </div>
 
-    <div class="signs-grid" id="signs-grid-container">
-        <!-- Sign cards generated via JS -->
+    <!-- Pills matching Scegli Scheda screenshot 2 -->
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; justify-content: flex-start;">
+        <button class="pill-btn" onclick="unselectAllCartelliSheets()">Unselect All</button>
+        <button class="pill-btn" onclick="initCartelliScreen()">Select</button>
+        <button class="pill-btn active" onclick="selectAllCartelliSheets()">Select All</button>
     </div>
+
+    <div id="cartelli-schede-list" class="argomenti-schede-grid">
+        <!-- Sheet cards generated via JS -->
+    </div>
+
+    <!-- Floating QUIZ button for Cartelli -->
+    <button class="floating-quiz-btn" id="cartelli-sheets-quiz-btn" onclick="startCustomCartelliSheetsQuiz()" style="display: none;">
+        QUIZ <i class="fa-solid fa-chevron-right"></i>
+    </button>
 </div>

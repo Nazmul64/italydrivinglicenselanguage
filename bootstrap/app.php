@@ -21,6 +21,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Custom renderer when app.debug is false
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                if ($request->expectsJson() || $request->is('api/*') || $request->is('admin/api/*')) {
+                    return response()->json([
+                        'message' => $e->getMessage(),
+                        'errors' => $e->errors(),
+                    ], 422);
+                }
+                return null; // Let Laravel handle validation exceptions normally
+            }
+
             $refId = \App\Exceptions\DiagnosticsLogger::log($e);
 
             if ($request->expectsJson() || $request->is('api/*') || $request->is('admin/api/*')) {

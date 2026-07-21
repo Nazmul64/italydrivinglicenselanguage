@@ -19,6 +19,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (!app()->runningInConsole()) {
+            try {
+                $setting = \App\Models\Setting::first();
+                if (!$setting) {
+                    $setting = new \App\Models\Setting(['app_name' => 'mbanglapatenteb']);
+                }
+                \Illuminate\Support\Facades\View::share('gSettings', $setting);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\View::share('gSettings', new \App\Models\Setting(['app_name' => 'mbanglapatenteb']));
+            }
+        }
     }
 }

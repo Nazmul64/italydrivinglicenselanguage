@@ -17,8 +17,16 @@ class CartelloPage extends Model
         'bn_description',
         'image',
         'video',
+        'voice',
+        'translation',
+        'is_vero',
         'sort_order',
         'status',
+    ];
+
+    protected $casts = [
+        'is_vero' => 'boolean',
+        'status'  => 'boolean',
     ];
 
     public function chapter()
@@ -28,6 +36,6 @@ class CartelloPage extends Model
 
     public function mcqs()
     {
-        return $this->hasMany(CartelloMcq::class, 'page_id')->orderBy('sort_order', 'asc');
+        return $this->hasMany(CartelloMcq::class, 'page_id')->where('status', true)->orderBy('sort_order', 'asc');
     }
 }

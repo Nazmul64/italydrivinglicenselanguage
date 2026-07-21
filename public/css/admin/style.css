@@ -821,6 +821,8 @@ body {
     position: relative;
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
     animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 @keyframes scaleIn {
@@ -1075,5 +1077,23 @@ body {
 }
 .client-status-box:hover {
     transform: scale(1.15);
+}
+
+/* Custom Sliding ON-OFF Switch Knob */
+.status-switch .slider::before {
+    position: absolute !important;
+    content: "" !important;
+    height: 14px !important;
+    width: 14px !important;
+    left: 3px !important;
+    bottom: 3px !important;
+    background-color: white !important;
+    transition: 0.4s !important;
+    border-radius: 50% !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.status-switch input:checked + .slider::before {
+    transform: translateX(20px) !important;
 }
 

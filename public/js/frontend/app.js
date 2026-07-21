@@ -432,30 +432,19 @@ function renderArgomentiList() {
                     ? `<i class="fa-solid fa-circle-check" style="font-size: 22px; color: var(--accent-green); position: absolute; top: 12px; right: 12px; z-index: 5;" onclick="event.stopPropagation(); toggleChapterSelection(${ch.id})"></i>`
                     : `<i class="fa-regular fa-circle" style="font-size: 22px; color: rgba(255,255,255,0.8); position: absolute; top: 12px; right: 12px; z-index: 5; text-shadow: 0 1px 4px rgba(0,0,0,0.4);" onclick="event.stopPropagation(); toggleChapterSelection(${ch.id})"></i>`;
 
-                const coverImage = ch.image ? ch.image : `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
+                const coverImage = ch.cover_image || ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
 
                 card.innerHTML = `
-                    <div class="chapter-card-img-wrapper">
+                    <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
                         ${checkboxIcon}
-                        <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}">
-                    </div>
-                    <div class="chapter-card-body">
-                        <div class="chapter-card-title">${ch.id}) ${ch.name}</div>
-                        <div style="font-size: 11px; color: var(--text-secondary); font-weight: 700; margin-bottom: 2px;">
-                            ${ch.bn_name || ''}
+                        <div class="chapter-card-title" style="text-align: center; font-size: 15px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px; padding-right: 24px;">
+                            ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
-                        
-                        <div class="chapter-card-stats">
-                            <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
-                            <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
-                            <span>Non date: <strong style="color: #f59e0b;">${unanswered}</strong></span>
-                            <span>Totale: <strong>${total}</strong></span>
+                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="max-height: 140px; max-width: 90%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
                         </div>
-
-                        <div class="chapter-card-progress">
-                            <div class="chapter-card-progress-bar" style="background-color: #4CAF50; width: ${total > 0 ? (correct / total) * 100 : 0}%;"></div>
-                            <div class="chapter-card-progress-bar" style="background-color: #ef4444; width: ${total > 0 ? (wrong / total) * 100 : 0}%;"></div>
-                            <div class="chapter-card-progress-bar" style="background-color: #f59e0b; width: ${total > 0 ? (unanswered / total) * 100 : 0}%;"></div>
+                        <div style="text-align: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
+                            Progresso
                         </div>
                     </div>
                 `;
@@ -592,21 +581,33 @@ function toggleChapterDropdownList() {
     if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleCartelliChapterDropdown() {
+    const panel = document.getElementById('cartelli-chapter-dropdown-panel');
+    if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
 function populateChapterDropdownOptions() {
     const panel = document.getElementById('chapter-dropdown-list-panel');
     if (!panel) return;
     panel.innerHTML = '';
 
-    chaptersList.forEach(ch => {
-        const item = document.createElement('div');
-        item.className = `chapter-dropdown-item ${ch.id === activeChapterId ? 'active' : ''}`;
-        item.onclick = (e) => {
-            e.stopPropagation();
-            selectChapterFromDropdown(ch.id);
-        };
-        item.innerText = `Capitolo ${ch.id}) ${ch.name}`;
-        panel.appendChild(item);
-    });
+    fetch('/api/chapters')
+        .then(res => res.json())
+        .then(chapters => {
+            chapters.forEach(ch => {
+                const item = document.createElement('div');
+                item.className = `chapter-dropdown-item ${ch.id === activeChapterId ? 'active' : ''}`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    selectChapterFromDropdown(ch.id);
+                };
+                item.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
+                panel.appendChild(item);
+            });
+        })
+        .catch(err => {
+            console.error("Error populating chapter dropdown: ", err);
+        });
 }
 
 function selectChapterFromDropdown(chapterId) {
@@ -619,8 +620,46 @@ window.addEventListener('click', (e) => {
     if (!e.target.closest('.chapter-selector-trigger')) {
         const panel = document.getElementById('chapter-dropdown-list-panel');
         if (panel) panel.style.display = 'none';
+        const cartelliPanel = document.getElementById('cartelli-chapter-dropdown-panel');
+        if (cartelliPanel) cartelliPanel.style.display = 'none';
     }
 });
+
+let selectedCartelliSheets = [];
+
+function unselectAllCartelliSheets() {
+    selectedCartelliSheets = [];
+    const container = document.getElementById('cartelli-schede-list');
+    if (container) {
+        const checkIcons = container.querySelectorAll('.fa-circle-check');
+        checkIcons.forEach(icon => {
+            icon.className = 'fa-regular fa-circle';
+            icon.style.color = 'var(--text-secondary)';
+        });
+    }
+}
+
+function selectAllCartelliSheets() {
+    if (typeof activeCartelliPages !== 'undefined' && Array.isArray(activeCartelliPages)) {
+        selectedCartelliSheets = Array.from({ length: activeCartelliPages.length }, (_, idx) => idx);
+    }
+    const container = document.getElementById('cartelli-schede-list');
+    if (container) {
+        const icons = container.querySelectorAll('i[onclick*="toggleCartelliSheetSelection"]');
+        icons.forEach(icon => {
+            icon.className = 'fa-solid fa-circle-check';
+            icon.style.color = 'var(--accent-green)';
+        });
+    }
+}
+
+function initCartelliScreen() {
+    if (typeof loadCartelliChapters === 'function') loadCartelliChapters();
+}
+
+function startCustomCartelliSheetsQuiz() {
+    console.log("startCustomCartelliSheetsQuiz triggered");
+}
 
 function startSheetQuiz(sheetIndex) {
     showTestOptionsDialog(() => {
@@ -2435,8 +2474,9 @@ function openPageDetailsScreen(pageId) {
         .then(page => {
             activePageDetails = page;
 
-            const chapterName = chaptersList.find(c => c.id === page.chapter_id)?.name || 'DOVERI NELL\'USO';
-            document.getElementById('page-details-chapter-label').innerText = `Capitolo ${page.chapter_id}) ${chapterName}`;
+            const chapterName = page.chapter?.name || chaptersList.find(c => c.id === page.chapter_id)?.name || 'DOVERI NELL\'USO';
+            const chapterNum = page.chapter?.chapter_number || page.chapter_id;
+            document.getElementById('page-details-chapter-label').innerText = `Capitolo ${chapterNum}) ${chapterName}`;
             document.getElementById('page-details-page-label').innerText = `Pagina ${page.id}) ${page.title}`;
 
             const descEl = document.getElementById('page-details-content-text');
@@ -2454,11 +2494,11 @@ function openPageDetailsScreen(pageId) {
             // Video display logic
             const videoContainer = document.getElementById('page-details-video-container');
             const videoWrapper = document.getElementById('page-video-player-wrapper');
-            
+
             if (videoContainer && videoWrapper) {
                 if (page.video) {
                     videoContainer.style.display = 'block';
-                    
+
                     if (page.video.includes('youtube.com') || page.video.includes('youtu.be')) {
                         let videoId = '';
                         if (page.video.includes('youtu.be/')) {
@@ -2468,7 +2508,7 @@ function openPageDetailsScreen(pageId) {
                         } else if (page.video.includes('embed/')) {
                             videoId = page.video.split('embed/')[1].split(/[?#]/)[0];
                         }
-                        
+
                         videoWrapper.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top:0; left:0; width:100%; height:100%; border:none; border-radius: 16px;" allowfullscreen></iframe>`;
                     } else {
                         videoWrapper.innerHTML = `
@@ -2492,13 +2532,13 @@ function openPageDetailsScreen(pageId) {
                                 <i class="fa-solid fa-volume-high" id="video-ctrl-volume" onclick="togglePageVideoMute()" style="cursor: pointer; font-size: 14px;"></i>
                             </div>
                         `;
-                        
+
                         setTimeout(() => {
                             const video = document.getElementById('page-details-video');
                             const slider = document.getElementById('video-seek-slider');
                             const currentTxt = document.getElementById('video-time-current');
                             const durationTxt = document.getElementById('video-time-duration');
-                            
+
                             if (video) {
                                 video.addEventListener('loadedmetadata', () => {
                                     durationTxt.innerText = formatVideoTime(video.duration);
@@ -3384,31 +3424,31 @@ function startSchedaExamSimulation(examId) {
                 examUserAnswers = {};
                 examTimeLeft = 1800; // 30 minutes
 
-            // Populate previous answers if any
-            schedaExamQuestions.forEach(q => {
-                examUserAnswers[q.id] = q.user_answer;
-            });
+                // Populate previous answers if any
+                schedaExamQuestions.forEach(q => {
+                    examUserAnswers[q.id] = q.user_answer;
+                });
 
-            // Start Timer
-            if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
-            schedaExamTimerInterval = setInterval(() => {
-                examTimeLeft--;
+                // Start Timer
+                if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
+                schedaExamTimerInterval = setInterval(() => {
+                    examTimeLeft--;
+                    updateSchedaExamTimerDisplay();
+                    if (examTimeLeft <= 0) {
+                        clearInterval(schedaExamTimerInterval);
+                        alert('সময় শেষ! আপনার পরীক্ষাটি স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।');
+                        submitSchedaExam();
+                    }
+                }, 1000);
+
                 updateSchedaExamTimerDisplay();
-                if (examTimeLeft <= 0) {
-                    clearInterval(schedaExamTimerInterval);
-                    alert('সময় শেষ! আপনার পরীক্ষাটি স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।');
-                    submitSchedaExam();
-                }
-            }, 1000);
-
-            updateSchedaExamTimerDisplay();
-            openScreen('exam-simulation', 'Exam Simulation');
-            renderSchedaExamQuestion();
-        })
-        .catch(err => {
-            console.error("Error loading exam details: ", err);
-            showToast('পরীক্ষা শুরু করতে সমস্যা হয়েছে');
-        });
+                openScreen('exam-simulation', 'Exam Simulation');
+                renderSchedaExamQuestion();
+            })
+            .catch(err => {
+                console.error("Error loading exam details: ", err);
+                showToast('পরীক্ষা শুরু করতে সমস্যা হয়েছে');
+            });
     });
 }
 
@@ -3953,7 +3993,7 @@ function openQrScanner() {
 
     const qrSuccessCallback = (decodedText, decodedResult) => {
         console.log(`Scan result: ${decodedText}`);
-        
+
         // Try to extract page ID
         const match = decodedText.match(/pages?\/(\d+)/) || decodedText.match(/page_details?\/(\d+)/) || decodedText.match(/^(\d+)$/);
         if (match) {
@@ -3992,9 +4032,9 @@ function togglePageVideoPlay() {
     const overlay = document.getElementById('video-play-overlay');
     const overlayIcon = document.getElementById('video-overlay-icon');
     const ctrlPlay = document.getElementById('video-ctrl-play');
-    
+
     if (!video) return;
-    
+
     if (video.paused) {
         video.play();
         if (overlay) overlay.style.display = 'none';
@@ -4020,7 +4060,7 @@ function togglePageVideoMute() {
     const video = document.getElementById('page-details-video');
     const volIcon = document.getElementById('video-ctrl-volume');
     if (!video) return;
-    
+
     video.muted = !video.muted;
     if (volIcon) {
         volIcon.className = video.muted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
@@ -4047,7 +4087,7 @@ let isTranslationDisabled = false;
 
 function showTestOptionsDialog(callback) {
     pendingTestLaunchCallback = callback;
-    
+
     // Reset toggle to false (translations active) on start
     const toggle = document.getElementById('test-disable-translation-toggle');
     if (toggle) {
@@ -4055,20 +4095,20 @@ function showTestOptionsDialog(callback) {
         const slider = toggle.parentElement.querySelector('.slider-toggle');
         if (slider) slider.style.backgroundColor = '';
     }
-    
+
     const modal = document.getElementById('test-options-modal');
     if (modal) modal.style.display = 'flex';
 }
 
 function confirmTestOptions(wantsImmediateCorrection) {
     isImmediateCorrectionActive = wantsImmediateCorrection;
-    
+
     const toggle = document.getElementById('test-disable-translation-toggle');
     isTranslationDisabled = toggle ? toggle.checked : false;
-    
+
     const modal = document.getElementById('test-options-modal');
     if (modal) modal.style.display = 'none';
-    
+
     if (pendingTestLaunchCallback) {
         pendingTestLaunchCallback();
         pendingTestLaunchCallback = null;
@@ -4082,10 +4122,10 @@ function openQuestionTranslationModal(itText, bnText) {
     currentTranslationTextToRead = itText;
     const itEl = document.getElementById('q-translation-it');
     const bnEl = document.getElementById('q-translation-bn');
-    
+
     if (itEl) itEl.innerText = itText;
     if (bnEl) bnEl.innerText = bnText;
-    
+
     const modal = document.getElementById('q-translation-modal');
     if (modal) modal.style.display = 'flex';
 }

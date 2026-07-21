@@ -11,6 +11,7 @@ class Question extends Model
         'chapter_name',
         'question_type',
         'page_id',
+        'sort_order',
         'italian',
         'bangla',
         'is_vero',
@@ -21,6 +22,13 @@ class Question extends Model
         'correct_answer',
         'explanation',
         'image',
+        'audio',
+        'video',
+        'vocabulary',
+    ];
+
+    protected $casts = [
+        'vocabulary' => 'array',
     ];
 
     public function page()

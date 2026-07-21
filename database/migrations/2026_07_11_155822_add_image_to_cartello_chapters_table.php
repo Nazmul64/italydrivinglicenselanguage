@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('cartello_chapters', function (Blueprint $table) {
-            //
-        });
+        if (!Schema::hasColumn('cartello_chapters', 'image')) {
+            Schema::table('cartello_chapters', function (Blueprint $table) {
+                $table->string('image')->nullable()->after('bn_name');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('cartello_chapters', function (Blueprint $table) {
-            //
-        });
+        if (Schema::hasColumn('cartello_chapters', 'image')) {
+            Schema::table('cartello_chapters', function (Blueprint $table) {
+                $table->dropColumn('image');
+            });
+        }
     }
 };

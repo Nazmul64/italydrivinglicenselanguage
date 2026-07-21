@@ -11,15 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Disable foreign key checks to safely drop old tables
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('cartello_questions');
         Schema::dropIfExists('cartelli');
         Schema::dropIfExists('cartello_categories');
         Schema::dropIfExists('cartello_mcqs');
         Schema::dropIfExists('cartello_pages');
         Schema::dropIfExists('cartello_chapters');
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        Schema::enableForeignKeyConstraints();
 
         // 1. Categories
         Schema::create('cartello_categories', function (Blueprint $table) {

@@ -72,4 +72,20 @@ class CategoryController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    /**
+     * Remove multiple categories.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:categories,id',
+        ]);
+
+        Category::whereIn('id', $request->ids)->delete();
+
+        return response()->json(['success' => true]);
+    }
 }
+
