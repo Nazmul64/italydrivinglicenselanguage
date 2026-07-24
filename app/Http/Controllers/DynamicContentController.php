@@ -608,6 +608,7 @@ class DynamicContentController extends Controller
         }
         
         return response()->json([
+            'session_id' => $sessionId,
             'verified' => $client ? true : false,
             'is_active' => $client ? (bool)$client->is_active : false,
             'first_name' => $client ? $client->first_name : null,
@@ -701,6 +702,107 @@ class DynamicContentController extends Controller
         return response()->json([
             'success' => true,
             'client' => $client
+        ]);
+    }
+
+    public function getPublicHomeCards()
+    {
+        $cards = HomeCard::where('status', true)
+            ->orderBy('order_index', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($cards->isEmpty()) {
+            $defaultCards = [
+                ['title' => 'LEZIONI', 'subtitle' => 'Classes', 'screen_key' => 'tutorials', 'icon_class' => 'fa-solid fa-desktop', 'order_index' => 1],
+                ['title' => 'TEST', 'subtitle' => 'Practice Test', 'screen_key' => 'tasbih', 'icon_class' => 'fa-solid fa-list-check', 'order_index' => 2],
+                ['title' => 'ARGOMENTI', 'subtitle' => 'TOPICS', 'screen_key' => 'quotes', 'icon_class' => 'fa-solid fa-graduation-cap', 'order_index' => 3],
+                ['title' => 'E-CLASS', 'subtitle' => 'E-Class', 'screen_key' => 'text_analyzer', 'icon_class' => 'fa-solid fa-chalkboard-user', 'order_index' => 4],
+                ['title' => 'SFIDA', 'subtitle' => 'Challenge', 'screen_key' => 'sfida', 'icon_class' => 'fa-solid fa-trophy', 'order_index' => 5],
+                ['title' => 'SCHEDA ESAME', 'subtitle' => 'Exam Test', 'screen_key' => 'quiz', 'icon_class' => 'fa-solid fa-file-signature', 'order_index' => 6],
+                ['title' => 'DIZIONARIO', 'subtitle' => 'Dictionary', 'screen_key' => 'dictionary', 'icon_class' => 'fa-solid fa-book-open', 'order_index' => 7],
+                ['title' => 'CARTELLI', 'subtitle' => 'Traffic Signs', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'order_index' => 8],
+                ['title' => 'SAVED MCQS', 'subtitle' => 'Bookmarks', 'screen_key' => 'saved_questions', 'icon_class' => 'fa-solid fa-bookmark', 'order_index' => 9],
+                ['title' => 'CORRECT MCQS', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct_questions', 'icon_class' => 'fa-solid fa-circle-check', 'order_index' => 10],
+                ['title' => 'WRONG MCQS', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong_questions', 'icon_class' => 'fa-solid fa-circle-xmark', 'order_index' => 11],
+                ['title' => 'SUPPORT', 'subtitle' => 'Live Chat', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'order_index' => 12],
+            ];
+            foreach ($defaultCards as $dc) {
+                HomeCard::create($dc);
+            }
+            $cards = HomeCard::where('status', true)->orderBy('order_index', 'asc')->get();
+        }
+
+        $cards->transform(function($c) {
+            if ($c->icon_url && !str_starts_with($c->icon_url, 'http')) {
+                $c->icon_url = request()->getSchemeAndHttpHost() . '/' . ltrim($c->icon_url, '/');
+            }
+            return $c;
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $cards
+        ]);
+    }
+
+    public function getPublicSliders()
+    {
+        $sliders = Slider::where('status', 1)
+            ->orderBy('order_index', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($sliders->isEmpty()) {
+            $defaultSliders = [
+                [
+                    'id' => 1,
+                    'title' => 'Patente B Exam Prep',
+                    'subtitle' => 'বাংলা ভাষায় ইতালিয়ান ড্রাইভিং লাইসেন্স কোর্স',
+                    'image_url' => 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop',
+                    'link_url' => '',
+                    'button_text' => 'শুরু করুন',
+                    'order_index' => 1,
+                    'status' => true
+                ],
+                [
+                    'id' => 2,
+                    'title' => 'Live Interactive Classes',
+                    'subtitle' => 'সরাসরি শিক্ষক এর সাথে ক্লাস করুন',
+                    'image_url' => 'https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800&auto=format&fit=crop',
+                    'link_url' => '',
+                    'button_text' => 'জয়েন করুন',
+                    'order_index' => 2,
+                    'status' => true
+                ],
+                [
+                    'id' => 3,
+                    'title' => 'Cartelli Traffic Signs',
+                    'subtitle' => 'সকল ট্রাফিক সিগন্যাল ও কুইজ',
+                    'image_url' => 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop',
+                    'link_url' => '',
+                    'button_text' => 'পড়ুন',
+                    'order_index' => 3,
+                    'status' => true
+                ]
+            ];
+            return response()->json([
+                'status' => 'success',
+                'data' => $defaultSliders
+            ]);
+        }
+
+        $sliders->transform(function($s) {
+            $path = $s->image_url;
+            if ($path && !str_starts_with($path, 'http://') && !str_starts_with($path, 'https://')) {
+                $s->image_url = request()->getSchemeAndHttpHost() . '/' . ltrim($path, '/');
+            }
+            return $s;
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $sliders
         ]);
     }
 }

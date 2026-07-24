@@ -7,12 +7,6 @@
             @foreach($sliders as $slider)
                 <div class="slide">
                     <img src="{{ $slider->image_url }}" alt="{{ $slider->title }}">
-                    <div class="slide-overlay">
-                        <span class="slide-title">{{ $slider->title }}</span>
-                        @if($slider->subtitle)
-                            <span class="slide-subtitle">{{ $slider->subtitle }}</span>
-                        @endif
-                    </div>
                 </div>
             @endforeach
         </div>
@@ -27,7 +21,7 @@
     <!-- Grid of Services: Dynamic Cards -->
     <section class="services-grid">
         @foreach($homeCards as $card)
-            <div class="nav-card" onclick="openScreen('{{ $card->screen_key }}', '{{ $card->title }}')">
+            <div class="nav-card" onclick="openScreen('{{ addslashes($card->screen_key) }}', '{{ addslashes($card->title) }}')">
                 <div class="illustration-box">
                     @php $sk = strtolower($card->screen_key); @endphp
 
@@ -291,6 +285,108 @@
             </div>
             <h3 class="card-title">SUPPORT</h3>
             <p class="card-subtitle">Live Chat</p>
+        </div>
+
+        <!-- Top Performers / Leaderboard Card -->
+        <div class="nav-card" onclick="openScreen('sfida', 'Leaderboard')">
+            <div class="illustration-box">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                  <!-- Trophy base -->
+                  <rect x="36" y="74" width="28" height="10" rx="3" fill="#6366F1"/>
+                  <path d="M42,62 L58,62 L54,74 L46,74 Z" fill="#818CF8"/>
+                  <!-- Trophy Cup -->
+                  <path d="M26,24 L74,24 L66,54 C66,60 58,64 50,64 C42,64 34,60 34,54 Z" fill="#F59E0B" class="pulse-anim"/>
+                  <!-- Trophy Handles -->
+                  <path d="M26,30 C16,30 16,46 28,48" fill="none" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
+                  <path d="M74,30 C84,30 84,46 72,48" fill="none" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
+                  <!-- Crown/Star on Trophy -->
+                  <polygon points="50,30 54,40 64,40 56,46 59,56 50,50 41,56 44,46 36,40 46,40" fill="#FFF" class="star-anim"/>
+                  <!-- Sparkles -->
+                  <circle cx="20" cy="20" r="3.5" fill="#F59E0B" class="sparkle-1"/>
+                  <circle cx="80" cy="18" r="3" fill="#6366F1" class="sparkle-2"/>
+                </svg>
+            </div>
+            <h3 class="card-title">TOP PERFORMERS</h3>
+            <p class="card-subtitle">সেরা শিক্ষার্থী র্যাঙ্কিং</p>
+        </div>
+
+        <!-- Manuale (Theory Guidebook) Card -->
+        <div class="nav-card" onclick="openScreen('manuale', 'Manuale')">
+            <div class="illustration-box">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                  <!-- Book cover -->
+                  <rect x="22" y="16" width="56" height="68" rx="7" fill="#2563EB"/>
+                  <rect x="22" y="16" width="12" height="68" rx="3" fill="#1D4ED8"/>
+                  <rect x="38" y="24" width="34" height="52" rx="4" fill="#FFF"/>
+                  <!-- Book details: GUIDE label badge -->
+                  <rect x="42" y="32" width="26" height="10" rx="3" fill="#F59E0B"/>
+                  <text x="55" y="39" text-anchor="middle" fill="#FFF" font-size="6" font-weight="900">GUIDE</text>
+                  <!-- Check/Cross icon badges on book -->
+                  <circle cx="46" cy="50" r="5" fill="#10B981"/>
+                  <polyline points="44,50 45.5,52 48,48.5" stroke="#fff" stroke-width="1.5" fill="none"/>
+                  <circle cx="64" cy="50" r="5" fill="#EF4444"/>
+                  <line x1="61.5" y1="47.5" x2="66.5" y2="52.5" stroke="#fff" stroke-width="1.5"/>
+                  <line x1="66.5" y1="47.5" x2="61.5" y2="52.5" stroke="#fff" stroke-width="1.5"/>
+                  <!-- Lines -->
+                  <rect x="42" y="60" width="26" height="3" rx="1.5" fill="#93C5FD"/>
+                  <rect x="42" y="66" width="18" height="3" rx="1.5" fill="#CBD5E1"/>
+                  <!-- Bookmark ribbon -->
+                  <polygon points="30,84 30,70 38,70 38,84 34,80" fill="#EF4444"/>
+                </svg>
+            </div>
+            <h3 class="card-title">MANUALE</h3>
+            <p class="card-subtitle">ম্যানুয়াল থিওরি গাইড</p>
+        </div>
+
+        <!-- mbanglapatenteb (Community Feed) Card -->
+        <div class="nav-card" onclick="openScreen('social', 'mbanglapatenteb')">
+            <div class="illustration-box">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                  <!-- Phone / Social Chat Bubble Frame -->
+                  <rect x="20" y="16" width="60" height="68" rx="10" fill="#6366F1"/>
+                  <rect x="24" y="20" width="52" height="60" rx="7" fill="#FFF"/>
+                  <!-- Social User Avatars & Chat Bubbles -->
+                  <circle cx="38" cy="36" r="7" fill="#EC4899"/>
+                  <rect x="48" y="32" width="22" height="8" rx="4" fill="#818CF8"/>
+                  
+                  <circle cx="62" cy="52" r="7" fill="#10B981"/>
+                  <rect x="30" y="48" width="24" height="8" rx="4" fill="#F59E0B"/>
+                  
+                  <!-- Heart / Like Badge -->
+                  <circle cx="50" cy="68" r="7" fill="#EF4444"/>
+                  <path d="M46.5 66.5 C46.5 64.5 48.5 63.5 50 65 C51.5 63.5 53.5 64.5 53.5 66.5 C53.5 69 50 71 50 71 C50 71 46.5 69 46.5 66.5 Z" fill="#FFF"/>
+                </svg>
+            </div>
+            <h3 class="card-title">Patente Social</h3>
+            <p class="card-subtitle">কমিউনিটি সোশ্যাল ফিড</p>
+        </div>
+
+        <!-- Translation Card -->
+        <div class="nav-card" onclick="openScreen('translation', 'Translation')">
+            <div class="illustration-box">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                  <!-- Gradient Circle Base -->
+                  <defs>
+                    <linearGradient id="transGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#EC4899" />
+                      <stop offset="50%" stop-color="#8B5CF6" />
+                      <stop offset="100%" stop-color="#3B82F6" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="36" fill="url(#transGrad)"/>
+                  <!-- Globe Lines -->
+                  <ellipse cx="50" cy="50" rx="30" ry="14" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+                  <line x1="50" y1="14" x2="50" y2="86" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+                  <!-- Translation Badges 'A' and '文' -->
+                  <rect x="26" y="32" width="18" height="18" rx="4" fill="#FFF" shadow="0 2px 4px rgba(0,0,0,0.2)"/>
+                  <text x="35" y="45" text-anchor="middle" font-size="12" font-weight="900" fill="#8B5CF6">A</text>
+                  
+                  <rect x="56" y="50" width="18" height="18" rx="4" fill="#FFF"/>
+                  <text x="65" y="63" text-anchor="middle" font-size="11" font-weight="900" fill="#EC4899">文</text>
+                </svg>
+            </div>
+            <h3 class="card-title">Translation</h3>
+            <p class="card-subtitle">অনুবাদ ও সঠিক উচ্চারণ</p>
         </div>
     </section>
 </div>

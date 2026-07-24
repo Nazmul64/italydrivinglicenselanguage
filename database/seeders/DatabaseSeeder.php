@@ -45,6 +45,26 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        // Seed Manuale Theory Guidebook Topics
+        if (\App\Models\Manuale::count() === 0) {
+            \App\Models\Manuale::create([
+                'title' => 'Capitolo 1: Definizione della Strada e della Carreggiata',
+                'chapter_number' => 1,
+                'content' => 'La <u>strada</u> è l\'area aperta alla circolazione dei pedoni, degli animali e dei veicoli. Essa comprende le <u>carreggiate</u> riservate ai veicoli, i <u>marciapiedi</u> per i pedoni, le <u>piste ciclabili</u> e le banchine. Una carreggiata può essere a doppio senso di circolazione o a senso unico.',
+                'image_path' => '/storage/cartelli/strada.png',
+                'order_index' => 1,
+                'status' => true
+            ]);
+            \App\Models\Manuale::create([
+                'title' => 'Capitolo 2: I Segnali di Pericolo e la Precedenza',
+                'chapter_number' => 2,
+                'content' => 'I <u>segnali di pericolo</u> hanno di norma forma triangolare con vertice verso l\'alto e bordo rosso. Vengono posti a circa <u>150 metri</u> dal punto di pericolo e prescrivono di moderare la velocità e prestare particolare attenzione.',
+                'image_path' => '/storage/cartelli/pericolo.png',
+                'order_index' => 2,
+                'status' => true
+            ]);
+        }
+
         // Seed Banner Sliders
         if (\App\Models\Slider::count() === 0) {
             $sliders = [

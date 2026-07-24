@@ -199,7 +199,7 @@
                         <tr>
                             <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-chapters" onchange="toggleSelectAll('chapters', this.checked)"></th>
                             <th style="width: 80px;">ID</th>
-                            <th style="width: 80px; text-align: center;">Number</th>
+                            <th style="width: 140px; text-align: center;">CHAPTER NUMBER</th>
                             <th style="width: 100px; text-align: center;">Thumbnail</th>
                             <th>Chapter Name (Italian)</th>
                             <th>Chapter Name (Bangla)</th>
@@ -267,7 +267,7 @@
                         <tr>
                             <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-pages" onchange="toggleSelectAll('pages', this.checked)"></th>
                             <th style="width: 60px;">ID</th>
-                            <th style="width: 80px; text-align: center;">Order</th>
+                            <th style="width: 110px; text-align: center;">PAGE NUMBER</th>
                             <th>Page Title (Italian)</th>
                             <th>Page Title (Bangla)</th>
                             <th style="width: 100px; text-align: center;">Media</th>
@@ -461,6 +461,42 @@
         </div>
     </div>
 
+    <!-- PANEL 5.6: Admin Manuale CRUD (Theory Guidebook) -->
+    <div id="panel-manuale" class="crud-panel">
+        <div class="welcome-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h2 class="welcome-title">Manage Manuale (ম্যানুয়াল থিওরি)</h2>
+                    <p class="welcome-subtitle">Create and configure theory guidebook topics with text, images, and underlined terms.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" onclick="openAddManualeModal()">
+                        <i class="fa-solid fa-plus"></i> Add Theory Topic
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">ID</th>
+                        <th style="width: 120px;">Chapter #</th>
+                        <th style="width: 250px;">Title</th>
+                        <th>Content / Theory</th>
+                        <th style="width: 120px; text-align: center;">Image</th>
+                        <th style="width: 100px; text-align: center;">Status</th>
+                        <th style="width: 160px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="manuale-table-body">
+                    <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Loading theory topics...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- PANEL 6: Admin Exam Sheets CRUD (Scheduler) -->
     <div id="panel-mcq-exams" class="crud-panel">
         <div class="welcome-header">
@@ -531,13 +567,9 @@
                 <thead>
                     <tr>
                         <th style="width: 80px;">ID</th>
-                        <th style="width: 120px; text-align: center;">Image</th>
-                        <th>Title</th>
-                        <th>Subtitle</th>
-                        <th>Link URL</th>
-                        <th style="width: 80px; text-align: center;">Order</th>
-                        <th style="width: 100px; text-align: center;">Status</th>
-                        <th style="width: 180px; text-align: right;">Actions</th>
+                        <th style="width: 120px; text-align: center;">IMAGE</th>
+                        <th>LINK URL</th>
+                        <th style="width: 180px; text-align: right;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody id="sliders-table-body">
@@ -742,7 +774,7 @@
                         <tr>
                             <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-chapters" onchange="toggleSelectAll('cartello-chapters', this.checked)"></th>
                             <th style="width: 80px;">ID</th>
-                            <th style="width: 120px;">NUMBER</th>
+                            <th style="width: 140px;">CHAPTER NUMBER</th>
                             <th>CHAPTER NAME (ITALIAN)</th>
                             <th>CHAPTER NAME (BANGLA)</th>
                             <th>CATEGORY</th>
@@ -784,7 +816,7 @@
                         <tr>
                             <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-pages" onchange="toggleSelectAll('cartello-pages', this.checked)"></th>
                             <th style="width: 80px;">ID</th>
-                            <th style="width: 120px;">ORDER</th>
+                            <th style="width: 120px;">PAGE NUMBER</th>
                             <th>PAGE TITLE (ITALIAN)</th>
                             <th>PAGE TITLE (BANGLA)</th>
                             <th style="width: 100px; text-align: center;">MEDIA</th>
@@ -845,7 +877,7 @@
                 <thead>
                     <tr>
                         <th style="width: 40px; text-align: center;"><input type="checkbox" id="bulk-select-cartello-mcqs" onchange="toggleSelectAll('cartello-mcqs', this.checked)"></th>
-                        <th style="width: 80px;">ID</th>
+                        <th style="width: 140px;">MCQ সিরিয়াল নাম্বার</th>
                         <th style="width: 180px;">ক্যাটাগরি / চ্যাপ্টার (পেজ নং)</th>
                         <th>প্রশ্ন (Italian & বাংলা অর্থ)</th>
                         <th style="width: 100px; text-align: center;">সঠিক উত্তর</th>
@@ -1401,13 +1433,19 @@
             </div>
         </div>
 
-        <div class="card" style="padding: 24px; max-width: 700px;">
+        <div class="card" style="padding: 24px; width: 100%;">
             <form id="general-settings-form" onsubmit="saveGeneralSettingsForm(event)">
                 @csrf
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Application Name</label>
                     <input type="text" id="settings-app-name" name="app_name" class="form-control" style="width: 100%;" required>
                     <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">This title is used as the browser tab title and default application brand name.</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);"><i class="fa-solid fa-clock" style="color: var(--accent-blue); margin-right: 6px;"></i> MCQ / Exam Time (in Minutes / সময় মিনিটে)</label>
+                    <input type="number" id="settings-exam-time" name="exam_time_minutes" class="form-control" style="width: 100%;" min="1" max="300" placeholder="20" required>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">পরীক্ষার জন্য সময় (মিনিটে) নির্ধারণ করুন। MCQ ও Exam Simulation স্ক্রিনে এই টাইমার গণনা করা হবে। (ডিফল্ট: 20 মিনিট)</span>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 20px;">
@@ -1434,6 +1472,432 @@
                         <div style="flex: 1;">
                             <input type="file" id="settings-favicon" name="favicon" accept="image/*" class="form-control" style="width: 100%;">
                             <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">Select a favicon image file (ICO, PNG, WebP, etc.).</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-table-cells-large" style="color: var(--accent-teal);"></i>
+                    <span>Dynamic Frontend Layout & Cards Configuration (ডাইনামিক গ্রিড লেআউট)</span>
+                </h4>
+
+                <!-- Row 1: Home Screen Grid Columns (Desktop, Tablet, Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Desktop Columns (এক সারিতে কয়টি)
+                        </label>
+                        <select id="settings-home-desktop-columns" name="home_desktop_columns" class="form-control">
+                            <option value="2">2 Columns (২ কলাম)</option>
+                            <option value="3">3 Columns (৩ কলাম)</option>
+                            <option value="4" selected>4 Columns (৪ কলাম)</option>
+                            <option value="5">5 Columns (৫ কলাম)</option>
+                            <option value="6">6 Columns (৬ কলাম)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Tablet Columns (ট্যাবলেট)
+                        </label>
+                        <select id="settings-home-tablet-columns" name="home_tablet_columns" class="form-control">
+                            <option value="2">2 Columns (২ কলাম)</option>
+                            <option value="3" selected>3 Columns (৩ কলাম)</option>
+                            <option value="4">4 Columns (৪ কলাম)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Mobile Columns (মোবাইল)
+                        </label>
+                        <select id="settings-home-mobile-columns" name="home_mobile_columns" class="form-control">
+                            <option value="1">1 Column (১ কলাম)</option>
+                            <option value="2" selected>2 Columns (২ কলাম)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 2: Card Dimensions & Gap -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Card Width (উইডথ e.g. 100% or 280px)
+                        </label>
+                        <input type="text" id="settings-home-card-width" name="home_card_width" class="form-control" placeholder="e.g. 100% or 280px" value="100%">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Card Height (হাইট e.g. auto or 350px)
+                        </label>
+                        <input type="text" id="settings-home-card-height" name="home_card_height" class="form-control" placeholder="e.g. auto or 350px" value="auto">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Card Gap (গ্যাপ px)
+                        </label>
+                        <input type="number" id="settings-home-card-gap" name="home_card_gap" class="form-control" min="0" max="100" placeholder="24" value="24">
+                    </div>
+                </div>
+
+                <!-- Row 3: Schede / Chapter Grid Columns -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Scegli Scheda Desktop Columns
+                        </label>
+                        <select id="settings-schede-desktop-columns" name="schede_desktop_columns" class="form-control">
+                            <option value="1">1 Column (১ কলাম)</option>
+                            <option value="2" selected>2 Columns (২ কলাম)</option>
+                            <option value="3">3 Columns (৩ কলাম)</option>
+                            <option value="4">4 Columns (৪ কলাম)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Scegli Scheda Mobile Columns
+                        </label>
+                        <select id="settings-schede-mobile-columns" name="schede_mobile_columns" class="form-control">
+                            <option value="1" selected>1 Column (১ কলাম)</option>
+                            <option value="2">2 Columns (২ কলাম)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-icons" style="color: #0284c7;"></i>
+                    <span>Icon & Text Size Customization (আইকন ও টেক্সট সাইজ)</span>
+                </h4>
+
+                <!-- Icon Sizes (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Desktop Icon Box Size (ডেসকটপ আইকন সাইজ px)
+                        </label>
+                        <input type="number" id="settings-icon-size-desktop" name="icon_size_desktop" class="form-control" min="30" max="250" placeholder="90" value="90">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Mobile Icon Box Size (মোবাইল আইকন সাইজ px)
+                        </label>
+                        <input type="number" id="settings-icon-size-mobile" name="icon_size_mobile" class="form-control" min="20" max="200" placeholder="60" value="60">
+                    </div>
+                </div>
+
+                <!-- Font Sizes (Desktop Title vs Mobile Title) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Desktop Title Font Size (ডেসকটপ টাইটেল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-title-font-size-desktop" name="title_font_size_desktop" class="form-control" min="10" max="40" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Mobile Title Font Size (মোবাইল টাইটেল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-title-font-size-mobile" name="title_font_size_mobile" class="form-control" min="8" max="30" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <!-- Subtitle Font Sizes (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Desktop Subtitle Font Size (ডেসকটপ সাবটাইটেল px)
+                        </label>
+                        <input type="number" id="settings-subtitle-font-size-desktop" name="subtitle_font_size_desktop" class="form-control" min="8" max="30" placeholder="12" value="12">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Mobile Subtitle Font Size (মোবাইল সাবটাইটেল px)
+                        </label>
+                        <input type="number" id="settings-subtitle-font-size-mobile" name="subtitle_font_size_mobile" class="form-control" min="6" max="25" placeholder="11" value="11">
+                    </div>
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-map-location-dot" style="color: var(--accent-orange);"></i>
+                    <span>Cartelli & Scegli Scheda Module Settings (কার্তেল্লি ও চ্যাপ্টার/পেজ মডিউল সেটিং)</span>
+                </h4>
+
+                <!-- Chapter Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Title Font Size Desktop (চ্যাপ্টার ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-title-font-desktop" name="cartelli_chapter_title_font_desktop" class="form-control" min="10" max="40" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Title Font Size Mobile (চ্যাপ্টার মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-title-font-mobile" name="cartelli_chapter_title_font_mobile" class="form-control" min="8" max="30" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <!-- Chapter Image Height & Width (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Height Desktop (চ্যাপ্টার ইমেজ ডেসকটপ হাইট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-image-size-desktop" name="cartelli_chapter_image_size_desktop" class="form-control" min="40" max="300" placeholder="120" value="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Height Mobile (চ্যাপ্টার ইমেজ মোবাইল হাইট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-image-size-mobile" name="cartelli_chapter_image_size_mobile" class="form-control" min="30" max="200" placeholder="80" value="80">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Width Desktop (চ্যাপ্টার ইমেজ ডেসকটপ উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-cartelli-chapter-image-width-desktop" name="cartelli_chapter_image_width_desktop" class="form-control" placeholder="e.g. 100% or 150" value="">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Width Mobile (চ্যাপ্টার ইমেজ মোবাইল উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-cartelli-chapter-image-width-mobile" name="cartelli_chapter_image_width_mobile" class="form-control" placeholder="e.g. 90% or 100" value="">
+                    </div>
+                </div>
+
+                <!-- Page Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Title Font Size Desktop (পেজ ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-page-title-font-desktop" name="cartelli_page_title_font_desktop" class="form-control" min="10" max="40" placeholder="15" value="15">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Title Font Size Mobile (পেজ মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-page-title-font-mobile" name="cartelli_page_title_font_mobile" class="form-control" min="8" max="30" placeholder="13" value="13">
+                    </div>
+                </div>
+
+                <!-- Page Card Image Height & Width (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Height Desktop (পেজ ইমেজ ডেসকটপ হাইট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-page-image-size-desktop" name="cartelli_page_image_size_desktop" class="form-control" min="40" max="300" placeholder="120" value="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Height Mobile (পেজ ইমেজ মোবাইল হাইট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-page-image-size-mobile" name="cartelli_page_image_size_mobile" class="form-control" min="30" max="200" placeholder="80" value="80">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Width Desktop (পেজ ইমেজ ডেসকটপ উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-cartelli-page-image-width-desktop" name="cartelli_page_image_width_desktop" class="form-control" placeholder="e.g. 100% or 160" value="">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Width Mobile (পেজ ইমেজ মোবাইল উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-cartelli-page-image-width-mobile" name="cartelli_page_image_width_mobile" class="form-control" placeholder="e.g. 90% or 110" value="">
+                    </div>
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-layer-group" style="color: var(--accent-blue);"></i>
+                    <span>Argomenti Module Settings (আর্গোমেন্তি মডিউল সেটিং)</span>
+                </h4>
+
+                <!-- Argomenti Chapter Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Title Font Size Desktop (চ্যাপ্টার ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-title-font-desktop" name="argomenti_chapter_title_font_desktop" class="form-control" min="10" max="40" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Title Font Size Mobile (চ্যাপ্টার মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-title-font-mobile" name="argomenti_chapter_title_font_mobile" class="form-control" min="8" max="30" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <!-- Argomenti Chapter Image Height & Width (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Height Desktop (চ্যাপ্টার ইমেজ ডেসকটপ হাইট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-image-size-desktop" name="argomenti_chapter_image_size_desktop" class="form-control" min="40" max="300" placeholder="120" value="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Height Mobile (চ্যাপ্টার ইমেজ মোবাইল হাইট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-image-size-mobile" name="argomenti_chapter_image_size_mobile" class="form-control" min="30" max="200" placeholder="80" value="80">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Width Desktop (চ্যাপ্টার ইমেজ ডেসকটপ উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-argomenti-chapter-image-width-desktop" name="argomenti_chapter_image_width_desktop" class="form-control" placeholder="e.g. 100% or 150" value="">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Card Image Width Mobile (চ্যাপ্টার ইমেজ মোবাইল উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-argomenti-chapter-image-width-mobile" name="argomenti_chapter_image_width_mobile" class="form-control" placeholder="e.g. 90% or 100" value="">
+                    </div>
+                </div>
+
+                <!-- Argomenti Page Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Title Font Size Desktop (পেজ ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-page-title-font-desktop" name="argomenti_page_title_font_desktop" class="form-control" min="10" max="40" placeholder="15" value="15">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Title Font Size Mobile (পেজ মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-page-title-font-mobile" name="argomenti_page_title_font_mobile" class="form-control" min="8" max="30" placeholder="13" value="13">
+                    </div>
+                </div>
+
+                <!-- Argomenti Page Image Height & Width (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Height Desktop (পেজ ইমেজ ডেসকটপ হাইট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-page-image-size-desktop" name="argomenti_page_image_size_desktop" class="form-control" min="40" max="300" placeholder="120" value="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Height Mobile (পেজ ইমেজ মোবাইল হাইট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-page-image-size-mobile" name="argomenti_page_image_size_mobile" class="form-control" min="30" max="200" placeholder="80" value="80">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Width Desktop (পেজ ইমেজ ডেসকটপ উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-argomenti-page-image-width-desktop" name="argomenti_page_image_width_desktop" class="form-control" placeholder="e.g. 100% or 160" value="">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Page Card Image Width Mobile (পেজ ইমেজ মোবাইল উইডথ px / %)
+                        </label>
+                        <input type="text" id="settings-argomenti-page-image-width-mobile" name="argomenti_page_image_width_mobile" class="form-control" placeholder="e.g. 90% or 110" value="">
+                    </div>
+                </div>
+
+                <!-- Argomenti Question Text Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Question Text Font Size Desktop (প্রশ্ন ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-question-text-font-desktop" name="argomenti_question_text_font_desktop" class="form-control" min="10" max="40" placeholder="15" value="15">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Question Text Font Size Mobile (প্রশ্ন মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-question-text-font-mobile" name="argomenti_question_text_font_mobile" class="form-control" min="8" max="30" placeholder="13" value="13">
+                    </div>
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-palette" style="color: #9333ea;"></i>
+                        <span>Theme & Neumorphism Color Customization (থিম কালার কাস্টমাইজেশন)</span>
+                    </h4>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="resetDefaultThemeColors()" style="background-color: var(--bg-body); border: 1px solid var(--border-color); font-weight: bold;">
+                        <i class="fa-solid fa-rotate-left" style="color: var(--accent-orange);"></i> Reset to Default (আগের কালারে ফিরিয়ে আনুন)
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Card Background Color (কার্ডের ব্যাকগ্রাউন্ড কালার)
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="color" id="settings-primary-color-picker" value="#F4F7FA" onchange="document.getElementById('settings-primary-color').value = this.value" style="width: 42px; height: 38px; border: none; border-radius: 8px; cursor: pointer; padding: 2px;">
+                            <input type="text" id="settings-primary-color" name="primary_color" class="form-control" value="#F4F7FA" placeholder="#F4F7FA" onchange="document.getElementById('settings-primary-color-picker').value = this.value">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Accent Brand Color (অ্যাক্সেন্ট কালার)
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="color" id="settings-accent-color-picker" value="#4CAF50" onchange="document.getElementById('settings-accent-color').value = this.value" style="width: 42px; height: 38px; border: none; border-radius: 8px; cursor: pointer; padding: 2px;">
+                            <input type="text" id="settings-accent-color" name="accent_color" class="form-control" value="#4CAF50" placeholder="#4CAF50" onchange="document.getElementById('settings-accent-color-picker').value = this.value">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Card Text Color (কার্ডের টেক্সট কালার)
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="color" id="settings-text-color-picker" value="#1e293b" onchange="document.getElementById('settings-text-color').value = this.value" style="width: 42px; height: 38px; border: none; border-radius: 8px; cursor: pointer; padding: 2px;">
+                            <input type="text" id="settings-text-color" name="text_color" class="form-control" value="#1e293b" placeholder="#1e293b" onchange="document.getElementById('settings-text-color-picker').value = this.value">
                         </div>
                     </div>
                 </div>

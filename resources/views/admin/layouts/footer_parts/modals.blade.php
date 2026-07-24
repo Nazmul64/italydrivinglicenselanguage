@@ -1,7 +1,7 @@
     <!-- Modals Layout -->
     <!-- 1. Add/Edit Question Modal -->
     <div class="modal-overlay" id="question-modal">
-        <div class="modal-card">
+        <div class="modal-card modal-lg">
             <div class="modal-header-row">
                 <h3 class="modal-title" id="question-modal-title">Add New Question</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeQuestionModal()"></i>
@@ -234,6 +234,63 @@
         </div>
     </div>
 
+    <!-- 3a-2. Add/Edit Manuale Theory Modal -->
+    <div class="modal-overlay" id="manuale-modal">
+        <div class="modal-card" style="max-width: 600px;">
+            <div class="modal-header-row">
+                <h3 class="modal-title" id="manuale-modal-title">Add Theory Topic (Manuale)</h3>
+                <button type="button" class="modal-close-btn" onclick="closeManualeModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="manuale-form" onsubmit="saveManuale(event)" enctype="multipart/form-data">
+                <input type="hidden" id="form-manuale-id">
+
+                <div class="form-group">
+                    <label class="form-label" for="form-manuale-chapter">Chapter Number</label>
+                    <input type="number" class="form-control" id="form-manuale-chapter" required value="1" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-manuale-title">Theory Title</label>
+                    <input type="text" class="form-control" id="form-manuale-title" required placeholder="e.g. Capitolo 1: Definizione della Strada">
+                </div>
+
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label class="form-label" for="form-manuale-content" style="margin:0;">Theory Content / Explanation</label>
+                        <button type="button" onclick="insertUnderlineTag()" style="background: rgba(37,99,235,0.1); color: #2563EB; border: 1px solid #2563EB; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                            <u><b>U</b></u> Add Underline (&lt;u&gt;word&lt;/u&gt;)
+                        </button>
+                    </div>
+                    <textarea class="form-control" id="form-manuale-content" rows="6" placeholder="Write theory content here... Use &lt;u&gt;word&lt;/u&gt; to underline key terms."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-manuale-image">Theory Illustration Image</label>
+                    <input type="file" class="form-control" id="form-manuale-image" accept="image/*">
+                    <div id="manuale-image-preview-container" style="display: none; margin-top: 10px;">
+                        <img id="manuale-image-preview" src="" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                </div>
+
+                <!-- Theory Vocabulary Underlines Section -->
+                <div class="form-group" style="margin-top: 20px; border-top: 1px border-dashed var(--border-card); padding-top: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label class="form-label" style="margin: 0; font-weight: 800; font-size: 12px; color: var(--text-primary);">QUESTION VOCABULARY UNDERLINES (দাগ এবং শব্দের অর্থ)</label>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addManualeVocabRow('', '', '')" style="font-size: 11px; padding: 4px 10px;">
+                            <i class="fa-solid fa-plus"></i> Add Word
+                        </button>
+                    </div>
+                    <div id="manuale-vocab-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding: 4px;"></div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeManualeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Theory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- 3b. Add Scheduled Exam Modal -->
     <div class="modal-overlay" id="exam-sched-modal">
         <div class="modal-card">
@@ -276,16 +333,6 @@
             
             <form id="slider-form" onsubmit="saveSlider(event)" enctype="multipart/form-data">
                 <input type="hidden" id="form-slider-id">
-                
-                <div class="form-group">
-                    <label class="form-label" for="form-slider-title">Slider Title (Italian/Bangla)</label>
-                    <input type="text" class="form-control" id="form-slider-title" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-slider-subtitle">Slider Subtitle</label>
-                    <input type="text" class="form-control" id="form-slider-subtitle">
-                </div>
 
                 <div class="form-group">
                     <label class="form-label" for="form-slider-link">Link URL</label>
@@ -491,9 +538,9 @@
             <form id="chapter-form" onsubmit="saveChapter(event)">
                 <input type="hidden" id="form-chapter-crud-id">
                 
-                <div class="form-group">
+                <div class="form-group" style="display: none;">
                     <label class="form-label" for="form-chapter-category-id">Category</label>
-                    <select class="form-control" id="form-chapter-category-id" required>
+                    <select class="form-control" id="form-chapter-category-id">
                         <option value="1">Patente AM</option>
                         <option value="2" selected>Patente B</option>
                         <option value="3">Patente C</option>
@@ -551,7 +598,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="form-page-order">Sort Order</label>
+                    <label class="form-label" for="form-page-order">Page Number</label>
                     <input type="number" class="form-control" id="form-page-order" required value="0">
                 </div>
 
@@ -729,9 +776,9 @@
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloChapterModal()"></i>
             </div>
             <form id="cartello-chapter-form" onsubmit="saveCartelloChapter(event)" enctype="multipart/form-data">
-                <div class="form-group">
+                <div class="form-group" style="display: none;">
                     <label class="form-label" for="cch-category-id">CATEGORY <span style="color:var(--accent-red);">*</span></label>
-                    <select class="form-control" id="cch-category-id" name="category_id" required>
+                    <select class="form-control" id="cch-category-id" name="category_id">
                         <option value="">Patente B</option>
                     </select>
                 </div>
@@ -747,13 +794,13 @@
                     <label class="form-label" for="cch-bn-name">CHAPTER NAME (BANGLA) <span style="color:var(--accent-red);">*</span></label>
                     <input type="text" class="form-control" id="cch-bn-name" name="bn_name" placeholder="e.g. রাস্তা এবং ট্রাফিকের ধারণা" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="cch-sort-order">SORT ORDER</label>
-                    <input type="number" class="form-control" id="cch-sort-order" name="sort_order" placeholder="0">
-                </div>
+
                 <div class="form-group">
                     <label class="form-label" for="cch-cover-file">CHAPTER COVER IMAGE</label>
-                    <input type="file" class="form-control" id="cch-cover-file" name="image" accept="image/*">
+                    <input type="file" class="form-control" id="cch-cover-file" name="image" accept="image/*,image/gif" onchange="previewCartelloChapterImage(this)">
+                    <div id="cch-image-preview" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
+                        <img id="cch-preview-img" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    </div>
                 </div>
                 <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closeCartelloChapterModal()">Cancel</button>
@@ -793,11 +840,10 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="cpage-image">PAGE IMAGE</label>
-                    <div id="cpage-current-image-preview-container" style="display: none; margin-bottom: 8px;">
-                        <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 4px;">CURRENT IMAGE:</span>
-                        <img id="cpage-current-image-preview" src="" style="max-height: 90px; width: auto; border-radius: 6px; border: 1px solid var(--border-card); object-fit: contain;">
+                    <input type="file" class="form-control" id="cpage-image" name="image" accept="image/*,image/gif" onchange="previewCartelloPageImage(this)">
+                    <div id="cpage-image-preview" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
+                        <img id="cpage-preview-img" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                     </div>
-                    <input type="file" class="form-control" id="cpage-image" name="image" accept="image/*">
                 </div>
                 <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closeCartelloPageModal()">Cancel</button>
@@ -809,7 +855,7 @@
 
     <!-- 4. CARTELLI MCQ MODAL -->
     <div class="modal-overlay" id="cartello-mcq-modal">
-        <div class="modal-card" style="max-width:650px;">
+        <div class="modal-card modal-lg" style="max-width: 1050px; width: 92%;">
             <div class="modal-header-row">
                 <h3 class="modal-title" id="cartello-mcq-modal-title">Add New Question</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloMcqModal()"></i>
@@ -869,12 +915,14 @@
 
                 <div class="form-group">
                     <label class="form-label" for="cmcq-image">QUESTION IMAGE</label>
-                    <input type="file" class="form-control" id="cmcq-image" name="image" accept="image/*">
+                    <input type="file" class="form-control" id="cmcq-image" name="image" accept="image/*,image/gif" onchange="previewCartelloMcqQuestionImage(this)">
+                    <div id="cmcq-image-preview" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="cmcq-audio">AUDIO VOICEOVER</label>
                     <input type="file" class="form-control" id="cmcq-audio" name="audio" accept="audio/*">
+                    <div id="cmcq-audio-preview" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="form-group" style="background: rgba(0,0,0,0.02); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color);">
@@ -900,6 +948,7 @@
                         <input type="file" class="form-control" id="cmcq-video-file" name="video_file" accept="video/*" style="flex: 1;">
                         <input type="text" class="form-control" id="cmcq-video-url" name="video_url" placeholder="Or YouTube Video URL..." style="flex: 1;">
                     </div>
+                    <div id="cmcq-video-preview" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="form-group" style="margin-top: 15px;">

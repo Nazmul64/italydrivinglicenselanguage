@@ -24,19 +24,27 @@
 
         <div class="menu-header">Applications</div>
 
-        <!-- MCQ CRUD Active Manager Menu Tab -->
-        <div class="menu-item" onclick="switchPanel('mcq-questions')" id="menu-questions">
+        <!-- ARGOMENTI Dropdown Menu Item -->
+        <div class="menu-item menu-dropdown-header" onclick="toggleSidebarDropdown('argomenti-dropdown')" id="menu-argomenti-dropdown-parent" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
             <span class="menu-link-group">
-                <i class="fa-solid fa-database" style="color: #fbbf24;"></i>
-                <span style="font-weight: bold;">Manage MCQs (এমসিকিউ)</span>
+                <i class="fa-solid fa-layer-group" style="color: #fbbf24;"></i>
+                <span style="font-weight: bold;">ARGOMENTI</span>
             </span>
+            <i class="fa-solid fa-chevron-down dropdown-arrow" id="arrow-argomenti-dropdown" style="font-size: 11px; transition: transform 0.3s ease;"></i>
         </div>
-
-        <div class="menu-item" onclick="switchPanel('mcq-chapters')" id="menu-chapters">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-book-open"></i>
-                <span>Manage Chapters</span>
-            </span>
+        <div class="sidebar-dropdown-container" id="argomenti-dropdown" style="display: none; padding-left: 10px; border-left: 2px solid #fbbf24; margin: 4px 0 8px 16px;">
+            <div class="menu-item" onclick="switchPanel('mcq-questions')" id="menu-questions">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-database" style="color: #fbbf24; font-size: 12px;"></i>
+                    <span style="font-size: 13px;">Manage MCQs (এমসিকিউ)</span>
+                </span>
+            </div>
+            <div class="menu-item" onclick="switchPanel('mcq-chapters')" id="menu-chapters">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-book-open" style="color: #60a5fa; font-size: 12px;"></i>
+                    <span style="font-size: 13px;">Manage Chapters</span>
+                </span>
+            </div>
         </div>
 
         <div class="menu-item" onclick="switchPanel('mcq-exams')" id="menu-exams">
@@ -53,24 +61,25 @@
             </span>
         </div>
 
-        <div class="menu-item" onclick="switchPanel('chat-room')" id="menu-chat-room">
+        <div class="menu-item" onclick="switchPanel('chat-room')" id="menu-chat-room" style="display: flex; justify-content: space-between; align-items: center;">
             <span class="menu-link-group">
                 <i class="fa-solid fa-comments"></i>
                 <span>Chat Room</span>
             </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('categories')" id="menu-categories">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-list"></i>
-                <span>Categories</span>
-            </span>
+            <span id="chat-unread-badge" style="display: none; background-color: #ef4444; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 12px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);">0</span>
         </div>
 
         <div class="menu-item" onclick="switchPanel('dizionario')" id="menu-dizionario">
             <span class="menu-link-group">
                 <i class="fa-solid fa-spell-check"></i>
                 <span>Manage Dictionary</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('manuale')" id="menu-manuale">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-book-bookmark" style="color: #38bdf8;"></i>
+                <span>Manage Manuale (ম্যানুয়াল থিওরি)</span>
             </span>
         </div>
 
@@ -109,28 +118,41 @@
             </span>
         </div>
 
-        <div class="menu-header">Cartelli MCQ Module</div>
-
-        <div class="menu-item" onclick="switchPanel('cartelli-mcqs')" id="menu-cartelli-mcqs">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-database" style="color: #fbbf24;"></i>
-                <span>Manage Cartelli MCQs (এমসিকিউ)</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('cartelli-chapters')" id="menu-cartelli-chapters">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-book-open" style="color: #60a5fa;"></i>
-                <span>Manage Cartelli Chapters</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('cartelli-categories')" id="menu-cartelli-categories">
+        <!-- Cartelli MCQ Module Dropdown Menu Item -->
+        <div class="menu-item menu-dropdown-header" onclick="toggleSidebarDropdown('cartelli-dropdown')" id="menu-cartelli-dropdown-parent" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
             <span class="menu-link-group">
                 <i class="fa-solid fa-layer-group" style="color: #34d399;"></i>
-                <span>অধ্যায় (Category)</span>
+                <span style="font-weight: bold;">Cartelli MCQ Module</span>
             </span>
+            <i class="fa-solid fa-chevron-down dropdown-arrow" id="arrow-cartelli-dropdown" style="font-size: 11px; transition: transform 0.3s ease;"></i>
         </div>
+        <div class="sidebar-dropdown-container" id="cartelli-dropdown" style="display: none; padding-left: 10px; border-left: 2px solid #34d399; margin: 4px 0 8px 16px;">
+            <div class="menu-item" onclick="switchPanel('cartelli-mcqs')" id="menu-cartelli-mcqs">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-database" style="color: #fbbf24; font-size: 12px;"></i>
+                    <span style="font-size: 13px;">Manage Cartelli MCQs (এমসিকিউ)</span>
+                </span>
+            </div>
+            <div class="menu-item" onclick="switchPanel('cartelli-chapters')" id="menu-cartelli-chapters">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-book-open" style="color: #60a5fa; font-size: 12px;"></i>
+                    <span style="font-size: 13px;">Manage Cartelli Chapters</span>
+                </span>
+            </div>
+        </div>
+
+        <script>
+        function toggleSidebarDropdown(id) {
+            const container = document.getElementById(id);
+            const arrow = document.getElementById('arrow-' + id);
+            if (!container) return;
+            const isHidden = container.style.display === 'none' || container.style.display === '';
+            container.style.display = isHidden ? 'block' : 'none';
+            if (arrow) {
+                arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            }
+        }
+        </script>
 
         <div class="menu-header">System</div>
 
@@ -141,54 +163,5 @@
             </span>
         </div>
 
-        <div class="menu-item" onclick="switchPanel('sys-errors')" id="menu-sys-errors">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-bug"></i>
-                <span>Error Logs</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('sys-health')" id="menu-sys-health">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-heart-pulse"></i>
-                <span>System Health</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('sys-api')" id="menu-sys-api">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-network-wired"></i>
-                <span>API Monitor</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('sys-logs')" id="menu-sys-logs">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-file-lines"></i>
-                <span>Log Viewer</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('sys-env')" id="menu-sys-env">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-shield-halved"></i>
-                <span>Env & Security</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="switchPanel('sys-backups')" id="menu-sys-backups">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span>Backup & Diagnostics</span>
-            </span>
-        </div>
-
-        <div class="menu-item" onclick="showToast('ব্যবহারকারী সেটিংস ডেমো মোড')">
-            <span class="menu-link-group">
-                <i class="fa-solid fa-users"></i>
-                <span>Users & Groups</span>
-            </span>
-            <i class="fa-solid fa-angle-right" style="font-size: 11px;"></i>
-        </div>
     </div>
 </div>

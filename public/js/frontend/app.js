@@ -5,6 +5,12 @@ let isSpeechSpeaking = false;
 let practiceMode = 'exam';
 let activeSavedMcqs = [];
 
+// --- Global Activation State Variables ---
+let activationStatusInterval = null;
+let currentClientVerified = false;
+let currentClientActive = false;
+
+
 // --- Helper: Retrieve CSRF Token from meta tag ---
 function getCsrfToken() {
     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -228,96 +234,32 @@ function getSheetName(chapterId, sheetIndex) {
         "Definizioni stradali: corsia di accelerazione"
     ];
 
-    if (chapterId === 1 && chapter1Sheets[sheetIndex]) {
-        return chapter1Sheets[sheetIndex];
-    }
-    return `Scheda Practice ${sheetIndex + 1}`;
+    return `Pagina ${sheetIndex + 1}`;
 }
 
-function unselectAllChapters() {
-    selectedChapters = [];
-    renderArgomentiList();
-    updateCategoryQuizButtonVisibility();
-    showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
-}
+function updateArgomentiPillStates() {
+    const unselectPill = document.getElementById('pill-argomenti-unselect');
+    const selectPill = document.getElementById('pill-argomenti-select');
+    const selectAllPill = document.getElementById('pill-argomenti-select-all');
 
-function selectAllChapters() {
-    selectedChapters = chaptersList.map(ch => ch.id);
-    renderArgomentiList();
-    updateCategoryQuizButtonVisibility();
-    showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
-}
+    if (unselectPill) unselectPill.classList.remove('active');
+    if (selectPill) selectPill.classList.remove('active');
+    if (selectAllPill) selectAllPill.classList.remove('active');
 
-function toggleChapterSelection(chapterId) {
-    const idx = selectedChapters.indexOf(chapterId);
-    if (idx > -1) {
-        selectedChapters.splice(idx, 1);
+    if (selectedSheets.length === 0) {
+        if (unselectPill) unselectPill.classList.add('active');
+    } else if (activeChapterPages.length > 0 && selectedSheets.length === activeChapterPages.length) {
+        if (selectAllPill) selectAllPill.classList.add('active');
     } else {
-        selectedChapters.push(chapterId);
+        if (selectPill) selectPill.classList.add('active');
     }
-    renderArgomentiList();
-    updateCategoryQuizButtonVisibility();
-}
-
-function updateCategoryQuizButtonVisibility() {
-    const btn = document.getElementById('category-quiz-btn');
-    if (!btn) return;
-    if (selectedChapters.length > 0) {
-        btn.style.display = 'flex';
-    } else {
-        btn.style.display = 'none';
-    }
-}
-
-function startCustomChaptersQuiz() {
-    if (selectedChapters.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি অধ্যায় সিলেক্ট করুন');
-        return;
-    }
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
-
-    const chaptersParam = selectedChapters.join(',');
-    fetch(`/api/questions/custom-quiz?chapters=${chaptersParam}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.length > 0) {
-                showTestOptionsDialog(() => {
-                    practiceMode = 'exam';
-                    testQuestions = data;
-                    currentTestIndex = 0;
-                    testAnswers = Array(testQuestions.length).fill(null);
-
-                    const timerPill = document.getElementById('test-timer');
-                    if (timerPill) {
-                        timerPill.innerText = `CUSTOM QUIZ`;
-                        timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-                        timerPill.style.borderColor = 'var(--accent-green)';
-                        timerPill.style.color = 'var(--accent-green)';
-                    }
-                    const timerLabel = document.querySelector('.test-timer-label');
-                    if (timerLabel) {
-                        timerLabel.innerText = `${selectedChapters.length} Selected Chapters`;
-                    }
-
-                    openScreen('test', 'Custom Exam');
-                    switchTestQuestionTab(1);
-                    showTestQuestion();
-                    startTestTimer();
-                });
-            } else {
-                showToast('সিলেক্ট করা অধ্যায়গুলোতে কোনো প্রশ্ন পাওয়া যায়নি');
-            }
-        })
-        .catch(err => {
-            console.error("Error creating custom chapter quiz: ", err);
-            showToast('কুইজ শুরু করতে সমস্যা হয়েছে');
-        });
 }
 
 function unselectAllSheets() {
     selectedSheets = [];
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
 }
 
@@ -325,7 +267,21 @@ function selectAllSheets() {
     selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
+}
+
+function toggleSelectSheets() {
+    if (selectedSheets.length === activeChapterPages.length) {
+        selectedSheets = [];
+        showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
+    } else {
+        selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
+        showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
+    }
+    renderSheetsList();
+    updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
 }
 
 function toggleSheetSelection(sheetIndex) {
@@ -337,6 +293,7 @@ function toggleSheetSelection(sheetIndex) {
     }
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
 }
 
 function updateSheetsQuizButtonVisibility() {
@@ -394,6 +351,124 @@ function startCustomSheetsQuiz() {
     });
 }
 
+let allArgomentiChapters = [];
+
+function toggleChapterSelection(id) {
+    const idx = selectedChapters.indexOf(id);
+    if (idx > -1) {
+        selectedChapters.splice(idx, 1);
+    } else {
+        selectedChapters.push(id);
+    }
+    renderArgomentiList();
+    updateCategoryQuizButtonVisibility();
+    updateArgomentiChapterPillStates();
+}
+
+function unselectAllArgomentiChapters() {
+    selectedChapters = [];
+    renderArgomentiList();
+    updateCategoryQuizButtonVisibility();
+    updateArgomentiChapterPillStates();
+    showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
+}
+
+function selectAllArgomentiChapters() {
+    selectedChapters = allArgomentiChapters.map(c => c.id);
+    renderArgomentiList();
+    updateCategoryQuizButtonVisibility();
+    updateArgomentiChapterPillStates();
+    showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
+}
+
+function toggleSelectArgomentiChapters() {
+    if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
+        selectedChapters = [];
+        showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
+    } else {
+        selectedChapters = allArgomentiChapters.map(c => c.id);
+        showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
+    }
+    renderArgomentiList();
+    updateCategoryQuizButtonVisibility();
+    updateArgomentiChapterPillStates();
+}
+
+function updateCategoryQuizButtonVisibility() {
+    const btn = document.getElementById('argomenti-category-quiz-btn');
+    if (!btn) return;
+    btn.style.display = selectedChapters.length > 0 ? 'block' : 'none';
+}
+
+function updateArgomentiChapterPillStates() {
+    const unselectPill = document.getElementById('pill-argomenti-chap-unselect');
+    const selectPill = document.getElementById('pill-argomenti-chap-select');
+    const selectAllPill = document.getElementById('pill-argomenti-chap-select-all');
+
+    if (unselectPill) unselectPill.classList.remove('active');
+    if (selectPill) selectPill.classList.remove('active');
+    if (selectAllPill) selectAllPill.classList.remove('active');
+
+    if (selectedChapters.length === 0) {
+        if (unselectPill) unselectPill.classList.add('active');
+    } else if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
+        if (selectAllPill) selectAllPill.classList.add('active');
+    } else {
+        if (selectPill) selectPill.classList.add('active');
+    }
+}
+
+function startArgomentiCategoryQuiz() {
+    if (selectedChapters.length === 0) {
+        showToast('অনুগ্রহ করে অন্তত একটি অধ্যায় সিলেক্ট করুন');
+        return;
+    }
+    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+
+    Promise.all(selectedChapters.map(chapId =>
+        fetch(`/api/questions/chapter/${chapId}`).then(res => res.json())
+    ))
+        .then(results => {
+            let allMcqs = [];
+            results.forEach(list => {
+                if (Array.isArray(list)) {
+                    list.forEach(q => allMcqs.push(q));
+                }
+            });
+
+            if (allMcqs.length === 0) {
+                showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+                return;
+            }
+
+            testQuestions = allMcqs.sort(() => Math.random() - 0.5).slice(0, Math.min(30, allMcqs.length));
+            currentTestIndex = 0;
+            testAnswers = Array(testQuestions.length).fill(null);
+            practiceMode = 'exam';
+
+            const timerPill = document.getElementById('test-timer');
+            if (timerPill) {
+                timerPill.innerText = `CHAPTER QUIZ`;
+                timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                timerPill.style.borderColor = 'var(--accent-green)';
+                timerPill.style.color = 'var(--accent-green)';
+            }
+            const timerLabel = document.querySelector('.test-timer-label');
+            if (timerLabel) {
+                timerLabel.innerText = `${selectedChapters.length} Selected Chapters`;
+            }
+
+            openScreen('test', 'Argomenti Exam');
+            switchTestQuestionTab(1);
+            showTestQuestion();
+            startTestTimer();
+        })
+        .catch(err => {
+            console.error("Error creating category quiz: ", err);
+            showToast('কুইজ শুরু করতে সমস্যা হয়েছে');
+        });
+}
+
 function renderArgomentiList() {
     const container = document.getElementById('argomenti-list');
     if (!container) return;
@@ -404,6 +479,11 @@ function renderArgomentiList() {
     fetch('/api/chapters')
         .then(res => res.json())
         .then(chapters => {
+            allArgomentiChapters = Array.isArray(chapters) ? chapters : [];
+            const countBadge = document.getElementById('argomenti-chapters-count-badge');
+            if (countBadge) {
+                countBadge.innerText = `${chapters ? chapters.length : 0} Capitoli`;
+            }
             container.innerHTML = '';
             chapters.forEach(ch => {
                 let correct = 0;
@@ -437,13 +517,13 @@ function renderArgomentiList() {
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
                         ${checkboxIcon}
-                        <div class="chapter-card-title" style="text-align: center; font-size: 15px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px; padding-right: 24px;">
+                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px; padding-right: 24px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
                         <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
                             <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="max-height: 140px; max-width: 90%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
                         </div>
-                        <div style="text-align: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
+                        <div style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
                             Progresso
                         </div>
                     </div>
@@ -501,7 +581,7 @@ function openChapterSheetsScreen(chapterId) {
                 return;
             }
 
-            selectedSheets = Array.from({ length: pages.length }, (_, idx) => idx);
+            selectedSheets = [];
             updateSheetsQuizButtonVisibility();
 
             renderSheetsList();
@@ -522,7 +602,11 @@ function renderSheetsList() {
     const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
 
     activeChapterPages.forEach((page, index) => {
-        const pageQuestions = activeChapterQuestions.slice(index * 10, (index + 1) * 10);
+        let pageQuestions = activeChapterQuestions.filter(q => q.page_id == page.id);
+        if (!pageQuestions || pageQuestions.length === 0) {
+            pageQuestions = activeChapterQuestions.slice(index * 10, (index + 1) * 10);
+        }
+
         let correct = 0;
         let wrong = 0;
         pageQuestions.forEach(q => {
@@ -532,9 +616,12 @@ function renderSheetsList() {
             else if (stState === 'wrong') wrong++;
         });
 
-        const total = pageQuestions.length || 10;
-        const unanswered = total - correct - wrong;
+        const total = pageQuestions.length || (page.questions_count || 10);
+        const unanswered = Math.max(0, total - correct - wrong);
         const isSelected = selectedSheets.includes(index);
+
+        const pageTitleText = page.title || page.bn_title || getSheetName(activeChapterId, index);
+        const displaySheetTitle = pageTitleText.startsWith(`${index + 1}`) ? pageTitleText : `${index + 1}) ${pageTitleText}`;
 
         const card = document.createElement('div');
         card.className = `content-card ${isSelected ? 'selected-sheet-card' : ''}`;
@@ -549,12 +636,14 @@ function renderSheetsList() {
             ? `<i class="fa-solid fa-circle-check" style="font-size: 18px; color: var(--accent-green); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleSheetSelection(${index})"></i>`
             : `<i class="fa-regular fa-circle" style="font-size: 18px; color: var(--text-secondary); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleSheetSelection(${index})"></i>`;
 
+        const safeTotal = total || 1;
+
         card.innerHTML = `
             ${checkboxIcon}
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; padding-right: 28px;">
                     <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
-                    ${index + 1}) ${getSheetName(activeChapterId, index)}
+                    ${displaySheetTitle}
                 </span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary); padding-right: 20px;"></i>
             </div>
@@ -567,9 +656,9 @@ function renderSheetsList() {
             </div>
 
             <div style="height: 8px; background-color: var(--border-card); border-radius: 4px; display: flex; overflow: hidden;">
-                <div style="background-color: #4CAF50; width: ${(correct / total) * 100}%;"></div>
-                <div style="background-color: #ef4444; width: ${(wrong / total) * 100}%;"></div>
-                <div style="background-color: #f59e0b; width: ${(unanswered / total) * 100}%;"></div>
+                <div style="background-color: #4CAF50; width: ${(correct / safeTotal) * 100}%;"></div>
+                <div style="background-color: #ef4444; width: ${(wrong / safeTotal) * 100}%;"></div>
+                <div style="background-color: #f59e0b; width: ${(unanswered / safeTotal) * 100}%;"></div>
             </div>
         `;
         container.appendChild(card);
@@ -724,20 +813,67 @@ function openScreen(screenId, headerTitle) {
     syncBottomNav(screenId);
 
     if (screenId === 'test') {
-        if (typeof practiceMode === 'undefined' || practiceMode !== 'sheet') {
-            practiceMode = 'exam';
-            initRandomTestQuiz();
+        if (!testQuestions || testQuestions.length === 0) {
+            const testIt = document.getElementById('test-question-it');
+            if (testIt) testIt.innerText = 'Caricamento delle domande...';
+            fetch('/api/questions/random-test')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        practiceMode = 'exam';
+                        testQuestions = data.map(q => ({
+                            id: q.id,
+                            italian: q.italian || q.question || '',
+                            bangla: q.bangla || q.bn_question || '',
+                            is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                            image: q.image,
+                            audio: q.audio || q.voice,
+                            video: q.video,
+                            vocabulary: q.vocabulary || []
+                        }));
+                        currentTestIndex = 0;
+                        testAnswers = Array(testQuestions.length).fill(null);
+                        switchTestQuestionTab(1);
+                        showTestQuestion();
+                        startTestTimer();
+                    } else {
+                        if (testIt) testIt.innerText = 'ডাটাবেসে কোনো প্রশ্ন পাওয়া যায়নি। এডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।';
+                    }
+                })
+                .catch(() => {
+                    if (testIt) testIt.innerText = 'প্রশ্ন লোড করতে সমস্যা হয়েছে';
+                });
+        } else {
+            switchTestQuestionTab(1);
+            showTestQuestion();
+            startTestTimer();
         }
     } else if (screenId === 'argomenti') {
         renderArgomentiList();
+    } else if (screenId === 'social') {
+        if (typeof initSocialModule === 'function') initSocialModule();
+    } else if (screenId === 'translation') {
+        if (typeof initTranslationModule === 'function') initTranslationModule();
+    } else if (screenId === 'scheda-esame') {
+        if (typeof loadSchedaEsameModule === 'function') loadSchedaEsameModule();
     } else if (screenId === 'dizionario') {
         initDictionary();
     } else if (screenId === 'cartelli') {
-        setSignCategory('pericolo');
+        renderCartelliChaptersGrid();
     } else if (screenId === 'saved-mcqs') {
         loadSavedMcqsScreen();
+    } else if (screenId === 'correct-mcqs') {
+        loadCorrectMcqsList();
+    } else if (screenId === 'wrong-mcqs') {
+        loadWrongMcqsList();
     } else if (screenId === 'scheda-esame') {
         loadExamSheets();
+    } else if (screenId === 'sfida') {
+        loadLeaderboardData();
+    } else if (screenId === 'profilo') {
+        loadUserProfileData();
+    } else if (screenId === 'manuale') {
+        loadManualeTopics();
     }
 }
 
@@ -755,17 +891,8 @@ function navigateBack() {
             }
             return;
         }
-        if (activeScreen === 'test' && typeof practiceMode !== 'undefined' && practiceMode === 'sheet') {
-            if (confirm("আপনি কি প্র্যাকটিস বাতিল করে ফিরে যেতে চান?")) {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                }
-                if (activePageDetails) {
-                    openScreen('page-details', 'Vere e False');
-                } else {
-                    openScreen('argomenti-schede', 'Scegli Scheda');
-                }
-            }
+        if (activeScreen === 'test') {
+            submitTestExam();
             return;
         }
         if (activeScreen === 'argomenti-schede') {
@@ -774,6 +901,15 @@ function navigateBack() {
         }
         if (activeScreen === 'page-details') {
             openScreen('argomenti-schede', 'Scegli Scheda');
+            return;
+        }
+        if (activeScreen === 'cartelli-schede') {
+            openScreen('cartelli', 'Cartelli');
+            return;
+        }
+        if (activeScreen === 'cartelli-page') {
+            if (typeof stopAllCartelliAudio === 'function') stopAllCartelliAudio();
+            openScreen('cartelli-schede', 'Scegli Scheda');
             return;
         }
         if (activeScreen === 'saved-mcqs') {
@@ -855,37 +991,48 @@ function showToast(message) {
 }
 
 // --- 7. Lezioni (Video Player) Logic ---
-function playLesson(title, duration) {
+function getEmbedVideoHTML(url) {
+    if (!url) return '<div style="color:white; font-weight:bold; padding:20px; text-align:center;">ভিডিও লিঙ্ক পাওয়া যায়নি</div>';
+
+    let youtubeId = null;
+    const cleanUrl = url.trim();
+
+    if (cleanUrl.includes('youtube.com/watch')) {
+        const urlParams = new URLSearchParams(cleanUrl.split('?')[1] || '');
+        youtubeId = urlParams.get('v');
+    } else if (cleanUrl.includes('youtu.be/')) {
+        youtubeId = cleanUrl.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
+    } else if (cleanUrl.includes('youtube.com/embed/')) {
+        youtubeId = cleanUrl.split('embed/')[1]?.split('?')[0]?.split('&')[0];
+    }
+
+    if (youtubeId) {
+        return `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&modestbranding=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none; border-radius:12px;"></iframe>`;
+    }
+
+    const src = (cleanUrl.startsWith('http') || cleanUrl.startsWith('/')) ? cleanUrl : `/storage/${cleanUrl}`;
+    return `<video src="${src}" controls autoplay style="width:100%; height:100%; border-radius:12px; object-fit:contain;"></video>`;
+}
+
+function playLesson(title, duration, videoUrl) {
     const modal = document.getElementById('video-player-modal');
     const modalTitle = document.getElementById('video-player-title');
     const modalSub = document.getElementById('video-player-sub');
-    if (!modal || !modalTitle || !modalSub) return;
+    const playerBox = document.getElementById('video-player-box');
+    if (!modal || !playerBox) return;
 
-    modalTitle.innerText = title;
-    modalSub.innerText = `${duration} • চাপুন প্লে করতে`;
+    if (modalTitle) modalTitle.innerText = title || 'ভিডিও লেকচার';
+    if (modalSub) modalSub.innerText = duration ? `${duration} • বাংলা ব্যাখ্যা` : 'ভিডিও লেকচার';
+
+    playerBox.innerHTML = getEmbedVideoHTML(videoUrl);
     modal.style.display = 'flex';
-}
-
-function simulateVideoPlaying() {
-    const playBtn = document.querySelector('.video-control-play');
-    const modalSub = document.getElementById('video-player-sub');
-    if (!playBtn || !modalSub) return;
-
-    playBtn.className = 'fa-solid fa-spinner fa-spin video-control-play';
-    modalSub.innerText = 'ভিডিও লোড হচ্ছে...';
-
-    setTimeout(() => {
-        playBtn.className = 'fa-solid fa-pause video-control-play';
-        modalSub.innerText = 'ভিডিও প্লে হচ্ছে (সিমুলেশন)...';
-        showToast('ভিডিও চলাকালীন সাউন্ড চেক করুন');
-    }, 1500);
 }
 
 function closeVideoPlayer() {
     const modal = document.getElementById('video-player-modal');
-    const playBtn = document.querySelector('.video-control-play');
+    const playerBox = document.getElementById('video-player-box');
     if (modal) modal.style.display = 'none';
-    if (playBtn) playBtn.className = 'fa-solid fa-play video-control-play';
+    if (playerBox) playerBox.innerHTML = '';
 }
 
 // --- 8. Dynamic Quiz Practice Logic (MCQ Module) ---
@@ -925,7 +1072,7 @@ function renderQuizQuestion() {
     const nextBtn = document.getElementById('next-quiz-btn');
 
     if (progressText) progressText.innerText = `প্রশ্ন: ${currentQuizIndex + 1}/${quizData.length}`;
-    if (quizIt) quizIt.innerHTML = highlightDictionaryTerms(currentQ.italian);
+    if (quizIt) quizIt.innerHTML = highlightDictionaryTerms(currentQ.italian, currentQ.vocabulary);
     if (quizBn) quizBn.innerText = currentQ.bangla;
     if (feedback) feedback.style.display = 'none';
     if (nextBtn) nextBtn.style.display = 'none';
@@ -1042,7 +1189,7 @@ function showExamQuestion() {
     const examQBn = document.getElementById('exam-question-bn');
 
     if (examQNum) examQNum.innerText = `প্রশ্ন ${currentExamIndex + 1}/৩০`;
-    if (examQIt) examQIt.innerHTML = highlightDictionaryTerms(currentQ.italian);
+    if (examQIt) examQIt.innerHTML = highlightDictionaryTerms(currentQ.italian, currentQ.vocabulary);
     if (examQBn) examQBn.innerText = currentQ.bangla;
 
     const dots = document.querySelectorAll('.exam-dot');
@@ -1143,89 +1290,32 @@ function submitExam() {
 function closeResultModal() {
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'none';
+    testQuestions = [];
+    practiceMode = 'exam';
     openScreen('home', 'mbanglapatenteb');
 }
 
 // --- 10. Dictionary Logic ---
-const dictionaryData = [
-    {
-        word: "Carreggiata",
-        bn: "ক্যারিজওয়ে / মূল রাস্তা",
-        desc_it: "La parte della strada destinata normalmente alla circolazione dei veicoli. Non comprende le piste ciclabili e le banchine.",
-        desc_bn: "\"Carreggiata\" রাস্তার অংশ যা ব্যবহার হয় গাড়ি চলার জন্য। এটা হতে পারে ওয়ান ওয়ে, টু ওয়ে বা দুইভাগে আলাদা corsia তে মানে ওখানে corsia ও থাকতে পারে।",
-        image: "/images/dictionary/carreggiata.png"
-    },
-    {
-        word: "Carreggiate",
-        bn: "ক্যারিজওয়ে সমূহ / মূল রাস্তা সমূহ",
-        desc_it: "Plurale di carreggiata. Le parti della strada destinate al transito dei veicoli.",
-        desc_bn: "\"Carreggiate\" হলো carreggiata (মূল রাস্তা)-এর বহুবচন। রাস্তার যে অংশগুলোতে গাড়ি চলাচল করে।",
-        image: "/images/dictionary/carreggiata.png"
-    },
-    {
-        word: "Suddivisa in",
-        bn: "বিভক্ত করা",
-        desc_it: "Divisa o separata in più parti (es. la strada divisa in più carreggiate o corsie).",
-        desc_bn: "কয়েকটি অংশে ভাগ করা বা পৃথক করা (যেমন: রাস্তাটি একাধিক মূল রাস্তা বা লেনে বিভক্ত)।",
-        image: "/images/dictionary/strada.png"
-    },
-    {
-        word: "Piste ciclabili",
-        bn: "সাইকেল লেন / সাইকেল চলার পথ",
-        desc_it: "Parti della strada, opportunamente delimitate, destinate alla circolazione delle biciclette.",
-        desc_bn: "রাস্তার চিহ্নিত করা অংশ যা শুধুমাত্র বাইসাইকেল চলাচেলের জন্য সংরক্ষিত।",
-        image: "/images/dictionary/pista_ciclabile.png"
-    },
-    {
-        word: "Pista ciclabile",
-        bn: "সাইকেল লেন",
-        desc_it: "Parte della strada destinata alla circolazione delle biciclette.",
-        desc_bn: "রাস্তার নির্দিষ্ট লেন যা কেবল সাইকেল চালানোর জন্য প্রস্তুত করা হয়েছে।",
-        image: "/images/dictionary/pista_ciclabile.png"
-    },
-    {
-        word: "Strada",
-        bn: "রাস্তা",
-        desc_it: "L'area ad uso pubblico destinata alla circolazione dei pedoni, dei veicoli e degli animali.",
-        desc_bn: "রাস্তা হলো জনসাধারণের ব্যবহারের জন্য উন্মুক্ত জায়গা যা পথচারী, যানবাহন এবং পশু চলাচেলের জন্য ব্যবহৃত হয়।",
-        image: "/images/dictionary/strada.png"
-    },
-    {
-        word: "Comprendere",
-        bn: "ধারণ করা / অন্তর্ভুক্ত করা",
-        desc_it: "Includere o contenere al proprio interno (es. la strada può comprendere le piste ciclabili).",
-        desc_bn: "নিজের ভেতরে কোনো কিছু ধারণ করা বা অন্তর্ভুক্ত করা (যেমন: রাস্তার মধ্যে বাইসাইকেল লেনও থাকতে পারে)।",
-        image: "/images/dictionary/strada.png"
-    },
-    {
-        word: "Corsia",
-        bn: "লেন",
-        desc_it: "Suddivisione della carreggiata destinata alla circolazione di una sola fila di veicoli.",
-        desc_bn: "একটিমাত্র সারির যানবাহন চলাচলের উপযোগী রাস্তার বিভাজন।",
-        image: "/images/dictionary/carreggiata.png"
-    },
-    {
-        word: "Precedenza",
-        bn: "অগ্রাধিকার",
-        desc_it: "Regola che stabilisce quale veicolo ha il diritto di passare per primo in un incrocio.",
-        desc_bn: "মোড়ে কোন গাড়িটি আগে যাবে তা নির্ধারণের নিয়ম।",
-        image: "/images/dictionary/strada.png"
-    },
-    {
-        word: "Sorpasso",
-        bn: "ওভারটেকিং",
-        desc_it: "Manovra con cui un veicolo supera un altro veicolo o ostacolo in movimento.",
-        desc_bn: "একটি গাড়ি যখন আরেকটি চলন্ত গাড়ির আগে চলে যায়।",
-        image: "/images/dictionary/strada.png"
-    },
-    {
-        word: "Sosta",
-        bn: "পার্কিং / দীর্ঘ বিরতি",
-        desc_it: "La sospensione della marcia del veicolo prolungata nel tempo con spegnimento del motore.",
-        desc_bn: "ইঞ্জিন বন্ধ করে গাড়িকে দীর্ঘদিন এক স্থানে পার্ক করে রাখা।",
-        image: "/images/dictionary/strada.png"
-    }
-];
+let dictionaryData = [];
+
+function fetchDictionaryData() {
+    fetch('/api/dizionario')
+        .then(r => r.json())
+        .then(data => {
+            const dbWords = Array.isArray(data) ? data : (data.data || []);
+            dictionaryData = dbWords.map(dbItem => ({
+                word: dbItem.word || '',
+                bn: dbItem.bn || '',
+                desc_it: dbItem.desc_it || '',
+                desc_bn: dbItem.desc_bn || '',
+                image: dbItem.image || '',
+                audio: dbItem.audio || null,
+                video: dbItem.video || null,
+            })).filter(item => item.word !== '');
+        })
+        .catch(() => { });
+}
+fetchDictionaryData();
 
 function initDictionary() {
     const listContainer = document.getElementById('dictionary-list');
@@ -1272,134 +1362,6 @@ function filterDictionary() {
     });
 }
 
-// --- 11. Traffic Signs Logic ---
-let activeCartelliPages = [];
-let activeCartelliQuestions = [];
-
-function setSignCategory(category) {
-    const tab = document.getElementById(`tab-${category}`);
-    if (tab) {
-        document.querySelectorAll('.sign-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-    }
-
-    const container = document.getElementById('signs-grid-container');
-    if (!container) return;
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento segnali...</div>`;
-
-    const chapterId = category === 'pericolo' ? 2 : (category === 'divieto' ? 3 : 4);
-
-    Promise.all([
-        fetch(`/api/questions/chapter/${chapterId}`).then(res => res.json()),
-        fetch(`/api/chapters/${chapterId}/pages`).then(res => res.json())
-    ])
-        .then(([questions, pages]) => {
-            activeCartelliPages = pages;
-            activeCartelliQuestions = questions;
-            renderCartelliList(category);
-        })
-        .catch(err => {
-            console.error("Error loading cartelli signs: ", err);
-            container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px; grid-column: 1 / -1;">Si è verificato un errore nel caricamento.</div>`;
-        });
-}
-
-function renderCartelliList(category, searchQuery = '') {
-    const container = document.getElementById('signs-grid-container');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
-    const query = searchQuery.toLowerCase().trim();
-
-    activeCartelliPages.forEach((page, index) => {
-        let signImage = '';
-        if (category === 'pericolo') {
-            if (index === 0) signImage = '/images/signs/strada_deformata.png';
-            else if (index === 3) signImage = '/images/signs/curva_pericolosa_destra.png';
-            else signImage = '/images/signs/generic_pericolo.png';
-        } else if (category === 'divieto') {
-            if (index === 0) signImage = '/images/signs/divieto_transito.png';
-            else if (index === 3) signImage = '/images/signs/divieto_sorpasso.png';
-            else signImage = '/images/signs/generic_divieto.png';
-        } else if (category === 'obbligo') {
-            if (index === 0) signImage = '/images/signs/direzione_obbligatoria_diritto.png';
-            else if (index === 1) signImage = '/images/signs/passaggio_obbligatorio_destra.png';
-            else signImage = '/images/signs/generic_obbligo.png';
-        }
-
-        const displayTitle = `Figura: ${index + 1}`;
-        const displayName = page.title
-            .replace('Segnali di pericolo: ', '')
-            .replace('Segnali di divieto: ', '')
-            .replace('Segnali di obbligo: ', '');
-        const displayNameCapitalized = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-
-        if (query && !displayTitle.toLowerCase().includes(query) && !displayNameCapitalized.toLowerCase().includes(query)) {
-            return;
-        }
-
-        const pageQuestions = activeCartelliQuestions.slice(index * 10, (index + 1) * 10);
-        let correct = 0;
-        let wrong = 0;
-        pageQuestions.forEach(q => {
-            let record = userStats[q.id];
-            let stState = (typeof record === 'object') ? record.state : record;
-            if (stState === 'correct') correct++;
-            else if (stState === 'wrong') wrong++;
-        });
-
-        const total = pageQuestions.length || 10;
-        const unanswered = total - correct - wrong;
-
-        const card = document.createElement('div');
-        card.className = 'content-card';
-        card.style.cursor = 'pointer';
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        card.style.gap = '10px';
-        card.style.padding = '16px';
-        card.onclick = () => openPageDetailsScreen(page.id);
-
-        card.innerHTML = `
-            <div style="text-align: center; font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 4px;">
-                ${displayTitle}
-            </div>
-            <div style="text-align: center; margin-bottom: 8px;">
-                <img src="${signImage}" alt="${displayNameCapitalized}" style="width: 100px; height: 100px; object-fit: contain;">
-            </div>
-            <div style="text-align: center; font-weight: 700; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${displayNameCapitalized}
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: auto;">
-                <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
-                <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
-                <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
-                <span>Totale: <strong>${total}</strong></span>
-            </div>
-
-            <div style="height: 8px; background-color: var(--border-card); border-radius: 4px; display: flex; overflow: hidden;">
-                <div style="background-color: #4CAF50; width: ${(correct / total) * 100}%;"></div>
-                <div style="background-color: #ef4444; width: ${(wrong / total) * 100}%;"></div>
-                <div style="background-color: #f59e0b; width: ${(unanswered / total) * 100}%;"></div>
-            </div>
-        `;
-        container.appendChild(card);
-    });
-}
-
-function filterCartelliSigns() {
-    const input = document.getElementById('cartelli-search-input');
-    if (!input) return;
-    const activeTab = document.querySelector('.sign-tab.active');
-    let category = 'pericolo';
-    if (activeTab) {
-        if (activeTab.id.includes('divieto')) category = 'divieto';
-        else if (activeTab.id.includes('obbligo')) category = 'obbligo';
-    }
-    renderCartelliList(category, input.value);
-}
 
 // --- 11. App Settings & Sound Systems ---
 let soundEnabled = true;
@@ -1642,11 +1604,57 @@ function sendGuestChatMessage() {
 let testQuestions = [];
 let currentTestIndex = 0;
 let testAnswers = Array(30).fill(null);
-let testTimerSeconds = 1200;
+
+function getExamDurationSeconds() {
+    let mins = 20;
+    if (window.APP_SETTINGS && window.APP_SETTINGS.exam_time_minutes) {
+        mins = parseInt(window.APP_SETTINGS.exam_time_minutes);
+    }
+    return (mins > 0 ? mins : 20) * 60;
+}
+
+let testTimerSeconds = getExamDurationSeconds();
 let testTimerInterval = null;
 let testTranslationActive = false;
 let currentTestTab = 1;
 let audioProgressInterval = null;
+
+function loadDynamicAppSettings() {
+    fetch('/api/settings')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.exam_time_minutes) {
+                window.APP_SETTINGS = data;
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill && !testTimerInterval) {
+                    const mins = data.exam_time_minutes || 20;
+                    timerPill.innerText = `${mins.toString().padStart(2, '0')}:00`;
+                }
+            }
+        })
+        .catch(err => console.error("Error loading app settings:", err));
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadDynamicAppSettings);
+} else {
+    loadDynamicAppSettings();
+}
+
+function startTestMode(mode) {
+    if (mode === 'random') {
+        const selEl = document.getElementById('test-mode-selection-container');
+        const quizEl = document.getElementById('test-quiz-ui-container');
+        if (selEl) selEl.style.display = 'none';
+        if (quizEl) quizEl.style.display = 'block';
+
+        practiceMode = 'exam';
+        initRandomTestQuiz();
+    } else if (mode === 'argomenti') {
+        openScreen('argomenti', 'Argomenti');
+    } else if (mode === 'cartelli') {
+        openScreen('cartelli', 'Cartelli');
+    }
+}
 
 function initRandomTestQuiz() {
     if (testTimerInterval) {
@@ -1655,7 +1663,7 @@ function initRandomTestQuiz() {
     testQuestions = [];
     currentTestIndex = 0;
     testAnswers = Array(30).fill(null);
-    testTimerSeconds = 1200;
+    testTimerSeconds = getExamDurationSeconds();
     testTranslationActive = false;
     currentTestTab = 1;
 
@@ -1690,6 +1698,12 @@ function initRandomTestQuiz() {
 }
 
 function startTestTimer() {
+    if (testTimerInterval) {
+        clearInterval(testTimerInterval);
+    }
+    if (typeof testTimerSeconds === 'undefined' || testTimerSeconds <= 0) {
+        testTimerSeconds = getExamDurationSeconds();
+    }
     updateTestTimerDisplay();
     testTimerInterval = setInterval(() => {
         testTimerSeconds--;
@@ -1714,39 +1728,88 @@ function updateTestTimerDisplay() {
 function switchTestQuestionTab(tab) {
     currentTestTab = tab;
 
+    // Update active tab button highlight
+    for (let t = 1; t <= 3; t++) {
+        const tabBtn = document.getElementById(`test-tab-btn-${t}`);
+        if (tabBtn) {
+            if (t === tab) {
+                tabBtn.classList.add('active');
+            } else {
+                tabBtn.classList.remove('active');
+            }
+        }
+    }
+
     const tabHeader = document.querySelector('.test-pagination-tabs');
     if (tabHeader) {
-        tabHeader.style.display = (practiceMode === 'sheet') ? 'none' : 'flex';
+        tabHeader.style.display = 'flex';
     }
 
     let startNum = (tab - 1) * 10 + 1;
     let endNum = tab * 10;
 
-    if (practiceMode === 'sheet') {
-        startNum = 1;
-        endNum = 10;
+    const container = document.getElementById('test-num-grid');
+    if (container) {
+        container.innerHTML = '';
+        const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+
+        for (let i = startNum; i <= endNum; i++) {
+            if (i - 1 >= testQuestions.length) break;
+
+            const box = document.createElement('span');
+            box.className = 'test-num-box';
+            box.id = `test-num-${i - 1}`;
+            box.innerText = i;
+            box.onclick = () => jumpToTestQuestion(i - 1);
+
+            if (i - 1 === currentTestIndex) {
+                box.classList.add('active');
+            } else {
+                if (practiceMode === 'sheet') {
+                    const qId = testQuestions[i - 1].id;
+                    const record = userStats[qId];
+                    const stState = (typeof record === 'object') ? record.state : record;
+                    if (stState === 'correct') {
+                        box.classList.add('answered-vero');
+                    } else if (stState === 'wrong') {
+                        box.classList.add('answered-falso');
+                    }
+                } else {
+                    const ans = testAnswers[i - 1];
+                    if (ans === true) {
+                        box.classList.add('answered-vero');
+                    } else if (ans === false) {
+                        box.classList.add('answered-falso');
+                    }
+                }
+            }
+            container.appendChild(box);
+        }
     }
 
-    const container = document.getElementById('test-num-grid');
+    renderAll30MiniGrid();
+}
+
+function renderAll30MiniGrid() {
+    const container = document.getElementById('test-all-30-grid');
     if (!container) return;
     container.innerHTML = '';
 
+    const totalCount = Math.max(30, testQuestions.length || 30);
     const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
 
-    for (let i = startNum; i <= endNum; i++) {
-        if (i - 1 >= testQuestions.length) break;
-
+    for (let i = 0; i < totalCount; i++) {
         const box = document.createElement('span');
-        box.className = 'test-num-box';
-        box.id = `test-num-${i - 1}`;
-        box.innerText = i;
-        box.onclick = () => jumpToTestQuestion(i - 1);
+        box.className = 'test-mini-box';
+        box.id = `test-mini-num-${i}`;
+        box.innerText = i + 1;
+        box.onclick = () => jumpToTestQuestion(i);
 
-        if (i - 1 === currentTestIndex) {
+        if (i === currentTestIndex) {
             box.classList.add('active');
         } else {
-            if (practiceMode === 'sheet') {
-                const qId = testQuestions[i - 1].id;
+            if (practiceMode === 'sheet' && testQuestions[i]) {
+                const qId = testQuestions[i].id;
                 const record = userStats[qId];
                 const stState = (typeof record === 'object') ? record.state : record;
                 if (stState === 'correct') {
@@ -1755,7 +1818,7 @@ function switchTestQuestionTab(tab) {
                     box.classList.add('answered-falso');
                 }
             } else {
-                const ans = testAnswers[i - 1];
+                const ans = testAnswers[i];
                 if (ans === true) {
                     box.classList.add('answered-vero');
                 } else if (ans === false) {
@@ -1787,13 +1850,31 @@ function jumpToTestQuestion(index) {
 function showTestQuestion() {
     if (testQuestions.length === 0) return;
 
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-    }
-    isSpeechSpeaking = false;
+    const q = testQuestions[currentTestIndex];
 
-    const playBtn = document.getElementById('test-audio-play-btn');
-    if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
+    const imgContainer = document.getElementById('test-question-img-container');
+    const imgEl = document.getElementById('test-question-img');
+    const imgSrc = q ? (q.image || q.figure || q.img || q.image_url || '') : '';
+    if (imgContainer && imgEl) {
+        if (imgSrc) {
+            const finalSrc = (imgSrc.startsWith('http') || imgSrc.startsWith('/')) ? imgSrc : `/storage/${imgSrc}`;
+            imgEl.src = finalSrc;
+            imgEl.style.display = 'block';
+            imgContainer.style.display = 'flex';
+        } else {
+            imgContainer.style.display = 'flex';
+            imgEl.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        }
+    }
+
+    if (typeof switchTestQuestionTab === 'function') {
+        const expectedTab = Math.floor(currentTestIndex / 10) + 1;
+        switchTestQuestionTab(expectedTab);
+    }
+
+    if (typeof stopAllTestAudio === 'function') {
+        stopAllTestAudio();
+    }
 
     const veroBtn = document.getElementById('test-vero-btn');
     const falsoBtn = document.getElementById('test-falso-btn');
@@ -1801,14 +1882,16 @@ function showTestQuestion() {
     if (veroBtn) veroBtn.classList.remove('correct-highlight', 'wrong-highlight', 'active');
     if (falsoBtn) falsoBtn.classList.remove('correct-highlight', 'wrong-highlight', 'active');
 
-    const q = testQuestions[currentTestIndex];
     const testIt = document.getElementById('test-question-it');
     const testBn = document.getElementById('test-question-bn');
 
-    if (testIt) testIt.innerHTML = highlightDictionaryTerms(q.italian);
+    const italianText = q ? (q.italian || q.question || '') : '';
+    const banglaText = q ? (q.bangla || q.bn_question || '') : '';
+
+    if (testIt) testIt.innerHTML = highlightDictionaryTerms(italianText, q ? q.vocabulary : []);
     if (testBn) {
-        testBn.innerText = q.bangla;
-        testBn.style.display = (testTranslationActive && !isTranslationDisabled) ? 'block' : 'none';
+        testBn.innerText = banglaText;
+        testBn.style.display = 'none';
     }
 
     const currentAns = testAnswers[currentTestIndex];
@@ -1830,8 +1913,50 @@ function selectTestAnswer(ans) {
     testAnswers[currentTestIndex] = ans;
 
     const q = testQuestions[currentTestIndex];
-    const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+    const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
     const isCorrect = (ans === databaseIsVero);
+
+    if (isSfidaMode) {
+        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+        const veroBtn = document.getElementById('test-vero-btn');
+        const falsoBtn = document.getElementById('test-falso-btn');
+
+        if (ans === true && veroBtn) {
+            veroBtn.classList.add(isCorrect ? 'correct-highlight' : 'wrong-highlight');
+        } else if (ans === false && falsoBtn) {
+            falsoBtn.classList.add(isCorrect ? 'correct-highlight' : 'wrong-highlight');
+        }
+
+        if (isCorrect) {
+            sfidaStreak++;
+            playAppSound(true);
+            const currentHighScore = parseInt(localStorage.getItem('sfida_high_score') || '0');
+            if (sfidaStreak > currentHighScore) {
+                localStorage.setItem('sfida_high_score', sfidaStreak);
+            }
+            setTimeout(() => {
+                if (currentTestIndex < testQuestions.length - 1) {
+                    jumpToTestQuestion(currentTestIndex + 1);
+                } else {
+                    startSfidaChallenge();
+                }
+            }, 700);
+        } else {
+            playAppSound(false);
+            const currentHighScore = parseInt(localStorage.getItem('sfida_high_score') || '0');
+            if (sfidaStreak > currentHighScore) {
+                localStorage.setItem('sfida_high_score', sfidaStreak);
+            }
+            const finalStreak = sfidaStreak;
+            isSfidaMode = false;
+            sfidaStreak = 0;
+            setTimeout(() => {
+                showToast(`ভুল উত্তর! খেলা শেষ। অর্জিত পয়েন্ট: ${finalStreak}`);
+                openScreen('sfida', 'Sfida');
+            }, 900);
+        }
+        return;
+    }
 
     if (isImmediateCorrectionActive) {
         saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
@@ -1840,23 +1965,21 @@ function selectTestAnswer(ans) {
         const veroBtn = document.getElementById('test-vero-btn');
         const falsoBtn = document.getElementById('test-falso-btn');
 
-        if (ans === true && veroBtn && falsoBtn) {
+        if (ans === true && veroBtn) {
             if (isCorrect) {
                 veroBtn.classList.add('correct-highlight');
             } else {
                 veroBtn.classList.add('wrong-highlight');
-                falsoBtn.classList.add('correct-highlight');
             }
-        } else if (ans === false && veroBtn && falsoBtn) {
+        } else if (ans === false && falsoBtn) {
             if (isCorrect) {
                 falsoBtn.classList.add('correct-highlight');
             } else {
                 falsoBtn.classList.add('wrong-highlight');
-                veroBtn.classList.add('correct-highlight');
             }
         }
 
-        switchTestQuestionTab(1);
+        switchTestQuestionTab(currentTestTab);
 
         setTimeout(() => {
             if (currentTestIndex < testQuestions.length - 1) {
@@ -1896,19 +2019,14 @@ function prevTestQuestion() {
     }
 }
 
-// Next Question advances or prompts submit
 function nextTestQuestion() {
     if (currentTestIndex < testQuestions.length - 1) {
         jumpToTestQuestion(currentTestIndex + 1);
     } else {
         if (practiceMode === 'sheet') {
-            if (confirm("আপনি কি প্র্যাকটিস শেষ করে সাবমিট করতে চান?")) {
-                finishSheetPractice();
-            }
+            finishSheetPractice();
         } else {
-            if (confirm("আপনি কি পরীক্ষা সমাপ্ত করে জমা দিতে চান?")) {
-                submitTestExam();
-            }
+            submitTestExam();
         }
     }
 }
@@ -1935,20 +2053,23 @@ function toggleTestOptions() {
 }
 
 function toggleTestTranslation() {
-    if (!currentClientActive) {
-        const lockEl = document.getElementById('app-activation-lock');
-        if (lockEl) lockEl.style.display = 'flex';
-        return;
+    const bar = document.getElementById('test-options-bar');
+    if (bar) bar.style.display = 'none';
+
+    let q = null;
+    if (typeof testQuestions !== 'undefined' && testQuestions.length > 0 && typeof currentTestIndex !== 'undefined' && testQuestions[currentTestIndex]) {
+        q = testQuestions[currentTestIndex];
+    } else if (typeof quizData !== 'undefined' && quizData.length > 0 && typeof currentQuizIndex !== 'undefined' && quizData[currentQuizIndex]) {
+        q = quizData[currentQuizIndex];
     }
-    if (isTranslationDisabled) {
-        showToast('Traduzioni disabilitate / অনুবাদ নিষ্ক্রিয় করা আছে');
-        return;
-    }
-    testTranslationActive = !testTranslationActive;
-    const testBn = document.getElementById('test-question-bn');
-    if (testBn) testBn.style.display = testTranslationActive ? 'block' : 'none';
-    if (testTranslationActive) {
-        readItalianQuestionOutLoud();
+
+    if (q) {
+        const itText = q.italian || q.question || '';
+        const bnText = q.bangla || q.bn_question || '';
+        const vocab = q.vocabulary || [];
+        openQuestionTranslationModal(itText, bnText, vocab);
+    } else {
+        showToast('অনুবাদ লোড করা সম্ভব হয়নি');
     }
 }
 
@@ -1994,30 +2115,105 @@ function selectAudioSpeed(rate) {
     }
 }
 
-function togglePlayPauseSpeech() {
-    if (isSpeechSpeaking) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-        }
-        isSpeechSpeaking = false;
-        const playBtn = document.getElementById('test-audio-play-btn');
-        if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
-        if (audioProgressInterval) {
-            clearInterval(audioProgressInterval);
-        }
-    } else {
-        readItalianQuestionOutLoud();
+let testNativeAudio = null;
+let isTestAudioPlaying = false;
+let testAudioInterval = null;
+
+function stopAllTestAudio() {
+    if (testNativeAudio) {
+        testNativeAudio.pause();
+        testNativeAudio.currentTime = 0;
     }
+    if (testAudioInterval) {
+        clearInterval(testAudioInterval);
+    }
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+    isTestAudioPlaying = false;
+    isSpeechSpeaking = false;
+
+    const playBtn = document.getElementById('test-audio-play-btn');
+    if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play" style="color: var(--text-primary);"></i>';
+    const slider = document.getElementById('test-audio-slider');
+    if (slider) slider.value = 0;
 }
 
+// 🎤 Speaker Button (Pure TTS) - Pronunciation of displayed Italian text only
 function readItalianQuestionOutLoud() {
     if (testQuestions.length === 0) return;
     const q = testQuestions[currentTestIndex];
+    const rawText = q ? (q.italian || q.question || '') : '';
+    const cleanText = rawText.replace(/<[^>]*>/g, '');
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'it-IT';
+        utterance.rate = testAudioSpeed;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
+    }
+}
+
+// ▶️ Play Button - MP3 Voiceover Audio File (or TTS with slider progress)
+function togglePlayPauseSpeech() {
+    if (testQuestions.length === 0) return;
+    const q = testQuestions[currentTestIndex];
+    const audioUrl = q ? (q.audio || q.voice) : null;
+
+    if (isTestAudioPlaying || isSpeechSpeaking) {
+        stopAllTestAudio();
+        return;
+    }
+
+    if (audioUrl) {
+        stopAllTestAudio();
+        if (!testNativeAudio) {
+            testNativeAudio = new Audio();
+        }
+        testNativeAudio.src = audioUrl;
+
+        const playBtn = document.getElementById('test-audio-play-btn');
+        if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-pause" style="color: var(--text-primary);"></i>';
+        isTestAudioPlaying = true;
+
+        testNativeAudio.play().then(() => {
+            const slider = document.getElementById('test-audio-slider');
+            testAudioInterval = setInterval(() => {
+                if (testNativeAudio.paused || testNativeAudio.ended) {
+                    clearInterval(testAudioInterval);
+                    return;
+                }
+                if (slider && testNativeAudio.duration) {
+                    slider.value = (testNativeAudio.currentTime / testNativeAudio.duration) * 100;
+                }
+            }, 100);
+        }).catch(err => {
+            console.error("Error playing MP3 voiceover: ", err);
+            stopAllTestAudio();
+            readItalianQuestionOutLoudWithSlider();
+        });
+
+        testNativeAudio.onended = () => {
+            stopAllTestAudio();
+        };
+    } else {
+        readItalianQuestionOutLoudWithSlider();
+    }
+}
+
+function readItalianQuestionOutLoudWithSlider() {
+    if (testQuestions.length === 0) return;
+    const q = testQuestions[currentTestIndex];
+    const rawText = q ? (q.italian || q.question || '') : '';
+    const cleanText = rawText.replace(/<[^>]*>/g, '');
 
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
 
-        const utterance = new SpeechSynthesisUtterance(q.italian);
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = 'it-IT';
         utterance.rate = testAudioSpeed;
 
@@ -2028,7 +2224,7 @@ function readItalianQuestionOutLoud() {
         let slider = document.getElementById('test-audio-slider');
         if (slider) slider.value = 0;
         let stepCount = 0;
-        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
+        let durationSteps = Math.max(15, Math.floor((cleanText.length / 3) / testAudioSpeed));
 
         if (audioProgressInterval) {
             clearInterval(audioProgressInterval);
@@ -2057,12 +2253,14 @@ function readItalianQuestionOutLoud() {
         };
 
         window.speechSynthesis.speak(utterance);
-    } else {
-        showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
     }
 }
 
-function changeAudioProgress(val) { }
+function changeAudioProgress(val) {
+    if (testNativeAudio && testNativeAudio.duration) {
+        testNativeAudio.currentTime = (val / 100) * testNativeAudio.duration;
+    }
+}
 
 function closeTestExam() {
     if (confirm("আপনি কি পরীক্ষা বাতিল করে হোম স্ক্রিনে ফিরে যেতে চান?")) {
@@ -2075,6 +2273,8 @@ function closeTestExam() {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
+        testQuestions = [];
+        practiceMode = 'exam';
         openScreen('home', 'mbanglapatenteb');
     }
 }
@@ -2097,7 +2297,7 @@ function submitTestExam() {
 
     const totalQuestions = testQuestions.length;
     for (let i = 0; i < totalQuestions; i++) {
-        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1';
+        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1' || testQuestions[i].correct_answer === 'vero' || testQuestions[i].correct_answer === '1' || testQuestions[i].correct_answer === 1;
         if (testAnswers[i] === null) {
             unansweredAnswers++;
         } else if (testAnswers[i] === databaseIsVero) {
@@ -2146,7 +2346,9 @@ function openTestDetailsView() {
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'none';
 
-    let timeSpent = 1200 - testTimerSeconds;
+    let totalDuration = getExamDurationSeconds();
+    let timeSpent = totalDuration - testTimerSeconds;
+    if (timeSpent < 0) timeSpent = 0;
     let mins = Math.floor(timeSpent / 60);
     let secs = timeSpent % 60;
     const outcomeTime = document.getElementById('detail-outcome-time');
@@ -2158,7 +2360,7 @@ function openTestDetailsView() {
     const totalQuestions = testQuestions.length;
 
     for (let i = 0; i < totalQuestions; i++) {
-        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1';
+        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1' || testQuestions[i].correct_answer === 'vero' || testQuestions[i].correct_answer === '1' || testQuestions[i].correct_answer === 1;
         if (testAnswers[i] === null) {
             unansweredAnswers++;
         } else if (testAnswers[i] === databaseIsVero) {
@@ -2171,20 +2373,33 @@ function openTestDetailsView() {
     const passed = wrongAnswers <= 4;
     const emojiEl = document.getElementById('detail-outcome-emoji');
     const titleEl = document.getElementById('detail-outcome-title');
+    const statusEl = document.getElementById('detail-outcome-status');
+    const scoreEl = document.getElementById('detail-outcome-score');
 
     if (passed) {
         if (emojiEl) emojiEl.innerText = '😊';
         if (titleEl) {
-            titleEl.innerText = 'Idoneo';
+            titleEl.innerText = 'Idoneo (Pass)';
             titleEl.style.color = '#4CAF50';
+        }
+        if (statusEl) {
+            statusEl.innerHTML = 'Result: Pass <i class="fa-solid fa-check-circle" style="color: #4CAF50;"></i>';
+            statusEl.style.color = '#4CAF50';
         }
     } else {
         if (emojiEl) emojiEl.innerText = '🙄';
         if (titleEl) {
-            titleEl.innerText = 'Bocciato';
+            titleEl.innerText = 'Bocciato (Fail)';
             titleEl.style.color = '#ef4444';
         }
+        if (statusEl) {
+            statusEl.innerHTML = 'Result: Fail <i class="fa-solid fa-times-circle" style="color: #ef4444;"></i>';
+            statusEl.style.color = '#ef4444';
+        }
     }
+
+    const scorePct = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+    if (scoreEl) scoreEl.innerText = `Score: ${scorePct}%`;
 
     const countCorrette = document.getElementById('detail-count-corrette');
     const countErrori = document.getElementById('detail-count-errori');
@@ -2213,6 +2428,44 @@ function openTestDetailsView() {
     if (splitGiusto) splitGiusto.style.width = `${totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0}%`;
     if (splitSbagliato) splitSbagliato.style.width = `${totalQuestions > 0 ? (wrongAnswers / totalQuestions) * 100 : 0}%`;
     if (splitNondate) splitNondate.style.width = `${totalQuestions > 0 ? (unansweredAnswers / totalQuestions) * 100 : 0}%`;
+
+    // Populate Topic Performance Analysis
+    const topicsContainer = document.getElementById('test-results-topics-analysis');
+    if (topicsContainer) {
+        topicsContainer.innerHTML = '';
+        const topicsMap = {};
+        for (let i = 0; i < totalQuestions; i++) {
+            const q = testQuestions[i];
+            const topicName = q.chapter_name || q.page_title || q.title || (q.italian ? (q.italian.length > 40 ? q.italian.substring(0, 40) + '...' : q.italian) : 'Argomento Generale');
+            if (!topicsMap[topicName]) {
+                topicsMap[topicName] = { total: 0, correct: 0 };
+            }
+            topicsMap[topicName].total++;
+            const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+            if (testAnswers[i] === databaseIsVero) {
+                topicsMap[topicName].correct++;
+            }
+        }
+
+        for (let tName in topicsMap) {
+            const t = topicsMap[tName];
+            const pct = Math.round((t.correct / t.total) * 100);
+            const item = document.createElement('div');
+            item.style.cssText = 'background-color: var(--bg-page); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-card); display: flex; flex-direction: column; gap: 6px;';
+            const isNeedReview = pct < 70;
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                    <span style="font-weight: 800; font-size: 13px; color: var(--text-primary); flex: 1;">${tName}</span>
+                    ${isNeedReview ? '<span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 12px;"><i class="fa-solid fa-triangle-exclamation"></i> Rivedere Argomento</span>' : '<span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; border: 1px solid rgba(76, 175, 80, 0.2); font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 12px;"><i class="fa-solid fa-circle-check"></i> Ottimo</span>'}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-secondary);">
+                    <span>Risposte Corrette: <strong>${t.correct}/${t.total}</strong></span>
+                    <span style="color: ${pct >= 70 ? '#4CAF50' : '#ef4444'}; font-weight: 800;">${pct}%</span>
+                </div>
+            `;
+            topicsContainer.appendChild(item);
+        }
+    }
 
     openScreen('test-results-detail', 'Test Details');
     filterDetailResults('all');
@@ -2250,7 +2503,7 @@ function renderDetailResultsList() {
     for (let i = 0; i < totalQuestions; i++) {
         const q = testQuestions[i];
         const userAnswer = testAnswers[i];
-        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
         const isCorrect = (userAnswer === databaseIsVero);
 
         if (currentDetailFilter === 'correct' && (!isCorrect || userAnswer === null)) continue;
@@ -2305,7 +2558,7 @@ function renderDetailResultsList() {
                 <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${i + 1}</div>
                 ${badgeHtml}
             </div>
-            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian)}</div>
+            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
             <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none;">${q.bangla}</div>
 
             <div style="display: flex; gap: 12px; margin-top: 14px;">
@@ -2319,19 +2572,19 @@ function renderDetailResultsList() {
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
-                <button class="test-speaker-btn" onclick="readDetailQuestionSpeech(${i})" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;">
-                    <i class="fa-solid fa-volume-high" style="font-size:11px;"></i>
+            <div class="detail-q-actions-row" style="display: flex; gap: 4px; margin-top: 14px; align-items: center; width: 100%; box-sizing: border-box;">
+                <button class="test-speaker-btn" onclick="readDetailQuestionSpeechTTS(${i})" style="width: 32px; height: 32px; min-width: 32px; flex-shrink: 0; border-width: 2px;" title="Listen Pronunciation (TTS)">
+                    <i class="fa-solid fa-microphone" style="font-size:12px;"></i>
                 </button>
-                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="readDetailQuestionSpeech(${i})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;">
+                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="playDetailQuestionAudioOrSpeech(${i})" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Play Audio Voiceover">
                     <i class="fa-solid fa-play"></i>
                 </button>
-                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1;" readonly>
-                <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Translate">
-                    <i class="fa-solid fa-language" style="color: var(--accent-green);"></i>
+                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; margin: 0 2px;" readonly>
+                <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
+                    <div style="border: 1.5px solid var(--accent-green); border-radius: 3px; padding: 1px 2px; font-size: 7px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
                 </button>
-                <button class="test-ctrl-btn" style="width:34px; height:34px; min-width:34px; font-size:12px; opacity:0.6; pointer-events:none;"><i class="fa-regular fa-bookmark"></i></button>
-                <button class="test-ctrl-btn" style="width:34px; height:34px; min-width:34px; font-size:12px; opacity:0.6; pointer-events:none;"><i class="fa-regular fa-note-sticky"></i></button>
+                <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark"><i class="fa-regular fa-bookmark"></i></button>
+                <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note"><i class="fa-regular fa-note-sticky"></i></button>
             </div>
 
             <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
@@ -2350,17 +2603,100 @@ function renderDetailResultsList() {
 }
 
 function toggleDetailTranslation(index) {
-    if (!currentClientActive) {
-        const lockEl = document.getElementById('app-activation-lock');
-        if (lockEl) lockEl.style.display = 'flex';
+    if (!testQuestions || !testQuestions[index]) return;
+    const q = testQuestions[index];
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '');
+}
+
+// 🎤 Speaker Microphone Button - Pronunciation TTS Only
+function readDetailQuestionSpeechTTS(index) {
+    if (!testQuestions || !testQuestions[index]) return;
+    const q = testQuestions[index];
+    const rawText = q.italian || q.question || '';
+    const cleanText = rawText.replace(/<[^>]*>/g, '');
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'it-IT';
+        utterance.rate = testAudioSpeed;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
+    }
+}
+
+let activeDetailAudioPlayer = null;
+let activeDetailAudioIndex = null;
+let detailAudioInterval = null;
+
+function stopDetailAudioPlayer() {
+    if (activeDetailAudioPlayer) {
+        activeDetailAudioPlayer.pause();
+        activeDetailAudioPlayer.currentTime = 0;
+    }
+    if (detailAudioInterval) {
+        clearInterval(detailAudioInterval);
+    }
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+    if (activeDetailAudioIndex !== null) {
+        const oldBtn = document.getElementById(`detail-play-btn-${activeDetailAudioIndex}`);
+        const oldSlider = document.getElementById(`detail-audio-slider-${activeDetailAudioIndex}`);
+        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        if (oldSlider) oldSlider.value = 0;
+    }
+    activeDetailAudioIndex = null;
+}
+
+// ▶️ Play Button - Uploaded MP3 Audio Voiceover (or TTS with slider progress)
+function playDetailQuestionAudioOrSpeech(index) {
+    if (!testQuestions || !testQuestions[index]) return;
+    const q = testQuestions[index];
+    const audioUrl = q.audio || q.voice;
+
+    if (activeDetailAudioIndex === index) {
+        stopDetailAudioPlayer();
         return;
     }
-    if (!activeExamSession || !activeExamSession.answers || !activeExamSession.answers[index]) return;
-    const item = activeExamSession.answers[index];
-    const q = item.question || item; // Handle if nested or direct
-    if (!q) return;
 
-    openQuestionTranslationModal(q.italian, q.bangla);
+    stopDetailAudioPlayer();
+    activeDetailAudioIndex = index;
+
+    const pBtn = document.getElementById(`detail-play-btn-${index}`);
+    const slider = document.getElementById(`detail-audio-slider-${index}`);
+
+    if (audioUrl) {
+        if (!activeDetailAudioPlayer) {
+            activeDetailAudioPlayer = new Audio();
+        }
+        activeDetailAudioPlayer.src = audioUrl;
+
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+
+        activeDetailAudioPlayer.play().then(() => {
+            detailAudioInterval = setInterval(() => {
+                if (activeDetailAudioPlayer.paused || activeDetailAudioPlayer.ended) {
+                    clearInterval(detailAudioInterval);
+                    return;
+                }
+                if (slider && activeDetailAudioPlayer.duration) {
+                    slider.value = (activeDetailAudioPlayer.currentTime / activeDetailAudioPlayer.duration) * 100;
+                }
+            }, 100);
+        }).catch(err => {
+            console.error("Error playing detail MP3 audio: ", err);
+            stopDetailAudioPlayer();
+            readDetailQuestionSpeech(index);
+        });
+
+        activeDetailAudioPlayer.onended = () => {
+            stopDetailAudioPlayer();
+        };
+    } else {
+        readDetailQuestionSpeech(index);
+    }
 }
 
 function readDetailQuestionSpeech(index) {
@@ -2474,13 +2810,15 @@ function openPageDetailsScreen(pageId) {
         .then(page => {
             activePageDetails = page;
 
-            const chapterName = page.chapter?.name || chaptersList.find(c => c.id === page.chapter_id)?.name || 'DOVERI NELL\'USO';
-            const chapterNum = page.chapter?.chapter_number || page.chapter_id;
-            document.getElementById('page-details-chapter-label').innerText = `Capitolo ${chapterNum}) ${chapterName}`;
-            document.getElementById('page-details-page-label').innerText = `Pagina ${page.id}) ${page.title}`;
+            const chapterName = page.chapter?.name || '';
+            const chapterNum = page.chapter?.chapter_number || page.chapter?.id || page.chapter_id;
+            const chapterLabel = chapterName ? `Capitolo ${chapterNum}) ${chapterName}` : `Capitolo ${chapterNum}`;
+            document.getElementById('page-details-chapter-label').innerText = chapterLabel;
+            const pageNum = page.sort_order || page.page_number || page.id;
+            document.getElementById('page-details-page-label').innerText = `Pagina ${pageNum}) ${page.title}`;
 
             const descEl = document.getElementById('page-details-content-text');
-            if (descEl) descEl.innerText = page.content || 'Definizioni generali del traffico e delle parti della strada pubblica.';
+            if (descEl) descEl.innerText = page.content || '';
 
             const mediaCont = document.getElementById('page-details-media-container');
             const imgEl = document.getElementById('page-details-image');
@@ -2611,133 +2949,268 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const record = userStats[q.id];
         let correctCount = 0;
         let wrongCount = 0;
+        let isAnswered = false;
+
         if (record && typeof record === 'object') {
-            if (record.state === 'correct') correctCount = 1;
-            else if (record.state === 'wrong') wrongCount = 1;
+            correctCount = typeof record.correct === 'number' ? record.correct : 0;
+            wrongCount = typeof record.wrong === 'number' ? record.wrong : 0;
+            if (correctCount > 0 || wrongCount > 0) {
+                isAnswered = true;
+            }
         }
 
         const card = document.createElement('div');
-        const isAnswered = record !== undefined;
-        const isCorrect = isAnswered && (record.state === 'correct');
+        const isCorrect = isAnswered && (record.state === 'correct' || correctCount > wrongCount);
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
         card.style.position = 'relative';
 
         const saveIconClass = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         const saveIconColor = isSaved ? 'color: var(--accent-green);' : '';
 
-        card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                <span style="font-size: 14px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
+        const statsHtml = isAnswered ? `
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; text-align: center;">
+                <div style="color: var(--text-primary); font-weight: 800; margin-bottom: 4px; text-align: center;">(TU) Hai risposto:</div>
+                <div style="display: flex; justify-content: center; gap: 24px; font-size: 13px; font-weight: 700;">
+                    <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+                    <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
+                </div>
             </div>
-            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian)}</div>
+        ` : '';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
+                <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">Domanda #${index + 1}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
+                        <i class="${saveIconClass}" style="${saveIconColor}"></i>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''}"></i>
+                    </button>
+                    <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" onclick="toggleArgomentiQuestionAnswer(${q.id})" style="cursor: pointer; font-size: 15px; color: var(--text-secondary); margin-left: 2px;" title="Show Answer"></i>
+                    <span id="page-ans-text-${q.id}" style="display: none; font-size: 13px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
+                </div>
+            </div>
+            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
             <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
-            <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
-                <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;">
-                    <i class="fa-solid fa-volume-high" style="font-size:11px;"></i>
+            <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+                <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: 36px; height: 36px; min-width:36px; flex-shrink: 0;" title="Listen TTS Pronunciation">
+                    <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
                 </button>
-                <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="readQuestionSpeechOnPage(${index})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;">
+                <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="playQuestionAudioOrSpeechOnPage(${index})" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; flex-shrink: 0;" title="Play Audio Voiceover">
                     <i class="fa-solid fa-play"></i>
                 </button>
                 <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
-                <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Translate">
-                    <i class="fa-solid fa-language" style="color: var(--accent-green);"></i>
-                </button>
-                <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
-                    <i class="${saveIconClass}" style="${saveIconColor}"></i>
-                </button>
-                <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                    <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''}"></i>
-                </button>
             </div>
 
-            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-card); font-size: 11px; font-weight: 700; color: var(--text-secondary); display: flex; justify-content: space-between;">
-                <span>(TU) Hai risposto: Giusto ${correctCount} volte, Sbagliato ${wrongCount} volte</span>
-            </div>
+            ${statsHtml}
         `;
         container.appendChild(card);
     });
 }
 
+function toggleArgomentiQuestionAnswer(qId) {
+    const textEl = document.getElementById(`page-ans-text-${qId}`);
+    const iconEl = document.getElementById(`page-eye-icon-${qId}`);
+    if (!textEl || !iconEl) return;
+
+    if (textEl.style.display === 'none') {
+        textEl.style.display = 'inline';
+        iconEl.className = 'fa-regular fa-eye-slash';
+        iconEl.style.color = 'var(--accent-green)';
+    } else {
+        textEl.style.display = 'none';
+        iconEl.className = 'fa-regular fa-eye';
+        iconEl.style.color = 'var(--text-secondary)';
+    }
+}
+
+// 🎤 Microphone (TTS Only) - Pronunciation of displayed question text
 function readQuestionSpeechOnPage(index) {
+    if (!activePageDetails || !activePageDetails.questions || !activePageDetails.questions[index]) return;
+    const q = activePageDetails.questions[index];
+    const textToRead = (q.italian || q.question || '').replace(/<[^>]*>/g, '');
+
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-
-        if (playingPageSpeechIndex === index) {
-            playingPageSpeechIndex = null;
-            if (pageSpeechInterval) clearInterval(pageSpeechInterval);
-            const pBtn = document.getElementById(`page-play-btn-${index}`);
-            if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            const slider = document.getElementById(`page-audio-slider-${index}`);
-            if (slider) slider.value = 0;
-            return;
-        }
-
-        if (playingPageSpeechIndex !== null) {
-            const oldBtn = document.getElementById(`page-play-btn-${playingPageSpeechIndex}`);
-            const oldSlider = document.getElementById(`page-audio-slider-${playingPageSpeechIndex}`);
-            if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            if (oldSlider) oldSlider.value = 0;
-        }
-
-        playingPageSpeechIndex = index;
-        if (pageSpeechInterval) clearInterval(pageSpeechInterval);
-
-        const q = activePageDetails.questions[index];
-        const utterance = new SpeechSynthesisUtterance(q.italian);
+        const utterance = new SpeechSynthesisUtterance(textToRead);
         utterance.lang = 'it-IT';
         utterance.rate = testAudioSpeed;
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// ▶️ Play Button - MP3 Voiceover Audio File or TTS fallback
+let pageNativeAudio = null;
+let playingPageAudioIndex = null;
+let pageAudioProgressInterval = null;
+
+function playQuestionAudioOrSpeechOnPage(index) {
+    if (!activePageDetails || !activePageDetails.questions || !activePageDetails.questions[index]) return;
+    const q = activePageDetails.questions[index];
+    const audioUrl = q.audio || q.voice;
+
+    if (playingPageAudioIndex === index) {
+        stopAllPageAudio();
+        return;
+    }
+
+    stopAllPageAudio();
+
+    if (audioUrl) {
+        playingPageAudioIndex = index;
+        if (!pageNativeAudio) {
+            pageNativeAudio = new Audio();
+        }
+        pageNativeAudio.src = audioUrl;
 
         const pBtn = document.getElementById(`page-play-btn-${index}`);
         if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
 
-        let slider = document.getElementById(`page-audio-slider-${index}`);
+        pageNativeAudio.play().then(() => {
+            const slider = document.getElementById(`page-audio-slider-${index}`);
+            pageAudioProgressInterval = setInterval(() => {
+                if (pageNativeAudio.paused || pageNativeAudio.ended) {
+                    clearInterval(pageAudioProgressInterval);
+                    return;
+                }
+                if (slider && pageNativeAudio.duration) {
+                    slider.value = (pageNativeAudio.currentTime / pageNativeAudio.duration) * 100;
+                }
+            }, 100);
+        }).catch(err => {
+            console.error("Error playing question MP3 audio file: ", err);
+            stopAllPageAudio();
+            readQuestionSpeechOnPage(index);
+        });
+
+        pageNativeAudio.onended = () => {
+            stopAllPageAudio();
+        };
+    } else {
+        readQuestionSpeechOnPage(index);
+    }
+}
+
+function stopAllPageAudio() {
+    if (pageNativeAudio) {
+        pageNativeAudio.pause();
+        pageNativeAudio.currentTime = 0;
+    }
+    if (pageAudioProgressInterval) {
+        clearInterval(pageAudioProgressInterval);
+    }
+    if (playingPageAudioIndex !== null) {
+        const pBtn = document.getElementById(`page-play-btn-${playingPageAudioIndex}`);
+        const slider = document.getElementById(`page-audio-slider-${playingPageAudioIndex}`);
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
         if (slider) slider.value = 0;
-        let stepCount = 0;
-        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
+        playingPageAudioIndex = null;
+    }
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
 
-        pageSpeechInterval = setInterval(() => {
-            stepCount++;
-            let prg = Math.min(100, Math.floor((stepCount / durationSteps) * 100));
-            if (slider) slider.value = prg;
-            if (prg >= 100) {
-                clearInterval(pageSpeechInterval);
-            }
-        }, 200);
+let activeSpeedControllerButton = null;
 
-        utterance.onend = () => {
-            if (pageSpeechInterval) clearInterval(pageSpeechInterval);
-            if (slider) slider.value = 100;
-            const btn = document.getElementById(`page-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            playingPageSpeechIndex = null;
+function showQuestionSpeedPopover(btn, isCartelli = false) {
+    let popover = document.getElementById('global-question-speed-popover');
+    if (!popover) {
+        popover = document.createElement('div');
+        popover.id = 'global-question-speed-popover';
+        popover.className = 'speed-popover';
+        popover.style.position = 'absolute';
+        popover.style.zIndex = '999999';
+        popover.style.display = 'none';
+        document.body.appendChild(popover);
+    }
 
-            if (isPlayAllActive && index < activePageDetails.questions.length - 1) {
-                setTimeout(() => {
-                    readQuestionSpeechOnPage(index + 1);
-                }, 500);
-            } else if (isPlayAllActive) {
-                isPlayAllActive = false;
-                const playAllBtn = document.getElementById('page-play-all-btn');
-                if (playAllBtn) {
-                    playAllBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i> <span>Play All</span>';
-                    playAllBtn.style.backgroundColor = 'var(--accent-green)';
+    if (activeSpeedControllerButton === btn && popover.style.display === 'flex') {
+        popover.style.display = 'none';
+        return;
+    }
+
+    activeSpeedControllerButton = btn;
+    popover.innerHTML = '';
+
+    const speeds = [0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+    speeds.forEach(rate => {
+        const item = document.createElement('div');
+        item.className = `speed-option-item ${rate === testAudioSpeed ? 'selected' : ''}`;
+        item.style.cursor = 'pointer';
+        item.style.padding = '8px 16px';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.fontSize = '13px';
+        item.style.fontWeight = 'bold';
+        item.style.color = 'var(--text-primary)';
+
+        item.onclick = (e) => {
+            e.stopPropagation();
+            testAudioSpeed = rate;
+            popover.style.display = 'none';
+            showToast(`গতি নির্ধারণ করা হয়েছে: ${rate}x`);
+
+            if (isCartelli) {
+                if (playingCartelliAudioIndex !== null && cartelliNativeAudio) {
+                    cartelliNativeAudio.playbackRate = rate;
                 }
             }
         };
 
-        utterance.onerror = () => {
-            if (pageSpeechInterval) clearInterval(pageSpeechInterval);
-            if (slider) slider.value = 0;
-            const btn = document.getElementById(`page-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            playingPageSpeechIndex = null;
-            isPlayAllActive = false;
-        };
+        if (rate === testAudioSpeed) {
+            item.innerHTML = `<span>✓ ${rate === 1.0 ? '1.0' : rate}</span>`;
+        } else {
+            item.innerHTML = `<span>${rate === 1.0 ? '1.0' : rate}</span>`;
+        }
 
-        window.speechSynthesis.speak(utterance);
+        popover.appendChild(item);
+    });
+
+    const rect = btn.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+    popover.style.display = 'flex';
+    popover.style.flexDirection = 'column';
+    popover.style.background = 'var(--bg-card)';
+    popover.style.border = '1px solid var(--border-card)';
+    popover.style.borderRadius = '8px';
+    popover.style.boxShadow = '0 10px 25px rgba(0,0,0,0.1)';
+    popover.style.minWidth = '85px';
+
+    const popoverHeight = popover.offsetHeight || 220;
+    const popoverWidth = popover.offsetWidth || 85;
+
+    let left = rect.left + scrollLeft + (rect.width / 2) - (popoverWidth / 2);
+    let top = rect.top + scrollTop - popoverHeight - 8;
+
+    if (top < scrollTop) {
+        top = rect.bottom + scrollTop + 8;
     }
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+
+    const hidePopover = (e) => {
+        if (!popover.contains(e.target) && e.target !== btn) {
+            popover.style.display = 'none';
+            document.removeEventListener('click', hidePopover);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', hidePopover);
+    }, 50);
 }
 
 function togglePlayAllPageQuestions() {
@@ -2791,7 +3264,16 @@ function startPageQuiz() {
     }
     showTestOptionsDialog(() => {
         practiceMode = 'sheet';
-        testQuestions = activePageDetails.questions;
+        testQuestions = (activePageDetails.questions || []).map(q => ({
+            id: q.id,
+            italian: q.italian || q.question || '',
+            bangla: q.bangla || q.bn_question || '',
+            is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+            image: q.image,
+            audio: q.audio || q.voice,
+            video: q.video,
+            vocabulary: q.vocabulary || []
+        }));
         currentTestIndex = 0;
         testAnswers = Array(testQuestions.length).fill(null);
 
@@ -2932,12 +3414,57 @@ function togglePageDetailsPageDropdown() {
                         dropdown.style.display = 'none';
                         openPageDetailsScreen(p.id);
                     };
-                    item.innerText = `Pagina ${p.id}) ${p.title}`;
+                    const pNum = p.sort_order || p.page_number || p.id;
+                    item.innerText = `Pagina ${pNum}) ${p.title}`;
                     dropdown.appendChild(item);
                 });
             });
     }
 }
+
+function toggleCurrentPageSelection() {
+    const btn = document.getElementById('page-details-select-toggle-btn');
+    if (!btn) return;
+    const isSelected = btn.classList.contains('active');
+    const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
+    if (isSelected) {
+        btn.classList.remove('active');
+        btn.innerText = 'Select Page';
+        cards.forEach(c => c.classList.remove('selected-q-card'));
+        showToast('পেজ সিলেক্ট মুক্ত করা হয়েছে');
+    } else {
+        btn.classList.add('active');
+        btn.innerText = 'Selected Page';
+        cards.forEach(c => c.classList.add('selected-q-card'));
+        showToast('পেজ সিলেক্ট করা হয়েছে');
+    }
+}
+
+function selectAllPagesInDetails() {
+    const btnAll = document.getElementById('page-details-select-all-btn');
+    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
+    if (btnAll) btnAll.classList.add('active');
+    if (btnUnselect) btnUnselect.classList.remove('active');
+    const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
+    cards.forEach(c => c.classList.add('selected-q-card'));
+    showToast('সব পেজ সিলেক্ট করা হয়েছে');
+}
+
+function unselectAllPagesInDetails() {
+    const btnAll = document.getElementById('page-details-select-all-btn');
+    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
+    if (btnAll) btnAll.classList.remove('active');
+    if (btnUnselect) btnUnselect.classList.add('active');
+    const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
+    cards.forEach(c => c.classList.remove('selected-q-card'));
+    showToast('সব পেজ আনসিলেক্ট করা হয়েছে');
+}
+
+window.toggleCurrentPageSelection = toggleCurrentPageSelection;
+window.selectAllPagesInDetails = selectAllPagesInDetails;
+window.unselectAllPagesInDetails = unselectAllPagesInDetails;
+window.togglePageDetailsChapterDropdown = togglePageDetailsChapterDropdown;
+window.togglePageDetailsPageDropdown = togglePageDetailsPageDropdown;
 
 window.addEventListener('click', (e) => {
     if (!e.target.closest('.chapter-selector-trigger')) {
@@ -2981,10 +3508,10 @@ function loadSavedMcqsScreen() {
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div class="detail-q-num" style="margin-bottom: 0;">Capitolo ${q.chapter} • Domanda #${index + 1}</div>
+                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
                         <span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-info"></i> Risposta: ${databaseIsVero ? 'V' : 'F'}</span>
                     </div>
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian)}</div>
+                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
                     <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
@@ -3093,7 +3620,7 @@ function toggleSavedTranslation(qId) {
     const q = activeSavedMcqs.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian, q.bangla);
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || []);
 }
 
 function toggleSavedMcq(questionId, btnElement) {
@@ -3242,10 +3769,24 @@ function deleteUserNote() {
 }
 
 function saveQuestionAnswerStat(questionId, chapterId, state) {
+    if (!questionId) return;
     const stats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const existing = stats[questionId] || { correct: 0, wrong: 0 };
+
+    let correctCount = typeof existing.correct === 'number' ? existing.correct : 0;
+    let wrongCount = typeof existing.wrong === 'number' ? existing.wrong : 0;
+
+    if (state === 'correct') {
+        correctCount += 1;
+    } else if (state === 'wrong') {
+        wrongCount += 1;
+    }
+
     stats[questionId] = {
         state: state,
-        chapter: chapterId,
+        correct: correctCount,
+        wrong: wrongCount,
+        chapter: chapterId || null,
         updated_at: new Date().toISOString()
     };
     localStorage.setItem('user_question_stats', JSON.stringify(stats));
@@ -3491,7 +4032,7 @@ function renderSchedaExamQuestion() {
     const textIt = document.getElementById('exam-question-it');
     const textBn = document.getElementById('exam-question-bn');
 
-    if (textIt) textIt.innerHTML = highlightDictionaryTerms(q.italian);
+    if (textIt) textIt.innerHTML = highlightDictionaryTerms(q.italian, q.vocabulary);
     if (textBn) {
         textBn.innerText = q.bangla;
         textBn.style.display = isTranslationDisabled ? 'none' : 'block';
@@ -3569,6 +4110,261 @@ function renderSchedaExamDots() {
 
         dotsContainer.appendChild(dot);
     }
+}
+
+// vocabCache: stores per-question vocabulary by word (for modal lookup)
+const vocabCache = {};
+
+function highlightDictionaryTerms(text, questionVocabulary) {
+    if (!text) return '';
+    let resultText = text;
+
+    // 1. Highlight per-question vocabulary words (admin-added underlines)
+    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
+        const sortedVocab = [...questionVocabulary].sort((a, b) =>
+            (b.italian || '').length - (a.italian || '').length
+        );
+        sortedVocab.forEach(item => {
+            const word = item.italian || '';
+            if (!word) return;
+            // Cache for modal lookup
+            vocabCache[word.toLowerCase()] = item;
+            const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp('(' + escapedWord + ')', 'gi');
+            resultText = resultText.replace(regex, (match) => {
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+            });
+        });
+    }
+
+    // 2. Highlight global dictionary words from database
+    const sortedTerms = [...dictionaryData].sort((a, b) => b.word.length - a.word.length);
+    sortedTerms.forEach(term => {
+        const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'gi');
+        resultText = resultText.replace(regex, (match) => {
+            // Don't double-wrap already-highlighted spans
+            return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+        });
+    });
+
+    return resultText;
+}
+
+let currentDictTerm = null;
+let currentDictModalLang = 'bn';
+let savedDictWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]');
+
+function updateDictSaveIconState() {
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (!saveBtn || !currentDictTerm || !currentDictTerm.word) return;
+
+    const saved = savedDictWords.includes(currentDictTerm.word.toLowerCase());
+    if (saved) {
+        saveBtn.className = 'fa-solid fa-bookmark';
+        saveBtn.style.color = '#4CAF50';
+    } else {
+        saveBtn.className = 'fa-regular fa-bookmark';
+        saveBtn.style.color = 'var(--text-primary, #1e293b)';
+    }
+}
+
+function saveDictWord() {
+    if (!currentDictTerm || !currentDictTerm.word) return;
+    const wordKey = currentDictTerm.word.toLowerCase();
+    const index = savedDictWords.indexOf(wordKey);
+
+    if (index > -1) {
+        savedDictWords.splice(index, 1);
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্ক থেকে সরানো হয়েছে');
+    } else {
+        savedDictWords.push(wordKey);
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্কে সংরক্ষণ করা হয়েছে');
+    }
+
+    localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
+    updateDictSaveIconState();
+}
+
+function closeDictTermModal() {
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function toggleDictModalLang() {
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    const langTextEl = document.getElementById('dict-modal-lang-text');
+    if (!textBnEl) return;
+
+    if (textBnEl.style.display === 'none') {
+        textBnEl.style.display = 'block';
+        if (langTextEl) langTextEl.innerText = 'Bangla';
+    } else {
+        textBnEl.style.display = 'none';
+        if (langTextEl) langTextEl.innerText = 'Italian';
+    }
+}
+
+function searchDictWord() {
+    if (!currentDictTerm || !currentDictTerm.word) return;
+    const word = currentDictTerm.word;
+    closeDictTermModal();
+    if (typeof openScreen === 'function') {
+        openScreen('dizionario', 'Dizionario');
+    }
+    const searchInput = document.getElementById('dictionary-search');
+    if (searchInput) {
+        searchInput.value = word;
+        if (typeof filterDictionary === 'function') filterDictionary();
+    }
+}
+
+function speakDictWord() {
+    if (!currentDictTerm) return;
+    const wordToSpeak = currentDictTerm.word || currentDictTerm.desc_it || '';
+    if ('speechSynthesis' in window && wordToSpeak) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(wordToSpeak);
+        utterance.lang = 'it-IT';
+        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+function openDictionaryTermModal(wordText) {
+    const item = dictionaryData.find(d => (d.word || '').toLowerCase() === (wordText || '').toLowerCase());
+    if (!item) return;
+
+    currentDictTerm = {
+        word: item.word || wordText,
+        desc_it: item.desc_it || item.word || wordText,
+        desc_bn: item.desc_bn || item.bn || '',
+        image: item.image || '',
+        video: item.video || null
+    };
+    currentDictModalLang = 'bn';
+
+    const titleEl = document.getElementById('dict-modal-title');
+    if (titleEl) titleEl.innerText = (item.word || wordText).toUpperCase();
+
+    const imgContainer = document.getElementById('dict-modal-image-container');
+    const imgEl = document.getElementById('dict-modal-image');
+    if (imgEl && imgContainer) {
+        if (item.image) {
+            imgEl.src = item.image;
+            imgContainer.style.display = 'flex';
+        } else {
+            imgContainer.style.display = 'none';
+        }
+    }
+
+    const videoContainer = document.getElementById('dict-modal-video-container');
+    const videoEl = document.getElementById('dict-modal-video');
+    if (videoContainer && videoEl) {
+        if (item.video) {
+            videoEl.src = item.video;
+            videoContainer.style.display = 'flex';
+        } else {
+            videoContainer.style.display = 'none';
+        }
+    }
+
+    const textItEl = document.getElementById('dict-modal-text-it');
+    if (textItEl) textItEl.innerText = item.desc_it || item.word || '';
+
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    if (textBnEl) {
+        textBnEl.innerText = item.desc_bn || item.bn || '';
+        textBnEl.style.display = 'block';
+    }
+
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (saveBtn) saveBtn.style.display = 'block';
+
+    updateDictSaveIconState();
+
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeVocabTermModal() {
+    const modal = document.getElementById('vocab-term-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function closeTranslationPopupModal() {
+    const modal = document.getElementById('translation-popup-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function speakTranslationModalText() {
+    const itEl = document.getElementById('trans-modal-italian');
+    if (!itEl) return;
+    const textToSpeak = itEl.innerText || itEl.textContent || '';
+    if ('speechSynthesis' in window && textToSpeak) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = 'it-IT';
+        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// Open popup for per-question vocabulary words
+function openVocabModal(wordText) {
+    const item = vocabCache[wordText.toLowerCase()];
+    if (!item) return;
+
+    currentDictTerm = {
+        word: item.italian || wordText,
+        desc_it: item.italian || wordText,
+        desc_bn: item.bangla || '',
+        image: item.image || ''
+    };
+    currentDictModalLang = 'bn';
+
+    const titleEl = document.getElementById('dict-modal-title');
+    if (titleEl) titleEl.innerText = (item.italian || wordText).toUpperCase();
+
+    const imgContainer = document.getElementById('dict-modal-image-container');
+    const imgEl = document.getElementById('dict-modal-image');
+    if (imgEl && imgContainer) {
+        if (item.image) {
+            imgEl.src = item.image;
+            imgContainer.style.display = 'flex';
+        } else {
+            imgContainer.style.display = 'none';
+        }
+    }
+
+    const videoContainer = document.getElementById('dict-modal-video-container');
+    if (videoContainer) videoContainer.style.display = 'none';
+
+    const textItEl = document.getElementById('dict-modal-text-it');
+    if (textItEl) textItEl.innerText = item.italian || wordText || '';
+
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    if (textBnEl) {
+        textBnEl.innerText = item.bangla || '';
+        textBnEl.style.display = 'block';
+    }
+
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (saveBtn) saveBtn.style.display = 'block';
+
+    updateDictSaveIconState();
+
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'flex';
 }
 
 function answerSchedaExamQuestion(choice) {
@@ -3656,203 +4452,17 @@ function showSchedaExamResultModal(correct, wrong, unanswered, total) {
     if (txtSbagliato) txtSbagliato.innerText = wrong;
     if (txtNondate) txtNondate.innerText = unanswered;
 
-    if (barGiusto) barGiusto.style.width = `${(correct / total) * 100}%`;
-    if (barSbagliato) barSbagliato.style.width = `${(wrong / total) * 100}%`;
-    if (barNondate) barNondate.style.width = `${(unanswered / total) * 100}%`;
+    if (barGiusto) barGiusto.style.width = `${total > 0 ? (correct / total) * 100 : 0}%`;
+    if (barSbagliato) barSbagliato.style.width = `${total > 0 ? (wrong / total) * 100 : 0}%`;
+    if (barNondate) barNondate.style.width = `${total > 0 ? (unanswered / total) * 100 : 0}%`;
 
     if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
 
-    // Hook modal close to return to scheda esame list screen instead of default homepage
-    const closeBtn = document.querySelector('#exam-result-modal .modal-card button, #exam-result-modal .close-btn');
-
     const modal = document.getElementById('exam-result-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        // Intercept close click
-        const origOnclick = modal.onclick;
-
-        // Find close buttons inside the modal and hook them
-        const btns = modal.querySelectorAll('button');
-        btns.forEach(btn => {
-            if (btn.innerText.includes('Review') || btn.innerText.includes('Conferma') || btn.innerText.includes('Close') || btn.innerText.includes('বন্ধ করুন')) {
-                btn.onclick = (e) => {
-                    modal.style.display = 'none';
-                    loadExamSheets();
-                    openScreen('scheda-esame', 'Scheda Esame');
-                };
-            }
-        });
-    }
-}
-
-function openCompletedExamDetails(examId) {
-    fetch(`/api/exams/${examId}`)
-        .then(res => res.json())
-        .then(exam => {
-            // Load this specific exam questions list into standard practice variables
-            testQuestions = exam.answers;
-            testAnswers = exam.answers.map(q => q.user_answer);
-
-            // Set testTimerSeconds so the spent time is calculated correctly (mocked or static)
-            testTimerSeconds = 1200; // static full time remaining display
-
-            // Open standard review details screen!
-            openTestDetailsView();
-        })
-        .catch(err => {
-            console.error("Error opening completed exam details: ", err);
-            showToast('পরীক্ষার ফলাফল লোড করতে সমস্যা হয়েছে');
-        });
-}
-
-// ==========================================
-// Interactive Dictionary Highlight & Modal Helpers
-// ==========================================
-let currentDictTerm = null;
-let currentDictModalLang = 'bn';
-
-function highlightDictionaryTerms(text) {
-    if (!text) return '';
-    const sortedTerms = [...dictionaryData].sort((a, b) => b.word.length - a.word.length);
-    let resultText = text;
-    sortedTerms.forEach(term => {
-        const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'gi');
-        resultText = resultText.replace(regex, (match) => {
-            return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">${match}</span>`;
-        });
-    });
-    return resultText;
-}
-
-function openDictionaryTermModal(wordText) {
-    if (!currentClientActive) {
-        const lockEl = document.getElementById('app-activation-lock');
-        if (lockEl) lockEl.style.display = 'flex';
-        return;
-    }
-    const term = dictionaryData.find(item => item.word.toLowerCase() === wordText.toLowerCase());
-    if (!term) return;
-
-    currentDictTerm = term;
-    currentDictModalLang = 'bn';
-
-    const titleEl = document.getElementById('dict-modal-title');
-    if (titleEl) titleEl.innerText = term.word;
-
-    const imgEl = document.getElementById('dict-modal-image');
-    if (imgEl) imgEl.src = term.image;
-
-    updateDictModalText();
-    updateDictSaveIconState();
-
-    const modal = document.getElementById('dict-term-modal');
     if (modal) modal.style.display = 'flex';
 }
 
-function closeDictTermModal() {
-    const modal = document.getElementById('dict-term-modal');
-    if (modal) modal.style.display = 'none';
-}
-
-function updateDictModalText() {
-    if (!currentDictTerm) return;
-
-    const textItEl = document.getElementById('dict-modal-text-it');
-    const textBnEl = document.getElementById('dict-modal-text-bn');
-
-    if (textItEl) textItEl.innerText = currentDictTerm.desc_it;
-
-    if (textBnEl) {
-        if (currentDictModalLang === 'bn') {
-            textBnEl.innerText = currentDictTerm.desc_bn;
-            textBnEl.style.display = 'block';
-        } else {
-            textBnEl.style.display = 'none';
-        }
-    }
-
-    const circle = document.getElementById('dict-modal-lang-circle');
-    const text = document.getElementById('dict-modal-lang-text');
-
-    if (circle && text) {
-        if (currentDictModalLang === 'bn') {
-            circle.style.backgroundColor = '#4CAF50';
-            text.innerText = 'Bangla';
-        } else {
-            circle.style.backgroundColor = '#EF4444';
-            text.innerText = 'Italian';
-        }
-    }
-}
-
-function toggleDictModalLang() {
-    currentDictModalLang = currentDictModalLang === 'bn' ? 'it' : 'bn';
-    updateDictModalText();
-}
-
-function updateDictSaveIconState() {
-    const saveBtn = document.getElementById('dict-modal-save-btn');
-    if (!saveBtn || !currentDictTerm) return;
-
-    const savedWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]');
-    const isSaved = savedWords.includes(currentDictTerm.word);
-
-    if (isSaved) {
-        saveBtn.className = 'fa-solid fa-bookmark';
-        saveBtn.style.color = 'var(--accent-green)';
-    } else {
-        saveBtn.className = 'fa-regular fa-bookmark';
-        saveBtn.style.color = 'var(--text-secondary)';
-    }
-}
-
-function saveDictWord() {
-    if (!currentDictTerm) return;
-
-    let savedWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]');
-    const index = savedWords.indexOf(currentDictTerm.word);
-
-    if (index > -1) {
-        savedWords.splice(index, 1);
-        showToast('শব্দটি বুকমার্ক থেকে মুছে ফেলা হয়েছে');
-    } else {
-        savedWords.push(currentDictTerm.word);
-        showToast('শব্দটি সফলভাবে বুকমার্ক করা হয়েছে');
-    }
-
-    localStorage.setItem('saved_dict_words', JSON.stringify(savedWords));
-    updateDictSaveIconState();
-}
-
-function searchDictWord() {
-    if (!currentDictTerm) return;
-
-    closeDictTermModal();
-    openScreen('dizionario', 'Dizionario');
-
-    const searchInput = document.getElementById('dictionary-search');
-    if (searchInput) {
-        searchInput.value = currentDictTerm.word;
-        filterDictionary();
-    }
-}
-
-function speakDictWord() {
-    if (!currentDictTerm || !('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentDictTerm.word);
-    utterance.lang = 'it-IT';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-}
-
 // --- 16. Client Verification & Activation Lock System ---
-let activationStatusInterval = null;
-let currentClientVerified = false;
-let currentClientActive = false;
-
 function checkClientActivation() {
     fetch('/api/client/status')
         .then(res => res.json())
@@ -3973,6 +4583,7 @@ function showChatAfterVerification() {
 // Initialize activation lock check
 checkClientActivation();
 
+
 // --- 17. QR Code Scanner Integration ---
 let html5QrScanner = null;
 
@@ -3986,7 +4597,6 @@ function openQrScanner() {
     const modal = document.getElementById('qr-scanner-modal');
     if (modal) modal.style.display = 'flex';
 
-    // Initialize scanner
     if (!html5QrScanner) {
         html5QrScanner = new Html5Qrcode("qr-reader");
     }
@@ -3994,7 +4604,6 @@ function openQrScanner() {
     const qrSuccessCallback = (decodedText, decodedResult) => {
         console.log(`Scan result: ${decodedText}`);
 
-        // Try to extract page ID
         const match = decodedText.match(/pages?\/(\d+)/) || decodedText.match(/page_details?\/(\d+)/) || decodedText.match(/^(\d+)$/);
         if (match) {
             const pageId = parseInt(match[1]);
@@ -4088,7 +4697,6 @@ let isTranslationDisabled = false;
 function showTestOptionsDialog(callback) {
     pendingTestLaunchCallback = callback;
 
-    // Reset toggle to false (translations active) on start
     const toggle = document.getElementById('test-disable-translation-toggle');
     if (toggle) {
         toggle.checked = false;
@@ -4118,13 +4726,20 @@ function confirmTestOptions(wantsImmediateCorrection) {
 // --- 20. Question Translation Popover Modal System ---
 let currentTranslationTextToRead = '';
 
-function openQuestionTranslationModal(itText, bnText) {
-    currentTranslationTextToRead = itText;
+function openQuestionTranslationModal(itText, bnText, vocabularyList) {
+    currentTranslationTextToRead = (itText || '').replace(/<[^>]*>/g, '');
     const itEl = document.getElementById('q-translation-it');
     const bnEl = document.getElementById('q-translation-bn');
 
-    if (itEl) itEl.innerText = itText;
-    if (bnEl) bnEl.innerText = bnText;
+    if (itEl) {
+        itEl.innerHTML = typeof highlightDictionaryTerms === 'function' 
+            ? highlightDictionaryTerms(itText || '', vocabularyList || []) 
+            : (itText || '');
+    }
+    if (bnEl) {
+        let formattedBn = (bnText || '').replace(/\n/g, '<br>');
+        bnEl.innerHTML = formattedBn;
+    }
 
     const modal = document.getElementById('q-translation-modal');
     if (modal) modal.style.display = 'flex';
@@ -4147,6 +4762,752 @@ function readTranslationModalText() {
         window.speechSynthesis.speak(utterance);
     }
 }
+
+function speakTextTTS(text) {
+    if (!text) return;
+    const cleanText = String(text).replace(/<[^>]*>/g, '');
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'it-IT';
+        utterance.rate = typeof testAudioSpeed !== 'undefined' ? testAudioSpeed : 1.0;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
+    }
+}
+
+let activeListMp3Player = null;
+let activeListMp3Id = null;
+let listMp3Interval = null;
+
+function stopListMp3Player() {
+    if (activeListMp3Player) {
+        activeListMp3Player.pause();
+        activeListMp3Player.currentTime = 0;
+    }
+    if (listMp3Interval) {
+        clearInterval(listMp3Interval);
+    }
+    if (activeListMp3Id !== null) {
+        const oldBtn = document.getElementById(`list-play-btn-${activeListMp3Id}`);
+        const oldSlider = document.getElementById(`list-audio-slider-${activeListMp3Id}`);
+        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        if (oldSlider) oldSlider.value = 0;
+    }
+    activeListMp3Id = null;
+}
+
+function playQuestionMp3(audioUrl, qId) {
+    if (!audioUrl) return;
+
+    if (activeListMp3Id === qId) {
+        stopListMp3Player();
+        return;
+    }
+
+    stopListMp3Player();
+    activeListMp3Id = qId;
+
+    const pBtn = document.getElementById(`list-play-btn-${qId}`);
+    const slider = document.getElementById(`list-audio-slider-${qId}`);
+
+    if (!activeListMp3Player) {
+        activeListMp3Player = new Audio();
+    }
+    activeListMp3Player.src = audioUrl;
+
+    if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+
+    activeListMp3Player.play().then(() => {
+        listMp3Interval = setInterval(() => {
+            if (activeListMp3Player && activeListMp3Player.duration) {
+                const prg = (activeListMp3Player.currentTime / activeListMp3Player.duration) * 100;
+                if (slider) slider.value = prg;
+            }
+        }, 200);
+
+        activeListMp3Player.onended = () => {
+            stopListMp3Player();
+        };
+    }).catch(err => {
+        console.error("Error playing MP3 voiceover:", err);
+        stopListMp3Player();
+    });
+}
+
+function populateFilterChapters(prefix) {
+    const chapSelect = document.getElementById(`${prefix}-filter-chapter`);
+    if (!chapSelect) return;
+
+    fetch('/api/chapters')
+        .then(res => res.json())
+        .then(chapters => {
+            chapSelect.innerHTML = '<option value="">All Chapters</option>';
+            chapters.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.sort_order ? `Capitolo ${c.sort_order}) ${c.name}` : (c.chapter_number ? `Capitolo ${c.chapter_number}) ${c.name}` : c.name);
+                chapSelect.appendChild(opt);
+            });
+        })
+        .catch(err => console.error("Error populating chapters: ", err));
+}
+
+function onCorrectCategoryChange() {
+    loadCorrectMcqsList();
+}
+
+function onCorrectChapterChange() {
+    const chapId = document.getElementById('correct-filter-chapter')?.value;
+    const pageSelect = document.getElementById('correct-filter-page');
+    if (!pageSelect) return;
+
+    if (!chapId) {
+        pageSelect.innerHTML = '<option value="">All Pages</option>';
+        loadCorrectMcqsList();
+        return;
+    }
+
+    fetch(`/api/chapters/${chapId}/pages`)
+        .then(res => res.json())
+        .then(pages => {
+            pageSelect.innerHTML = '<option value="">All Pages</option>';
+            pages.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `Pagina ${p.sort_order || p.page_number}) ${p.title || ''}`;
+                pageSelect.appendChild(opt);
+            });
+            loadCorrectMcqsList();
+        })
+        .catch(err => {
+            console.error("Error loading pages: ", err);
+            loadCorrectMcqsList();
+        });
+}
+
+function onWrongCategoryChange() {
+    loadWrongMcqsList();
+}
+
+function onWrongChapterChange() {
+    const chapId = document.getElementById('wrong-filter-chapter')?.value;
+    const pageSelect = document.getElementById('wrong-filter-page');
+    if (!pageSelect) return;
+
+    if (!chapId) {
+        pageSelect.innerHTML = '<option value="">All Pages</option>';
+        loadWrongMcqsList();
+        return;
+    }
+
+    fetch(`/api/chapters/${chapId}/pages`)
+        .then(res => res.json())
+        .then(pages => {
+            pageSelect.innerHTML = '<option value="">All Pages</option>';
+            pages.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `Pagina ${p.sort_order || p.page_number}) ${p.title || ''}`;
+                pageSelect.appendChild(opt);
+            });
+            loadWrongMcqsList();
+        })
+        .catch(err => {
+            console.error("Error loading pages: ", err);
+            loadWrongMcqsList();
+        });
+}
+
+function loadCorrectMcqsList() {
+    const container = document.getElementById('correct-mcqs-list-container');
+    const countEl = document.getElementById('correct-mcqs-count');
+    if (!container) return;
+
+    const chapSelect = document.getElementById('correct-filter-chapter');
+    if (chapSelect && chapSelect.options.length <= 1) {
+        populateFilterChapters('correct');
+    }
+
+    const selectedChapter = document.getElementById('correct-filter-chapter')?.value;
+    const selectedPage = document.getElementById('correct-filter-page')?.value;
+    const searchQuery = document.getElementById('correct-search-input')?.value?.toLowerCase()?.trim() || '';
+
+    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande corrette...</div>`;
+
+    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const correctIds = [];
+
+    Object.keys(userStats).forEach(idStr => {
+        const item = userStats[idStr];
+        if (item && typeof item === 'object') {
+            const cCount = typeof item.correct === 'number' ? item.correct : (item.state === 'correct' ? 1 : 0);
+            const wCount = typeof item.wrong === 'number' ? item.wrong : 0;
+            if (cCount > wCount || item.state === 'correct') {
+                correctIds.push(parseInt(idStr));
+            }
+        }
+    });
+
+    if (correctIds.length === 0) {
+        if (countEl) countEl.innerText = '0 Domande';
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনি এখনও কোনো প্রশ্নের সঠিক উত্তর দেননি। টেস্ট/কুইজ প্র্যাকটিস করুন!</div>`;
+        return;
+    }
+
+    fetch(`/api/questions/by-ids?ids=${correctIds.join(',')}`)
+        .then(res => res.json())
+        .then(questions => {
+            let filtered = questions;
+            if (selectedChapter) {
+                filtered = filtered.filter(q => String(q.chapter) === String(selectedChapter) || String(q.chapter_id) === String(selectedChapter));
+            }
+            if (searchQuery) {
+                filtered = filtered.filter(q => (q.italian && q.italian.toLowerCase().includes(searchQuery)) || (q.bangla && q.bangla.toLowerCase().includes(searchQuery)));
+            }
+
+            if (countEl) countEl.innerText = `${filtered.length} Domande`;
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">কোনো সঠিক উত্তর পাওয়া যায়নি।</div>`;
+                return;
+            }
+
+            window.cachedQuestionsMap = window.cachedQuestionsMap || {};
+            container.innerHTML = '';
+            filtered.forEach((q, index) => {
+                window.cachedQuestionsMap[q.id] = q;
+                const card = document.createElement('div');
+                card.className = `detail-q-card correct`;
+                card.style.position = 'relative';
+
+                const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+                const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                        <span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-check"></i> Correct ✔ (Risposta: ${databaseIsVero ? 'V' : 'F'})</span>
+                    </div>
+                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
+                    <div class="detail-q-text-bn" id="correct-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                        <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;" title="Pronunciation (TTS)">
+                            <i class="fa-solid fa-microphone" style="font-size:11px;"></i>
+                        </button>
+                        ${q.audio ? `
+                            <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Play MP3 Voiceover">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; max-width: 200px;" readonly>
+                        ` : ''}
+                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
+                            <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                        </button>
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
+                            <i class="fa-regular fa-bookmark"></i>
+                        </button>
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
+                            <i class="fa-regular fa-note-sticky"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        })
+        .catch(err => {
+            console.error("Error loading correct MCQs: ", err);
+            container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">সঠিক উত্তর লোড করতে সমস্যা হয়েছে।</div>`;
+        });
+}
+
+function openCachedQuestionTranslation(qId) {
+    const q = window.cachedQuestionsMap ? window.cachedQuestionsMap[qId] : null;
+    if (q) {
+        const itText = q.italian || q.question || '';
+        const bnText = q.bangla || q.bn_question || '';
+        const vocab = q.vocabulary || [];
+        openQuestionTranslationModal(itText, bnText, vocab);
+    } else {
+        showToast('অনুবাদ লোড করা সম্ভব হয়নি');
+    }
+}
+window.openCachedQuestionTranslation = openCachedQuestionTranslation;
+
+function loadWrongMcqsList() {
+    const container = document.getElementById('wrong-mcqs-list-container');
+    const countEl = document.getElementById('wrong-mcqs-count');
+    if (!container) return;
+
+    const chapSelect = document.getElementById('wrong-filter-chapter');
+    if (chapSelect && chapSelect.options.length <= 1) {
+        populateFilterChapters('wrong');
+    }
+
+    const selectedChapter = document.getElementById('wrong-filter-chapter')?.value;
+    const selectedPage = document.getElementById('wrong-filter-page')?.value;
+    const searchQuery = document.getElementById('wrong-search-input')?.value?.toLowerCase()?.trim() || '';
+
+    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
+
+    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const wrongIds = [];
+
+    Object.keys(userStats).forEach(idStr => {
+        const item = userStats[idStr];
+        if (item && typeof item === 'object') {
+            const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
+            const cCount = typeof item.correct === 'number' ? item.correct : 0;
+            if (wCount >= cCount && wCount > 0) {
+                wrongIds.push(parseInt(idStr));
+            }
+        }
+    });
+
+    if (wrongIds.length === 0) {
+        if (countEl) countEl.innerText = '0 Domande';
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
+        return;
+    }
+
+    fetch(`/api/questions/by-ids?ids=${wrongIds.join(',')}`)
+        .then(res => res.json())
+        .then(questions => {
+            let filtered = questions;
+            if (selectedChapter) {
+                filtered = filtered.filter(q => String(q.chapter) === String(selectedChapter) || String(q.chapter_id) === String(selectedChapter));
+            }
+            if (searchQuery) {
+                filtered = filtered.filter(q => (q.italian && q.italian.toLowerCase().includes(searchQuery)) || (q.bangla && q.bangla.toLowerCase().includes(searchQuery)));
+            }
+
+            if (countEl) countEl.innerText = `${filtered.length} Domande`;
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">কোনো ভুল উত্তর পাওয়া যায়নি।</div>`;
+                return;
+            }
+
+            window.cachedQuestionsMap = window.cachedQuestionsMap || {};
+            container.innerHTML = '';
+            filtered.forEach((q, index) => {
+                window.cachedQuestionsMap[q.id] = q;
+                const card = document.createElement('div');
+                card.className = `detail-q-card incorrect`;
+                card.style.position = 'relative';
+
+                const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
+                const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                        <span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Incorrect ✘ (Risposta: ${databaseIsVero ? 'V' : 'F'})</span>
+                    </div>
+                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
+                    <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                        <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;" title="Pronunciation (TTS)">
+                            <i class="fa-solid fa-microphone" style="font-size:11px;"></i>
+                        </button>
+                        ${q.audio ? `
+                            <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Play MP3 Voiceover">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; max-width: 200px;" readonly>
+                        ` : ''}
+                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
+                            <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                        </button>
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
+                            <i class="fa-regular fa-bookmark"></i>
+                        </button>
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
+                            <i class="fa-regular fa-note-sticky"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        })
+        .catch(err => {
+            console.error("Error loading wrong MCQs: ", err);
+            container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">ভুল উত্তর লোড করতে সমস্যা হয়েছে।</div>`;
+        });
+}
+
+
+
+function toggleCurrentTestBookmark() {
+    if (typeof quizData === 'undefined' || quizData.length === 0) {
+        showToast('বুকমার্ক সংরক্ষণ করা হয়েছে');
+        return;
+    }
+    const currentQ = quizData[currentQuizIndex];
+    if (!currentQ || !currentQ.id) {
+        showToast('বুকমার্ক সংরক্ষণ করা হয়েছে');
+        return;
+    }
+
+    fetch('/api/v1/saved-mcqs/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
+        body: JSON.stringify({ question_id: currentQ.id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const icon = document.getElementById('test-bookmark-icon');
+        if (data.saved) {
+            if (icon) icon.className = 'fa-solid fa-bookmark';
+            showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
+        } else {
+            if (icon) icon.className = 'fa-regular fa-bookmark';
+            showToast('প্রশ্ন বুকমার্ক থেকে সরানো হয়েছে');
+        }
+    })
+    .catch(err => {
+        showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
+    });
+}
+
+function openCurrentTestNoteModal() {
+    if (typeof quizData === 'undefined' || quizData.length === 0) {
+        openNotesModal(null, null, null, '');
+        return;
+    }
+    const currentQ = quizData[currentQuizIndex];
+    const qId = (currentQ && currentQ.id) ? currentQ.id : null;
+    openNotesModal(null, qId, null, '');
+}
+
+// --- 9. Sfida (Challenge Mode) & Leaderboard Logic ---
+let isSfidaMode = false;
+let sfidaStreak = 0;
+
+function startSfidaChallenge() {
+    isSfidaMode = true;
+    sfidaStreak = 0;
+    showToast('চ্যালেঞ্জ শুরু হচ্ছে! ভুল করলেই খেলা শেষ...');
+
+    fetch('/api/questions/exam')
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                practiceMode = 'sfida';
+                testQuestions = data.map(q => ({
+                    id: q.id,
+                    italian: q.italian || q.question || '',
+                    bangla: q.bangla || q.bn_question || '',
+                    is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                    image: q.image,
+                    audio: q.audio || q.voice,
+                    video: q.video,
+                    vocabulary: q.vocabulary || []
+                }));
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
+                openScreen('test', 'Sfida Mode');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            } else {
+                showToast('কোনো প্রশ্ন পাওয়া যায়নি');
+            }
+        })
+        .catch(() => showToast('চ্যালেঞ্জ লোড করতে সমস্যা হয়েছে'));
+}
+
+function loadLeaderboardData() {
+    const highScores = localStorage.getItem('sfida_high_score') || 0;
+    const highScoreEl = document.getElementById('sfida-user-high-score');
+    if (highScoreEl) {
+        highScoreEl.innerText = `আপনার সর্বোচ্চ স্কোর: ${highScores} পয়েন্ট`;
+    }
+
+    fetch('/api/leaderboard')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.data) {
+                renderLeaderboardUI(data.data);
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching leaderboard:', err);
+        });
+}
+
+function renderLeaderboardUI(list) {
+    const podiumContainer = document.getElementById('sfida-podium-container');
+    const listContainer = document.getElementById('sfida-leaderboard-list');
+
+    if (!podiumContainer || !listContainer) return;
+
+    podiumContainer.innerHTML = '';
+    listContainer.innerHTML = '';
+
+    if (!list || list.length === 0) {
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">কোনো ডাটা পাওয়া যায়নি</div>';
+        return;
+    }
+
+    const top3 = list.slice(0, 3);
+    const rest = list.slice(3);
+
+    const podiumColors = [
+        { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.08)', badge: '🥇', label: '1st' },
+        { border: '#94A3B8', bg: 'rgba(148, 163, 184, 0.08)', badge: '🥈', label: '2nd' },
+        { border: '#D97706', bg: 'rgba(217, 119, 6, 0.08)', badge: '🥉', label: '3rd' }
+    ];
+
+    top3.forEach((user, index) => {
+        const styleInfo = podiumColors[index] || podiumColors[0];
+        const cardHtml = `
+            <div style="background: var(--bg-card); border: 2px solid ${styleInfo.border}; border-radius: 16px; padding: 14px 8px; text-align: center; box-shadow: var(--shadow-card); position: relative; display: flex; flex-direction: column; align-items: center;">
+                <span style="position: absolute; top: -10px; font-size: 18px;">${styleInfo.badge}</span>
+                <img src="${user.avatar}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; margin-top: 6px; margin-bottom: 6px; border: 2px solid ${styleInfo.border};" alt="${user.name}">
+                <div style="font-size: 12px; font-weight: 800; color: var(--text-primary); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.name}</div>
+                <div style="font-size: 11px; font-weight: 900; color: #6366F1; margin-top: 4px;">${user.points} pts</div>
+                <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px; display: flex; gap: 4px; align-items: center;">
+                    <span style="color:#4CAF50; font-weight:700;">✓ ${user.correct_count}</span>
+                    <span style="color:#EF4444; font-weight:700;">✗ ${user.wrong_count}</span>
+                </div>
+            </div>
+        `;
+        podiumContainer.innerHTML += cardHtml;
+    });
+
+    list.forEach((user, idx) => {
+        const rankNum = idx + 1;
+        const itemHtml = `
+            <div style="background: var(--bg-card); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-card); border: 1px solid var(--border-card);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-page); border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text-primary); flex-shrink: 0;">
+                        #${rankNum}
+                    </div>
+                    <img src="${user.avatar}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" alt="${user.name}">
+                    <div style="min-width: 0;">
+                        <div style="font-size: 13px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.name}</div>
+                        <div style="font-size: 10px; color: var(--text-secondary); display: flex; gap: 8px; margin-top: 2px;">
+                            <span>মোট: <b>${user.total_attempted}</b></span>
+                            <span style="color:#4CAF50;">সঠিক: <b>${user.correct_count}</b></span>
+                            <span style="color:#EF4444;">ভুল: <b>${user.wrong_count}</b></span>
+                        </div>
+                    </div>
+                </div>
+                <div style="background: rgba(99, 102, 241, 0.1); color: #6366F1; font-weight: 900; font-size: 12px; padding: 4px 10px; border-radius: 12px; flex-shrink: 0; margin-left: 8px;">
+                    ${user.points} pts
+                </div>
+            </div>
+        `;
+        listContainer.innerHTML += itemHtml;
+    });
+}
+
+// --- 10. User Profile & Avatar Edit Logic ---
+let uploadedAvatarBase64 = null;
+
+function loadUserProfileData() {
+    fetch('/api/user/profile')
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success' && res.data) {
+                const nameInput = document.getElementById('profile-name-input');
+                const avatarImg = document.getElementById('profile-avatar-img');
+                const examsEl = document.getElementById('stats-exams');
+                const errorsEl = document.getElementById('stats-errors');
+
+                const name = res.data.name || localStorage.getItem('user_profile_name') || '';
+                const avatar = res.data.avatar || localStorage.getItem('user_profile_avatar') || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=6366F1&color=fff`;
+
+                if (nameInput) nameInput.value = name;
+                if (avatarImg) avatarImg.src = avatar;
+                if (examsEl) examsEl.innerText = res.data.completed_exams !== undefined ? res.data.completed_exams : '0';
+                if (errorsEl) errorsEl.innerText = res.data.avg_errors !== undefined ? res.data.avg_errors : '0.0';
+
+                localStorage.setItem('user_profile_name', name);
+                localStorage.setItem('user_profile_avatar', avatar);
+            }
+        })
+        .catch(() => {
+            const nameInput = document.getElementById('profile-name-input');
+            const avatarImg = document.getElementById('profile-avatar-img');
+            const name = localStorage.getItem('user_profile_name') || '';
+            const avatar = localStorage.getItem('user_profile_avatar') || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=6366F1&color=fff`;
+
+            if (nameInput) nameInput.value = name;
+            if (avatarImg) avatarImg.src = avatar;
+        });
+}
+
+function handleAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('ছবি অবশ্যই ৫ MB এর ছোট হতে হবে');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        uploadedAvatarBase64 = e.target.result;
+        const avatarImg = document.getElementById('profile-avatar-img');
+        if (avatarImg) avatarImg.src = uploadedAvatarBase64;
+    };
+    reader.readAsDataURL(file);
+}
+
+function validateProfileNameInput() {
+    const hint = document.getElementById('profile-name-hint');
+    if (hint) {
+        hint.innerText = '';
+        hint.style.color = 'var(--text-secondary)';
+    }
+}
+
+function saveUserProfile() {
+    const nameInput = document.getElementById('profile-name-input');
+    const hint = document.getElementById('profile-name-hint');
+    const name = nameInput ? nameInput.value.trim() : '';
+
+    if (!name) {
+        if (hint) {
+            hint.innerText = '⚠️ অনুগ্রহ করে আপনার নাম লিখুন।';
+            hint.style.color = '#ef4444';
+        }
+        showToast('আপনার নাম প্রয়োজন');
+        return;
+    }
+
+    const payload = {
+        name: name,
+        avatar: uploadedAvatarBase64
+    };
+
+    fetch('/api/user/profile/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            localStorage.setItem('user_profile_name', data.data.name);
+            if (data.data.avatar) {
+                localStorage.setItem('user_profile_avatar', data.data.avatar);
+            }
+            if (hint) {
+                hint.innerText = '✓ ' + data.message;
+                hint.style.color = '#4CAF50';
+            }
+            showToast('প্রোফাইল আপডেট করা হয়েছে!');
+            if (typeof loadLeaderboardData === 'function') {
+                loadLeaderboardData();
+            }
+        } else {
+            if (hint) {
+                hint.innerText = '❌ ' + (data.message || 'আপডেট করতে সমস্যা হয়েছে।');
+                hint.style.color = '#ef4444';
+            }
+            showToast(data.message || 'আপডেট করতে ব্যর্থ হয়েছে');
+        }
+    })
+    .catch(err => {
+        if (hint) {
+            hint.innerText = '❌ কোনো নেটওয়ার্ক সমস্যা হয়েছে।';
+            hint.style.color = '#ef4444';
+        }
+    });
+}
+
+// --- 11. Manuale (Theory Guidebook) Logic ---
+let allManualeTopics = [];
+
+function loadManualeTopics() {
+    fetch('/api/manuale')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.data) {
+                allManualeTopics = data.data;
+                renderManualeTopics(allManualeTopics);
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching manuale topics:', err);
+            const container = document.getElementById('manuale-topics-container');
+            if (container) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">ম্যানুয়াল লোড করতে সমস্যা হয়েছে</div>';
+            }
+        });
+}
+
+function renderManualeTopics(topics) {
+    const container = document.getElementById('manuale-topics-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!topics || topics.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-secondary);">কোনো থিওরি পাওয়া যায়নি</div>';
+        return;
+    }
+
+    topics.forEach((item, index) => {
+        const imgHtml = item.image_path ? `
+            <div style="width: 100%; max-height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; background: #000;">
+                <img src="${item.image_path}" style="width: 100%; height: 100%; object-fit: contain; display: block;" alt="${item.title}">
+            </div>
+        ` : '';
+
+        const cardHtml = `
+            <div class="content-card" style="padding: 20px; border-radius: 16px; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="background: rgba(37, 99, 235, 0.12); color: #2563EB; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 10px;">
+                        Capitolo ${item.chapter_number || (index + 1)}
+                    </span>
+                    <span style="font-size: 11px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-book-open"></i> Theory
+                    </span>
+                </div>
+                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; line-height: 1.4;">
+                    ${item.title}
+                </h3>
+                ${imgHtml}
+                <div style="font-size: 14px; color: var(--text-primary); line-height: 1.6; font-weight: 500;">
+                    ${highlightDictionaryTerms(item.content || '', item.vocabulary || [])}
+                </div>
+            </div>
+        `;
+        container.innerHTML += cardHtml;
+    });
+}
+
+function filterManualeTopics() {
+    const input = document.getElementById('manuale-search-input');
+    const query = input ? input.value.trim().toLowerCase() : '';
+
+    if (!query) {
+        renderManualeTopics(allManualeTopics);
+        return;
+    }
+
+    const filtered = allManualeTopics.filter(item => {
+        const titleMatch = item.title && item.title.toLowerCase().includes(query);
+        const contentMatch = item.content && item.content.toLowerCase().includes(query);
+        const chapMatch = item.chapter_number && item.chapter_number.toString().includes(query);
+        return titleMatch || contentMatch || chapMatch;
+    });
+
+    renderManualeTopics(filtered);
+}
+
 
 
 

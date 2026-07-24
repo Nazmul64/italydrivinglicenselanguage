@@ -11,8 +11,8 @@
 
     <div class="content-card quiz-box">
         <div style="font-size: 13px; font-weight: bold; color: #3B82F6;" id="exam-question-number">প্রশ্ন ১</div>
-        <div class="question-text" id="exam-question-it">Il limite massimo di velocità sulle autostrade è di 130 km/h per le autovetture.</div>
-        <div class="question-bangla" id="exam-question-bn">মোটরগাড়ির জন্য হাইওয়েতে সর্বোচ্চ গতিসীমা ১৩০ কিমি/ঘণ্টা।</div>
+        <div class="question-text" id="exam-question-it">Caricamento della domanda...</div>
+        <div class="question-bangla" id="exam-question-bn" style="display: none;">প্রশ্ন লোড হচ্ছে...</div>
         
         <div class="answer-buttons">
             <button class="ans-btn btn-vero" id="exam-vero-btn" onclick="answerSchedaExamQuestion(true)">

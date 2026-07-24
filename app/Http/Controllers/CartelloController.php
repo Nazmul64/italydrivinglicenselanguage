@@ -125,6 +125,7 @@ class CartelloController extends Controller
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
             'sort_order'     => 'nullable|integer',
+            'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
         ]);
 
         // Max 25 chapters check
@@ -136,12 +137,18 @@ class CartelloController extends Controller
             ], 422);
         }
 
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/cartelli/chapters', 'cartello_chap_' . time(), 800, 80);
+        }
+
         $chapter = CartelloChapter::create([
             'category_id'    => $request->category_id,
             'name'           => $request->name,
             'bn_name'        => $request->bn_name,
             'chapter_number' => $request->chapter_number,
             'sort_order'     => $request->sort_order ?? 0,
+            'image'          => $imagePath,
             'status'         => true,
         ]);
 
@@ -157,6 +164,7 @@ class CartelloController extends Controller
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
             'sort_order'     => 'nullable|integer',
+            'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
         ]);
 
         // Max 25 chapters check if changing category
@@ -170,13 +178,22 @@ class CartelloController extends Controller
             }
         }
 
-        $chapter->update([
+        $data = [
             'category_id'    => $request->category_id,
             'name'           => $request->name,
             'bn_name'        => $request->bn_name,
             'chapter_number' => $request->chapter_number,
             'sort_order'     => $request->sort_order ?? $chapter->sort_order,
-        ]);
+        ];
+
+        if ($request->hasFile('image')) {
+            if ($chapter->image && Storage::disk('public')->exists(str_replace('/storage/', '', $chapter->image))) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', $chapter->image));
+            }
+            $data['image'] = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/cartelli/chapters', 'cartello_chap_' . $chapter->id . '_' . time(), 800, 80);
+        }
+
+        $chapter->update($data);
 
         return response()->json(['success' => true, 'chapter' => $chapter]);
     }
@@ -498,25 +515,6 @@ class CartelloController extends Controller
         
         $mcqs = CartelloMcq::where('page_id', $pageId)->where('status', true)->orderBy('sort_order', 'asc')->get();
 
-        if ($mcqs->isEmpty()) {
-            $mcqs = collect([
-                [
-                    'id'             => $page->id,
-                    'page_id'        => $page->id,
-                    'question'       => $page->title,
-                    'bn_question'    => $page->bn_title,
-                    'correct_answer' => $page->is_vero ? 'vero' : 'falso',
-                    'explanation'    => $page->description,
-                    'bn_explanation' => $page->bn_description,
-                    'image'          => $page->image,
-                    'voice'          => $page->voice,
-                    'translation'    => $page->translation,
-                    'vocabulary'     => $page->vocabulary ?? [],
-                    'status'         => $page->status,
-                ]
-            ]);
-        }
-
         return response()->json($mcqs);
     }
 
@@ -579,10 +577,10 @@ class CartelloController extends Controller
         }
 
         $voicePath = null;
-        if ($request->hasFile('voice')) {
-            $file = $request->file('voice');
-            $fileName = 'mcq_voice_' . uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('uploads/cartello_mcqs/voices'), $fileName);
+        $voiceFile = $request->file('voice') ?: $request->file('audio');
+        if ($voiceFile) {
+            $fileName = 'mcq_voice_' . uniqid() . '_' . time() . '.' . $voiceFile->getClientOriginalExtension();
+            $voiceFile->move(public_path('uploads/cartello_mcqs/voices'), $fileName);
             $voicePath = '/uploads/cartello_mcqs/voices/' . $fileName;
         }
 
@@ -651,6 +649,7 @@ class CartelloController extends Controller
             'bn_explanation' => 'nullable|string',
             'image'          => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'voice'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
+            'audio'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
             'video'          => 'nullable|file|mimes:mp4,mov,avi,qt,webm|max:51200',
         ]);
 
@@ -667,13 +666,13 @@ class CartelloController extends Controller
         }
 
         $voicePath = $mcq->voice;
-        if ($request->hasFile('voice')) {
+        $voiceFile = $request->file('voice') ?: $request->file('audio');
+        if ($voiceFile) {
             if ($mcq->voice && file_exists(public_path($mcq->voice))) {
                 @unlink(public_path($mcq->voice));
             }
-            $file = $request->file('voice');
-            $fileName = 'mcq_voice_' . uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('uploads/cartello_mcqs/voices'), $fileName);
+            $fileName = 'mcq_voice_' . uniqid() . '_' . time() . '.' . $voiceFile->getClientOriginalExtension();
+            $voiceFile->move(public_path('uploads/cartello_mcqs/voices'), $fileName);
             $voicePath = '/uploads/cartello_mcqs/voices/' . $fileName;
         }
 
@@ -718,12 +717,12 @@ class CartelloController extends Controller
 
         $mcq->update([
             'page_id'        => $request->page_id ?? $mcq->page_id,
-            'sort_order'     => $request->sort_order ?? $mcq->sort_order,
-            'question'       => $request->question ?? $mcq->question,
-            'bn_question'    => $request->bn_question ?? $mcq->bn_question,
-            'correct_answer' => strtolower($request->correct_answer ?? $mcq->correct_answer),
-            'explanation'    => $request->explanation ?? $mcq->explanation,
-            'bn_explanation' => $request->bn_explanation ?? $mcq->bn_explanation,
+            'sort_order'     => $request->has('sort_order') ? $request->sort_order : $mcq->sort_order,
+            'question'       => $request->has('question') ? $request->question : $mcq->question,
+            'bn_question'    => $request->has('bn_question') ? $request->bn_question : $mcq->bn_question,
+            'correct_answer' => $request->has('correct_answer') ? strtolower($request->correct_answer) : $mcq->correct_answer,
+            'explanation'    => $request->has('explanation') ? $request->explanation : $mcq->explanation,
+            'bn_explanation' => $request->has('bn_explanation') ? $request->bn_explanation : $mcq->bn_explanation,
             'image'          => $imagePath,
             'voice'          => $voicePath,
             'video'          => $videoPath,

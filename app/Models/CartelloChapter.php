@@ -13,6 +13,7 @@ class CartelloChapter extends Model
         'name',
         'bn_name',
         'chapter_number',
+        'image',
         'sort_order',
         'status',
     ];

@@ -106,34 +106,40 @@ class ArgomentiController extends Controller
      */
     public function toggleSavedMcq(Request $request)
     {
-        $request->validate([
-            'question_id' => 'required|integer',
-        ]);
-
-        $sessionId = $request->input('session_id') ?: session()->getId();
-        $userId = $request->input('user_id');
-        $questionId = $request->input('question_id');
-
-        // Check if already saved
-        $query = SavedMcq::where('question_id', $questionId);
-        if ($userId) {
-            $query->where('user_id', $userId);
-        } else {
-            $query->where('session_id', $sessionId);
-        }
-
-        $existing = $query->first();
-
-        if ($existing) {
-            $existing->delete();
-            return response()->json(['saved' => false, 'message' => 'Question removed from bookmarks.']);
-        } else {
-            SavedMcq::create([
-                'session_id' => $userId ? null : $sessionId,
-                'user_id' => $userId,
-                'question_id' => $questionId
+        try {
+            $request->validate([
+                'question_id' => 'required',
             ]);
-            return response()->json(['saved' => true, 'message' => 'Question added to bookmarks.']);
+
+            $user = auth()->user();
+            $userId = $user ? $user->id : $request->input('user_id');
+            $sessionId = session()->getId();
+            $questionId = $request->input('question_id');
+
+            // Check if already saved
+            $query = SavedMcq::where('question_id', $questionId);
+            if ($userId) {
+                $query->where('user_id', $userId);
+            } else {
+                $query->where('session_id', $sessionId);
+            }
+
+            $existing = $query->first();
+
+            if ($existing) {
+                $existing->delete();
+                return response()->json(['saved' => false, 'message' => 'Question removed from bookmarks.']);
+            } else {
+                SavedMcq::create([
+                    'session_id' => $userId ? null : $sessionId,
+                    'user_id' => $userId,
+                    'question_id' => $questionId
+                ]);
+                return response()->json(['saved' => true, 'message' => 'Question added to bookmarks.']);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Error toggling saved mcq: " . $e->getMessage());
+            return response()->json(['saved' => false, 'message' => 'Failed to save question.'], 200);
         }
     }
 

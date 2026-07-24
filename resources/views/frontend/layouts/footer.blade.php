@@ -1,12 +1,11 @@
         <!-- 4. Interactive Video Dialog Modal -->
-        <div class="video-modal" id="video-player-modal">
-            <div class="video-close-btn" onclick="closeVideoPlayer()"><i class="fa-solid fa-xmark"></i></div>
-            <div class="video-player-container">
-                <i class="fa-solid fa-play video-control-play" onclick="simulateVideoPlaying()"></i>
+        <div class="video-modal" id="video-player-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); z-index: 999999; flex-direction: column; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
+            <div class="video-close-btn" onclick="closeVideoPlayer()" style="position: absolute; top: 20px; right: 24px; font-size: 22px; color: white; cursor: pointer; z-index: 1000000; width: 42px; height: 42px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;"><i class="fa-solid fa-xmark"></i></div>
+            <div class="video-player-container" id="video-player-box" style="width: 100%; max-width: 1050px; aspect-ratio: 16/9; background: #000; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; box-shadow: 0 12px 40px rgba(0,0,0,0.8);">
             </div>
-            <div style="color: white; text-align: center; padding: 20px;">
-                <h4 id="video-player-title" style="font-size: 16px; font-weight: bold;">ভিডিও প্লেয়ার</h4>
-                <p id="video-player-sub" style="font-size: 12px; opacity: 0.7; margin-top: 4px;">লোডিং হচ্ছে...</p>
+            <div style="color: white; text-align: center; padding: 16px 0 0 0; max-width: 1050px; width: 100%;">
+                <h4 id="video-player-title" style="font-size: 18px; font-weight: 800; color: #fff;">ভিডিও প্লেয়ার</h4>
+                <p id="video-player-sub" style="font-size: 13px; opacity: 0.8; margin-top: 4px;">লোডিং হচ্ছে...</p>
             </div>
         </div>
 
@@ -157,7 +156,7 @@
 
         <!-- Question Translation Details Modal Overlay -->
         <div class="activation-lock-overlay" id="q-translation-modal" style="display: none; z-index: 99999;">
-            <div class="lock-card" style="padding: 24px; max-width: 320px; border-radius: 24px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.1); background-color: var(--bg-card); display: flex; flex-direction: column; gap: 16px; align-items: stretch; border: 1px solid var(--border-card);">
+            <div class="lock-card" style="padding: 24px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; border-radius: 24px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.15); background-color: var(--bg-card); display: flex; flex-direction: column; gap: 16px; align-items: stretch; border: 1px solid var(--border-card);">
                 <div id="q-translation-it" style="font-size: 16px; font-weight: 700; color: var(--text-primary); line-height: 1.4; margin-top: 4px;">
                     La carreggiata non comprende le piste ciclabili
                 </div>
@@ -246,8 +245,8 @@
                 <h3 id="dict-modal-title" style="margin: 0; font-size: 22px; font-weight: 500; color: var(--text-primary, #1e293b); text-transform: uppercase; letter-spacing: 0.5px;">STRADA</h3>
                 
                 <!-- Illustration Image -->
-                <div id="dict-modal-image-container" style="width: 100%; height: 170px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.02);">
-                    <img id="dict-modal-image" src="" style="width: 100%; height: 100%; object-fit: contain;" alt="Diagram">
+                <div id="dict-modal-image-container" style="width: 100%; height: 170px; border-radius: 8px; overflow: hidden; display: none; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.04);">
+                    <img id="dict-modal-image" src="" style="width: 100%; height: 100%; object-fit: contain;" alt="Diagram" onerror="this.parentElement.style.display='none';">
                 </div>
 
                 <!-- Illustration Video -->
@@ -518,6 +517,25 @@
     <!-- External JavaScript Separated Asset -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <script>
+        window.APP_SETTINGS = @json($setting ?? null);
+    </script>
     <script src="{{ asset('js/frontend/app.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/cartelli.js') }}?v={{ time() }}"></script>
+
+    <!-- Modular Feature JS Scripts -->
+    <script src="{{ asset('js/frontend/modules/lezioni.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/test.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/argomenti.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/eclass.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/sfida.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/scheda_esame.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/dizionario.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/saved_mcqs.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/correct_mcqs.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/wrong_mcqs.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/support.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/social.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/translation.js') }}?v={{ time() }}"></script>
 </body>
 </html>

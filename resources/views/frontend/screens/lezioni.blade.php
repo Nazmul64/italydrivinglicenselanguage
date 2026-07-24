@@ -6,7 +6,8 @@
     </div>
     
     @foreach($lectureClasses as $class)
-        <div class="content-card lesson-item" onclick="playLesson('{{ $class->title }}', '{{ $class->duration }}')">
+        @php $vUrl = $class->video_url ?? $class->youtube_url ?? $class->vimeo_url ?? $class->video_path ?? ''; @endphp
+        <div class="content-card lesson-item" onclick="playLesson('{{ addslashes($class->title) }}', '{{ addslashes($class->duration) }}', '{{ addslashes($vUrl) }}')">
             <div class="lesson-thumbnail">
                 <img src="{{ $class->thumbnail_url }}" alt="{{ $class->title }}">
                 <i class="fa-solid fa-circle-play"></i>

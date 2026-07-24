@@ -33,7 +33,7 @@
     </div>
 
     <!-- Unified Page Details Master Card -->
-    <div class="content-card" style="padding: 16px; margin-bottom: 90px; display: flex; flex-direction: column; gap: 16px;">
+    <div style="margin-bottom: 90px; display: flex; flex-direction: column; gap: 16px;">
         <!-- Video Player Section matching screenshot -->
         <div id="page-details-video-container" style="display: none; width: 100%; border-radius: 12px; overflow: hidden; background-color: #000; position: relative;">
             <!-- Native Video Element or Youtube iframe wrapper -->
@@ -43,9 +43,7 @@
         </div>
 
         <!-- Page Text Content -->
-        <div id="page-details-content-text" style="font-size: 13px; color: var(--text-primary); line-height: 1.6; font-weight: 600;">
-            Definizioni generali del traffico e delle parti della strada pubblica.
-        </div>
+        <div id="page-details-content-text" style="font-size: 13px; color: var(--text-primary); line-height: 1.6; font-weight: 600;"></div>
         
         <!-- Optional Page Image (Placed at top above questions list, matching red circle) -->
         <div id="page-details-media-container" style="display: none; width: 100%; text-align: center; border-radius: 12px; overflow: hidden; background-color: var(--bg-page); padding: 12px; margin-bottom: 12px;">
@@ -63,19 +61,11 @@
             <!-- Question cards injected by JS -->
         </div>
 
-        <!-- Next / Prev Page Navigation Block -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid var(--border-card); padding-top: 16px;">
-            <button class="pill-btn" id="page-nav-prev" onclick="navigateToSiblingPage(-1)" style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; padding: 8px 16px; border-radius: 12px;">
-                <i class="fa-solid fa-chevron-left"></i> Prec (পূর্ববর্তী)
-            </button>
-            <button class="pill-btn" id="page-nav-next" onclick="navigateToSiblingPage(1)" style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; padding: 8px 16px; border-radius: 12px;">
-                Succ (পরবর্তী) <i class="fa-solid fa-chevron-right"></i>
-            </button>
-        </div>
+
     </div>
 
     <!-- Fixed Bottom Controls Row matching screenshot 4 -->
-    <div style="position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 100%; display: flex; justify-content: space-between; padding: 10px 16px; background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--border-card); z-index: 99; gap: 12px; box-shadow: 0 -4px 10px rgba(0,0,0,0.03);">
+    <div style="position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 100%; display: flex; justify-content: space-between; padding: 10px 16px; background-color: var(--bg-card); border-top: 1px solid var(--border-card); z-index: 99; gap: 12px; box-shadow: 0 -4px 10px rgba(0,0,0,0.03);">
         <!-- Play All Speech Button -->
         <button class="action-btn" id="page-play-all-btn" onclick="togglePlayAllPageQuestions()" style="flex: 1; background-color: var(--accent-green); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; border-radius: 12px; margin: 0; padding: 12px;">
             <i class="fa-solid fa-circle-play"></i>

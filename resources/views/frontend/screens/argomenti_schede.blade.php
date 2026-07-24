@@ -18,8 +18,9 @@
 
     <!-- Pills matching screenshot -->
     <div style="display: flex; gap: 8px; margin-bottom: 16px; justify-content: flex-start;">
-        <button class="pill-btn" onclick="unselectAllSheets()">Unselect All</button>
-        <button class="pill-btn active" onclick="selectAllSheets()">Select All</button>
+        <button class="pill-btn active" id="pill-argomenti-unselect" onclick="unselectAllSheets()">Unselect All</button>
+        <button class="pill-btn" id="pill-argomenti-select" onclick="toggleSelectSheets()">Select</button>
+        <button class="pill-btn" id="pill-argomenti-select-all" onclick="selectAllSheets()">Select All</button>
     </div>
 
     <div id="argomenti-schede-list" class="argomenti-schede-grid">

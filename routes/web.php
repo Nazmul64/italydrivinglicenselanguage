@@ -9,14 +9,230 @@ Route::get('/', function () {
     $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
     $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
     $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
-    return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo'));
+    $setting = \App\Models\Setting::first();
+    return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
 });
+
+Route::get('/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
 
 Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(function () {
     // Front-end MCQ API Endpoints
     Route::get('/api/questions/exam', function () {
-        $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
-        return response()->json($questions);
+        $argomentiQuestions = \App\Models\Question::inRandomOrder()->limit(30)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'argomenti',
+                'italian' => $q->italian,
+                'bangla' => $q->bangla,
+                'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->audio,
+                'video' => $q->video,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        $cartelliQuestions = \App\Models\CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'cartelli',
+                'italian' => $q->question,
+                'bangla' => $q->bn_question,
+                'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->voice,
+                'video' => $q->video,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
+        return response()->json($combined);
+    });
+
+    Route::get('/api/dashboard/cards', [\App\Http\Controllers\DynamicContentController::class, 'getPublicHomeCards']);
+    Route::get('/api/dashboard/banners', [\App\Http\Controllers\DynamicContentController::class, 'getPublicSliders']);
+    Route::get('/api/sliders', [\App\Http\Controllers\DynamicContentController::class, 'getPublicSliders']);
+
+    Route::get('/api/leaderboard', function () {
+        $rankings = \Illuminate\Support\Facades\DB::table('user_mcq_results')
+            ->join('users', 'users.id', '=', 'user_mcq_results.user_id')
+            ->select(
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.avatar_url',
+                \Illuminate\Support\Facades\DB::raw('COUNT(user_mcq_results.id) as total_attempted'),
+                \Illuminate\Support\Facades\DB::raw('SUM(CASE WHEN user_mcq_results.is_correct = 1 THEN 1 ELSE 0 END) as correct_count'),
+                \Illuminate\Support\Facades\DB::raw('SUM(CASE WHEN user_mcq_results.is_correct = 0 THEN 1 ELSE 0 END) as wrong_count')
+            )
+            ->groupBy('users.id', 'users.name', 'users.email', 'users.avatar_url')
+            ->orderByDesc('correct_count')
+            ->orderByDesc('total_attempted')
+            ->limit(20)
+            ->get();
+
+        $formatted = [];
+        $rank = 1;
+
+        foreach ($rankings as $row) {
+            $formatted[] = [
+                'rank' => $rank++,
+                'name' => $row->name,
+                'total_attempted' => (int)$row->total_attempted,
+                'correct_count' => (int)$row->correct_count,
+                'wrong_count' => (int)$row->wrong_count,
+                'points' => (int)$row->correct_count * 10,
+                'avatar' => $row->avatar_url ?? ('https://ui-avatars.com/api/?name=' . urlencode($row->name) . '&background=6366F1&color=fff')
+            ];
+        }
+
+        // If no user_mcq_results yet, fallback to registered Users with 0/real DB counts
+        if (count($formatted) === 0) {
+            $allUsers = \App\Models\User::orderBy('id', 'asc')->limit(10)->get();
+            foreach ($allUsers as $u) {
+                $attempted = \App\Models\UserMcqResult::where('user_id', $u->id)->count();
+                $correct = \App\Models\UserMcqResult::where('user_id', $u->id)->where('is_correct', 1)->count();
+                $wrong = \App\Models\UserMcqResult::where('user_id', $u->id)->where('is_correct', 0)->count();
+
+                $formatted[] = [
+                    'rank' => $rank++,
+                    'name' => $u->name,
+                    'total_attempted' => $attempted,
+                    'correct_count' => $correct,
+                    'wrong_count' => $wrong,
+                    'points' => $correct * 10,
+                    'avatar' => $u->avatar_url ?? ('https://ui-avatars.com/api/?name=' . urlencode($u->name) . '&background=6366F1&color=fff')
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $formatted
+        ]);
+    });
+
+    Route::get('/api/user/profile', function (Request $request) {
+        $user = auth()->user();
+        $userId = $user ? $user->id : null;
+        $sessionId = session()->getId();
+
+        $query = \App\Models\UserMcqResult::query();
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where(function($q) use ($sessionId) {
+                $q->where('session_id', $sessionId);
+            });
+        }
+
+        $totalAttempted = $query->count();
+        $totalCorrect = (clone $query)->where('is_correct', 1)->count();
+        $totalWrong = (clone $query)->where('is_correct', 0)->count();
+
+        $completedExams = $totalAttempted > 0 ? (int)ceil($totalAttempted / 30) : 0;
+        $avgErrors = $completedExams > 0 ? round($totalWrong / $completedExams, 1) : 0;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'name' => $user ? $user->name : session('user_name', 'ব্যবহারকারী'),
+                'email' => $user ? $user->email : '',
+                'avatar' => $user ? ($user->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=6366F1&color=fff') : session('user_avatar', 'https://ui-avatars.com/api/?name=User&background=6366F1&color=fff'),
+                'completed_exams' => $completedExams,
+                'avg_errors' => $avgErrors,
+                'total_correct' => $totalCorrect,
+                'total_wrong' => $totalWrong
+            ]
+        ]);
+    });
+
+    Route::post('/api/user/profile/update', function (Request $request) {
+        $name = trim($request->input('name'));
+        $avatar = $request->input('avatar');
+
+        if (empty($name)) {
+            return response()->json(['status' => 'error', 'message' => 'নাম প্রদান করুন।'], 422);
+        }
+
+        $currentUser = auth()->user();
+        $currentUserId = $currentUser ? $currentUser->id : null;
+
+        $nameExists = \App\Models\User::whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->when($currentUserId, function($q) use ($currentUserId) {
+                return $q->where('id', '!=', $currentUserId);
+            })
+            ->exists();
+
+        if ($nameExists) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'এই নামটি ইতিমধ্যে অন্য একজন ব্যবহারকারী ব্যবহার করছেন! অনুগ্রহ করে অন্য একটি ইউনিক নাম বেছে নিন।'
+            ], 422);
+        }
+
+        if ($currentUser) {
+            $currentUser->name = $name;
+            if ($avatar) {
+                $currentUser->avatar_url = $avatar;
+            }
+            $currentUser->save();
+        }
+
+        session(['user_name' => $name]);
+        if ($avatar) {
+            session(['user_avatar' => $avatar]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'প্রোফাইল সফলভাবে আপডেট করা হয়েছে!',
+            'data' => [
+                'name' => $name,
+                'avatar' => $avatar ?? ($currentUser->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=6366F1&color=fff')
+            ]
+        ]);
+    });
+
+
+
+    Route::get('/api/questions/by-ids', function (Request $request) {
+        $ids = $request->query('ids');
+        if (!$ids) {
+            return response()->json([]);
+        }
+        $idList = array_filter(array_map('intval', explode(',', $ids)));
+        
+        $argomenti = \App\Models\Question::whereIn('id', $idList)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'argomenti',
+                'chapter' => $q->chapter,
+                'italian' => $q->italian,
+                'bangla' => $q->bangla,
+                'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero',
+                'image' => $q->image,
+                'audio' => $q->audio,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        $cartelli = \App\Models\CartelloMcq::whereIn('id', $idList)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'cartelli',
+                'chapter' => $q->chapter_id,
+                'italian' => $q->question,
+                'bangla' => $q->bn_question,
+                'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->voice,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        return response()->json($argomenti->concat($cartelli));
     });
 
     Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
@@ -38,17 +254,41 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     });
 
     Route::get('/api/questions/random-test', function () {
-        $questions = \App\Models\Question::inRandomOrder()->limit(30)->get();
-        return response()->json($questions);
+        $argomentiQuestions = \App\Models\Question::inRandomOrder()->limit(30)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'argomenti',
+                'italian' => $q->italian,
+                'bangla' => $q->bangla,
+                'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->audio,
+                'video' => $q->video,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        $cartelliQuestions = \App\Models\CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function($q) {
+            return [
+                'id' => $q->id,
+                'type' => 'cartelli',
+                'italian' => $q->question,
+                'bangla' => $q->bn_question,
+                'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->voice,
+                'video' => $q->video,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+
+        $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
+        return response()->json($combined);
     });
 
     // Public Classes API
     Route::get('/api/classes', [\App\Http\Controllers\DynamicContentController::class, 'getLectureClasses']);
     Route::get('/api/live-classes', [\App\Http\Controllers\DynamicContentController::class, 'getLiveClasses']);
-
-    // Dizionario Public API Endpoints
-    Route::get('/api/dizionario', [\App\Http\Controllers\DizionarioController::class, 'getDictionary']);
-
     // Argomenti Public API Endpoints
     Route::get('/api/chapters', [\App\Http\Controllers\ArgomentiController::class, 'getChapters']);
     Route::get('/api/chapters/{id}/pages', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPages']);
@@ -65,7 +305,15 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::get('/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
     Route::get('/api/exams/{id}', [\App\Http\Controllers\ExamSheetController::class, 'getExamDetails']);
     Route::post('/api/exams/{id}/submit', [\App\Http\Controllers\ExamSheetController::class, 'submitExam']);
+
+    // Cartelli Module Public API Routes
+    Route::get('/api/cartelli/categories', [\App\Http\Controllers\CartelloController::class, 'publicGetCategories']);
+    Route::get('/api/cartelli/chapters', [\App\Http\Controllers\CartelloController::class, 'publicGetAllChapters']);
+    Route::get('/api/cartelli/chapters/{categoryId}', [\App\Http\Controllers\CartelloController::class, 'publicGetChapters']);
+    Route::get('/api/cartelli/pages/{chapterId}', [\App\Http\Controllers\CartelloController::class, 'publicGetPages']);
+    Route::get('/api/cartelli/page-mcqs/{pageId}', [\App\Http\Controllers\CartelloController::class, 'publicGetPageMcqs']);
 });
+
 
 // Public Sliders & Promo API (accessible without license activation)
 Route::get('/api/sliders', [\App\Http\Controllers\DynamicContentController::class, 'getSliders']);
@@ -321,6 +569,22 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             });
             
         return response()->json($conversations);
+    });
+
+    Route::get('/admin/api/chat/unread-count', function () {
+        $conversations = \App\Models\Message::select('session_id')
+            ->selectRaw('MAX(id) as max_id')
+            ->groupBy('session_id')
+            ->get();
+
+        $unreadCount = 0;
+        foreach ($conversations as $c) {
+            $latest = \App\Models\Message::find($c->max_id);
+            if ($latest && $latest->sender !== 'admin') {
+                $unreadCount++;
+            }
+        }
+        return response()->json(['unread_count' => $unreadCount]);
     });
 
     Route::get('/admin/api/chat/messages/{session_id}', function ($session_id) {
@@ -835,3 +1099,436 @@ Route::get('/api/cartello-categories/{categoryId}/chapters', [\App\Http\Controll
 Route::get('/api/cartello-chapters', [\App\Http\Controllers\CartelloController::class, 'publicGetAllChapters']);
 Route::get('/api/cartello-chapters/{chapterId}/pages', [\App\Http\Controllers\CartelloController::class, 'publicGetPages']);
 Route::get('/api/cartello-pages/{pageId}/mcqs', [\App\Http\Controllers\CartelloController::class, 'publicGetPageMcqs']);
+
+// Public Manuale (Theory Guidebook) API
+Route::get('/api/manuale', function () {
+    $items = \App\Models\Manuale::where('status', true)->orderBy('chapter_number', 'asc')->orderBy('order_index', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'data' => $items
+    ]);
+});
+
+// Admin Manuale API Endpoints
+Route::get('/api/admin/manuale', function () {
+    $items = \App\Models\Manuale::orderBy('chapter_number', 'asc')->orderBy('order_index', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'data' => $items
+    ]);
+});
+Route::get('/admin/api/manuale', function () {
+    $items = \App\Models\Manuale::orderBy('chapter_number', 'asc')->orderBy('order_index', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'data' => $items
+    ]);
+});
+
+$saveManualeHandler = function (Request $request, $id = null) {
+    $manuale = $id ? \App\Models\Manuale::findOrFail($id) : new \App\Models\Manuale();
+
+    $vocabData = [];
+    if ($request->has('vocab_italian') && is_array($request->input('vocab_italian'))) {
+        $italians = $request->input('vocab_italian');
+        $banglas = $request->input('vocab_bangla', []);
+        $existingImgs = $request->input('vocab_existing_image', []);
+        foreach ($italians as $idx => $itWord) {
+            if (trim($itWord) === '') continue;
+            $bnWord = $banglas[$idx] ?? '';
+            $img = $existingImgs[$idx] ?? '';
+            if ($request->hasFile("vocab_image_{$idx}")) {
+                $file = $request->file("vocab_image_{$idx}");
+                $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
+                $filename = 'vocab_' . time() . '_' . $idx . '_' . uniqid() . '.' . $ext;
+                $path = $file->storeAs('manuale/vocab', $filename, 'public');
+                $img = '/storage/' . $path;
+            }
+            $vocabData[] = [
+                'word' => $itWord,
+                'italian' => $itWord,
+                'bangla' => $bnWord,
+                'meaning' => $bnWord,
+                'image' => $img
+            ];
+        }
+    } elseif ($request->has('vocabulary')) {
+        $vocabData = is_array($request->input('vocabulary')) ? $request->input('vocabulary') : json_decode($request->input('vocabulary'), true);
+    } elseif (!$id) {
+        $vocabData = [];
+    } else {
+        $vocabData = $manuale->vocabulary;
+    }
+
+    $manuale->title = $request->input('title', $manuale->title);
+    $manuale->chapter_number = $request->input('chapter_number', $manuale->chapter_number ?? 1);
+    $manuale->content = $request->input('content', $manuale->content);
+    $manuale->vocabulary = $vocabData;
+    $manuale->order_index = $request->input('order_index', $manuale->order_index ?? 0);
+    if (!$id) {
+        $manuale->status = true;
+    }
+
+    if ($request->hasFile('image')) {
+        $imgFile = $request->file('image');
+        $ext = strtolower($imgFile->getClientOriginalExtension()) ?: ($imgFile->extension() ?: 'jpg');
+        $filename = 'manuale_' . time() . '_' . uniqid() . '.' . $ext;
+        $path = $imgFile->storeAs('manuale', $filename, 'public');
+        $manuale->image_path = '/storage/' . $path;
+    }
+
+    $manuale->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => $id ? 'ম্যানুয়াল থিওরি আপডেট করা হয়েছে!' : 'ম্যানুয়াল থিওরি সফলভাবে যোগ করা হয়েছে!',
+        'data' => $manuale
+    ]);
+};
+
+Route::post('/api/admin/manuale/store', $saveManualeHandler);
+Route::post('/admin/api/manuale/store', $saveManualeHandler);
+Route::post('/api/admin/manuale/update/{id}', $saveManualeHandler);
+Route::post('/admin/api/manuale/update/{id}', $saveManualeHandler);
+
+Route::post('/api/admin/manuale/delete/{id}', function ($id) {
+    $manuale = \App\Models\Manuale::findOrFail($id);
+    $manuale->delete();
+    return response()->json(['status' => 'success', 'message' => 'ম্যানুয়াল থিওরি মুছে ফেলা হয়েছে!']);
+});
+Route::post('/admin/api/manuale/delete/{id}', function ($id) {
+    $manuale = \App\Models\Manuale::findOrFail($id);
+    $manuale->delete();
+    return response()->json(['status' => 'success', 'message' => 'ম্যানুয়াল থিওরি মুছে ফেলা হয়েছে!']);
+});
+
+Route::post('/api/admin/manuale/toggle-status/{id}', function ($id) {
+    $manuale = \App\Models\Manuale::findOrFail($id);
+    $manuale->status = !$manuale->status;
+    $manuale->save();
+    return response()->json(['status' => 'success', 'message' => 'স্ট্যাটাস আপডেট করা হয়েছে!']);
+});
+Route::post('/admin/api/manuale/toggle-status/{id}', function ($id) {
+    $manuale = \App\Models\Manuale::findOrFail($id);
+    $manuale->status = !$manuale->status;
+    $manuale->save();
+    return response()->json(['status' => 'success', 'message' => 'স্ট্যাটাস আপডেট করা হয়েছে!']);
+});
+
+// Dizionario Public API (outside license middleware so dict images always load)
+Route::get('/api/dizionario', [\App\Http\Controllers\DizionarioController::class, 'getDictionary']);
+
+// ==========================================
+// mbanglapatenteb (Community Feed) API
+// ==========================================
+Route::get('/api/social/posts', function (Request $request) {
+    $userPhone = trim((string)$request->query('user_phone', ''));
+    $posts = \App\Models\SocialPost::where('status', true)
+        ->with(['comments' => function($q) {
+            $q->orderBy('created_at', 'asc');
+        }])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    $data = $posts->map(function($post) use ($userPhone) {
+        $isLiked = false;
+        if ($userPhone !== '') {
+            $isLiked = \App\Models\SocialLike::where('post_id', $post->id)
+                ->where('user_identifier', $userPhone)
+                ->exists();
+        }
+        return [
+            'id' => $post->id,
+            'user_id' => $post->user_id,
+            'author_name' => $post->author_name,
+            'author_phone' => $post->author_phone,
+            'author_avatar' => $post->author_avatar ?: ('https://ui-avatars.com/api/?name=' . urlencode($post->author_name) . '&background=6366F1&color=fff'),
+            'content' => $post->content,
+            'image_path' => $post->image_path,
+            'likes_count' => (int)$post->likes_count,
+            'comments_count' => (int)$post->comments_count,
+            'is_liked' => $isLiked,
+            'comments' => $post->comments,
+            'created_at_formatted' => $post->created_at ? $post->created_at->diffForHumans() : 'Just now'
+        ];
+    });
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $data
+    ]);
+});
+
+Route::post('/api/social/posts/store', function (Request $request) {
+    $authorName = trim($request->input('author_name', 'Anonymous User')) ?: 'Anonymous User';
+    $authorPhone = trim($request->input('author_phone', ''));
+    $authorAvatar = trim($request->input('author_avatar', ''));
+    if (empty($authorAvatar) || str_starts_with($authorAvatar, 'data:')) {
+        $authorAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($authorName) . '&background=6366F1&color=fff';
+    }
+    $content = trim($request->input('content', ''));
+
+    if (empty($content) && !$request->hasFile('photo') && !$request->hasFile('image')) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'অনুগ্রহ করে কিছু লিখুন অথবা একটি ছবি যুক্ত করুন।'
+        ], 422);
+    }
+
+    $imagePath = null;
+    $file = $request->file('photo') ?: $request->file('image');
+    if ($file) {
+        $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
+        $filename = 'social_' . time() . '_' . uniqid() . '.' . $ext;
+        $path = $file->storeAs('social', $filename, 'public');
+        $imagePath = '/storage/' . $path;
+    }
+
+    $post = \App\Models\SocialPost::create([
+        'author_name' => $authorName ?: 'Anonymous User',
+        'author_phone' => $authorPhone,
+        'author_avatar' => $authorAvatar,
+        'content' => $content,
+        'image_path' => $imagePath,
+        'likes_count' => 0,
+        'comments_count' => 0,
+        'status' => true
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'পোস্ট সফলভাবে পাবলিশ হয়েছে!',
+        'data' => $post
+    ]);
+});
+
+Route::post('/api/social/posts/update/{id}', function (Request $request, $id) {
+    $post = \App\Models\SocialPost::findOrFail($id);
+    $reqPhone = trim((string)$request->input('author_phone', ''));
+
+    // Verify authorship restriction
+    if (!empty($post->author_phone) && $post->author_phone !== $reqPhone) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'আপনি শুধুমাত্র আপনার নিজের পোস্ট এডিট করতে পারবেন!'
+        ], 403);
+    }
+
+    $content = trim($request->input('content', $post->content));
+    $post->content = $content;
+
+    $file = $request->file('photo') ?: $request->file('image');
+    if ($file) {
+        $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
+        $filename = 'social_' . time() . '_' . uniqid() . '.' . $ext;
+        $path = $file->storeAs('social', $filename, 'public');
+        $post->image_path = '/storage/' . $path;
+    }
+
+    $post->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'পোস্ট আপডেট করা হয়েছে!',
+        'data' => $post
+    ]);
+});
+
+Route::post('/api/social/posts/delete/{id}', function (Request $request, $id) {
+    $post = \App\Models\SocialPost::findOrFail($id);
+    $reqPhone = trim((string)$request->input('author_phone', ''));
+
+    // Verify authorship restriction
+    if (!empty($post->author_phone) && $post->author_phone !== $reqPhone) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'আপনি শুধুমাত্র আপনার নিজের পোস্ট ডিলিট করতে পারবেন!'
+        ], 403);
+    }
+
+    $post->delete();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'পোস্ট মুছে ফেলা হয়েছে!'
+    ]);
+});
+
+Route::post('/api/social/posts/like/{id}', function (Request $request, $id) {
+    $post = \App\Models\SocialPost::findOrFail($id);
+    $userPhone = trim((string)$request->input('user_phone', ''));
+
+    if (empty($userPhone)) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'User identifier required'
+        ], 422);
+    }
+
+    $existing = \App\Models\SocialLike::where('post_id', $post->id)
+        ->where('user_identifier', $userPhone)
+        ->first();
+
+    if ($existing) {
+        $existing->delete();
+        $post->likes_count = max(0, $post->likes_count - 1);
+        $post->save();
+        $isLiked = false;
+    } else {
+        \App\Models\SocialLike::create([
+            'post_id' => $post->id,
+            'user_identifier' => $userPhone
+        ]);
+        $post->likes_count = $post->likes_count + 1;
+        $post->save();
+        $isLiked = true;
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'likes_count' => (int)$post->likes_count,
+        'is_liked' => $isLiked
+    ]);
+});
+
+Route::get('/api/social/posts/{id}/comments', function ($id) {
+    $comments = \App\Models\SocialComment::where('post_id', $id)
+        ->orderBy('created_at', 'asc')
+        ->get();
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $comments
+    ]);
+});
+
+Route::post('/api/social/posts/comments/store', function (Request $request) {
+    $postId = $request->input('post_id');
+    $post = \App\Models\SocialPost::findOrFail($postId);
+    $authorName = trim($request->input('author_name', 'Anonymous User')) ?: 'Anonymous User';
+    $authorPhone = trim($request->input('author_phone', ''));
+    $authorAvatar = trim($request->input('author_avatar', ''));
+    if (empty($authorAvatar) || str_starts_with($authorAvatar, 'data:')) {
+        $authorAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($authorName) . '&background=6366F1&color=fff';
+    }
+    $commentText = trim($request->input('comment', ''));
+
+    if (empty($commentText)) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'কমেন্ট লিখুন।'
+        ], 422);
+    }
+
+    $comment = \App\Models\SocialComment::create([
+        'post_id' => $post->id,
+        'author_name' => $authorName ?: 'Anonymous User',
+        'author_phone' => $authorPhone,
+        'author_avatar' => $authorAvatar,
+        'comment' => $commentText
+    ]);
+
+    $post->comments_count = $post->comments_count + 1;
+    $post->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'কমেন্ট যুক্ত হয়েছে!',
+        'data' => $comment,
+        'comments_count' => (int)$post->comments_count
+    ]);
+});
+
+// ==========================================
+// Translation & Pronunciation API
+// ==========================================
+Route::post('/api/translate', function (Request $request) {
+    $text = trim((string)$request->input('text', ''));
+    $fromLang = strtolower(trim((string)$request->input('from_lang', 'bn')));
+    $toLang = strtolower(trim((string)$request->input('to_lang', 'it')));
+
+    if (empty($text)) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'অনুবাদ করার জন্য কিছু লিখুন।'
+        ], 422);
+    }
+
+    // 1. Check cached translations DB
+    $cached = \App\Models\Translation::where('source_text', $text)
+        ->where('from_lang', $fromLang)
+        ->where('to_lang', $toLang)
+        ->first();
+
+    if ($cached) {
+        $cached->increment('search_count');
+        return response()->json([
+            'status' => 'success',
+            'translated_text' => $cached->translated_text,
+            'source_text' => $text,
+            'from_lang' => $fromLang,
+            'to_lang' => $toLang,
+            'cached' => true
+        ]);
+    }
+
+    // 2. Check Dizionario DB if translating a word
+    if ($fromLang === 'it' && $toLang === 'bn') {
+        $dict = \App\Models\Dizionario::where('word', 'like', $text)->first();
+        if ($dict && !empty($dict->bn)) {
+            $transText = $dict->bn;
+            \App\Models\Translation::create([
+                'source_text' => $text,
+                'translated_text' => $transText,
+                'from_lang' => $fromLang,
+                'to_lang' => $toLang
+            ]);
+            return response()->json([
+                'status' => 'success',
+                'translated_text' => $transText,
+                'source_text' => $text,
+                'from_lang' => $fromLang,
+                'to_lang' => $toLang
+            ]);
+        }
+    }
+
+    // 3. Fallback to MyMemory Free Translation API
+    $pair = ($fromLang === 'bn' ? 'bn' : 'it') . '|' . ($toLang === 'it' ? 'it' : 'bn');
+    $url = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . $pair;
+
+    $transText = null;
+    try {
+        $response = @file_get_contents($url);
+        if ($response) {
+            $json = json_decode($response, true);
+            if (isset($json['responseData']['translatedText'])) {
+                $transText = $json['responseData']['translatedText'];
+            }
+        }
+    } catch (\Throwable $e) {
+        // Ignore network exception
+    }
+
+    if (empty($transText)) {
+        $transText = $text; // Fallback
+    }
+
+    // Cache translation
+    \App\Models\Translation::create([
+        'source_text' => $text,
+        'translated_text' => $transText,
+        'from_lang' => $fromLang,
+        'to_lang' => $toLang
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'translated_text' => $transText,
+        'source_text' => $text,
+        'from_lang' => $fromLang,
+        'to_lang' => $toLang
+    ]);
+});
+
+

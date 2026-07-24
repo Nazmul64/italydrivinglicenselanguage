@@ -96,6 +96,8 @@ function switchPanel(panelId) {
         initCartelloMcqs();
     } else if (panelId === 'dizionario') {
         fetchDizionario();
+    } else if (panelId === 'manuale') {
+        fetchManualeAdminData();
     } else if (panelId === 'general-settings') {
         fetchGeneralSettings();
     }
@@ -1853,1332 +1855,6 @@ function openEditLiveClassModal(cls) {
     document.getElementById('form-live-class-date').value = formattedDate;
     document.getElementById('form-live-class-link').value = cls.room_link || '';
     document.getElementById('live-class-modal').style.display = 'flex';
-}
-
-// Global variables for pagination
-let chapterPage = 1;
-let pageTabCurrentPage = 1;
-let mediaPage = 1;
-let slidersPage = 1;
-let homeCardsPage = 1;
-let classesPage = 1;
-let liveClassesPage = 1;
-
-// CKEditor instances
-let pageEditorInstance = null;
-let chapterEditorInstance = null;
-
-// Helper to check user permission
-function verifyPermission(module) {
-    // Can be expanded if checking role-based gates on frontend.
-    // Backend handles gating securely via checkPermission middleware.
-    return true;
-}
-
-// Initialize Editors and Dropdowns
-document.addEventListener("DOMContentLoaded", () => {
-    // Keep form-page-content as a normal textarea to support selection underlining and Ctrl+U
-    if (document.querySelector('#form-chapter-desc')) {
-        ClassicEditor.create(document.querySelector('#form-chapter-desc'))
-            .then(editor => { chapterEditorInstance = editor; })
-            .catch(err => console.error(err));
-    }
-    // Populate chapter select dropdowns dynamically
-    loadChaptersData();
-
-    // Listen for inputs changes to auto-update underlined words list
-    const inputsToWatch = [
-        'form-page-title-it',
-        'form-page-title-bn',
-        'form-page-content',
-        'form-page-content-bn'
-    ];
-    inputsToWatch.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', updateUnderlinedWordsList);
-            el.addEventListener('change', updateUnderlinedWordsList);
-        }
-    });
-});
-
-// Tab switching inside Chapters & Pages settings
-function switchAdminSubTab(tab) {
-    const btnChapters = document.getElementById('tab-btn-chapters');
-    const btnPages = document.getElementById('tab-btn-pages');
-    const subPanelChapters = document.getElementById('admin-sub-panel-chapters');
-    const subPanelPages = document.getElementById('admin-sub-panel-pages');
-
-    if (tab === 'chapters') {
-        btnChapters.style.backgroundColor = 'var(--accent-orange)';
-        btnChapters.style.color = 'white';
-        btnChapters.classList.remove('btn-secondary');
-        btnPages.classList.add('btn-secondary');
-        btnPages.style.backgroundColor = 'transparent';
-        btnPages.style.color = 'var(--text-secondary)';
-
-        subPanelChapters.style.display = 'block';
-        subPanelPages.style.display = 'none';
-        fetchChaptersAdmin(1);
-    } else {
-        btnPages.style.backgroundColor = 'var(--accent-orange)';
-        btnPages.style.color = 'white';
-        btnPages.classList.remove('btn-secondary');
-        btnChapters.classList.add('btn-secondary');
-        btnChapters.style.backgroundColor = 'transparent';
-        btnChapters.style.color = 'var(--text-secondary)';
-
-        subPanelChapters.style.display = 'none';
-        subPanelPages.style.display = 'block';
-        const chapterId = document.getElementById('admin-page-chapter-select').value;
-        if (chapterId) {
-            loadAdminPagesForSelectedChapter(chapterId, 1);
-        }
-    }
-}
-
-// ==============================
-// 1. CHAPTERS CRUD FUNCTIONS
-// ==============================
-function fetchChaptersAdmin(page = 1) {
-    chapterPage = page;
-    const search = document.getElementById('chapter-search').value;
-    const perPage = document.getElementById('chapter-per-page').value;
-    const tbody = document.getElementById('admin-chapters-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading chapters...</td></tr>`;
-
-    const masterSelect = document.getElementById('bulk-select-chapters');
-    if (masterSelect) masterSelect.checked = false;
-    updateBulkDeleteButton('chapters');
-
-    fetch(`/admin/api/chapters/list?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
-                selectAllAcrossPagesFlag['chapters'] = false;
-            }
-            chaptersTotalCount = data.total || 0;
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 30px;">No chapters found.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(ch => {
-                const coverUrl = ch.cover_image || ch.image;
-                const thumb = coverUrl
-                    ? `<img src="${coverUrl}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 4px;" onerror="this.src='/images/signs/generic_pericolo.png'">`
-                    : `<div style="width: 50px; height: 35px; background: var(--bg-page); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-secondary);">None</div>`;
-
-                const statusChecked = ch.status ? 'checked' : '';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td style="text-align: center;"><input type="checkbox" class="select-chapter-checkbox" value="${ch.id}" onchange="updateBulkDeleteButton('chapters')"></td>
-                            <td>${ch.id}</td>
-                            <td style="text-align: center; font-weight: bold; color: var(--accent-orange);">${ch.chapter_number || ch.id}</td>
-                            <td style="text-align: center;">${thumb}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${ch.name}</td>
-                            <td>${ch.bn_name || ''}</td>
-                            <td style="text-align: center; font-weight: bold;">${ch.question_count || 0}</td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="toggleChapterStatus(${ch.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditChapterModal(${ch.id}, ${JSON.stringify(ch).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-primary btn-sm" onclick="viewChapterPages(${ch.id})" style="padding: 4px 8px; font-size: 11px; background-color: var(--accent-teal); border-color: var(--accent-teal);"><i class="fa-solid fa-file-lines"></i> Pages</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteChapter(${ch.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                // Switch checked toggle styling
-                const switchSlider = tr.querySelector('.slider');
-                if (ch.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('chapter-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-chapter-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-chapter-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevChapterPage() {
-    if (chapterPage > 1) fetchChaptersAdmin(chapterPage - 1);
-}
-
-function nextChapterPage() {
-    fetchChaptersAdmin(chapterPage + 1);
-}
-
-function viewChapterPages(chapterId) {
-    document.getElementById('admin-page-chapter-select').value = chapterId;
-    switchAdminSubTab('pages');
-}
-
-function toggleChapterStatus(id) {
-    fetch(`/admin/api/chapters/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('অধ্যায়ের স্ট্যাটাস পরিবর্তন করা হয়েছে');
-            fetchChaptersAdmin(chapterPage);
-        });
-}
-
-function openAddChapterModal() {
-    document.getElementById('chapter-modal-title').textContent = 'Add New Chapter';
-    document.getElementById('form-chapter-crud-id').value = '';
-    document.getElementById('form-chapter-category-id').value = '2';
-    document.getElementById('form-chapter-number').value = '';
-    document.getElementById('form-chapter-name-it').value = '';
-    document.getElementById('form-chapter-name-bn').value = '';
-    document.getElementById('form-chapter-cover-file').value = '';
-    document.getElementById('chapter-cover-preview-container').style.display = 'none';
-    if (chapterEditorInstance) chapterEditorInstance.setData('');
-    document.getElementById('chapter-modal').style.display = 'flex';
-}
-
-function openEditChapterModal(id, ch) {
-    document.getElementById('chapter-modal-title').textContent = 'Edit Chapter';
-    document.getElementById('form-chapter-crud-id').value = ch.id;
-    document.getElementById('form-chapter-category-id').value = ch.category_id || '2';
-    document.getElementById('form-chapter-number').value = ch.chapter_number || ch.id;
-    document.getElementById('form-chapter-name-it').value = ch.name;
-    document.getElementById('form-chapter-name-bn').value = ch.bn_name || '';
-    document.getElementById('form-chapter-cover-file').value = '';
-
-    if (ch.cover_image) {
-        document.getElementById('chapter-cover-preview-img').src = ch.cover_image;
-        document.getElementById('chapter-cover-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('chapter-cover-preview-container').style.display = 'none';
-    }
-
-    if (chapterEditorInstance) {
-        chapterEditorInstance.setData(ch.description || '');
-    }
-
-    document.getElementById('chapter-modal').style.display = 'flex';
-}
-
-function closeChapterModal() {
-    document.getElementById('chapter-modal').style.display = 'none';
-}
-
-function saveChapter(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-chapter-crud-id').value;
-    const categoryId = document.getElementById('form-chapter-category-id').value;
-    const number = document.getElementById('form-chapter-number').value;
-    const nameIt = document.getElementById('form-chapter-name-it').value;
-    const nameBn = document.getElementById('form-chapter-name-bn').value;
-
-    const coverFile = document.getElementById('form-chapter-cover-file').files[0];
-
-    const formData = new FormData();
-    formData.append('category_id', categoryId);
-    formData.append('name', nameIt);
-    formData.append('bn_name', nameBn);
-    formData.append('chapter_number', number);
-
-    if (coverFile) formData.append('cover_image', coverFile);
-
-    const url = id ? `/admin/api/chapters/update/${id}` : '/admin/api/chapters/store';
-
-    fetch(url, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken },
-        body: formData
-    })
-        .then(res => {
-            if (!res.ok) {
-                return res.json().then(errData => {
-                    throw new Error(errData.message || 'Validation error');
-                });
-            }
-            return res.json();
-        })
-        .then(data => {
-            closeChapterModal();
-            Swal.fire({
-                title: 'Success!',
-                text: id ? 'Chapter has been updated successfully.' : 'New chapter created successfully.',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            fetchChaptersAdmin(chapterPage);
-            loadChaptersData();
-            fetchStats();
-        })
-        .catch(err => {
-            console.error(err);
-            Swal.fire({
-                title: 'Error!',
-                text: err.message || 'অধ্যায় সংরক্ষণ করতে সমস্যা হয়েছে',
-                icon: 'error'
-            });
-        });
-}
-
-function deleteChapter(id) {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "Deleting this chapter will also delete all of its pages! This action cannot be undone.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/chapters/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Chapter and its pages have been deleted.', 'success');
-                    fetchChaptersAdmin(chapterPage);
-                    loadChaptersData();
-                    fetchStats();
-                })
-                .catch(err => showToast('অধ্যায় ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-// ==============================
-// 2. PAGES CRUD FUNCTIONS
-// ==============================
-function loadAdminPagesForSelectedChapter(chapterId, page = 1) {
-    if (!chapterId) return;
-    pageTabCurrentPage = page;
-    const search = document.getElementById('page-search').value;
-    const perPage = document.getElementById('page-per-page').value;
-    const tbody = document.getElementById('admin-pages-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 30px;">Loading pages...</td></tr>`;
-
-    const masterSelect = document.getElementById('bulk-select-pages');
-    if (masterSelect) masterSelect.checked = false;
-    updateBulkDeleteButton('pages');
-
-    fetch(`/admin/api/chapters/${chapterId}/pages/list?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
-                selectAllAcrossPagesFlag['pages'] = false;
-            }
-            pagesTotalCount = data.total || 0;
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">No pages found in this chapter.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(p => {
-                const hasImg = p.image
-                    ? `<i class="fa-solid fa-image" style="color: var(--accent-teal);" title="Image included"></i>`
-                    : `<i class="fa-solid fa-minus" style="opacity: 0.3;"></i>`;
-                const hasAudio = p.audio
-                    ? `<i class="fa-solid fa-volume-high" style="color: var(--accent-blue);" title="Audio voiceover available"></i>`
-                    : `<i class="fa-solid fa-minus" style="opacity: 0.3;"></i>`;
-                const hasPdf = p.pdf_path
-                    ? `<a href="${p.pdf_path}" target="_blank" style="color: var(--accent-red);"><i class="fa-solid fa-file-pdf"></i></a>`
-                    : `<i class="fa-solid fa-minus" style="opacity: 0.3;"></i>`;
-
-                const statusChecked = p.status ? 'checked' : '';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td style="text-align: center;"><input type="checkbox" class="select-page-checkbox" value="${p.id}" onchange="updateBulkDeleteButton('pages')"></td>
-                            <td>${p.id}</td>
-                            <td style="text-align: center; font-weight: bold; color: var(--text-secondary);">${p.sort_order}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${p.title}</td>
-                            <td>${p.bn_title || ''}</td>
-                            <td style="text-align: center;">${hasImg}</td>
-                            <td style="text-align: center;">${hasAudio}</td>
-                            <td style="text-align: center;">${hasPdf}</td>
-                            <td style="text-align: center; font-weight: bold; color: var(--accent-teal);">${p.questions_count || 0}</td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="togglePageStatus(${p.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditPageModal(${JSON.stringify(p).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deletePage(${p.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                const switchSlider = tr.querySelector('.slider');
-                if (p.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('page-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-page-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-page-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevPageTab() {
-    const chapterId = document.getElementById('admin-page-chapter-select').value;
-    if (pageTabCurrentPage > 1 && chapterId) {
-        loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage - 1);
-    }
-}
-
-function nextPageTab() {
-    const chapterId = document.getElementById('admin-page-chapter-select').value;
-    if (chapterId) {
-        loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage + 1);
-    }
-}
-
-function togglePageStatus(id) {
-    fetch(`/admin/api/pages/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('পেইজের স্ট্যাটাস পরিবর্তন করা হয়েছে');
-            const chapterId = document.getElementById('admin-page-chapter-select').value;
-            loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage);
-        });
-}
-
-function openAddPageModal() {
-    const chapterSelect = document.getElementById('admin-page-chapter-select');
-    if (!chapterSelect || chapterSelect.selectedIndex < 0) {
-        Swal.fire('Error', 'Please select a chapter first.', 'error');
-        return;
-    }
-    const chapterId = chapterSelect.value;
-    const chapterName = chapterSelect.options[chapterSelect.selectedIndex].text;
-
-    document.getElementById('page-modal-title').textContent = 'Add New Page';
-    document.getElementById('form-page-crud-id').value = '';
-    document.getElementById('form-page-chapter-id').value = chapterId;
-    document.getElementById('form-page-chapter-name-display').value = chapterName;
-    document.getElementById('form-page-order').value = '0';
-    const titleItEl = document.getElementById('form-page-title-it');
-    if (titleItEl) titleItEl.value = '';
-    const titleBnEl = document.getElementById('form-page-title-bn');
-    if (titleBnEl) titleBnEl.value = '';
-
-    document.getElementById('page-modal').style.display = 'flex';
-}
-
-function openEditPageModal(p) {
-    const chapterSelect = document.getElementById('admin-page-chapter-select');
-    const chapterName = chapterSelect.querySelector(`option[value="${p.chapter_id}"]`)?.text || (chapterSelect.selectedIndex >= 0 ? chapterSelect.options[chapterSelect.selectedIndex].text : '');
-
-    document.getElementById('page-modal-title').textContent = 'Edit Page Details';
-    document.getElementById('form-page-crud-id').value = p.id;
-    document.getElementById('form-page-chapter-id').value = p.chapter_id;
-    document.getElementById('form-page-chapter-name-display').value = chapterName;
-    document.getElementById('form-page-order').value = p.sort_order || 0;
-    const titleItEl2 = document.getElementById('form-page-title-it');
-    if (titleItEl2) titleItEl2.value = p.title;
-    const titleBnEl2 = document.getElementById('form-page-title-bn');
-    if (titleBnEl2) titleBnEl2.value = p.bn_title || '';
-
-    document.getElementById('page-modal').style.display = 'flex';
-}
-
-function closePageModal() {
-    document.getElementById('page-modal').style.display = 'none';
-}
-
-function savePage(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-page-crud-id').value;
-    const chapterId = document.getElementById('form-page-chapter-id').value;
-    const order = document.getElementById('form-page-order').value;
-    const titleIt = document.getElementById('form-page-title-it')?.value?.trim() || 'Page';
-    const titleBn = document.getElementById('form-page-title-bn')?.value?.trim() || titleIt;
-
-    const formData = new FormData();
-    formData.append('chapter_id', chapterId);
-    formData.append('sort_order', order);
-    formData.append('title', titleIt);
-    formData.append('bn_title', titleBn);
-    formData.append('mcqs', '[]');
-
-    const url = id ? `/admin/api/pages/update/${id}` : '/admin/api/pages/store';
-
-    fetch(url, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken },
-        body: formData
-    })
-        .then(res => {
-            if (!res.ok) {
-                return res.json().then(errData => {
-                    throw new Error(errData.message || 'Validation error');
-                });
-            }
-            return res.json();
-        })
-        .then(data => {
-            closePageModal();
-            Swal.fire({
-                title: 'Success!',
-                text: id ? 'Page details updated successfully.' : 'New page added successfully.',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage);
-            fetchStats();
-        })
-        .catch(err => {
-            console.error(err);
-            Swal.fire({
-                title: 'Error!',
-                text: err.message || 'পেইজ সংরক্ষণ করতে সমস্যা হয়েছে',
-                icon: 'error'
-            });
-        });
-}
-
-function deletePage(id) {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "Do you really want to delete this page and its uploaded files?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/pages/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Page has been deleted.', 'success');
-                    const chapterId = document.getElementById('admin-page-chapter-select').value;
-                    loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage);
-                    fetchStats();
-                })
-                .catch(err => showToast('পেইজ ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-// Assign Questions Map modal trigger helper
-function openAssignQuestionsModal(pageId) {
-    // Simple mockup interaction since question mappings can be extensive
-    Swal.fire({
-        title: 'Assign MCQ Questions',
-        text: 'This links MCQ database questions to this page for structured study.',
-        input: 'text',
-        inputPlaceholder: 'Enter comma separated question IDs (e.g. 104, 105, 230)',
-        showCancelButton: true,
-        confirmButtonText: 'Assign Mapping',
-        showLoaderOnConfirm: true,
-        preConfirm: (qIdsStr) => {
-            if (!qIdsStr) return;
-            const ids = qIdsStr.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            return fetch(`/admin/api/pages/${pageId}/assign-questions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                body: JSON.stringify({ question_ids: ids })
-            })
-                .then(res => {
-                    if (!res.ok) throw new Error(res.statusText);
-                    return res.json();
-                })
-                .catch(error => {
-                    Swal.showValidationMessage(`Request failed: ${error}`);
-                });
-        },
-        allowOutsideClick: () => !Swal.isLoading()
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire('Mapped!', 'Questions assigned to page successfully.', 'success');
-            const chapterId = document.getElementById('admin-page-chapter-select').value;
-            loadAdminPagesForSelectedChapter(chapterId, pageTabCurrentPage);
-        }
-    });
-}
-
-// ==============================
-// 3. FILE MANAGER FUNCTIONS
-// ==============================
-function fetchMediaFiles(page = 1) {
-    mediaPage = page;
-    const search = document.getElementById('media-search').value;
-    const type = document.getElementById('media-filter-type').value;
-    const perPage = document.getElementById('media-per-page').value;
-    const tbody = document.getElementById('media-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px;">Scanning media directory...</td></tr>`;
-
-    fetch(`/admin/api/media?page=${page}&search=${search}&type=${type}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 30px;">No media files uploaded yet.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(file => {
-                let previewHtml = '';
-                if (file.filetype === 'image') {
-                    previewHtml = `<img src="${file.filepath}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 4px;" onclick="previewMediaAsset('${file.filepath}', 'image')">`;
-                } else if (file.filetype === 'pdf') {
-                    previewHtml = `<i class="fa-solid fa-file-pdf" style="font-size: 24px; color: var(--accent-red);" onclick="previewMediaAsset('${file.filepath}', 'pdf')"></i>`;
-                } else if (file.filetype === 'audio') {
-                    previewHtml = `<i class="fa-solid fa-volume-high" style="font-size: 24px; color: var(--accent-blue);" onclick="previewMediaAsset('${file.filepath}', 'audio')"></i>`;
-                } else if (file.filetype === 'video') {
-                    previewHtml = `<i class="fa-solid fa-circle-play" style="font-size: 24px; color: var(--accent-teal);" onclick="previewMediaAsset('${file.filepath}', 'video')"></i>`;
-                } else {
-                    previewHtml = `<i class="fa-solid fa-file" style="font-size: 24px; color: var(--text-secondary);"></i>`;
-                }
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td>${file.id}</td>
-                            <td style="text-align: center;">${previewHtml}</td>
-                            <td style="font-weight: bold; color: var(--text-primary); word-break: break-all;">${file.filename}</td>
-                            <td style="text-align: center;"><span class="badge" style="background-color: var(--bg-page); color: var(--text-secondary);">${file.filetype.toUpperCase()}</span></td>
-                            <td>${(file.filesize / 1024 / 1024).toFixed(2)} MB</td>
-                            <td>${new Date(file.created_at).toLocaleDateString()}</td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="copyMediaLink('${file.filepath}')" style="padding: 4px 8px; font-size: 11px;" title="Copy path to clipboard"><i class="fa-solid fa-copy"></i> Copy Link</button>
-                                <button class="btn btn-secondary btn-sm" onclick="openRenameMediaModal(${file.id}, '${file.filename}')" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Rename</button>
-                                <a href="/admin/api/media/download/${file.id}" class="btn btn-primary btn-sm" style="padding: 4px 8px; font-size: 11px; background-color: var(--accent-teal); border-color: var(--accent-teal);"><i class="fa-solid fa-download"></i></a>
-                                <button class="btn btn-danger btn-sm" onclick="deleteMedia(${file.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i></button>
-                            </td>
-                        `;
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('media-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-media-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-media-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevMediaPage() {
-    if (mediaPage > 1) fetchMediaFiles(mediaPage - 1);
-}
-
-function nextMediaPage() {
-    fetchMediaFiles(mediaPage + 1);
-}
-
-// Drag & Drop Upload
-function handleMediaDrop(e) {
-    e.preventDefault();
-    document.getElementById('media-dropzone').style.borderColor = 'var(--border-color)';
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        uploadFilesSequentially(files);
-    }
-}
-
-function handleMediaBrowse(e) {
-    const files = e.target.files;
-    if (files.length > 0) {
-        uploadFilesSequentially(files);
-    }
-}
-
-function uploadFilesSequentially(files) {
-    let index = 0;
-
-    function nextUpload() {
-        if (index < files.length) {
-            uploadMediaFile(files[index], () => {
-                index++;
-                nextUpload();
-            });
-        } else {
-            fetchMediaFiles(mediaPage);
-            fetchStats();
-            showToast('ফাইল আপলোড সম্পূর্ণ হয়েছে');
-        }
-    }
-
-    nextUpload();
-}
-
-function uploadMediaFile(file, callback) {
-    const progressContainer = document.getElementById('upload-progress-container');
-    const filenameEl = document.getElementById('upload-filename');
-    const percentageEl = document.getElementById('upload-percentage');
-    const progressBar = document.getElementById('upload-progress-bar');
-
-    progressContainer.style.display = 'block';
-    filenameEl.textContent = file.name;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/admin/api/media/store');
-
-    // Progress tracking
-    xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + '%';
-            percentageEl.textContent = percent + '%';
-        }
-    });
-
-    xhr.onload = function () {
-        progressBar.style.width = '0%';
-        percentageEl.textContent = '0%';
-        progressContainer.style.display = 'none';
-        if (callback) callback();
-    };
-
-    xhr.onerror = function () {
-        showToast('ফাইল আপলোড করতে সমস্যা হয়েছে');
-        progressContainer.style.display = 'none';
-        if (callback) callback();
-    };
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('_token', csrfToken);
-
-    xhr.send(formData);
-}
-
-function openRenameMediaModal(id, currentName) {
-    document.getElementById('form-rename-media-id').value = id;
-    document.getElementById('form-rename-media-name').value = currentName;
-    document.getElementById('rename-media-modal').style.display = 'flex';
-}
-
-function closeRenameMediaModal() {
-    document.getElementById('rename-media-modal').style.display = 'none';
-}
-
-function saveRenameMedia(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-rename-media-id').value;
-    const newName = document.getElementById('form-rename-media-name').value;
-
-    fetch(`/admin/api/media/rename/${id}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({ filename: newName })
-    })
-        .then(res => res.json())
-        .then(data => {
-            closeRenameMediaModal();
-            showToast('ফাইলের নাম পরিবর্তন করা হয়েছে');
-            fetchMediaFiles(mediaPage);
-        });
-}
-
-function deleteMedia(id) {
-    Swal.fire({
-        title: 'Delete Asset?',
-        text: "Are you sure you want to permanently delete this media file from disk storage?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Delete permanently'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/media/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'File removed from library.', 'success');
-                    fetchMediaFiles(mediaPage);
-                    fetchStats();
-                })
-                .catch(err => showToast('ফাইল ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-function copyMediaLink(path) {
-    const url = window.location.origin + path;
-    navigator.clipboard.writeText(url).then(() => {
-        showToast('লিংক ক্লিপবোর্ডে কপি করা হয়েছে!');
-    });
-}
-
-function previewMediaAsset(filepath, type) {
-    if (type === 'image') {
-        Swal.fire({
-            imageUrl: filepath,
-            imageAlt: 'Preview image',
-            showConfirmButton: false
-        });
-    } else if (type === 'pdf') {
-        window.open(filepath, '_blank');
-    } else if (type === 'audio') {
-        Swal.fire({
-            title: 'Audio Preview',
-            html: `<audio src="${filepath}" controls style="width: 100%; margin-top: 10px;"></audio>`,
-            showConfirmButton: false
-        });
-    } else if (type === 'video') {
-        Swal.fire({
-            title: 'Video Preview',
-            html: `<video src="${filepath}" controls style="width: 100%; border-radius: 8px; margin-top: 10px;"></video>`,
-            showConfirmButton: false
-        });
-    }
-}
-
-// ==============================
-// 4. SLIDERS CRUD FUNCTIONS
-// ==============================
-function fetchSliders(page = 1) {
-    slidersPage = page;
-    const search = document.getElementById('sliders-search').value;
-    const perPage = document.getElementById('sliders-per-page').value;
-    const tbody = document.getElementById('sliders-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 30px;">Loading sliders...</td></tr>`;
-
-    fetch(`/admin/api/sliders?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 30px;">No sliders found.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(sl => {
-                const img = sl.image_url
-                    ? `<img src="${sl.image_url}" style="width: 80px; height: 45px; object-fit: cover; border-radius: 6px;">`
-                    : `<div style="width: 80px; height: 45px; background: var(--bg-page); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px;">No Image</div>`;
-
-                const statusChecked = sl.status ? 'checked' : '';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td>${sl.id}</td>
-                            <td style="text-align: center;">${img}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${sl.title}</td>
-                            <td>${sl.subtitle || ''}</td>
-                            <td><code>${sl.link_url || ''}</code></td>
-                            <td style="text-align: center; font-weight: bold;">${sl.order_index}</td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="toggleSliderStatus(${sl.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditSliderModal(${JSON.stringify(sl).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteSlider(${sl.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                const switchSlider = tr.querySelector('.slider');
-                if (sl.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('sliders-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-sliders-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-sliders-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevSlidersPage() {
-    if (slidersPage > 1) fetchSliders(slidersPage - 1);
-}
-
-function nextSlidersPage() {
-    fetchSliders(slidersPage + 1);
-}
-
-function toggleSliderStatus(id) {
-    fetch(`/admin/api/sliders/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('স্লাইডার সক্রিয়তা পরিবর্তন করা হয়েছে');
-            fetchSliders(slidersPage);
-        });
-}
-
-function deleteSlider(id) {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "Do you want to delete this slider slide?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/sliders/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Slider has been deleted.', 'success');
-                    fetchSliders(slidersPage);
-                    fetchStats();
-                })
-                .catch(err => showToast('স্লাইডার ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-// ==============================
-// 5. HOME CARDS CRUD FUNCTIONS
-// ==============================
-function fetchHomeCards(page = 1) {
-    homeCardsPage = page;
-    const search = document.getElementById('home-cards-search').value;
-    const perPage = document.getElementById('home-cards-per-page').value;
-    const tbody = document.getElementById('home-cards-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading navigation cards...</td></tr>`;
-
-    fetch(`/admin/api/home-cards?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 30px;">No home cards found.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(card => {
-                let iconHtml = '';
-                if (card.icon_url) {
-                    iconHtml = `<img src="${card.icon_url}" style="width: 30px; height: 30px; object-fit: contain; border-radius: 4px;">`;
-                } else {
-                    iconHtml = `<i class="${card.icon_class}" style="color: ${card.color || '#3B82F6'}; font-size: 20px;"></i>`;
-                }
-
-                const statusChecked = card.status ? 'checked' : '';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td>${card.id}</td>
-                            <td style="text-align: center; font-weight: bold;">${card.order_index}</td>
-                            <td style="text-align: center;">${iconHtml}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${card.title}</td>
-                            <td>${card.subtitle || card.description || ''}</td>
-                            <td><code>${card.link || card.screen_key}</code></td>
-                            <td style="text-align: center;"><div style="width: 20px; height: 20px; border-radius: 4px; background-color: ${card.color || '#3B82F6'}; margin: 0 auto; border: 1px solid var(--border-color);"></div></td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="toggleHomeCardStatus(${card.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditHomeCardModal(${JSON.stringify(card).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteHomeCard(${card.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                const switchSlider = tr.querySelector('.slider');
-                if (card.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('home-cards-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-home-cards-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-home-cards-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevHomeCardsPage() {
-    if (homeCardsPage > 1) fetchHomeCards(homeCardsPage - 1);
-}
-
-function nextHomeCardsPage() {
-    fetchHomeCards(homeCardsPage + 1);
-}
-
-function toggleHomeCardStatus(id) {
-    fetch(`/admin/api/home-cards/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('কার্ড স্ট্যাটাস পরিবর্তন করা হয়েছে');
-            fetchHomeCards(homeCardsPage);
-        });
-}
-
-function deleteHomeCard(id) {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "Do you want to delete this home navigation card?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/home-cards/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Home card deleted successfully.', 'success');
-                    fetchHomeCards(homeCardsPage);
-                })
-                .catch(err => showToast('কার্ড ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-// ==============================
-// 6. LECTURE VIDEOS FUNCTIONS
-// ==============================
-function fetchLectureClasses(page = 1) {
-    classesPage = page;
-    const search = document.getElementById('classes-search').value;
-    const perPage = document.getElementById('classes-per-page').value;
-    const tbody = document.getElementById('classes-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px;">Loading video lectures...</td></tr>`;
-
-    fetch(`/admin/api/classes?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 30px;">No video lectures found.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(cls => {
-                const thumbHtml = cls.thumbnail_url
-                    ? `<img src="${cls.thumbnail_url}" style="width: 80px; height: 45px; object-fit: cover; border-radius: 6px;">`
-                    : `<div style="width: 80px; height: 45px; background: var(--bg-page); display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 6px; border: 1px dashed var(--border-color); color: var(--text-secondary);">No thumb</div>`;
-
-                const statusChecked = cls.status ? 'checked' : '';
-                const pathString = cls.video_path || cls.video_url || '';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td>${cls.id}</td>
-                            <td style="text-align: center;">${thumbHtml}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${cls.title}</td>
-                            <td>${cls.duration || ''}</td>
-                            <td><code>${pathString}</code></td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="toggleLectureClassStatus(${cls.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditClassModal(${JSON.stringify(cls).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteLectureClass(${cls.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                const switchSlider = tr.querySelector('.slider');
-                if (cls.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('classes-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-classes-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-classes-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevClassesPage() {
-    if (classesPage > 1) fetchLectureClasses(classesPage - 1);
-}
-
-function nextClassesPage() {
-    fetchLectureClasses(classesPage + 1);
-}
-
-function toggleLectureClassStatus(id) {
-    fetch(`/admin/api/classes/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('ভিডিও সক্রিয়তা পরিবর্তন করা হয়েছে');
-            fetchLectureClasses(classesPage);
-        });
-}
-
-function deleteLectureClass(id) {
-    Swal.fire({
-        title: 'Delete Video Lecture?',
-        text: "Do you want to delete this lecture video permanently?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/classes/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Lecture video has been deleted.', 'success');
-                    fetchLectureClasses(classesPage);
-                    fetchStats();
-                })
-                .catch(err => showToast('ভিডিও ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
-}
-
-// ==============================
-// 7. LIVE SESSION FUNCTIONS
-// ==============================
-function fetchLiveClasses(page = 1) {
-    liveClassesPage = page;
-    const search = document.getElementById('live-classes-search').value;
-    const perPage = document.getElementById('live-classes-per-page').value;
-    const tbody = document.getElementById('live-classes-table-body');
-
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px;">Loading live sessions...</td></tr>`;
-
-    fetch(`/admin/api/live-classes?page=${page}&search=${search}&per_page=${perPage}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 30px;">No live sessions scheduled.</td></tr>`;
-                return;
-            }
-
-            data.data.forEach(cls => {
-                const dateStr = new Date(cls.scheduled_at).toLocaleString('bn-BD', { hour12: true });
-                const statusChecked = cls.status ? 'checked' : '';
-                const linkStr = cls.room_link || cls.zoom_link || cls.meet_link || '#';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                            <td>${cls.id}</td>
-                            <td style="font-weight: bold; color: var(--text-primary);">${cls.title}</td>
-                            <td>${cls.speaker_name || cls.subtitle || 'General Instructor'}</td>
-                            <td style="font-weight: 700; color: var(--accent-teal);">${dateStr}</td>
-                            <td><a href="${linkStr}" target="_blank" style="color: var(--accent-blue); text-decoration: underline; font-size: 11px;"><code>Room Link</code></a></td>
-                            <td style="text-align: center;">
-                                <label class="status-switch" style="display: inline-block; width: 40px; height: 20px; position: relative;">
-                                    <input type="checkbox" ${statusChecked} onclick="toggleLiveClassStatus(${cls.id})" style="opacity: 0; width: 0; height: 0;">
-                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
-                                </label>
-                            </td>
-                            <td style="text-align: right;">
-                                <button class="btn btn-secondary btn-sm" onclick="openEditLiveClassModal(${JSON.stringify(cls).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteLiveClass(${cls.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
-                            </td>
-                        `;
-                const switchSlider = tr.querySelector('.slider');
-                if (cls.status) {
-                    switchSlider.style.backgroundColor = 'var(--accent-teal)';
-                }
-                tbody.appendChild(tr);
-            });
-
-            // Pagination status
-            document.getElementById('live-classes-pagination-status').textContent = `Showing ${data.from || 0} to ${data.to || 0} of ${data.total} entries`;
-            document.getElementById('btn-live-classes-prev').disabled = !data.prev_page_url;
-            document.getElementById('btn-live-classes-next').disabled = !data.next_page_url;
-        });
-}
-
-function prevLiveClassesPage() {
-    if (liveClassesPage > 1) fetchLiveClasses(liveClassesPage - 1);
-}
-
-function nextLiveClassesPage() {
-    fetchLiveClasses(liveClassesPage + 1);
-}
-
-function toggleLiveClassStatus(id) {
-    fetch(`/admin/api/live-classes/toggle-status/${id}`, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-    })
-        .then(res => res.json())
-        .then(data => {
-            showToast('লাইভ সেশন সক্রিয়তা পরিবর্তন করা হয়েছে');
-            fetchLiveClasses(liveClassesPage);
-        });
-}
-
-function openAddLiveClassModal() {
-    document.getElementById('live-class-modal-title').textContent = 'Schedule Live Session';
-    document.getElementById('form-live-class-id').value = '';
-    document.getElementById('form-live-class-title').value = '';
-    document.getElementById('form-live-class-subtitle').value = '';
-    document.getElementById('form-live-class-speaker').value = '';
-    document.getElementById('form-live-class-desc').value = '';
-    document.getElementById('form-live-class-date').value = '';
-    document.getElementById('form-live-class-link').value = '';
-    document.getElementById('form-live-class-zoom').value = '';
-    document.getElementById('form-live-class-meet').value = '';
-    document.getElementById('form-live-class-live').value = '';
-    document.getElementById('form-live-class-thumb').value = '';
-    document.getElementById('live-thumb-preview-container').style.display = 'none';
-    document.getElementById('live-class-modal').style.display = 'flex';
-}
-
-function openEditLiveClassModal(cls) {
-    document.getElementById('live-class-modal-title').textContent = 'Edit Live Session';
-    document.getElementById('form-live-class-id').value = cls.id;
-    document.getElementById('form-live-class-title').value = cls.title;
-    document.getElementById('form-live-class-subtitle').value = cls.subtitle || '';
-    document.getElementById('form-live-class-speaker').value = cls.speaker_name || '';
-    document.getElementById('form-live-class-desc').value = cls.description || '';
-
-    let d = new Date(cls.scheduled_at);
-    let formattedDate = d.getFullYear() + '-' +
-        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-        String(d.getDate()).padStart(2, '0') + 'T' +
-        String(d.getHours()).padStart(2, '0') + ':' +
-        String(d.getMinutes()).padStart(2, '0');
-    document.getElementById('form-live-class-date').value = formattedDate;
-    document.getElementById('form-live-class-link').value = cls.room_link || '';
-    document.getElementById('form-live-class-zoom').value = cls.zoom_link || '';
-    document.getElementById('form-live-class-meet').value = cls.meet_link || '';
-    document.getElementById('form-live-class-live').value = cls.live_url || '';
-
-    if (cls.thumbnail_url) {
-        document.getElementById('live-thumb-preview-img').src = cls.thumbnail_url;
-        document.getElementById('live-thumb-preview-container').style.display = 'block';
-    } else {
-        document.getElementById('live-thumb-preview-container').style.display = 'none';
-    }
-
-    document.getElementById('live-class-modal').style.display = 'flex';
-}
-
-function closeLiveClassModal() {
-    document.getElementById('live-class-modal').style.display = 'none';
-}
-
-function saveLiveClass(e) {
-    e.preventDefault();
-    const id = document.getElementById('form-live-class-id').value;
-    const title = document.getElementById('form-live-class-title').value;
-    const subtitle = document.getElementById('form-live-class-subtitle').value;
-    const speaker = document.getElementById('form-live-class-speaker').value;
-    const desc = document.getElementById('form-live-class-desc').value;
-    const scheduledAt = document.getElementById('form-live-class-date').value;
-    const roomLink = document.getElementById('form-live-class-link').value;
-    const zoomLink = document.getElementById('form-live-class-zoom').value;
-    const meetLink = document.getElementById('form-live-class-meet').value;
-    const liveUrl = document.getElementById('form-live-class-live').value;
-    const thumbFile = document.getElementById('form-live-class-thumb').files[0];
-
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('subtitle', subtitle);
-    formData.append('speaker_name', speaker);
-    formData.append('description', desc);
-    formData.append('scheduled_at', scheduledAt);
-    formData.append('room_link', roomLink);
-    formData.append('zoom_link', zoomLink);
-    formData.append('meet_link', meetLink);
-    formData.append('live_url', liveUrl);
-
-    if (thumbFile) formData.append('thumbnail', thumbFile);
-
-    const url = id ? `/admin/api/live-classes/update/${id}` : '/admin/api/live-classes/store';
-
-    fetch(url, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken },
-        body: formData
-    })
-        .then(res => res.json())
-        .then(data => {
-            closeLiveClassModal();
-            Swal.fire({
-                title: 'Success!',
-                text: id ? 'Live class has been updated successfully.' : 'New live class scheduled successfully.',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            fetchLiveClasses(liveClassesPage);
-            fetchStats();
-        })
-        .catch(err => {
-            console.error(err);
-            showToast('লাইভ সেশন সংরক্ষণ করতে সমস্যা হয়েছে');
-        });
-}
-
-function deleteLiveClass(id) {
-    Swal.fire({
-        title: 'Cancel Live Session?',
-        text: "Do you want to delete this live class session?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Yes, delete'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/api/live-classes/delete/${id}`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrfToken }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    Swal.fire('Deleted!', 'Live session has been deleted.', 'success');
-                    fetchLiveClasses(liveClassesPage);
-                    fetchStats();
-                })
-                .catch(err => showToast('লাইভ সেশন ডিলিট করতে সমস্যা হয়েছে'));
-        }
-    });
 }
 
 // ==========================================
@@ -5951,7 +4627,390 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const manualeContentEl = document.getElementById('form-manuale-content');
+    if (manualeContentEl) {
+        manualeContentEl.addEventListener('input', updateManualeUnderlinedWordsList);
+        manualeContentEl.addEventListener('change', updateManualeUnderlinedWordsList);
+    }
+
+    const manualeImgInput = document.getElementById('form-manuale-image');
+    if (manualeImgInput) {
+        manualeImgInput.addEventListener('change', function() {
+            const preview = document.getElementById('manuale-image-preview');
+            const container = document.getElementById('manuale-image-preview-container');
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    container.style.display = 'block';
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
 });
+
+// ==========================================
+// Manuale (Theory Guidebook) Admin Module
+// ==========================================
+let manualeAdminData = [];
+
+function fetchManualeAdminData() {
+    const tbody = document.getElementById('manuale-table-body');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Loading theory topics...</td></tr>';
+    }
+
+    fetch('/api/admin/manuale')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.data) {
+                manualeAdminData = data.data;
+                renderManualeAdminTable(manualeAdminData);
+            } else {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">No theory topics found</td></tr>';
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching manuale data:', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Failed to load theory topics</td></tr>';
+        });
+}
+
+function renderManualeAdminTable(data) {
+    const tbody = document.getElementById('manuale-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">No theory topics found</td></tr>';
+        return;
+    }
+
+    data.forEach((item, index) => {
+        const row = document.createElement('tr');
+        const imgHtml = item.image_path ? `
+            <img src="${item.image_path}" style="max-height: 40px; max-width: 60px; border-radius: 6px; object-fit: contain; border: 1px solid var(--border-card);" alt="Illustration">
+        ` : '<span style="color: var(--text-secondary);">-</span>';
+
+        const statusBadge = item.status ? `
+            <span class="status-badge active" onclick="toggleManualeStatus(${item.id})" style="cursor: pointer;" title="Click to disable">Active</span>
+        ` : `
+            <span class="status-badge inactive" onclick="toggleManualeStatus(${item.id})" style="cursor: pointer;" title="Click to enable">Inactive</span>
+        `;
+
+        const contentSnippet = item.content ? (item.content.length > 80 ? item.content.substring(0, 80) + '...' : item.content) : '-';
+
+        row.innerHTML = `
+            <td>#${item.id}</td>
+            <td><strong>Capitolo ${item.chapter_number || (index + 1)}</strong></td>
+            <td><strong>${item.title || ''}</strong></td>
+            <td style="font-size: 12px; color: var(--text-secondary); max-width: 250px;">${contentSnippet}</td>
+            <td style="text-align: center;">${imgHtml}</td>
+            <td style="text-align: center;">${statusBadge}</td>
+            <td style="text-align: right;">
+                <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                    <button class="btn btn-sm btn-secondary" onclick="editManuale(${item.id})">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteManuale(${item.id})">
+                        <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function addManualeVocabRow(word = '', bangla = '', imagePath = '') {
+    const container = document.getElementById('manuale-vocab-list');
+    if (!container) return;
+
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'manuale-vocab-row-item';
+    itemDiv.style.cssText = 'display: flex; gap: 8px; align-items: center; background: var(--bg-card); padding: 8px; border-radius: 8px; border: 1px solid var(--border-card); flex-wrap: wrap; margin-bottom: 4px;';
+
+    // Italian word input
+    const itDiv = document.createElement('div');
+    itDiv.style.cssText = 'flex: 1; min-width: 120px;';
+    const itInput = document.createElement('input');
+    itInput.type = 'text';
+    itInput.className = 'form-control form-control-sm manuale-vocab-it';
+    itInput.placeholder = 'Italian Word';
+    itInput.value = word;
+    itDiv.appendChild(itInput);
+
+    // Bangla translation input
+    const bnDiv = document.createElement('div');
+    bnDiv.style.cssText = 'flex: 1; min-width: 120px;';
+    const bnInput = document.createElement('input');
+    bnInput.type = 'text';
+    bnInput.className = 'form-control form-control-sm manuale-vocab-bn';
+    bnInput.placeholder = 'Bangla Translation';
+    bnInput.value = bangla;
+    bnDiv.appendChild(bnInput);
+
+    // Image upload & preview section
+    const imgDiv = document.createElement('div');
+    imgDiv.style.cssText = 'flex: 1; min-width: 140px; display: flex; align-items: center; gap: 6px;';
+
+    const hiddenImgInput = document.createElement('input');
+    hiddenImgInput.type = 'hidden';
+    hiddenImgInput.className = 'manuale-vocab-existing-img';
+    hiddenImgInput.value = imagePath;
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.className = 'form-control form-control-sm manuale-vocab-img-file';
+    fileInput.accept = 'image/*';
+    fileInput.style.cssText = 'font-size: 11px; max-width: 130px;';
+
+    const imgPreview = document.createElement('img');
+    imgPreview.className = 'manuale-vocab-img-preview';
+    imgPreview.style.cssText = 'max-height: 32px; max-width: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-card); display: ' + (imagePath ? 'block' : 'none') + ';';
+    if (imagePath) imgPreview.src = imagePath;
+
+    // Real-time preview on file select (supports PNG, JPG, JPEG, WEBP, GIF, SVG, BMP, etc.)
+    fileInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                imgPreview.src = e.target.result;
+                imgPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    imgDiv.appendChild(hiddenImgInput);
+    imgDiv.appendChild(fileInput);
+    imgDiv.appendChild(imgPreview);
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-sm btn-danger';
+    delBtn.title = 'Delete Word';
+    delBtn.style.cssText = 'padding: 4px 8px;';
+    delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    delBtn.addEventListener('click', function () {
+        itemDiv.remove();
+    });
+
+    itemDiv.appendChild(itDiv);
+    itemDiv.appendChild(bnDiv);
+    itemDiv.appendChild(imgDiv);
+    itemDiv.appendChild(delBtn);
+
+    container.appendChild(itemDiv);
+}
+
+function updateManualeUnderlinedWordsList() {
+    const listContainer = document.getElementById('manuale-vocab-list');
+    if (!listContainer) return;
+
+    const content = document.getElementById('form-manuale-content')?.value || '';
+    const regex = /<u>([\s\S]*?)<\/u>/gi;
+    let match;
+    const detectedWords = new Set();
+    while ((match = regex.exec(content)) !== null) {
+        const word = match[1].trim();
+        if (word) {
+            detectedWords.add(word);
+        }
+    }
+
+    const currentRows = listContainer.querySelectorAll('.manuale-vocab-row-item');
+    const currentWordsMap = new Map();
+    currentRows.forEach(row => {
+        const wordInput = row.querySelector('.manuale-vocab-it');
+        if (wordInput) {
+            const val = wordInput.value.trim();
+            if (val) currentWordsMap.set(val, row);
+        }
+    });
+
+    currentWordsMap.forEach((row, word) => {
+        if (!detectedWords.has(word)) {
+            row.remove();
+        }
+    });
+
+    detectedWords.forEach(word => {
+        if (!currentWordsMap.has(word)) {
+            addManualeVocabRow(word, '', '');
+        }
+    });
+}
+
+function openAddManualeModal() {
+    document.getElementById('form-manuale-id').value = '';
+    document.getElementById('form-manuale-title').value = '';
+    document.getElementById('form-manuale-chapter').value = '1';
+    document.getElementById('form-manuale-content').value = '';
+    document.getElementById('form-manuale-image').value = '';
+    document.getElementById('manuale-image-preview-container').style.display = 'none';
+    const vocabList = document.getElementById('manuale-vocab-list');
+    if (vocabList) vocabList.innerHTML = '';
+    document.getElementById('manuale-modal-title').innerText = 'Add Theory Topic (Manuale)';
+    document.getElementById('manuale-modal').style.display = 'flex';
+}
+
+function closeManualeModal() {
+    document.getElementById('manuale-modal').style.display = 'none';
+}
+
+function insertUnderlineTag() {
+    const textarea = document.getElementById('form-manuale-content');
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+
+    if (selectedText) {
+        const replacement = `<u>${selectedText}</u>`;
+        textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    } else {
+        const replacement = `<u>underlined_word</u>`;
+        textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    }
+    updateManualeUnderlinedWordsList();
+}
+
+function editManuale(id) {
+    const item = manualeAdminData.find(m => m.id === id);
+    if (!item) return;
+
+    document.getElementById('form-manuale-id').value = item.id;
+    document.getElementById('form-manuale-title').value = item.title || '';
+    document.getElementById('form-manuale-chapter').value = item.chapter_number || 1;
+    document.getElementById('form-manuale-content').value = item.content || '';
+    document.getElementById('form-manuale-image').value = '';
+
+    const previewContainer = document.getElementById('manuale-image-preview-container');
+    const previewImg = document.getElementById('manuale-image-preview');
+    if (item.image_path) {
+        previewImg.src = item.image_path;
+        previewContainer.style.display = 'block';
+    } else {
+        previewContainer.style.display = 'none';
+    }
+
+    const vocabList = document.getElementById('manuale-vocab-list');
+    if (vocabList) {
+        vocabList.innerHTML = '';
+        if (item.vocabulary) {
+            let vocabs = item.vocabulary;
+            if (typeof vocabs === 'string') {
+                try { vocabs = JSON.parse(vocabs); } catch (e) { vocabs = []; }
+            }
+            if (Array.isArray(vocabs)) {
+                vocabs.forEach(v => {
+                    const w = v.italian || v.word || '';
+                    const b = v.bangla || v.meaning || '';
+                    const i = v.image || '';
+                    addManualeVocabRow(w, b, i);
+                });
+            }
+        }
+    }
+
+    document.getElementById('manuale-modal-title').innerText = 'Edit Theory Topic (Manuale)';
+    document.getElementById('manuale-modal').style.display = 'flex';
+}
+
+function saveManuale(event) {
+    event.preventDefault();
+    const id = document.getElementById('form-manuale-id').value;
+    const title = document.getElementById('form-manuale-title').value;
+    const chapterNumber = document.getElementById('form-manuale-chapter').value;
+    const content = document.getElementById('form-manuale-content').value;
+    const imageInput = document.getElementById('form-manuale-image');
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('chapter_number', chapterNumber);
+    formData.append('content', content);
+
+    if (imageInput.files.length > 0) {
+        formData.append('image', imageInput.files[0]);
+    }
+
+    // Collect Vocabulary Underlines
+    const vocabRows = document.querySelectorAll('.manuale-vocab-row-item');
+    vocabRows.forEach((row, idx) => {
+        const itWord = row.querySelector('.manuale-vocab-it')?.value || '';
+        const bnWord = row.querySelector('.manuale-vocab-bn')?.value || '';
+        const existingImg = row.querySelector('.manuale-vocab-existing-img')?.value || '';
+        const imgFileInput = row.querySelector('.manuale-vocab-img-file');
+
+        formData.append(`vocab_italian[${idx}]`, itWord);
+        formData.append(`vocab_bangla[${idx}]`, bnWord);
+        formData.append(`vocab_existing_image[${idx}]`, existingImg);
+
+        if (imgFileInput && imgFileInput.files.length > 0) {
+            formData.append(`vocab_image_${idx}`, imgFileInput.files[0]);
+        }
+    });
+
+    const url = id ? `/api/admin/manuale/update/${id}` : '/api/admin/manuale/store';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast(data.message || 'Saved successfully');
+            closeManualeModal();
+            fetchManualeAdminData();
+        } else {
+            showToast(data.message || 'Error saving theory topic');
+        }
+    })
+    .catch(err => {
+        console.error('Error saving manuale:', err);
+        showToast('Save failed');
+    });
+}
+
+function deleteManuale(id) {
+    if (!confirm('Are you sure you want to delete this theory topic?')) return;
+
+    fetch(`/api/admin/manuale/delete/${id}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        showToast(data.message || 'Deleted');
+        fetchManualeAdminData();
+    });
+}
+
+function toggleManualeStatus(id) {
+    fetch(`/api/admin/manuale/toggle-status/${id}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        showToast(data.message || 'Status updated');
+        fetchManualeAdminData();
+    });
+}
 
 
 

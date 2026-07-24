@@ -815,14 +815,21 @@ body {
 .modal-card {
     background-color: var(--bg-card);
     border-radius: 20px;
-    width: 100%;
-    max-width: 540px;
+    width: 90%;
+    max-width: 850px;
     padding: 30px;
     position: relative;
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
     animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     max-height: calc(100vh - 40px);
     overflow-y: auto;
+}
+
+.modal-card.modal-lg,
+#question-modal .modal-card,
+#cartello-question-modal .modal-card {
+    max-width: 1050px;
+    width: 92%;
 }
 
 @keyframes scaleIn {

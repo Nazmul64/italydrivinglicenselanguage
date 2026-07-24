@@ -35,11 +35,11 @@ class ImageHelper
 
         $destFilePath = $fullDestDir . '/' . $fileName;
 
-        // If SVG, just move it since SVG cannot be resized/compressed with GD
-        if ($extension === 'svg') {
-            $svgFileName = $prefix . '_' . time() . '_' . rand(100, 999) . '.svg';
-            $file->move($fullDestDir, $svgFileName);
-            return '/' . rtrim($destinationPath, '/') . '/' . $svgFileName;
+        // If SVG or GIF, just move it directly so animated GIFs and SVGs are perfectly preserved
+        if ($extension === 'svg' || $extension === 'gif') {
+            $rawFileName = $prefix . '_' . time() . '_' . rand(100, 999) . '.' . $extension;
+            $file->move($fullDestDir, $rawFileName);
+            return '/' . rtrim($destinationPath, '/') . '/' . $rawFileName;
         }
 
         // Try using GD library to optimize and save as webp
