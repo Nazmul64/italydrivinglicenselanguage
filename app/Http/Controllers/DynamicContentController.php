@@ -600,15 +600,40 @@ class DynamicContentController extends Controller
     public function getClientStatus()
     {
         $sessionId = request()->input('session_id') ?: session()->getId();
-        $client = AppClient::where('session_id', $sessionId)->first();
+        $phone = request()->input('phone') ?: request()->cookie('app_client_phone') ?: session('app_client_phone');
         
-        if ($client && $client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
-            $client->is_active = false;
-            $client->save();
+        $client = null;
+        if ($phone) {
+            $client = AppClient::where('phone', $phone)->first();
         }
         
-        return response()->json([
-            'session_id' => $sessionId,
+        if (!$client && $sessionId) {
+            $client = AppClient::where('session_id', $sessionId)->first();
+        }
+        
+        if ($client) {
+            if ($client->phone) {
+                session(['app_client_phone' => $client->phone]);
+            }
+            if ($client->session_id && $client->session_id !== $sessionId && $client->is_active) {
+                $oldSessionId = $client->session_id;
+                $client->session_id = $sessionId;
+                $client->save();
+                
+                \App\Models\Message::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\Note::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+                \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+            }
+            
+            if ($client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
+                $client->is_active = false;
+                $client->save();
+            }
+        }
+        
+        $response = response()->json([
+            'session_id' => $client ? $client->session_id : $sessionId,
             'verified' => $client ? true : false,
             'is_active' => $client ? (bool)$client->is_active : false,
             'first_name' => $client ? $client->first_name : null,
@@ -617,6 +642,12 @@ class DynamicContentController extends Controller
             'expires_at' => $client && $client->expires_at ? $client->expires_at->toIso8601String() : null,
             'days_left' => $client && $client->expires_at ? now()->diffInDays($client->expires_at, false) : null
         ]);
+
+        if ($client && $client->phone) {
+            $response->cookie('app_client_phone', $client->phone, 525600);
+        }
+
+        return $response;
     }
 
     public function submitVerification(Request $request)
@@ -632,8 +663,10 @@ class DynamicContentController extends Controller
         // Find existing client by phone number
         $client = AppClient::where('phone', $request->phone)->first();
         
+        $alreadyActive = false;
         if ($client) {
             $oldSessionId = $client->session_id;
+            $alreadyActive = (bool)$client->is_active;
             
             // If session ID has changed, update it and migrate historical data
             if ($oldSessionId !== $sessionId) {
@@ -662,18 +695,42 @@ class DynamicContentController extends Controller
         }
         
         $client->save();
+        session(['app_client_phone' => $client->phone]);
 
-        return response()->json([
+        $response = response()->json([
             'success' => true,
+            'already_active' => $alreadyActive,
+            'is_active' => (bool)$client->is_active,
             'client' => $client
         ]);
+
+        return $response->cookie('app_client_phone', $client->phone, 525600);
     }
 
-    public function getClients()
+    public function getClients(Request $request)
     {
         $this->checkPermission('sliders');
-        $clients = AppClient::orderBy('updated_at', 'desc')->get();
-        return response()->json($clients);
+        $query = AppClient::orderBy('updated_at', 'desc');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('session_id', 'like', "%{$search}%");
+            });
+        }
+
+        $clients = $query->get();
+
+        return response()->json([
+            'clients' => $clients,
+            'total_count' => AppClient::count(),
+            'active_count' => AppClient::where('is_active', true)->where('is_blocked', false)->count(),
+            'blocked_count' => AppClient::where('is_blocked', true)->count(),
+            'pending_count' => AppClient::where('is_active', false)->where('is_blocked', false)->count(),
+        ]);
     }
 
     public function toggleClientActive($id)
@@ -681,11 +738,63 @@ class DynamicContentController extends Controller
         $this->checkPermission('sliders');
         $client = AppClient::findOrFail($id);
         $client->is_active = !$client->is_active;
+        if ($client->is_active && !$client->expires_at) {
+            $client->expires_at = now()->addYear();
+        }
         $client->save();
 
         return response()->json([
             'success' => true,
             'client' => $client
+        ]);
+    }
+
+    public function toggleClientBlocked($id)
+    {
+        $this->checkPermission('sliders');
+        $client = AppClient::findOrFail($id);
+        $client->is_blocked = !$client->is_blocked;
+        if ($client->is_blocked) {
+            $client->is_active = false;
+        }
+        $client->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $client->is_blocked ? 'গ্রাহককে ব্লক করা হয়েছে' : 'গ্রাহককে আনব্লক করা হয়েছে',
+            'client' => $client
+        ]);
+    }
+
+    public function updateClientLicense(Request $request, $id)
+    {
+        $this->checkPermission('sliders');
+        $request->validate([
+            'days' => 'required|integer|min:1'
+        ]);
+
+        $client = AppClient::findOrFail($id);
+        $client->is_active = true;
+        $client->is_blocked = false;
+        $client->expires_at = now()->addDays($request->days);
+        $client->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "গ্রাহককে {$request->days} দিনের জন্য লাইসেন্স দেওয়া হয়েছে",
+            'client' => $client
+        ]);
+    }
+
+    public function deleteClient($id)
+    {
+        $this->checkPermission('sliders');
+        $client = AppClient::findOrFail($id);
+        $client->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'গ্রাহকের ডাটা মুছে ফেলা হয়েছে'
         ]);
     }
 
@@ -726,6 +835,10 @@ class DynamicContentController extends Controller
                 ['title' => 'CORRECT MCQS', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct_questions', 'icon_class' => 'fa-solid fa-circle-check', 'order_index' => 10],
                 ['title' => 'WRONG MCQS', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong_questions', 'icon_class' => 'fa-solid fa-circle-xmark', 'order_index' => 11],
                 ['title' => 'SUPPORT', 'subtitle' => 'Live Chat', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'order_index' => 12],
+                ['title' => 'TOP PERFORMERS', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top_performers', 'icon_class' => 'fa-solid fa-ranking-star', 'order_index' => 13],
+                ['title' => 'MANUALE', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'order_index' => 14],
+                ['title' => 'PATENTE SOCIAL', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente_social', 'icon_class' => 'fa-solid fa-users', 'order_index' => 15],
+                ['title' => 'TRANSLATION', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'order_index' => 16],
             ];
             foreach ($defaultCards as $dc) {
                 HomeCard::create($dc);

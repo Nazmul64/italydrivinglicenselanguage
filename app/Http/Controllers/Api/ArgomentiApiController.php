@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 
 class ArgomentiApiController extends Controller
 {
+    /**
+     * Get all theory chapters.
+     */
     public function getChapters()
     {
         $chapters = Chapter::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
@@ -19,6 +22,9 @@ class ArgomentiApiController extends Controller
         ]);
     }
 
+    /**
+     * Get pages for a specific chapter.
+     */
     public function getChapterPages($id)
     {
         $pages = Page::where('chapter_id', $id)->orderBy('sort_order', 'asc')->get();
@@ -28,17 +34,30 @@ class ArgomentiApiController extends Controller
         ]);
     }
 
+    /**
+     * Get all pages across all chapters.
+     */
+    public function getAllPages()
+    {
+        $pages = Page::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $pages
+        ]);
+    }
+
+    /**
+     * Get details and MCQs of a specific page.
+     */
     public function getPageDetails($id)
     {
-        $page = Page::with('chapter')->findOrFail($id);
-        $questions = Question::where('page_id', $id)->get();
+        $page = Page::with(['chapter', 'questions' => function ($q) {
+            $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+        }])->findOrFail($id);
 
         return response()->json([
             'status' => 'success',
-            'data' => [
-                'page' => $page,
-                'questions' => $questions
-            ]
+            'data' => $page
         ]);
     }
 }

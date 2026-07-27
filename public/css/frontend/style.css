@@ -87,10 +87,12 @@ body {
 
 /* Header Container */
 .app-header {
+    position: sticky;
+    top: 0;
     background-color: var(--bg-header);
     padding: 14px 24px;
     box-shadow: var(--shadow-header);
-    z-index: 10;
+    z-index: 9999;
 }
 
 .header-content-wrapper {
@@ -1981,6 +1983,7 @@ body.dark-mode .vf-btn:hover {
     border-right: none;
     border-bottom: none;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 14px;
 }
 
 .detail-q-card:hover {
@@ -2004,11 +2007,20 @@ body.dark-mode .detail-q-card:hover {
     border-left-color: #f59e0b;
 }
 
+.detail-q-header-row {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 6px;
+}
+
 .detail-q-num {
     font-size: 11px;
     color: var(--text-secondary);
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 0;
+    flex-shrink: 0;
 }
 
 .detail-q-text-it {
@@ -2845,7 +2857,16 @@ body.dark-mode .chapter-image-card:active {
         inset -5px -5px 10px rgba(255, 255, 255, 0.03);
 }
 
-/* ===== 3D Neumorphism Pill Buttons ===== */
+/* ===== 3D Neumorphism Pill Buttons & Action Bar ===== */
+.pill-btn-group {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
 .pill-btn {
     background: #F4F7FA;
     border: 1px solid rgba(255, 255, 255, 0.8);
@@ -2857,6 +2878,29 @@ body.dark-mode .chapter-image-card:active {
     color: #4b5563;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+/* Mobile Devices Only: single horizontal line layout */
+@media (max-width: 480px) {
+    .pill-btn-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+
+    .pill-btn {
+        flex: 1 !important;
+        text-align: center !important;
+        padding: 7px 4px !important;
+        font-size: 11px !important;
+        white-space: nowrap !important;
+    }
 }
 
 .pill-btn:hover {
@@ -2886,11 +2930,13 @@ body.dark-mode .pill-btn:active {
 
 /* ===== 3D Neumorphism Top Header ===== */
 .app-header {
+    position: sticky !important;
+    top: 0 !important;
     background-color: #F4F7FA !important;
     padding: 14px 24px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.8) !important;
     box-shadow: 6px 6px 16px #d1d9e6, -6px -6px 16px #ffffff !important;
-    z-index: 100 !important;
+    z-index: 9999 !important;
 }
 
 .app-title {
@@ -3159,5 +3205,65 @@ body.dark-mode .bottom-nav .nav-item.active {
         min-width: 25px !important;
         flex: 1 !important;
         margin: 0 !important;
+    }
+}
+
+/* --- Detail Question Card Responsive Image & Header Layout --- */
+.detail-q-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.detail-q-top-image-wrap {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 4px 8px 12px 8px;
+}
+
+.detail-q-top-image {
+    max-height: 220px;
+    max-width: 340px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+@media (max-width: 768px) {
+    .detail-q-header-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+    }
+
+    .detail-q-num {
+        width: 100% !important;
+        margin-bottom: 6px !important;
+    }
+
+    .detail-q-top-image-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 6px 0 12px 0 !important;
+    }
+
+    .detail-q-top-image {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 280px !important;
+        height: auto !important;
+        object-fit: contain !important;
+        border-radius: 8px !important;
     }
 }

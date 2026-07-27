@@ -62,7 +62,6 @@ class ArgomentiController extends Controller
     {
         $pages = Page::withCount('questions')
             ->where('chapter_id', $chapterId)
-            ->where('status', true)
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
@@ -82,17 +81,32 @@ class ArgomentiController extends Controller
     }
 
     /**
+     * Get all pages for dropdown filters.
+     */
+    public function getAllPages()
+    {
+        $pages = Page::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        return response()->json($pages);
+    }
+
+    /**
      * Get list of saved MCQs for user/session.
      */
     public function getSavedMcqs(Request $request)
     {
+        $user = auth()->user();
+        $userId = $request->query('user_id') ?: ($user ? $user->id : null);
         $sessionId = $request->query('session_id') ?: session()->getId();
-        $userId = $request->query('user_id');
 
-        $query = SavedMcq::with('question');
+        $query = SavedMcq::with(['question.page.chapter']);
 
         if ($userId) {
-            $query->where('user_id', $userId);
+            $query->where(function ($q) use ($userId, $sessionId) {
+                $q->where('user_id', $userId);
+                if ($sessionId) {
+                    $q->orWhere('session_id', $sessionId);
+                }
+            });
         } else {
             $query->where('session_id', $sessionId);
         }
@@ -119,7 +133,10 @@ class ArgomentiController extends Controller
             // Check if already saved
             $query = SavedMcq::where('question_id', $questionId);
             if ($userId) {
-                $query->where('user_id', $userId);
+                $query->where(function ($q) use ($userId, $sessionId) {
+                    $q->where('user_id', $userId)
+                        ->orWhere('session_id', $sessionId);
+                });
             } else {
                 $query->where('session_id', $sessionId);
             }
@@ -138,8 +155,7 @@ class ArgomentiController extends Controller
                 return response()->json(['saved' => true, 'message' => 'Question added to bookmarks.']);
             }
         } catch (\Exception $e) {
-            \Log::error("Error toggling saved mcq: " . $e->getMessage());
-            return response()->json(['saved' => false, 'message' => 'Failed to save question.'], 200);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -446,7 +462,7 @@ class ArgomentiController extends Controller
             'video_status'      => 'nullable',
             'estimated_minutes' => 'nullable|integer',
             'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'image'             => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'audio'             => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
             'video'             => 'nullable',
             'pdf_file'          => 'nullable|file|mimes:pdf|max:10240',
@@ -617,7 +633,7 @@ class ArgomentiController extends Controller
             'video_status'      => 'nullable',
             'estimated_minutes' => 'nullable|integer',
             'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'image'             => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'audio'             => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
             'video'             => 'nullable',
             'pdf_file'          => 'nullable|file|mimes:pdf|max:10240',

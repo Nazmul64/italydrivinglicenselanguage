@@ -7,181 +7,116 @@ use App\Http\Controllers\DynamicContentController;
 use App\Http\Controllers\ArgomentiController;
 use App\Http\Controllers\DizionarioController;
 use App\Http\Controllers\CartelloController;
+
+use App\Http\Controllers\Api\ArgomentiApiController;
 use App\Http\Controllers\Api\LezioniApiController;
 use App\Http\Controllers\Api\TestApiController;
-use App\Http\Controllers\Api\ArgomentiApiController;
-use App\Http\Controllers\Api\EClassApiController;
-use App\Http\Controllers\Api\SfidaApiController;
-use App\Http\Controllers\Api\SchedaEsameApiController;
-use App\Http\Controllers\Api\DizionarioApiController;
 use App\Http\Controllers\Api\CartelliApiController;
-use App\Http\Controllers\Api\SavedMcqsApiController;
-use App\Http\Controllers\Api\CorrectMcqsApiController;
-use App\Http\Controllers\Api\WrongMcqsApiController;
+use App\Http\Controllers\Api\DizionarioApiController;
+use App\Http\Controllers\Api\SchedaEsameApiController;
+use App\Http\Controllers\Api\SfidaApiController;
 use App\Http\Controllers\Api\SupportApiController;
+use App\Http\Controllers\Api\WrongMcqsApiController;
+use App\Http\Controllers\Api\CorrectMcqsApiController;
+use App\Http\Controllers\Api\SavedMcqsApiController;
+use App\Http\Controllers\Api\TranslationApiController;
+use App\Http\Controllers\Api\PatenteSocialApiController;
+use App\Http\Controllers\Api\ManualeApiController;
+use App\Http\Controllers\Api\LeaderboardApiController;
+use App\Http\Controllers\Api\EClassApiController;
+
 use App\Models\Question;
 use App\Models\CartelloMcq;
-use App\Models\Category;
 
 /*
 |--------------------------------------------------------------------------
-| Dedicated Mobile App & Web API Routes (v1)
+| RESTful API Routes for Mobile App (v1)
 |--------------------------------------------------------------------------
 */
 
 Route::prefix('v1')->group(function () {
 
-    // 1. Dashboard Cards & Sliders & Settings
-    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
-    Route::get('/dashboard/cards', [DynamicContentController::class, 'getPublicHomeCards']);
-    Route::get('/dashboard/banners', [DynamicContentController::class, 'getPublicSliders']);
+    // 1. ARGOMENTI API (Theory Chapters & Pages)
+    Route::get('/chapters', [ArgomentiApiController::class, 'getChapters']);
+    Route::get('/chapters/{id}/pages', [ArgomentiApiController::class, 'getChapterPages']);
+    Route::get('/pages/all', [ArgomentiApiController::class, 'getAllPages']);
+    Route::get('/pages/{id}', [ArgomentiApiController::class, 'getPageDetails']);
 
-    // 2. Lezioni (Video Classes API)
+    // 2. E-CLASS & LEZIONI API (Classes & Video Tutorials)
     Route::get('/lezioni', [LezioniApiController::class, 'index']);
     Route::get('/lezioni/{id}', [LezioniApiController::class, 'show']);
+    Route::get('/eclass', [EClassApiController::class, 'index']);
 
-    // 3. Test (Practice Test API)
+    // 3. TEST API (Practice Test)
     Route::get('/test/questions', [TestApiController::class, 'getQuestions']);
     Route::post('/test/submit', [TestApiController::class, 'submitResult']);
 
-    // 4. Argomenti (Theory Chapters & Pages API)
-    Route::get('/chapters', [ArgomentiApiController::class, 'getChapters']);
-    Route::get('/chapters/{id}/pages', [ArgomentiApiController::class, 'getChapterPages']);
-    Route::get('/pages/{id}', [ArgomentiApiController::class, 'getPageDetails']);
+    // 4. CARTELLI API (Traffic Signs)
+    Route::get('/cartelli/categories', [CartelliApiController::class, 'getCategories']);
+    Route::get('/cartelli/chapters/{categoryId?}', [CartelliApiController::class, 'getChapters']);
+    Route::get('/cartelli/pages/{chapterId}', [CartelliApiController::class, 'getPages']);
+    Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
 
-    // 5. E-Class (Live Classes API)
-    Route::get('/eclass', [EClassApiController::class, 'index']);
-
-    // 6. Sfida (Speed Challenge API)
-    Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
-
-    // 7. Scheda Esame (Exam Simulation API)
-    Route::get('/scheda-esame/sheets', [SchedaEsameApiController::class, 'index']);
-
-    // 8. Dizionario (Italian-Bangla Terms API)
+    // 5. DIZIONARIO API (Italian-Bangla Terms)
     Route::get('/dizionario', [DizionarioApiController::class, 'getTerms']);
 
-    // 9. Cartelli (Traffic Signs API)
-    Route::get('/cartelli/categories', [CartelliApiController::class, 'getCategories']);
-    Route::get('/cartelli/chapters/{categoryId}', [CartelliApiController::class, 'getChapters']);
+    // 6. SCHEDA ESAME API (Official 30 MCQs Simulation)
+    Route::get('/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
+    Route::post('/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
 
-    // 10. Saved MCQs API
-    Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
-    Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
+    // 7. SFIDA API (Speed Challenge)
+    Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
 
-    // 11. Correct & Wrong MCQs API
-    Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
-    Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
-
-    // 12. Support (Tutor Live Chat API)
+    // 8. SUPPORT API (Live Chat Room)
     Route::get('/support/messages', [SupportApiController::class, 'index']);
     Route::post('/support/messages', [SupportApiController::class, 'store']);
 
-    // 2. Chapters & Pages (Argomenti)
-    Route::get('/chapters', [ArgomentiController::class, 'getChapters']);
-    Route::get('/chapters/{id}/pages', [ArgomentiController::class, 'getChapterPages']);
-    Route::get('/pages/{id}', [ArgomentiController::class, 'getPageDetails']);
+    // 9. WRONG MCQs API
+    Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
 
-    // 3. Quiz & Exam APIs
-    Route::get('/quiz/exam', function () {
-        $argomentiQuestions = Question::inRandomOrder()->limit(30)->get()->map(function($q) {
-            return [
-                'id' => $q->id,
-                'type' => 'argomenti',
-                'italian' => $q->italian,
-                'bangla' => $q->bangla,
-                'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
-                'image' => $q->image,
-                'audio' => $q->audio,
-                'video' => $q->video,
-                'vocabulary' => $q->vocabulary ?? []
-            ];
-        });
+    // 10. CORRECT MCQs API
+    Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
 
-        $cartelliQuestions = CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function($q) {
-            return [
-                'id' => $q->id,
-                'type' => 'cartelli',
-                'italian' => $q->question,
-                'bangla' => $q->bn_question,
-                'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
-                'image' => $q->image,
-                'audio' => $q->voice,
-                'video' => $q->video,
-                'vocabulary' => $q->vocabulary ?? []
-            ];
-        });
-
-        $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
-        return response()->json([
-            'status' => 'success',
-            'data' => $combined
-        ]);
-    });
-
-    Route::get('/quiz/chapter/{chapter}', function ($chapter) {
-        $questions = Question::where('chapter', $chapter)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
-        return response()->json([
-            'status' => 'success',
-            'data' => $questions
-        ]);
-    });
-
-    // Saved MCQs & Notes
-    Route::get('/saved-mcqs', [ArgomentiController::class, 'getSavedMcqs']);
-    Route::post('/saved-mcqs/toggle', [ArgomentiController::class, 'toggleSavedMcq']);
+    // 11. SAVED MCQs & NOTES API
+    Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
+    Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
     Route::get('/notes', [ArgomentiController::class, 'getNotes']);
     Route::post('/notes', [ArgomentiController::class, 'saveNote']);
     Route::delete('/notes/{id}', [ArgomentiController::class, 'deleteNote']);
 
-    // 4. Cartelli APIs
-    Route::get('/cartelli/categories', [CartelloController::class, 'publicGetCategories']);
-    Route::get('/cartelli/chapters', [CartelloController::class, 'publicGetAllChapters']);
-    Route::get('/cartelli/chapters/{categoryId}', [CartelloController::class, 'publicGetChapters']);
-    Route::get('/cartelli/pages/{chapterId}', [CartelloController::class, 'publicGetPages']);
-    Route::get('/cartelli/page-mcqs/{pageId}', [CartelloController::class, 'publicGetPageMcqs']);
+    // 12. TRANSLATION & VOCABULARY API
+    Route::get('/translation', [TranslationApiController::class, 'getQuestionTranslation']);
 
-    // 5. Dizionario (Dictionary) API
-    Route::get('/dizionario', [DizionarioController::class, 'getDictionary']);
+    // 13. PATENTE SOCIAL API (Home Cards, Banners, Settings)
+    Route::get('/patente-social/cards', [PatenteSocialApiController::class, 'getCards']);
+    Route::get('/patente-social/banners', [PatenteSocialApiController::class, 'getBanners']);
+    Route::get('/patente-social/settings', [PatenteSocialApiController::class, 'getSettings']);
 
-    // 6. E-Class & Live Classes APIs
-    Route::get('/classes', [DynamicContentController::class, 'getLectureClasses']);
-    Route::get('/live-classes', [DynamicContentController::class, 'getLiveClasses']);
+    // 14. MANUALE API (Manual Theory Chapters & Pages)
+    Route::get('/manuale/chapters', [ManualeApiController::class, 'getChapters']);
+    Route::get('/manuale/pages/{chapterId}', [ManualeApiController::class, 'getPages']);
+    Route::get('/manuale/page/{id}', [ManualeApiController::class, 'getPageContent']);
 
-    // 7. Client Verification & App Status
+    // 15. LEADERBOARD API (Rankings)
+    Route::get('/leaderboard', [LeaderboardApiController::class, 'index']);
+
+    // 16. CLIENT STATUS & VERIFICATION API
     Route::get('/client/status', [DynamicContentController::class, 'getClientStatus']);
     Route::post('/client/verify', [DynamicContentController::class, 'submitVerification']);
 
-    // 8. Support Chat API
-    Route::get('/chat/messages', function (Request $request) {
-        $sessionId = $request->query('session_id') ?: session()->getId();
-        $messages = \App\Models\Message::where('session_id', $sessionId)
-            ->orderBy('created_at', 'asc')
-            ->get();
-        return response()->json([
-            'status' => 'success',
-            'data' => $messages
-        ]);
+    // Questions By IDs helper
+    Route::get('/questions/by-ids', function (Request $request) {
+        $idsStr = $request->query('ids', '');
+        if (empty($idsStr)) return response()->json(['status' => 'success', 'data' => []]);
+        $ids = array_map('intval', explode(',', $idsStr));
+        $questions = Question::whereIn('id', $ids)->get();
+        return response()->json(['status' => 'success', 'data' => $questions]);
     });
 
-    Route::post('/chat/messages', function (Request $request) {
-        $request->validate([
-            'message' => 'required|string',
-        ]);
-        $sessionId = $request->input('session_id') ?: session()->getId();
-        $msg = \App\Models\Message::create([
-            'session_id' => $sessionId,
-            'sender' => 'user',
-            'message' => $request->input('message'),
-            'status' => 'unread',
-        ]);
-        return response()->json([
-            'status' => 'success',
-            'data' => $msg
-        ]);
-    });
-
-    // 9. Dashboard Dynamic Cards & Banners
+    // Legacy Fallback Endpoints
+    Route::get('/quiz/exam', [SchedaEsameApiController::class, 'generateSheet']);
+    Route::get('/classes', [DynamicContentController::class, 'getLectureClasses']);
+    Route::get('/live-classes', [DynamicContentController::class, 'getLiveClasses']);
     Route::get('/dashboard/cards', [DynamicContentController::class, 'getPublicHomeCards']);
     Route::get('/dashboard/banners', [DynamicContentController::class, 'getPublicSliders']);
     Route::get('/sliders', [DynamicContentController::class, 'getPublicSliders']);

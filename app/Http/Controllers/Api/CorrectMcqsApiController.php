@@ -3,25 +3,39 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Question;
 use App\Models\UserMcqResult;
+use App\Models\Question;
 use Illuminate\Http\Request;
 
 class CorrectMcqsApiController extends Controller
 {
-    public function index()
+    /**
+     * Get user's correct answered MCQs.
+     */
+    public function index(Request $request)
     {
-        $userId = auth()->id() ?? 1;
-        $results = UserMcqResult::where('user_id', $userId)
-            ->where('correct_count', '>', 0)
-            ->get();
+        $userId = auth()->id() ?? $request->query('user_id');
+        $sessionId = $request->query('session_id') ?: session()->getId();
 
+        $query = UserMcqResult::query();
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where('session_id', $sessionId);
+        }
+
+        $results = $query->get();
         $correctIds = [];
-        foreach ($results as $res) {
-            $answers = json_decode($res->answers, true) ?? [];
-            foreach ($answers as $qId => $isCorrect) {
-                if ($isCorrect) {
-                    $correctIds[] = $qId;
+
+        foreach ($results as $r) {
+            if ($r->answers) {
+                $ansMap = is_array($r->answers) ? $r->answers : json_decode($r->answers, true);
+                if (is_array($ansMap)) {
+                    foreach ($ansMap as $qId => $state) {
+                        if ($state === 'correct' || $state === true || $state === 1) {
+                            $correctIds[] = (int)$qId;
+                        }
+                    }
                 }
             }
         }
@@ -31,6 +45,7 @@ class CorrectMcqsApiController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'total_correct' => count($questions),
             'data' => $questions
         ]);
     }

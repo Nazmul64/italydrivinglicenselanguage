@@ -1,14 +1,129 @@
+// --- Global Fetch Interceptor for Client License Headers ---
+(function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(resource, init = {}) {
+        const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : null);
+        const sessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : null);
+
+        if (phone || sessionId) {
+            init = init || {};
+            init.headers = init.headers || {};
+
+            if (init.headers instanceof Headers) {
+                if (phone && !init.headers.has('X-Client-Phone')) init.headers.append('X-Client-Phone', phone);
+                if (sessionId && !init.headers.has('X-Client-Session-ID')) init.headers.append('X-Client-Session-ID', sessionId);
+            } else if (Array.isArray(init.headers)) {
+                if (phone) init.headers.push(['X-Client-Phone', phone]);
+                if (sessionId) init.headers.push(['X-Client-Session-ID', sessionId]);
+            } else {
+                if (phone && !init.headers['X-Client-Phone']) init.headers['X-Client-Phone'] = phone;
+                if (sessionId && !init.headers['X-Client-Session-ID']) init.headers['X-Client-Session-ID'] = sessionId;
+            }
+        }
+        return originalFetch.call(this, resource, init);
+    };
+})();
+
 // --- Global Simulation & Speech Variables ---
 const speedOptionsList = [0.65, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 let testAudioSpeed = 1.0;
 let isSpeechSpeaking = false;
 let practiceMode = 'exam';
 let activeSavedMcqs = [];
+let isSchedeSelectMode = false;
 
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
 let currentClientActive = false;
+let currentClientPhone = null;
+let currentClientSessionId = null;
+
+function getUserStatsStorageKey() {
+    if (currentClientPhone) {
+        return `user_question_stats_${currentClientPhone}`;
+    }
+    if (currentClientSessionId) {
+        return `user_question_stats_${currentClientSessionId}`;
+    }
+    return 'user_question_stats';
+}
+
+function getUserQuestionStats() {
+    const key = getUserStatsStorageKey();
+    let statsStr = localStorage.getItem(key);
+
+    // Fallback: If scoped key is missing but legacy key exists, copy it over
+    if (!statsStr && key !== 'user_question_stats') {
+        const legacyStats = localStorage.getItem('user_question_stats');
+        if (legacyStats) {
+            localStorage.setItem(key, legacyStats);
+            statsStr = legacyStats;
+        }
+    }
+
+    try {
+        return JSON.parse(statsStr || '{}');
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveUserQuestionStats(stats) {
+    const key = getUserStatsStorageKey();
+    localStorage.setItem(key, JSON.stringify(stats));
+    localStorage.setItem('user_question_stats', JSON.stringify(stats));
+}
+
+function syncUserQuestionStatsFromBackend() {
+    return fetch('/api/user-mcq-results?per_page=5000')
+        .then(res => res.json())
+        .then(data => {
+            const items = data.data || (Array.isArray(data) ? data : []);
+            if (!items || !Array.isArray(items)) return;
+
+            const stats = getUserQuestionStats();
+            items.forEach(item => {
+                const qId = item.question_id;
+                if (!qId) return;
+                const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
+
+                if (!stats[qId] || new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
+                    stats[qId] = {
+                        state: isCorrect ? 'correct' : 'wrong',
+                        correct: isCorrect ? 1 : 0,
+                        wrong: isCorrect ? 0 : 1,
+                        chapter: item.chapter_id || null,
+                        updated_at: item.updated_at
+                    };
+                }
+            });
+            saveUserQuestionStats(stats);
+        })
+        .catch(err => console.error("Error syncing user question stats: ", err));
+}
+
+function openImageZoomModal(imgSrc) {
+    if (!imgSrc) return;
+    let modal = document.getElementById('global-image-zoom-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'global-image-zoom-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;';
+        modal.onclick = () => modal.style.display = 'none';
+        modal.innerHTML = `
+            <div style="position: relative; max-width: 90%; max-height: 90%;" onclick="event.stopPropagation()">
+                <i class="fa-solid fa-xmark" style="position: absolute; top: -35px; right: 0; color: #fff; font-size: 24px; cursor: pointer;" onclick="document.getElementById('global-image-zoom-modal').style.display='none'"></i>
+                <img id="global-image-zoom-img" src="" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    const imgEl = document.getElementById('global-image-zoom-img');
+    if (imgEl) imgEl.src = imgSrc;
+    modal.style.display = 'flex';
+}
+window.openImageZoomModal = openImageZoomModal;
 
 
 // --- Helper: Retrieve CSRF Token from meta tag ---
@@ -246,17 +361,22 @@ function updateArgomentiPillStates() {
     if (selectPill) selectPill.classList.remove('active');
     if (selectAllPill) selectAllPill.classList.remove('active');
 
-    if (selectedSheets.length === 0) {
+    if (selectPill) {
+        selectPill.style.display = isSchedeSelectMode ? 'none' : 'inline-block';
+    }
+
+    if (!isSchedeSelectMode && selectedSheets.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
     } else if (activeChapterPages.length > 0 && selectedSheets.length === activeChapterPages.length) {
         if (selectAllPill) selectAllPill.classList.add('active');
-    } else {
+    } else if (isSchedeSelectMode) {
         if (selectPill) selectPill.classList.add('active');
     }
 }
 
 function unselectAllSheets() {
     selectedSheets = [];
+    isSchedeSelectMode = false;
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
@@ -265,6 +385,7 @@ function unselectAllSheets() {
 
 function selectAllSheets() {
     selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
+    isSchedeSelectMode = true;
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
@@ -272,12 +393,9 @@ function selectAllSheets() {
 }
 
 function toggleSelectSheets() {
-    if (selectedSheets.length === activeChapterPages.length) {
-        selectedSheets = [];
-        showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
-    } else {
-        selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
-        showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
+    isSchedeSelectMode = true;
+    if (selectedSheets.length === 0 && activeChapterPages.length > 0) {
+        selectedSheets = [0];
     }
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
@@ -290,6 +408,11 @@ function toggleSheetSelection(sheetIndex) {
         selectedSheets.splice(idx, 1);
     } else {
         selectedSheets.push(sheetIndex);
+    }
+    if (selectedSheets.length > 0) {
+        isSchedeSelectMode = true;
+    } else {
+        isSchedeSelectMode = false;
     }
     renderSheetsList();
     updateSheetsQuizButtonVisibility();
@@ -352,6 +475,7 @@ function startCustomSheetsQuiz() {
 }
 
 let allArgomentiChapters = [];
+let isArgomentiSelectMode = false;
 
 function toggleChapterSelection(id) {
     const idx = selectedChapters.indexOf(id);
@@ -360,6 +484,11 @@ function toggleChapterSelection(id) {
     } else {
         selectedChapters.push(id);
     }
+    if (selectedChapters.length > 0) {
+        isArgomentiSelectMode = true;
+    } else {
+        isArgomentiSelectMode = false;
+    }
     renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
@@ -367,6 +496,7 @@ function toggleChapterSelection(id) {
 
 function unselectAllArgomentiChapters() {
     selectedChapters = [];
+    isArgomentiSelectMode = false;
     renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
@@ -375,6 +505,7 @@ function unselectAllArgomentiChapters() {
 
 function selectAllArgomentiChapters() {
     selectedChapters = allArgomentiChapters.map(c => c.id);
+    isArgomentiSelectMode = true;
     renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
@@ -382,12 +513,9 @@ function selectAllArgomentiChapters() {
 }
 
 function toggleSelectArgomentiChapters() {
-    if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
-        selectedChapters = [];
-        showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
-    } else {
-        selectedChapters = allArgomentiChapters.map(c => c.id);
-        showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
+    isArgomentiSelectMode = true;
+    if (selectedChapters.length === 0 && allArgomentiChapters.length > 0) {
+        selectedChapters = [allArgomentiChapters[0].id];
     }
     renderArgomentiList();
     updateCategoryQuizButtonVisibility();
@@ -409,11 +537,15 @@ function updateArgomentiChapterPillStates() {
     if (selectPill) selectPill.classList.remove('active');
     if (selectAllPill) selectAllPill.classList.remove('active');
 
-    if (selectedChapters.length === 0) {
+    if (selectPill) {
+        selectPill.style.display = isArgomentiSelectMode ? 'none' : 'inline-block';
+    }
+
+    if (!isArgomentiSelectMode && selectedChapters.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
     } else if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
         if (selectAllPill) selectAllPill.classList.add('active');
-    } else {
+    } else if (isArgomentiSelectMode) {
         if (selectPill) selectPill.classList.add('active');
     }
 }
@@ -474,7 +606,7 @@ function renderArgomentiList() {
     if (!container) return;
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
 
     fetch('/api/chapters')
         .then(res => res.json())
@@ -506,18 +638,19 @@ function renderArgomentiList() {
 
                 const card = document.createElement('div');
                 card.className = `chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}`;
-                card.onclick = () => openChapterSheetsScreen(ch.id);
-
-                const checkboxIcon = isSelected
-                    ? `<i class="fa-solid fa-circle-check" style="font-size: 22px; color: var(--accent-green); position: absolute; top: 12px; right: 12px; z-index: 5;" onclick="event.stopPropagation(); toggleChapterSelection(${ch.id})"></i>`
-                    : `<i class="fa-regular fa-circle" style="font-size: 22px; color: rgba(255,255,255,0.8); position: absolute; top: 12px; right: 12px; z-index: 5; text-shadow: 0 1px 4px rgba(0,0,0,0.4);" onclick="event.stopPropagation(); toggleChapterSelection(${ch.id})"></i>`;
+                card.onclick = () => {
+                    if (isArgomentiSelectMode) {
+                        toggleChapterSelection(ch.id);
+                    } else {
+                        openChapterSheetsScreen(ch.id);
+                    }
+                };
 
                 const coverImage = ch.cover_image || ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
 
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
-                        ${checkboxIcon}
-                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px; padding-right: 24px;">
+                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
                         <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
@@ -531,6 +664,7 @@ function renderArgomentiList() {
                 container.appendChild(card);
             });
             updateCategoryQuizButtonVisibility();
+            updateArgomentiChapterPillStates();
         })
         .catch(err => {
             console.error("Error fetching chapters: ", err);
@@ -582,7 +716,9 @@ function openChapterSheetsScreen(chapterId) {
             }
 
             selectedSheets = [];
+            isSchedeSelectMode = false;
             updateSheetsQuizButtonVisibility();
+            updateArgomentiPillStates();
 
             renderSheetsList();
         })
@@ -599,7 +735,7 @@ function renderSheetsList() {
     if (!container) return;
     container.innerHTML = '';
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
 
     activeChapterPages.forEach((page, index) => {
         let pageQuestions = activeChapterQuestions.filter(q => q.page_id == page.id);
@@ -630,22 +766,23 @@ function renderSheetsList() {
         card.style.flexDirection = 'column';
         card.style.gap = '10px';
         card.style.padding = '16px';
-        card.onclick = () => openPageDetailsScreen(page.id);
-
-        const checkboxIcon = isSelected
-            ? `<i class="fa-solid fa-circle-check" style="font-size: 18px; color: var(--accent-green); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleSheetSelection(${index})"></i>`
-            : `<i class="fa-regular fa-circle" style="font-size: 18px; color: var(--text-secondary); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleSheetSelection(${index})"></i>`;
+        card.onclick = () => {
+            if (isSchedeSelectMode) {
+                toggleSheetSelection(index);
+            } else {
+                openPageDetailsScreen(page.id);
+            }
+        };
 
         const safeTotal = total || 1;
 
         card.innerHTML = `
-            ${checkboxIcon}
             <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; padding-right: 28px;">
+                <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
                     ${displaySheetTitle}
                 </span>
-                <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary); padding-right: 20px;"></i>
+                <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
             </div>
 
             <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary);">
@@ -663,6 +800,7 @@ function renderSheetsList() {
         `;
         container.appendChild(card);
     });
+    updateArgomentiPillStates();
 }
 
 function toggleChapterDropdownList() {
@@ -1414,6 +1552,43 @@ function resetAppData() {
 
 // --- 12. Guest Chat System AJAX Logic ---
 let chatInterval = null;
+let knownChatMessageIds = new Set();
+let unreadChatMessageCount = 0;
+let isFirstChatLoad = true;
+
+function playChatNotificationSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.25);
+
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) {
+        console.log("Notification audio play skipped: ", e);
+    }
+}
+
+function updateChatHeaderUnreadBadge() {
+    const badge = document.getElementById('chat-header-unread-badge');
+    if (!badge) return;
+    if (unreadChatMessageCount > 0) {
+        badge.textContent = unreadChatMessageCount > 99 ? '99+' : unreadChatMessageCount;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
 
 function toggleGuestChat(show) {
     const widget = document.getElementById('guest-chat-widget');
@@ -1421,24 +1596,56 @@ function toggleGuestChat(show) {
     widget.style.display = show ? 'flex' : 'none';
 
     if (show) {
+        unreadChatMessageCount = 0;
+        updateChatHeaderUnreadBadge();
+        const savedPhone = localStorage.getItem('app_client_phone');
+        if (savedPhone || currentClientVerified) {
+            setChatWidgetView('normal');
+        }
         checkClientActivation();
         fetchGuestChatMessages();
-        if (!chatInterval) {
-            chatInterval = setInterval(fetchGuestChatMessages, 3000);
-        }
-    } else {
-        if (chatInterval) {
-            clearInterval(chatInterval);
-            chatInterval = null;
-        }
     }
 }
 
 function fetchGuestChatMessages() {
-    fetch('/api/chat/messages')
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
+    let url = '/api/chat/messages';
+    if (savedSessionId) {
+        url += '?session_id=' + encodeURIComponent(savedSessionId);
+    }
+
+    fetch(url)
         .then(res => res.json())
         .then(messages => {
-            renderGuestChatMessages(messages);
+            if (Array.isArray(messages)) {
+                let hasNewAdminMsg = false;
+
+                messages.forEach(msg => {
+                    if (msg.id && !knownChatMessageIds.has(msg.id)) {
+                        knownChatMessageIds.add(msg.id);
+                        if (!isFirstChatLoad && msg.sender === 'admin') {
+                            hasNewAdminMsg = true;
+                            unreadChatMessageCount++;
+                        }
+                    }
+                });
+
+                if (isFirstChatLoad) {
+                    isFirstChatLoad = false;
+                } else if (hasNewAdminMsg) {
+                    const widget = document.getElementById('guest-chat-widget');
+                    const isChatOpen = widget && widget.style.display !== 'none' && widget.style.display !== '';
+                    if (!isChatOpen) {
+                        updateChatHeaderUnreadBadge();
+                        playChatNotificationSound();
+                    } else {
+                        unreadChatMessageCount = 0;
+                        updateChatHeaderUnreadBadge();
+                    }
+                }
+
+                renderGuestChatMessages(messages);
+            }
         })
         .catch(err => console.error("Error fetching chat: ", err));
 }
@@ -1549,9 +1756,11 @@ function uploadChatAttachment(input) {
     if (!input.files || !input.files[0]) return;
 
     const file = input.files[0];
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('message', '');
+    if (savedSessionId) formData.append('session_id', savedSessionId);
 
     showToast('ফাইল আপলোড হচ্ছে...');
 
@@ -1584,6 +1793,7 @@ function sendGuestChatMessage() {
     if (!messageText) return;
 
     input.value = '';
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
 
     fetch('/api/chat/messages', {
         method: 'POST',
@@ -1591,7 +1801,10 @@ function sendGuestChatMessage() {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': getCsrfToken()
         },
-        body: JSON.stringify({ message: messageText })
+        body: JSON.stringify({
+            message: messageText,
+            session_id: savedSessionId
+        })
     })
         .then(res => res.json())
         .then(msg => {
@@ -1599,6 +1812,9 @@ function sendGuestChatMessage() {
         })
         .catch(err => console.error("Error sending message: ", err));
 }
+
+// Start continuous background polling for live chat messages
+setInterval(fetchGuestChatMessages, 3000);
 
 // --- 13. Mobile Exam Simulator (TEST) AJAX Logic ---
 let testQuestions = [];
@@ -1751,7 +1967,7 @@ function switchTestQuestionTab(tab) {
     const container = document.getElementById('test-num-grid');
     if (container) {
         container.innerHTML = '';
-        const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+        const userStats = getUserQuestionStats();
 
         for (let i = startNum; i <= endNum; i++) {
             if (i - 1 >= testQuestions.length) break;
@@ -1796,7 +2012,7 @@ function renderAll30MiniGrid() {
     container.innerHTML = '';
 
     const totalCount = Math.max(30, testQuestions.length || 30);
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
 
     for (let i = 0; i < totalCount; i++) {
         const box = document.createElement('span');
@@ -1854,16 +2070,30 @@ function showTestQuestion() {
 
     const imgContainer = document.getElementById('test-question-img-container');
     const imgEl = document.getElementById('test-question-img');
-    const imgSrc = q ? (q.image || q.figure || q.img || q.image_url || '') : '';
+    const pageImgFallback = (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image) ? activePageDetails.image : '';
+    let imgSrc = q ? (q.image || q.figure || q.img || q.image_url || pageImgFallback || '') : pageImgFallback;
+
     if (imgContainer && imgEl) {
         if (imgSrc) {
-            const finalSrc = (imgSrc.startsWith('http') || imgSrc.startsWith('/')) ? imgSrc : `/storage/${imgSrc}`;
+            let finalSrc = imgSrc;
+            if (!finalSrc.startsWith('http') && !finalSrc.startsWith('/') && !finalSrc.startsWith('data:')) {
+                finalSrc = '/' + finalSrc;
+            }
             imgEl.src = finalSrc;
+            imgEl.onerror = function () {
+                if (pageImgFallback && !this.src.includes(pageImgFallback)) {
+                    let fbSrc = (pageImgFallback.startsWith('/') || pageImgFallback.startsWith('http')) ? pageImgFallback : '/' + pageImgFallback;
+                    this.src = fbSrc;
+                } else {
+                    this.src = '/images/signs/generic_pericolo.png';
+                }
+            };
             imgEl.style.display = 'block';
             imgContainer.style.display = 'flex';
         } else {
+            imgEl.src = '/images/signs/generic_pericolo.png';
+            imgEl.style.display = 'block';
             imgContainer.style.display = 'flex';
-            imgEl.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
         }
     }
 
@@ -2033,7 +2263,7 @@ function nextTestQuestion() {
 
 function finishSheetPractice() {
     let correctCount = 0;
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
 
     testQuestions.forEach(q => {
         const record = userStats[q.id];
@@ -2821,13 +3051,7 @@ function openPageDetailsScreen(pageId) {
             if (descEl) descEl.innerText = page.content || '';
 
             const mediaCont = document.getElementById('page-details-media-container');
-            const imgEl = document.getElementById('page-details-image');
-            if (page.image) {
-                if (imgEl) imgEl.src = page.image;
-                if (mediaCont) mediaCont.style.display = 'block';
-            } else {
-                if (mediaCont) mediaCont.style.display = 'none';
-            }
+            if (mediaCont) mediaCont.style.display = 'none';
 
             // Video display logic
             const videoContainer = document.getElementById('page-details-video-container');
@@ -2939,7 +3163,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
     if (!container) return;
     container.innerHTML = '';
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
 
     questions.forEach((q, index) => {
         const isSaved = savedIds.includes(q.id);
@@ -2968,37 +3192,42 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const saveIconColor = isSaved ? 'color: var(--accent-green);' : '';
 
         const statsHtml = isAnswered ? `
-            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; text-align: center;">
-                <div style="color: var(--text-primary); font-weight: 800; margin-bottom: 4px; text-align: center;">(TU) Hai risposto:</div>
-                <div style="display: flex; justify-content: center; gap: 24px; font-size: 13px; font-weight: 700;">
+            <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 10px;">
+                <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
                     <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
                     <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
                 </div>
             </div>
+        ` : '<div style="flex: 1;"></div>';
+
+        const qImage = q.image || q.img || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
+
+        const topHeaderImageHtml = qImage ? `
+            <div class="detail-q-top-image-wrap">
+                <img src="${qImage}" class="detail-q-top-image" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+            </div>
+        ` : '';
+
+        const leftThumbHtml = qImage ? `
+            <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                <img src="${qImage}" style="width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+            </div>
         ` : '';
 
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
+            <div class="detail-q-header-row">
                 <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">Domanda #${index + 1}</div>
-                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Speech Speed">
-                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
-                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
-                        <i class="${saveIconClass}" style="${saveIconColor}"></i>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''}"></i>
-                    </button>
-                    <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" onclick="toggleArgomentiQuestionAnswer(${q.id})" style="cursor: pointer; font-size: 15px; color: var(--text-secondary); margin-left: 2px;" title="Show Answer"></i>
-                    <span id="page-ans-text-${q.id}" style="display: none; font-size: 13px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
+                ${topHeaderImageHtml}
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                ${leftThumbHtml}
+                <div style="flex: 1; min-width: 0;">
+                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
+                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
                 </div>
             </div>
-            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-            <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
             <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
                 <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: 36px; height: 36px; min-width:36px; flex-shrink: 0;" title="Listen TTS Pronunciation">
@@ -3010,7 +3239,25 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
                 <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
             </div>
 
-            ${statsHtml}
+            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
+                        <i class="${saveIconClass}" style="${saveIconColor}"></i>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''}"></i>
+                    </button>
+                    <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" onclick="toggleArgomentiQuestionAnswer(${q.id})" style="cursor: pointer; font-size: 16px; color: var(--text-secondary); margin-left: 2px;" title="Show Answer"></i>
+                    <span id="page-ans-text-${q.id}" style="display: none; font-size: 13px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
+                </div>
+                ${statsHtml}
+            </div>
         `;
         container.appendChild(card);
     });
@@ -3388,7 +3635,8 @@ function togglePageDetailsChapterDropdown() {
                                 }
                             });
                     };
-                    item.innerText = `Capitolo ${ch.id}) ${ch.name}`;
+                    const italianName = ch.name || '';
+                    item.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${italianName}`;
                     dropdown.appendChild(item);
                 });
             });
@@ -3479,6 +3727,9 @@ window.addEventListener('click', (e) => {
 // Saved MCQs Screen Logic
 // ==========================================
 
+let selectedSavedMcqIds = [];
+let isSavedMcqSelectMode = false;
+
 function loadSavedMcqsScreen() {
     const container = document.getElementById('saved-mcqs-list-container');
     if (!container) return;
@@ -3493,6 +3744,7 @@ function loadSavedMcqsScreen() {
 
             if (saved.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">Nessuna domanda salvata.</div>`;
+                updateSavedMcqsQuizButtonVisibility();
                 return;
             }
 
@@ -3500,19 +3752,79 @@ function loadSavedMcqsScreen() {
                 const q = item.question;
                 if (!q) return;
 
+                const page = q.page || null;
+                const chapter = (page && page.chapter) ? page.chapter : null;
+
+                const chapNum = chapter ? (chapter.chapter_number || chapter.id) : (q.chapter || '');
+                const chapName = chapter ? (chapter.name || '') : '';
+                const pageTitle = page ? (page.title || '') : '';
+                const pageNum = page ? (page.sort_order || page.id) : '';
+
+                let locationBadgeHtml = '';
+                if (chapNum || pageTitle) {
+                    locationBadgeHtml = `
+                        <div style="font-size: 11px; font-weight: 700; color: var(--accent-green); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; background-color: rgba(76, 175, 80, 0.08); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(76, 175, 80, 0.18); width: fit-content;">
+                            <i class="fa-solid fa-folder-open" style="font-size: 10px;"></i>
+                            <span>${chapNum ? `Capitolo ${chapNum}` : ''}${chapName ? `: ${chapName}` : ''}${pageTitle ? ` · Pagina ${pageNum}: ${pageTitle}` : ''}</span>
+                        </div>
+                    `;
+                }
+
+                const qImage = q.image || q.img || (page && page.image ? page.image : null);
+
+                const topRightImageHtml = qImage ? `
+                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                        <img src="${qImage}" style="max-height: 60px; max-width: 100px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const leftThumbHtml = qImage ? `
+                    <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                        <img src="${qImage}" style="width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const isSelected = selectedSavedMcqIds.includes(q.id);
                 const card = document.createElement('div');
-                card.className = `detail-q-card unanswered`;
+                card.className = `detail-q-card unanswered ${isSelected ? 'selected-q-card' : ''}`;
+                card.id = `saved-card-${q.id}`;
                 card.style.position = 'relative';
+
+                card.onclick = (e) => {
+                    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('img')) return;
+                    toggleSavedMcqCardSelection(q.id, card);
+                };
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                        <span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-info"></i> Risposta: ${databaseIsVero ? 'V' : 'F'}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                        <div>
+                            ${locationBadgeHtml}
+                            <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                        </div>
+                        ${topRightImageHtml}
                     </div>
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+
+                    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
+                            </span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                        ${leftThumbHtml}
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
+                            <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                        </div>
+                    </div>
 
                     <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
                         <button class="test-speaker-btn" onclick="readSavedQuestionSpeech(${q.id}, '${q.italian.replace(/'/g, "\\'")}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;">
@@ -3535,11 +3847,129 @@ function loadSavedMcqsScreen() {
                 `;
                 container.appendChild(card);
             });
+            updateSavedMcqsPillStates();
+            updateSavedMcqsQuizButtonVisibility();
         })
         .catch(err => {
             console.error("Error loading saved MCQs: ", err);
             container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle domande salvate.</div>`;
         });
+}
+
+function toggleSavedMcqCardSelection(qId, cardEl) {
+    const idx = selectedSavedMcqIds.indexOf(qId);
+    if (idx > -1) {
+        selectedSavedMcqIds.splice(idx, 1);
+        if (cardEl) cardEl.classList.remove('selected-q-card');
+    } else {
+        selectedSavedMcqIds.push(qId);
+        if (cardEl) cardEl.classList.add('selected-q-card');
+    }
+    if (selectedSavedMcqIds.length > 0) {
+        isSavedMcqSelectMode = true;
+    } else {
+        isSavedMcqSelectMode = false;
+    }
+    updateSavedMcqsPillStates();
+    updateSavedMcqsQuizButtonVisibility();
+}
+
+function toggleSavedMcqsSelectMode() {
+    isSavedMcqSelectMode = true;
+    if (selectedSavedMcqIds.length === 0 && activeSavedMcqs.length > 0) {
+        selectedSavedMcqIds = [activeSavedMcqs[0].id];
+    }
+    renderSavedMcqsSelectionUI();
+    updateSavedMcqsPillStates();
+    updateSavedMcqsQuizButtonVisibility();
+}
+
+function selectAllSavedMcqs() {
+    selectedSavedMcqIds = activeSavedMcqs.map(q => q.id);
+    isSavedMcqSelectMode = true;
+    renderSavedMcqsSelectionUI();
+    updateSavedMcqsPillStates();
+    updateSavedMcqsQuizButtonVisibility();
+    showToast('সব সেভড প্রশ্ন সিলেক্ট করা হয়েছে');
+}
+
+function unselectAllSavedMcqs() {
+    selectedSavedMcqIds = [];
+    isSavedMcqSelectMode = false;
+    renderSavedMcqsSelectionUI();
+    updateSavedMcqsPillStates();
+    updateSavedMcqsQuizButtonVisibility();
+    showToast('সব আন-সিলেক্ট করা হয়েছে');
+}
+
+function renderSavedMcqsSelectionUI() {
+    activeSavedMcqs.forEach(q => {
+        const card = document.getElementById(`saved-card-${q.id}`);
+        if (card) {
+            if (selectedSavedMcqIds.includes(q.id)) {
+                card.classList.add('selected-q-card');
+            } else {
+                card.classList.remove('selected-q-card');
+            }
+        }
+    });
+}
+
+function updateSavedMcqsPillStates() {
+    const btnSelect = document.getElementById('saved-select-toggle-btn');
+    const btnAll = document.getElementById('saved-select-all-btn');
+    const btnUnselect = document.getElementById('saved-unselect-all-btn');
+
+    if (btnSelect) btnSelect.classList.remove('active');
+    if (btnAll) btnAll.classList.remove('active');
+    if (btnUnselect) btnUnselect.classList.remove('active');
+
+    if (selectedSavedMcqIds.length === 0) {
+        if (btnUnselect) btnUnselect.classList.add('active');
+    } else if (activeSavedMcqs.length > 0 && selectedSavedMcqIds.length === activeSavedMcqs.length) {
+        if (btnAll) btnAll.classList.add('active');
+    } else if (isSavedMcqSelectMode) {
+        if (btnSelect) btnSelect.classList.add('active');
+    }
+}
+
+function updateSavedMcqsQuizButtonVisibility() {
+    const container = document.getElementById('saved-mcqs-quiz-btn-container');
+    if (!container) return;
+    container.style.display = selectedSavedMcqIds.length > 0 ? 'block' : 'none';
+}
+
+function startSavedMcqsQuiz() {
+    if (selectedSavedMcqIds.length === 0) {
+        showToast('অনুগ্রহ করে অন্তত একটি সেভড প্রশ্ন সিলেক্ট করুন');
+        return;
+    }
+    const questionsToQuiz = activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id));
+    if (questionsToQuiz.length === 0) {
+        showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+        return;
+    }
+    testQuestions = questionsToQuiz.sort(() => Math.random() - 0.5);
+    currentTestIndex = 0;
+    testAnswers = Array(testQuestions.length).fill(null);
+    practiceMode = 'exam';
+
+    const timerPill = document.getElementById('test-timer');
+    if (timerPill) {
+        timerPill.innerText = `SAVED MCQS QUIZ`;
+        timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+        timerPill.style.borderColor = 'var(--accent-green)';
+        timerPill.style.color = 'var(--accent-green)';
+    }
+    const timerLabel = document.querySelector('.test-timer-label');
+    if (timerLabel) {
+        timerLabel.innerText = `${testQuestions.length} Saved MCQs`;
+    }
+
+    openScreen('test', 'Saved MCQs Quiz');
+    switchTestQuestionTab(1);
+    showTestQuestion();
+    startTestTimer();
 }
 
 let playingSavedSpeechIndex = null;
@@ -3770,26 +4200,52 @@ function deleteUserNote() {
 
 function saveQuestionAnswerStat(questionId, chapterId, state) {
     if (!questionId) return;
-    const stats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
-    const existing = stats[questionId] || { correct: 0, wrong: 0 };
+    const qIdNum = parseInt(questionId);
+    const stats = getUserQuestionStats();
+    const existing = stats[qIdNum] || { correct: 0, wrong: 0 };
 
     let correctCount = typeof existing.correct === 'number' ? existing.correct : 0;
     let wrongCount = typeof existing.wrong === 'number' ? existing.wrong : 0;
+    const isCorrect = (state === 'correct');
 
-    if (state === 'correct') {
+    if (isCorrect) {
         correctCount += 1;
-    } else if (state === 'wrong') {
+        wrongCount = 0; // Reset wrong count so it leaves Wrong MCQs list
+        if (window.selectedWrongMcqIds && window.selectedWrongMcqIds.has(qIdNum)) {
+            window.selectedWrongMcqIds.delete(qIdNum);
+            if (typeof updateWrongMcqSelectionUI === 'function') {
+                updateWrongMcqSelectionUI();
+            }
+        }
+    } else {
         wrongCount += 1;
     }
 
-    stats[questionId] = {
-        state: state,
+    stats[qIdNum] = {
+        state: isCorrect ? 'correct' : 'wrong',
         correct: correctCount,
         wrong: wrongCount,
         chapter: chapterId || null,
         updated_at: new Date().toISOString()
     };
-    localStorage.setItem('user_question_stats', JSON.stringify(stats));
+    saveUserQuestionStats(stats);
+
+    // Save/log to Database via API
+    fetch('/api/user-mcq-results/log', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
+        body: JSON.stringify({
+            results: [{
+                question_id: qIdNum,
+                user_answer: isCorrect ? 'correct' : 'wrong',
+                is_correct: isCorrect
+            }]
+        })
+    }).catch(err => console.error("Error logging MCQ result to database:", err));
 }
 
 // ==========================================
@@ -4464,21 +4920,41 @@ function showSchedaExamResultModal(correct, wrong, unanswered, total) {
 
 // --- 16. Client Verification & Activation Lock System ---
 function checkClientActivation() {
-    fetch('/api/client/status')
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
+
+    let url = '/api/client/status';
+    const params = new URLSearchParams();
+    if (savedPhone) params.append('phone', savedPhone);
+    if (savedSessionId) params.append('session_id', savedSessionId);
+    if (params.toString()) url += '?' + params.toString();
+
+    fetch(url)
         .then(res => res.json())
         .then(data => {
-            currentClientVerified = data.verified;
+            currentClientVerified = data.verified || !!savedPhone;
             const wasActive = currentClientActive;
             currentClientActive = data.is_active;
+
+            if (data.phone) {
+                currentClientPhone = data.phone;
+                localStorage.setItem('app_client_phone', data.phone);
+            }
+            if (data.session_id) {
+                currentClientSessionId = data.session_id;
+                localStorage.setItem('app_client_session_id', data.session_id);
+            }
+
+            syncUserQuestionStatsFromBackend();
 
             const lockEl = document.getElementById('app-activation-lock');
 
             if (!currentClientActive) {
                 // Display appropriate view in Chat widget
-                if (!currentClientVerified) {
+                if (!currentClientVerified && !savedPhone) {
                     setChatWidgetView('verify');
                 } else {
-                    setChatWidgetView('waiting');
+                    setChatWidgetView('normal');
                 }
 
                 // Start polling if not already started
@@ -4549,6 +5025,8 @@ function submitClientVerification() {
         return;
     }
 
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
+
     fetch('/api/client/verify', {
         method: 'POST',
         headers: {
@@ -4558,13 +5036,38 @@ function submitClientVerification() {
         body: JSON.stringify({
             first_name: firstName,
             last_name: lastName,
-            phone: phone
+            phone: phone,
+            session_id: savedSessionId
         })
     })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast('তথ্য পাঠানো হয়েছে। অ্যাক্টিভেশনের জন্য অপেক্ষা করুন।');
+                if (data.client) {
+                    if (data.client.phone) {
+                        currentClientPhone = data.client.phone;
+                        localStorage.setItem('app_client_phone', data.client.phone);
+                    }
+                    if (data.client.session_id) {
+                        currentClientSessionId = data.client.session_id;
+                        localStorage.setItem('app_client_session_id', data.client.session_id);
+                    }
+                }
+
+                currentClientVerified = true;
+                setChatWidgetView('normal');
+
+                if (data.is_active || data.already_active) {
+                    showToast('আপনার অ্যাকাউন্টটি ইতোমধ্যে সক্রিয় রয়েছে! ধন্যবাদ।');
+                    closeActivationLock();
+                } else {
+                    showToast('তথ্য পাঠানো হয়েছে। আপনি লাইভ চ্যাট করতে পারেন।');
+                }
+
+                syncUserQuestionStatsFromBackend().then(() => {
+                    if (typeof renderArgomentiList === 'function') renderArgomentiList();
+                    if (typeof renderSheetsList === 'function') renderSheetsList();
+                });
                 checkClientActivation();
             } else {
                 showToast('ভেরিফিকেশন সাবমিট করতে সমস্যা হয়েছে');
@@ -4732,8 +5235,8 @@ function openQuestionTranslationModal(itText, bnText, vocabularyList) {
     const bnEl = document.getElementById('q-translation-bn');
 
     if (itEl) {
-        itEl.innerHTML = typeof highlightDictionaryTerms === 'function' 
-            ? highlightDictionaryTerms(itText || '', vocabularyList || []) 
+        itEl.innerHTML = typeof highlightDictionaryTerms === 'function'
+            ? highlightDictionaryTerms(itText || '', vocabularyList || [])
             : (itText || '');
     }
     if (bnEl) {
@@ -4936,7 +5439,7 @@ function loadCorrectMcqsList() {
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande corrette...</div>`;
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
     const correctIds = [];
 
     Object.keys(userStats).forEach(idStr => {
@@ -4987,7 +5490,15 @@ function loadCorrectMcqsList() {
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                        <span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-check"></i> Correct ✔ (Risposta: ${databaseIsVero ? 'V' : 'F'})</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
+                            </span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
+                            </span>
+                        </div>
                     </div>
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="correct-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
@@ -5035,6 +5546,132 @@ function openCachedQuestionTranslation(qId) {
 }
 window.openCachedQuestionTranslation = openCachedQuestionTranslation;
 
+window.selectedWrongMcqIds = window.selectedWrongMcqIds || new Set();
+window.currentWrongQuestions = window.currentWrongQuestions || [];
+
+function toggleWrongMcqSelection(qId, forceState) {
+    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
+    const id = parseInt(qId);
+    if (typeof forceState === 'boolean') {
+        if (forceState) {
+            window.selectedWrongMcqIds.add(id);
+        } else {
+            window.selectedWrongMcqIds.delete(id);
+        }
+    } else {
+        if (window.selectedWrongMcqIds.has(id)) {
+            window.selectedWrongMcqIds.delete(id);
+        } else {
+            window.selectedWrongMcqIds.add(id);
+        }
+    }
+
+    const checkbox = document.getElementById(`wrong-mcq-check-${id}`);
+    if (checkbox) {
+        checkbox.checked = window.selectedWrongMcqIds.has(id);
+    }
+    updateWrongMcqSelectionUI();
+}
+window.toggleWrongMcqSelection = toggleWrongMcqSelection;
+
+function selectAllWrongMcqs() {
+    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
+    if (window.currentWrongQuestions && window.currentWrongQuestions.length > 0) {
+        window.currentWrongQuestions.forEach(q => {
+            window.selectedWrongMcqIds.add(q.id);
+            const checkbox = document.getElementById(`wrong-mcq-check-${q.id}`);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+    updateWrongMcqSelectionUI();
+}
+window.selectAllWrongMcqs = selectAllWrongMcqs;
+
+function unselectAllWrongMcqs() {
+    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
+    window.selectedWrongMcqIds.clear();
+    if (window.currentWrongQuestions && window.currentWrongQuestions.length > 0) {
+        window.currentWrongQuestions.forEach(q => {
+            const checkbox = document.getElementById(`wrong-mcq-check-${q.id}`);
+            if (checkbox) checkbox.checked = false;
+        });
+    }
+    updateWrongMcqSelectionUI();
+}
+window.unselectAllWrongMcqs = unselectAllWrongMcqs;
+
+function updateWrongMcqSelectionUI() {
+    const count = window.selectedWrongMcqIds ? window.selectedWrongMcqIds.size : 0;
+    const badge = document.getElementById('wrong-selected-count-badge');
+    const quizCount = document.getElementById('wrong-quiz-btn-count');
+    const quizBtn = document.getElementById('wrong-start-quiz-btn');
+
+    if (badge) badge.innerText = `Selected: ${count}`;
+    if (quizCount) quizCount.innerText = count;
+
+    if (quizBtn) {
+        if (count > 0) {
+            quizBtn.style.opacity = '1';
+            quizBtn.style.cursor = 'pointer';
+        } else {
+            quizBtn.style.opacity = '0.8';
+        }
+    }
+}
+window.updateWrongMcqSelectionUI = updateWrongMcqSelectionUI;
+
+function startSelectedWrongMcqsQuiz() {
+    if (!window.selectedWrongMcqIds || window.selectedWrongMcqIds.size === 0) {
+        showToast('অনুগ্রহ করে অন্তত একটি প্রশ্ন সিলেক্ট করুন');
+        return;
+    }
+
+    const selectedQuestions = [];
+    window.selectedWrongMcqIds.forEach(id => {
+        const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
+            (window.currentWrongQuestions && window.currentWrongQuestions.find(item => item.id === id));
+        if (q) selectedQuestions.push(q);
+    });
+
+    if (selectedQuestions.length === 0) {
+        showToast('সিলেক্ট করা কোনো প্রশ্ন পাওয়া যায়নি');
+        return;
+    }
+
+    showTestOptionsDialog(() => {
+        practiceMode = 'sheet';
+        testQuestions = selectedQuestions.map(q => ({
+            id: q.id,
+            italian: q.italian || q.question || '',
+            bangla: q.bangla || q.bn_question || '',
+            is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+            image: q.image,
+            audio: q.audio || q.voice,
+            video: q.video,
+            vocabulary: q.vocabulary || []
+        }));
+        currentTestIndex = 0;
+        testAnswers = Array(testQuestions.length).fill(null);
+
+        const timerPill = document.getElementById('test-timer');
+        if (timerPill) {
+            timerPill.innerText = `WRONG MCQs (${testQuestions.length})`;
+            timerPill.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+            timerPill.style.borderColor = 'var(--accent-red)';
+            timerPill.style.color = 'var(--accent-red)';
+        }
+        const timerLabel = document.querySelector('.test-timer-label');
+        if (timerLabel) {
+            timerLabel.innerText = 'Modalità Esercitazione (Wrong MCQs)';
+        }
+
+        openScreen('test', 'Wrong MCQs Quiz');
+        switchTestQuestionTab(1);
+        showTestQuestion();
+    });
+}
+window.startSelectedWrongMcqsQuiz = startSelectedWrongMcqsQuiz;
+
 function loadWrongMcqsList() {
     const container = document.getElementById('wrong-mcqs-list-container');
     const countEl = document.getElementById('wrong-mcqs-count');
@@ -5051,7 +5688,7 @@ function loadWrongMcqsList() {
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = getUserQuestionStats();
     const wrongIds = [];
 
     Object.keys(userStats).forEach(idStr => {
@@ -5059,7 +5696,7 @@ function loadWrongMcqsList() {
         if (item && typeof item === 'object') {
             const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
             const cCount = typeof item.correct === 'number' ? item.correct : 0;
-            if (wCount >= cCount && wCount > 0) {
+            if (item.state !== 'correct' && (item.state === 'wrong' || (wCount >= cCount && wCount > 0))) {
                 wrongIds.push(parseInt(idStr));
             }
         }
@@ -5068,6 +5705,8 @@ function loadWrongMcqsList() {
     if (wrongIds.length === 0) {
         if (countEl) countEl.innerText = '0 Domande';
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
+        window.currentWrongQuestions = [];
+        updateWrongMcqSelectionUI();
         return;
     }
 
@@ -5085,15 +5724,54 @@ function loadWrongMcqsList() {
             if (countEl) countEl.innerText = `${filtered.length} Domande`;
             if (filtered.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">কোনো ভুল উত্তর পাওয়া যায়নি।</div>`;
+                window.currentWrongQuestions = [];
+                updateWrongMcqSelectionUI();
                 return;
             }
 
             window.cachedQuestionsMap = window.cachedQuestionsMap || {};
+            window.currentWrongQuestions = filtered;
+            window.selectedWrongMcqIds = window.selectedWrongMcqIds || new Set();
+
             container.innerHTML = '';
             filtered.forEach((q, index) => {
                 window.cachedQuestionsMap[q.id] = q;
+                const isSelected = window.selectedWrongMcqIds.has(q.id);
+
+                const row = document.createElement('div');
+                row.className = 'wrong-mcq-item-row';
+                row.style.display = 'flex';
+                row.style.alignItems = 'stretch';
+                row.style.gap = '10px';
+
+                const checkboxCol = document.createElement('div');
+                checkboxCol.style.display = 'flex';
+                checkboxCol.style.alignItems = 'center';
+                checkboxCol.style.justifyContent = 'center';
+                checkboxCol.style.padding = '0 6px 0 2px';
+                checkboxCol.style.cursor = 'pointer';
+                checkboxCol.onclick = (e) => {
+                    if (e.target.tagName !== 'INPUT') {
+                        toggleWrongMcqSelection(q.id);
+                    }
+                };
+
+                const checkboxInput = document.createElement('input');
+                checkboxInput.type = 'checkbox';
+                checkboxInput.id = `wrong-mcq-check-${q.id}`;
+                checkboxInput.className = 'wrong-mcq-select-checkbox';
+                checkboxInput.checked = isSelected;
+                checkboxInput.style.width = '20px';
+                checkboxInput.style.height = '20px';
+                checkboxInput.style.accentColor = 'var(--accent-red)';
+                checkboxInput.style.cursor = 'pointer';
+                checkboxInput.onchange = (e) => toggleWrongMcqSelection(q.id, e.target.checked);
+
+                checkboxCol.appendChild(checkboxInput);
+
                 const card = document.createElement('div');
                 card.className = `detail-q-card incorrect`;
+                card.style.flex = '1';
                 card.style.position = 'relative';
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
@@ -5102,7 +5780,15 @@ function loadWrongMcqsList() {
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                        <span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Incorrect ✘ (Risposta: ${databaseIsVero ? 'V' : 'F'})</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
+                            </span>
+                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
+                            </span>
+                        </div>
                     </div>
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
@@ -5128,8 +5814,12 @@ function loadWrongMcqsList() {
                         </button>
                     </div>
                 `;
-                container.appendChild(card);
+
+                row.appendChild(checkboxCol);
+                row.appendChild(card);
+                container.appendChild(row);
             });
+            updateWrongMcqSelectionUI();
         })
         .catch(err => {
             console.error("Error loading wrong MCQs: ", err);
@@ -5158,20 +5848,20 @@ function toggleCurrentTestBookmark() {
         },
         body: JSON.stringify({ question_id: currentQ.id })
     })
-    .then(res => res.json())
-    .then(data => {
-        const icon = document.getElementById('test-bookmark-icon');
-        if (data.saved) {
-            if (icon) icon.className = 'fa-solid fa-bookmark';
+        .then(res => res.json())
+        .then(data => {
+            const icon = document.getElementById('test-bookmark-icon');
+            if (data.saved) {
+                if (icon) icon.className = 'fa-solid fa-bookmark';
+                showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
+            } else {
+                if (icon) icon.className = 'fa-regular fa-bookmark';
+                showToast('প্রশ্ন বুকমার্ক থেকে সরানো হয়েছে');
+            }
+        })
+        .catch(err => {
             showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
-        } else {
-            if (icon) icon.className = 'fa-regular fa-bookmark';
-            showToast('প্রশ্ন বুকমার্ক থেকে সরানো হয়েছে');
-        }
-    })
-    .catch(err => {
-        showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
-    });
+        });
 }
 
 function openCurrentTestNoteModal() {
@@ -5353,7 +6043,7 @@ function handleAvatarUpload(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         uploadedAvatarBase64 = e.target.result;
         const avatarImg = document.getElementById('profile-avatar-img');
         if (avatarImg) avatarImg.src = uploadedAvatarBase64;
@@ -5396,35 +6086,35 @@ function saveUserProfile() {
         },
         body: JSON.stringify(payload)
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            localStorage.setItem('user_profile_name', data.data.name);
-            if (data.data.avatar) {
-                localStorage.setItem('user_profile_avatar', data.data.avatar);
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                localStorage.setItem('user_profile_name', data.data.name);
+                if (data.data.avatar) {
+                    localStorage.setItem('user_profile_avatar', data.data.avatar);
+                }
+                if (hint) {
+                    hint.innerText = '✓ ' + data.message;
+                    hint.style.color = '#4CAF50';
+                }
+                showToast('প্রোফাইল আপডেট করা হয়েছে!');
+                if (typeof loadLeaderboardData === 'function') {
+                    loadLeaderboardData();
+                }
+            } else {
+                if (hint) {
+                    hint.innerText = '❌ ' + (data.message || 'আপডেট করতে সমস্যা হয়েছে।');
+                    hint.style.color = '#ef4444';
+                }
+                showToast(data.message || 'আপডেট করতে ব্যর্থ হয়েছে');
             }
+        })
+        .catch(err => {
             if (hint) {
-                hint.innerText = '✓ ' + data.message;
-                hint.style.color = '#4CAF50';
-            }
-            showToast('প্রোফাইল আপডেট করা হয়েছে!');
-            if (typeof loadLeaderboardData === 'function') {
-                loadLeaderboardData();
-            }
-        } else {
-            if (hint) {
-                hint.innerText = '❌ ' + (data.message || 'আপডেট করতে সমস্যা হয়েছে।');
+                hint.innerText = '❌ কোনো নেটওয়ার্ক সমস্যা হয়েছে।';
                 hint.style.color = '#ef4444';
             }
-            showToast(data.message || 'আপডেট করতে ব্যর্থ হয়েছে');
-        }
-    })
-    .catch(err => {
-        if (hint) {
-            hint.innerText = '❌ কোনো নেটওয়ার্ক সমস্যা হয়েছে।';
-            hint.style.color = '#ef4444';
-        }
-    });
+        });
 }
 
 // --- 11. Manuale (Theory Guidebook) Logic ---

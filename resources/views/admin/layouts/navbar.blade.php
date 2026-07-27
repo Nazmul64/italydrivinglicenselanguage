@@ -16,16 +16,26 @@
         <i class="fa-solid fa-globe action-icon" onclick="showToast('ভাষা পরিবর্তন ডেমো মোড')"></i>
 
         <!-- User Info Profile Dropdown with Logout -->
+        @php
+            $adminUser = \App\Models\User::where('role', 'super_admin')->first() ?? \App\Models\User::first();
+            $adminName = $adminUser ? $adminUser->name : 'Admin';
+            $adminAvatar = ($adminUser && $adminUser->avatar) ? asset($adminUser->avatar) : null;
+            $initials = strtoupper(substr($adminName, 0, 2));
+        @endphp
         <div class="nav-user" style="position: relative;" onclick="toggleUserDropdown(event)">
-            <div class="user-avatar">AM</div>
+            @if($adminAvatar)
+                <img src="{{ $adminAvatar }}" alt="Avatar" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+            @else
+                <div class="user-avatar">{{ $initials }}</div>
+            @endif
             <div class="user-info">
-                <span class="user-name" style="display: flex; align-items: center; gap: 4px;">Alex Mora <i class="fa-solid fa-angle-down" style="font-size: 10px;"></i></span>
-                <span class="user-role">Admin</span>
+                <span class="user-name" style="display: flex; align-items: center; gap: 4px;">{{ $adminName }} <i class="fa-solid fa-angle-down" style="font-size: 10px;"></i></span>
+                <span class="user-role">Super Admin</span>
             </div>
             
             <!-- Dropdown Menu -->
-            <div id="user-dropdown-menu" style="display: none; position: absolute; top: 52px; right: 0; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 6px; width: 140px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 200;">
-                <a href="#" onclick="showToast('প্রোফাইল সেটিংস')" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; color: var(--text-primary); text-decoration: none; border-radius: 8px; font-weight: 500; transition: background 0.2s;"><i class="fa-regular fa-user"></i> Profile</a>
+            <div id="user-dropdown-menu" style="display: none; position: absolute; top: 52px; right: 0; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 6px; width: 170px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 200;">
+                <a href="javascript:void(0)" onclick="openAdminEditProfileModal()" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; color: var(--text-primary); text-decoration: none; border-radius: 8px; font-weight: 500; transition: background 0.2s;"><i class="fa-regular fa-user"></i> Profile & Password</a>
                 <form id="logout-form" action="/admin/logout" method="POST" style="display: block; margin: 0;">
                     @csrf
                     <button type="submit" style="width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; color: var(--accent-red); background: none; border: none; cursor: pointer; text-align: left; border-radius: 8px; font-family: inherit; font-weight: 600; transition: background 0.2s;"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out</button>

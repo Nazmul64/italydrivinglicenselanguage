@@ -60,9 +60,9 @@
         @endif
 
         <!-- 5. Exam Results Popup Modal -->
-        <div class="modal-overlay" id="exam-result-modal">
+        <div class="modal-overlay" id="exam-result-modal" style="display: none; z-index: 99999;">
             <!-- Outcome modal content showing emojis and counters details -->
-            <div class="modal-content" style="padding: 24px; border-radius: 20px; text-align: center; max-width: 340px; width: 90%;">
+            <div class="modal-content" style="padding: 24px; border-radius: 20px; text-align: center; max-width: 340px; width: 90%; background-color: var(--bg-card);">
                 <div id="test-result-emoji" style="font-size: 52px; margin-bottom: 8px;">😊</div>
                 <h3 class="result-title" style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 14px;">Risultato del Test</h3>
                 
@@ -93,9 +93,14 @@
                     <button class="action-btn" style="background-color: var(--accent-green); color: white; margin: 0; font-weight: 800;" onclick="openTestDetailsView()">
                         Mostra Risultato
                     </button>
-                    <button class="action-btn" style="background-color: var(--bg-page); color: var(--text-secondary); margin: 0; font-weight: bold; border: 1px solid var(--border-card);" onclick="closeResultModal()">
-                        Home
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="action-btn" style="flex: 1; background-color: #3b82f6; color: white; margin: 0; font-weight: bold;" onclick="restartCurrentQuiz()">
+                            Ricomincia
+                        </button>
+                        <button class="action-btn" style="flex: 1; background-color: var(--bg-page); color: var(--text-secondary); margin: 0; font-weight: bold; border: 1px solid var(--border-card);" onclick="closeResultModal()">
+                            Home
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -235,7 +240,7 @@
         </div>
 
         <!-- Dictionary Term Popover Modal matching screenshot exactly -->
-        <div class="modal-overlay" id="dict-term-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; padding: 16px;">
+        <div class="modal-overlay" id="dict-term-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100000; padding: 16px;">
             <div class="modal-card" style="width: 100%; max-width: 360px; background: var(--bg-card, #ffffff); border-radius: 20px; overflow: hidden; padding: 24px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 16px; position: relative;">
                 
                 <!-- Close Button -->
@@ -520,7 +525,17 @@
     <script>
         window.APP_SETTINGS = @json($setting ?? null);
     </script>
-    <script src="{{ asset('js/frontend/app.js') }}?v={{ time() }}"></script>
+    <!-- Modularized App Core Scripts (10 Parts) -->
+    <script src="{{ asset('js/frontend/app_parts/01_core_config.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/02_navigation_ui.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/03_lezioni_video.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/04_dictionary_settings.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/05_chat_support.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/06_test_simulator.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/07_argomenti_topics.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/08_cartelli_signs.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/09_scheda_esame.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/app_parts/10_activation_profile.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/cartelli.js') }}?v={{ time() }}"></script>
 
     <!-- Modular Feature JS Scripts -->
@@ -537,5 +552,19 @@
     <script src="{{ asset('js/frontend/modules/support.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/social.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/translation.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/manuale.js') }}?v={{ time() }}"></script>
+
+    <!-- Service Worker Registration for PWA Mobile App -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('PWA ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('PWA ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

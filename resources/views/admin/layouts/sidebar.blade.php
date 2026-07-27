@@ -69,6 +69,13 @@
             <span id="chat-unread-badge" style="display: none; background-color: #ef4444; color: #ffffff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 12px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);">0</span>
         </div>
 
+        <div class="menu-item" onclick="switchPanel('customers')" id="menu-customers">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-users" style="color: #ec4899;"></i>
+                <span>Manage Customers (কাস্টমার তালিকা)</span>
+            </span>
+        </div>
+
         <div class="menu-item" onclick="switchPanel('dizionario')" id="menu-dizionario">
             <span class="menu-link-group">
                 <i class="fa-solid fa-spell-check"></i>
@@ -160,6 +167,13 @@
             <span class="menu-link-group">
                 <i class="fa-solid fa-gears" style="color: #60a5fa;"></i>
                 <span>General Settings</span>
+            </span>
+        </div>
+
+        <div class="menu-item" onclick="switchPanel('admin-profile')" id="menu-admin-profile">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-user-gear" style="color: #10b981;"></i>
+                <span>Admin Profile & Password</span>
             </span>
         </div>
 

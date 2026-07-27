@@ -1,0 +1,709 @@
+// ==========================================
+// Exam Simulation (Scheda Esame) Module
+// ==========================================
+let activeExamTab = 'new';
+let allExamsData = [];
+let activeExamSession = null;
+let schedaExamQuestions = [];
+let currentExamQuestionIndex = 0;
+let examUserAnswers = {}; // question_id => true/false/null
+let schedaExamTimerInterval = null;
+let examTimeLeft = 1800; // 30 minutes in seconds
+
+function loadExamSheets() {
+    const container = document.getElementById('exam-cards-list');
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
+    }
+
+    fetch('/api/exams')
+        .then(res => res.json())
+        .then(data => {
+            allExamsData = data;
+            renderExamSheets();
+        })
+        .catch(err => {
+            console.error("Error loading exams: ", err);
+            if (container) {
+                container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore durante il caricamento delle schede.</div>`;
+            }
+        });
+}
+
+function switchExamTab(tabName) {
+    activeExamTab = tabName;
+
+    const tabNew = document.getElementById('exam-tab-new');
+    const tabCompleted = document.getElementById('exam-tab-completed');
+
+    if (tabName === 'new') {
+        if (tabNew) {
+            tabNew.style.borderBottom = '3px solid white';
+            tabNew.style.color = 'white';
+        }
+        if (tabCompleted) {
+            tabCompleted.style.borderBottom = 'none';
+            tabCompleted.style.color = 'rgba(255,255,255,0.7)';
+        }
+    } else {
+        if (tabCompleted) {
+            tabCompleted.style.borderBottom = '3px solid white';
+            tabCompleted.style.color = 'white';
+        }
+        if (tabNew) {
+            tabNew.style.borderBottom = 'none';
+            tabNew.style.color = 'rgba(255,255,255,0.7)';
+        }
+    }
+
+    renderExamSheets();
+}
+
+function filterExamCards() {
+    renderExamSheets();
+}
+
+function renderExamSheets() {
+    const container = document.getElementById('exam-cards-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const searchInput = document.getElementById('exam-search-input');
+    const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    // Filter by tab status and search text
+    const filtered = allExamsData.filter(ex => {
+        const matchesStatus = (ex.status === activeExamTab);
+        const matchesSearch = !searchVal ||
+            ex.student_name.toLowerCase().includes(searchVal) ||
+            ex.motorizzazione.toLowerCase().includes(searchVal) ||
+            ex.id.toString().includes(searchVal);
+        return matchesStatus && matchesSearch;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-weight: bold; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color);">Nessuna scheda trovata in questa sezione.</div>`;
+        return;
+    }
+
+    filtered.forEach(ex => {
+        const card = document.createElement('div');
+        card.style.backgroundColor = 'var(--bg-card)';
+        card.style.border = '1px solid var(--border-color)';
+        card.style.borderRadius = '16px';
+        card.style.padding = '18px';
+        card.style.display = 'flex';
+        card.style.alignItems = 'center';
+        card.style.gap = '16px';
+        card.style.position = 'relative';
+        card.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
+        card.style.cursor = 'pointer';
+
+        // Handle click event to start or review
+        card.onclick = () => {
+            if (ex.status === 'new') {
+                startSchedaExamSimulation(ex.id);
+            } else {
+                openCompletedExamDetails(ex.id);
+            }
+        };
+
+        const isCompleted = ex.status === 'completed';
+
+        let scoreHtml = '';
+        let progressBarHtml = '';
+
+        if (isCompleted) {
+            scoreHtml = `
+                <div style="font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 4px; display: flex; justify-content: space-between;">
+                    <span>Corrette: <strong style="color: #4CAF50;">${ex.correct_count}</strong></span>
+                    <span>Errori: <strong style="color: #ef4444;">${ex.wrong_count}</strong></span>
+                    <span>Non risposte: <strong style="color: #f59e0b;">${ex.unanswered_count}</strong></span>
+                    <span>Totale: <strong>${ex.total_count}</strong></span>
+                </div>
+            `;
+            progressBarHtml = `
+                <div style="height: 6px; background-color: var(--border-card); border-radius: 3px; display: flex; overflow: hidden; margin-top: 8px;">
+                    <div style="background-color: #4CAF50; width: ${(ex.correct_count / ex.total_count) * 100}%;"></div>
+                    <div style="background-color: #ef4444; width: ${(ex.wrong_count / ex.total_count) * 100}%;"></div>
+                    <div style="background-color: #f59e0b; width: ${(ex.unanswered_count / ex.total_count) * 100}%;"></div>
+                </div>
+            `;
+        }
+
+        // Circular Icon
+        const circleIcon = `
+            <div style="width: 60px; height: 60px; border-radius: 50%; background-color: rgba(76,175,80,0.08); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(76,175,80,0.15); flex-shrink: 0;">
+                <i class="fa-solid fa-file-signature" style="color: var(--accent-green); font-size: 24px;"></i>
+            </div>
+        `;
+
+        card.innerHTML = `
+            ${circleIcon}
+            <div style="flex: 1; min-width: 0;">
+                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-primary);">Nome: ${ex.id} ${ex.student_name}</h4>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-weight: 600;">
+                    <div>Motorizzazione: ${ex.motorizzazione}</div>
+                    <div style="margin-top: 2px;">Exam date: ${ex.exam_date}</div>
+                </div>
+                ${scoreHtml}
+                ${progressBarHtml}
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color: var(--text-secondary); font-size: 16px; margin-left: auto;"></i>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function startSchedaExamSimulation(examId) {
+    showTestOptionsDialog(() => {
+        const container = document.getElementById('exam-dots-container');
+        if (container) {
+            container.innerHTML = '';
+        }
+
+        fetch(`/api/exams/${examId}`)
+            .then(res => res.json())
+            .then(exam => {
+                activeExamSession = exam;
+                schedaExamQuestions = exam.answers; // Contains populated questions
+                currentExamQuestionIndex = 0;
+                examUserAnswers = {};
+                examTimeLeft = 1800; // 30 minutes
+
+                // Populate previous answers if any
+                schedaExamQuestions.forEach(q => {
+                    examUserAnswers[q.id] = q.user_answer;
+                });
+
+                // Start Timer
+                if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
+                schedaExamTimerInterval = setInterval(() => {
+                    examTimeLeft--;
+                    updateSchedaExamTimerDisplay();
+                    if (examTimeLeft <= 0) {
+                        clearInterval(schedaExamTimerInterval);
+                        alert('সময় শেষ! আপনার পরীক্ষাটি স্বয়ংক্রিয়ভাবে জমা হয়ে যাবে।');
+                        submitSchedaExam();
+                    }
+                }, 1000);
+
+                updateSchedaExamTimerDisplay();
+                openScreen('exam-simulation', 'Exam Simulation');
+                renderSchedaExamQuestion();
+            })
+            .catch(err => {
+                console.error("Error loading exam details: ", err);
+                showToast('পরীক্ষা শুরু করতে সমস্যা হয়েছে');
+            });
+    });
+}
+
+function updateSchedaExamTimerDisplay() {
+    const timerBadge = document.getElementById('exam-timer');
+    if (!timerBadge) return;
+
+    let minutes = Math.floor(examTimeLeft / 60);
+    let seconds = examTimeLeft % 60;
+
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    seconds = seconds < 10 ? '0' + seconds : seconds;
+
+    timerBadge.innerText = `${minutes}:${seconds}`;
+
+    // Alert colors if low time
+    if (examTimeLeft < 300) {
+        timerBadge.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+        timerBadge.style.color = 'var(--accent-red)';
+        timerBadge.style.borderColor = 'var(--accent-red)';
+    } else {
+        timerBadge.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+        timerBadge.style.color = 'var(--accent-green)';
+        timerBadge.style.borderColor = 'var(--accent-green)';
+    }
+}
+
+function renderSchedaExamQuestion() {
+    if (schedaExamQuestions.length === 0) return;
+
+    const q = schedaExamQuestions[currentExamQuestionIndex];
+
+    // Set question number label
+    const numLabel = document.getElementById('exam-question-number');
+    if (numLabel) {
+        numLabel.innerText = `প্রশ্ন ${currentExamQuestionIndex + 1}`;
+    }
+
+    // Set Text
+    const textIt = document.getElementById('exam-question-it');
+    const textBn = document.getElementById('exam-question-bn');
+
+    if (textIt) textIt.innerHTML = highlightDictionaryTerms(q.italian, q.vocabulary);
+    if (textBn) {
+        textBn.innerText = q.bangla;
+        textBn.style.display = isTranslationDisabled ? 'none' : 'block';
+    }
+
+    // Reset button states
+    const veroBtn = document.getElementById('exam-vero-btn');
+    const falsoBtn = document.getElementById('exam-falso-btn');
+
+    if (veroBtn) {
+        veroBtn.classList.remove('active');
+        veroBtn.style.backgroundColor = '';
+        veroBtn.style.color = '';
+    }
+    if (falsoBtn) {
+        falsoBtn.classList.remove('active');
+        falsoBtn.style.backgroundColor = '';
+        falsoBtn.style.color = '';
+    }
+
+    // Highlight user selection if already made
+    const selection = examUserAnswers[q.id];
+    if (selection === true) {
+        if (veroBtn) {
+            veroBtn.classList.add('active');
+            veroBtn.style.backgroundColor = '#4CAF50';
+            veroBtn.style.color = 'white';
+        }
+    } else if (selection === false) {
+        if (falsoBtn) {
+            falsoBtn.classList.add('active');
+            falsoBtn.style.backgroundColor = '#ef4444';
+            falsoBtn.style.color = 'white';
+        }
+    }
+
+    // Generate Dots grid
+    renderSchedaExamDots();
+}
+
+function renderSchedaExamDots() {
+    const dotsContainer = document.getElementById('exam-dots-container');
+    if (!dotsContainer) return;
+    dotsContainer.innerHTML = '';
+
+    for (let i = 0; i < schedaExamQuestions.length; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        dot.innerText = i + 1;
+        dot.style.cursor = 'pointer';
+
+        const qId = schedaExamQuestions[i].id;
+        const answer = examUserAnswers[qId];
+
+        // Style states
+        if (i === currentExamQuestionIndex) {
+            dot.style.backgroundColor = 'var(--accent-orange)';
+            dot.style.color = 'white';
+            dot.style.borderColor = 'var(--accent-orange)';
+            dot.style.fontWeight = 'bold';
+        } else if (answer !== undefined && answer !== null) {
+            dot.style.backgroundColor = 'var(--text-primary)';
+            dot.style.color = 'var(--bg-card)';
+            dot.style.borderColor = 'var(--text-primary)';
+        } else {
+            dot.style.backgroundColor = 'var(--bg-card)';
+            dot.style.color = 'var(--text-primary)';
+            dot.style.borderColor = 'var(--border-color)';
+        }
+
+        dot.onclick = () => {
+            currentExamQuestionIndex = i;
+            renderSchedaExamQuestion();
+        };
+
+        dotsContainer.appendChild(dot);
+    }
+}
+
+// vocabCache: stores per-question vocabulary by word (for modal lookup)
+const vocabCache = {};
+
+function highlightDictionaryTerms(text, questionVocabulary) {
+    if (!text) return '';
+    let resultText = text;
+
+    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
+    resultText = resultText.replace(/<u>(.*?)<\/u>/gi, (match, innerWord) => {
+        const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
+        return `<span class="dict-term-link" style="text-decoration: underline; color: var(--accent-green, #4CAF50); font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${cleanWord.toLowerCase()}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
+    });
+
+    // 2. Highlight per-question vocabulary words
+    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
+        const sortedVocab = [...questionVocabulary].sort((a, b) =>
+            (b.italian || '').length - (a.italian || '').length
+        );
+        sortedVocab.forEach(item => {
+            const word = item.italian || '';
+            if (!word) return;
+            vocabCache[word.toLowerCase()] = item;
+            const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp('(' + escapedWord + ')', 'gi');
+            resultText = resultText.replace(regex, (match) => {
+                if (resultText.includes(`openVocabModal('${word.replace(/'/g, "\\'")}')`)) return match;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+            });
+        });
+    }
+
+    // 3. Highlight global dictionary words from database
+    if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
+        const sortedTerms = [...dictionaryData].sort((a, b) => (b.word || '').length - (a.word || '').length);
+        sortedTerms.forEach(term => {
+            if (!term.word) return;
+            const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'gi');
+            resultText = resultText.replace(regex, (match) => {
+                if (resultText.includes(`openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')`) || resultText.includes(`openVocabModal('${term.word.replace(/'/g, "\\'")}')`)) return match;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+            });
+        });
+    }
+
+    return resultText;
+}
+
+let currentDictTerm = null;
+let currentDictModalLang = 'bn';
+let savedDictWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]');
+
+function updateDictSaveIconState() {
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (!saveBtn || !currentDictTerm || !currentDictTerm.word) return;
+
+    const saved = savedDictWords.includes(currentDictTerm.word.toLowerCase());
+    if (saved) {
+        saveBtn.className = 'fa-solid fa-bookmark';
+        saveBtn.style.color = '#4CAF50';
+    } else {
+        saveBtn.className = 'fa-regular fa-bookmark';
+        saveBtn.style.color = 'var(--text-primary, #1e293b)';
+    }
+}
+
+function saveDictWord() {
+    if (!currentDictTerm || !currentDictTerm.word) return;
+    const wordKey = currentDictTerm.word.toLowerCase();
+    const index = savedDictWords.indexOf(wordKey);
+
+    if (index > -1) {
+        savedDictWords.splice(index, 1);
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্ক থেকে সরানো হয়েছে');
+    } else {
+        savedDictWords.push(wordKey);
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্কে সংরক্ষণ করা হয়েছে');
+    }
+
+    localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
+    updateDictSaveIconState();
+}
+
+function closeDictTermModal() {
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function toggleDictModalLang() {
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    const langTextEl = document.getElementById('dict-modal-lang-text');
+    if (!textBnEl) return;
+
+    if (textBnEl.style.display === 'none') {
+        textBnEl.style.display = 'block';
+        if (langTextEl) langTextEl.innerText = 'Bangla';
+    } else {
+        textBnEl.style.display = 'none';
+        if (langTextEl) langTextEl.innerText = 'Italian';
+    }
+}
+
+function searchDictWord() {
+    if (!currentDictTerm || !currentDictTerm.word) return;
+    const word = currentDictTerm.word;
+    closeDictTermModal();
+    if (typeof openScreen === 'function') {
+        openScreen('dizionario', 'Dizionario');
+    }
+    const searchInput = document.getElementById('dictionary-search');
+    if (searchInput) {
+        searchInput.value = word;
+        if (typeof filterDictionary === 'function') filterDictionary();
+    }
+}
+
+function speakDictWord() {
+    if (!currentDictTerm) return;
+    const wordToSpeak = currentDictTerm.word || currentDictTerm.desc_it || '';
+    if ('speechSynthesis' in window && wordToSpeak) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(wordToSpeak);
+        utterance.lang = 'it-IT';
+        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+function openDictionaryTermModal(wordText) {
+    const cleanWord = (wordText || '').trim();
+    if (!cleanWord) return;
+
+    if (typeof vocabCache !== 'undefined' && vocabCache[cleanWord.toLowerCase()]) {
+        openVocabModal(cleanWord);
+        return;
+    }
+
+    let item = (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData))
+        ? dictionaryData.find(d => (d.word || '').toLowerCase() === cleanWord.toLowerCase())
+        : null;
+
+    if (!item) {
+        fetch(`/api/v1/dizionario?search=${encodeURIComponent(cleanWord)}`)
+            .then(res => res.json())
+            .then(resData => {
+                let termData = null;
+                if (resData && resData.data && resData.data.length > 0) {
+                    termData = resData.data.find(d => (d.word || '').toLowerCase() === cleanWord.toLowerCase()) || resData.data[0];
+                }
+                displayDictTermModal(termData || { word: cleanWord, desc_it: cleanWord, desc_bn: '' });
+            })
+            .catch(err => {
+                displayDictTermModal({ word: cleanWord, desc_it: cleanWord, desc_bn: '' });
+            });
+        return;
+    }
+
+    displayDictTermModal(item);
+}
+
+function displayDictTermModal(item) {
+    if (!item) return;
+
+    currentDictTerm = {
+        word: item.word || '',
+        desc_it: item.desc_it || item.word || '',
+        desc_bn: item.desc_bn || item.bn || '',
+        image: item.image || '',
+        video: item.video || null
+    };
+    currentDictModalLang = 'bn';
+
+    const titleEl = document.getElementById('dict-modal-title');
+    if (titleEl) titleEl.innerText = (item.word || '').toUpperCase();
+
+    const imgContainer = document.getElementById('dict-modal-image-container');
+    const imgEl = document.getElementById('dict-modal-image');
+    if (imgEl && imgContainer) {
+        if (item.image) {
+            imgEl.src = item.image;
+            imgContainer.style.display = 'flex';
+        } else {
+            imgContainer.style.display = 'none';
+        }
+    }
+
+    const videoContainer = document.getElementById('dict-modal-video-container');
+    const videoEl = document.getElementById('dict-modal-video');
+    if (videoContainer && videoEl) {
+        if (item.video) {
+            videoEl.src = item.video;
+            videoContainer.style.display = 'flex';
+        } else {
+            videoContainer.style.display = 'none';
+        }
+    }
+
+    const textItEl = document.getElementById('dict-modal-text-it');
+    if (textItEl) textItEl.innerText = item.desc_it || item.word || '';
+
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    if (textBnEl) {
+        textBnEl.innerText = item.desc_bn || item.bn || '';
+        textBnEl.style.display = 'block';
+    }
+
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (saveBtn) saveBtn.style.display = 'block';
+
+    updateDictSaveIconState();
+
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeVocabTermModal() {
+    const modal = document.getElementById('vocab-term-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function closeTranslationPopupModal() {
+    const modal = document.getElementById('translation-popup-modal');
+    if (modal) modal.style.display = 'none';
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function speakTranslationModalText() {
+    const itEl = document.getElementById('trans-modal-italian');
+    if (!itEl) return;
+    const textToSpeak = itEl.innerText || itEl.textContent || '';
+    if ('speechSynthesis' in window && textToSpeak) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = 'it-IT';
+        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// Open popup for per-question vocabulary words
+function openVocabModal(wordText) {
+    const item = vocabCache[wordText.toLowerCase()];
+    if (!item) return;
+
+    currentDictTerm = {
+        word: item.italian || wordText,
+        desc_it: item.italian || wordText,
+        desc_bn: item.bangla || '',
+        image: item.image || ''
+    };
+    currentDictModalLang = 'bn';
+
+    const titleEl = document.getElementById('dict-modal-title');
+    if (titleEl) titleEl.innerText = (item.italian || wordText).toUpperCase();
+
+    const imgContainer = document.getElementById('dict-modal-image-container');
+    const imgEl = document.getElementById('dict-modal-image');
+    if (imgEl && imgContainer) {
+        if (item.image) {
+            imgEl.src = item.image;
+            imgContainer.style.display = 'flex';
+        } else {
+            imgContainer.style.display = 'none';
+        }
+    }
+
+    const videoContainer = document.getElementById('dict-modal-video-container');
+    if (videoContainer) videoContainer.style.display = 'none';
+
+    const textItEl = document.getElementById('dict-modal-text-it');
+    if (textItEl) textItEl.innerText = item.italian || wordText || '';
+
+    const textBnEl = document.getElementById('dict-modal-text-bn');
+    if (textBnEl) {
+        textBnEl.innerText = item.bangla || '';
+        textBnEl.style.display = 'block';
+    }
+
+    const saveBtn = document.getElementById('dict-modal-save-btn');
+    if (saveBtn) saveBtn.style.display = 'block';
+
+    updateDictSaveIconState();
+
+    const modal = document.getElementById('dict-term-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function answerSchedaExamQuestion(choice) {
+    if (schedaExamQuestions.length === 0) return;
+
+    const q = schedaExamQuestions[currentExamQuestionIndex];
+    examUserAnswers[q.id] = choice;
+
+    // Trigger visual updates immediately
+    renderSchedaExamQuestion();
+
+    // Auto-advance after a brief delay
+    setTimeout(() => {
+        if (currentExamQuestionIndex < schedaExamQuestions.length - 1) {
+            currentExamQuestionIndex++;
+            renderSchedaExamQuestion();
+        }
+    }, 200);
+}
+
+function prevSchedaExamQuestion() {
+    if (currentExamQuestionIndex > 0) {
+        currentExamQuestionIndex--;
+        renderSchedaExamQuestion();
+    }
+}
+
+function nextSchedaExamQuestion() {
+    if (currentExamQuestionIndex < schedaExamQuestions.length - 1) {
+        currentExamQuestionIndex++;
+        renderSchedaExamQuestion();
+    }
+}
+
+function submitSchedaExam() {
+    if (!activeExamSession) return;
+    if (examTimeLeft > 0) {
+        if (!confirm('আপনি কি নিশ্চিতভাবে খাতা জমা দিতে চান?')) {
+            return;
+        }
+    }
+
+    if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
+
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    fetch(`/api/exams/${activeExamSession.id}/submit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token
+        },
+        body: JSON.stringify({ answers: examUserAnswers })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error);
+                openScreen('scheda-esame', 'Scheda Esame');
+                return;
+            }
+
+            // Show result popup modal
+            showSchedaExamResultModal(data.correct, data.wrong, data.unanswered, data.total);
+        })
+        .catch(err => {
+            console.error("Error submitting exam: ", err);
+            showToast('খাতা জমা দিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+            openScreen('scheda-esame', 'Scheda Esame');
+        });
+}
+
+function showSchedaExamResultModal(correct, wrong, unanswered, total) {
+    const passed = wrong <= 4;
+
+    const txtGiusto = document.getElementById('txt-giusto');
+    const txtSbagliato = document.getElementById('txt-sbagliato');
+    const txtNondate = document.getElementById('txt-nondate');
+    const barGiusto = document.getElementById('bar-giusto');
+    const barSbagliato = document.getElementById('bar-sbagliato');
+    const barNondate = document.getElementById('bar-nondate');
+    const resultEmoji = document.getElementById('test-result-emoji');
+
+    if (txtGiusto) txtGiusto.innerText = correct;
+    if (txtSbagliato) txtSbagliato.innerText = wrong;
+    if (txtNondate) txtNondate.innerText = unanswered;
+
+    if (barGiusto) barGiusto.style.width = `${total > 0 ? (correct / total) * 100 : 0}%`;
+    if (barSbagliato) barSbagliato.style.width = `${total > 0 ? (wrong / total) * 100 : 0}%`;
+    if (barNondate) barNondate.style.width = `${total > 0 ? (unanswered / total) * 100 : 0}%`;
+
+    if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
+
+    const modal = document.getElementById('exam-result-modal');
+    if (modal) modal.style.display = 'flex';
+}

@@ -94,9 +94,9 @@ class DiagnosticsLogger
                 'os' => $os,
             ]);
 
-            // Try critical notifications
-            if (self::getStatusCode($e) >= 500) {
-                self::sendCriticalNotification($referenceId, $e);
+            // Keep table size capped (prune old errors if count > 500)
+            if (SystemError::count() > 500) {
+                SystemError::orderBy('id', 'asc')->limit(100)->delete();
             }
         } catch (Throwable $dbEx) {
             // Fallback if DB write fails

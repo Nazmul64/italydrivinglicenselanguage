@@ -9,10 +9,22 @@ use Illuminate\Http\Request;
 
 class TestApiController extends Controller
 {
+    /**
+     * Get random practice questions or chapter questions.
+     */
     public function getQuestions(Request $request)
     {
         $limit = $request->get('limit', 30);
-        $questions = Question::inRandomOrder()->limit($limit)->get();
+        $chapter = $request->get('chapter');
+
+        $query = Question::query();
+        if ($chapter) {
+            $query->where('chapter', $chapter)->orWhere('chapter_id', $chapter);
+        } else {
+            $query->inRandomOrder();
+        }
+
+        $questions = $query->limit($limit)->get();
 
         return response()->json([
             'status' => 'success',
@@ -20,18 +32,25 @@ class TestApiController extends Controller
         ]);
     }
 
+    /**
+     * Submit user test practice result log.
+     */
     public function submitResult(Request $request)
     {
         $validated = $request->validate([
             'user_id' => 'nullable|integer',
+            'session_id' => 'nullable|string',
             'total_questions' => 'required|integer',
             'correct_count' => 'required|integer',
             'wrong_count' => 'required|integer',
             'answers' => 'nullable|array'
         ]);
 
+        $sessionId = $validated['session_id'] ?? session()->getId();
+
         $result = UserMcqResult::create([
-            'user_id' => auth()->id() ?? $request->get('user_id'),
+            'user_id' => auth()->id() ?? ($validated['user_id'] ?? null),
+            'session_id' => $sessionId,
             'test_type' => 'practice_test',
             'total_questions' => $validated['total_questions'],
             'correct_count' => $validated['correct_count'],

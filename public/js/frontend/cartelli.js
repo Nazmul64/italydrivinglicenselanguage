@@ -4,10 +4,12 @@
 
 let cartelliAllChapters = [];
 let selectedCartelliChapters = [];
+let selectedCartelliSchede = [];
+let isCartelliChapterSelectMode = false;
+let isCartelliSchedeSelectMode = false;
 let cartelliActiveChapterId = null;
 let cartelliActivePageId = null;
 let cartelliPagesList = [];
-let selectedCartelliSchede = [];
 
 let cartelliNativeAudio = null;
 let playingCartelliAudioIndex = null;
@@ -32,18 +34,19 @@ function renderCartelliChaptersGrid() {
                 const isSelected = selectedCartelliChapters.includes(ch.id);
                 const card = document.createElement('div');
                 card.className = `chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}`;
-                card.onclick = () => openCartelliSchedeScreen(ch.id);
-
-                const checkboxIcon = isSelected
-                    ? `<i class="fa-solid fa-circle-check" style="font-size: 22px; color: var(--accent-green); position: absolute; top: 12px; right: 12px; z-index: 5;" onclick="event.stopPropagation(); toggleCartelliChapterSelection(${ch.id})"></i>`
-                    : `<i class="fa-regular fa-circle" style="font-size: 22px; color: rgba(255,255,255,0.8); position: absolute; top: 12px; right: 12px; z-index: 5; text-shadow: 0 1px 4px rgba(0,0,0,0.4);" onclick="event.stopPropagation(); toggleCartelliChapterSelection(${ch.id})"></i>`;
+                card.onclick = () => {
+                    if (isCartelliChapterSelectMode) {
+                        toggleCartelliChapterSelection(ch.id);
+                    } else {
+                        openCartelliSchedeScreen(ch.id);
+                    }
+                };
 
                 const coverImage = ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
 
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
-                        ${checkboxIcon}
-                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px; padding-right: 24px;">
+                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
                         <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
@@ -57,6 +60,7 @@ function renderCartelliChaptersGrid() {
                 container.appendChild(card);
             });
             updateCartelliCategoryQuizButtonVisibility();
+            updateCartelliChapterPillStates();
         })
         .catch(err => {
             console.error("Error fetching cartelli chapters: ", err);
@@ -71,26 +75,47 @@ function toggleCartelliChapterSelection(id) {
     } else {
         selectedCartelliChapters.push(id);
     }
+    if (selectedCartelliChapters.length > 0) {
+        isCartelliChapterSelectMode = true;
+    } else {
+        isCartelliChapterSelectMode = false;
+    }
     renderCartelliChaptersGrid();
+    updateCartelliCategoryQuizButtonVisibility();
+    updateCartelliChapterPillStates();
 }
 
 function unselectAllCartelliChapters() {
     selectedCartelliChapters = [];
+    isCartelliChapterSelectMode = false;
     renderCartelliChaptersGrid();
+    updateCartelliCategoryQuizButtonVisibility();
+    updateCartelliChapterPillStates();
 }
 
 function selectAllCartelliChapters() {
     selectedCartelliChapters = cartelliAllChapters.map(c => c.id);
+    isCartelliChapterSelectMode = true;
     renderCartelliChaptersGrid();
+    updateCartelliCategoryQuizButtonVisibility();
+    updateCartelliChapterPillStates();
 }
 
 function toggleSelectCartelliChapters() {
-    if (selectedCartelliChapters.length === cartelliAllChapters.length) {
-        selectedCartelliChapters = [];
-    } else {
-        selectedCartelliChapters = cartelliAllChapters.map(c => c.id);
+    isCartelliChapterSelectMode = true;
+    if (selectedCartelliChapters.length === 0 && cartelliAllChapters.length > 0) {
+        selectedCartelliChapters = [cartelliAllChapters[0].id];
     }
     renderCartelliChaptersGrid();
+    updateCartelliCategoryQuizButtonVisibility();
+    updateCartelliChapterPillStates();
+}
+
+function updateCartelliChapterPillStates() {
+    const selectPill = document.getElementById('cartelli-chap-btn-select');
+    if (selectPill) {
+        selectPill.style.display = isCartelliChapterSelectMode ? 'none' : 'inline-block';
+    }
 }
 
 function updateCartelliCategoryQuizButtonVisibility() {
@@ -171,6 +196,7 @@ function startCartelliCategoryQuiz() {
 function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
     if (cartelliActiveChapterId !== chapterId || !preserveSelection) {
         selectedCartelliSchede = [];
+        isCartelliSchedeSelectMode = false;
     }
     cartelliActiveChapterId = chapterId;
 
@@ -192,6 +218,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
             cartelliPagesList = pages;
             if (!preserveSelection) {
                 selectedCartelliSchede = [];
+                isCartelliSchedeSelectMode = false;
             }
             updateCartelliSchedeQuizButtonVisibility();
             updateCartelliSchedePillStates();
@@ -206,7 +233,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 return;
             }
 
-            const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+            const userStats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : JSON.parse(localStorage.getItem('user_question_stats') || '{}');
             container.innerHTML = '';
             pages.forEach((page, index) => {
                 let correct = 0;
@@ -234,11 +261,13 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 card.style.padding = '16px';
                 card.style.position = 'relative';
                 card.style.height = '100%';
-                card.onclick = () => openCartelliPageScreen(page.id);
-
-                const checkboxIcon = isSelected
-                    ? `<i class="fa-solid fa-circle-check" style="font-size: 18px; color: var(--accent-green); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleCartelliSchedeSelection(${index})"></i>`
-                    : `<i class="fa-regular fa-circle" style="font-size: 18px; color: var(--text-secondary); position: absolute; top: 14px; right: 14px; z-index: 5;" onclick="event.stopPropagation(); toggleCartelliSchedeSelection(${index})"></i>`;
+                card.onclick = () => {
+                    if (isCartelliSchedeSelectMode) {
+                        toggleCartelliSchedeSelection(index);
+                    } else {
+                        openCartelliPageScreen(page.id);
+                    }
+                };
 
                 const totalPercent = total || 1;
 
@@ -258,13 +287,12 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 }
 
                 card.innerHTML = `
-                    ${checkboxIcon}
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; padding-right: 28px;">
+                        <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
                             ${displaySheetTitle}
                         </span>
-                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary); padding-right: 20px;"></i>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
                     </div>
 
                     ${pageImgHTML}
@@ -284,6 +312,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 `;
                 container.appendChild(card);
             });
+            updateCartelliSchedePillStates();
         })
         .catch(err => {
             console.error("Error loading cartelli sheets: ", err);
@@ -323,24 +352,30 @@ function toggleCartelliSchedeSelection(index) {
     } else {
         selectedCartelliSchede.push(index);
     }
+    if (selectedCartelliSchede.length > 0) {
+        isCartelliSchedeSelectMode = true;
+    } else {
+        isCartelliSchedeSelectMode = false;
+    }
     openCartelliSchedeScreen(cartelliActiveChapterId, true);
 }
 
 function unselectAllCartelliSchede() {
     selectedCartelliSchede = [];
+    isCartelliSchedeSelectMode = false;
     openCartelliSchedeScreen(cartelliActiveChapterId, true);
 }
 
 function selectAllCartelliSchede() {
     selectedCartelliSchede = Array.from({ length: cartelliPagesList.length }, (_, idx) => idx);
+    isCartelliSchedeSelectMode = true;
     openCartelliSchedeScreen(cartelliActiveChapterId, true);
 }
 
 function toggleSelectCartelliSchede() {
-    if (selectedCartelliSchede.length === cartelliPagesList.length) {
-        selectedCartelliSchede = [];
-    } else {
-        selectedCartelliSchede = Array.from({ length: cartelliPagesList.length }, (_, idx) => idx);
+    isCartelliSchedeSelectMode = true;
+    if (selectedCartelliSchede.length === 0 && cartelliPagesList.length > 0) {
+        selectedCartelliSchede = [0];
     }
     openCartelliSchedeScreen(cartelliActiveChapterId, true);
 }
@@ -354,11 +389,15 @@ function updateCartelliSchedePillStates() {
     if (btnSelect) btnSelect.classList.remove('active');
     if (btnSelectAll) btnSelectAll.classList.remove('active');
 
-    if (selectedCartelliSchede.length === 0) {
+    if (btnSelect) {
+        btnSelect.style.display = isCartelliSchedeSelectMode ? 'none' : 'inline-block';
+    }
+
+    if (!isCartelliSchedeSelectMode && selectedCartelliSchede.length === 0) {
         if (btnUnselect) btnUnselect.classList.add('active');
     } else if (cartelliPagesList.length > 0 && selectedCartelliSchede.length === cartelliPagesList.length) {
         if (btnSelectAll) btnSelectAll.classList.add('active');
-    } else {
+    } else if (isCartelliSchedeSelectMode) {
         if (btnSelect) btnSelect.classList.add('active');
     }
 }
@@ -455,6 +494,20 @@ function openCartelliPageScreen(pageId) {
     populateCartelliPageChapterDropdown();
     populateCartelliPageDropdown(page.chapter_id);
 
+    const pageMainImage = page.image || page.img || (page.mcqs && page.mcqs.find(q => q.image || q.img)?.image) || (ch && (ch.image || ch.img) ? (ch.image || ch.img) : null);
+    cartelliActivePageMainImage = pageMainImage || null;
+    const mediaCont = document.getElementById('cartelli-page-media-container');
+    const pageImgEl = document.getElementById('cartelli-page-image');
+    if (mediaCont && pageImgEl) {
+        if (pageMainImage) {
+            pageImgEl.src = pageMainImage;
+            mediaCont.style.display = 'block';
+        } else {
+            pageImgEl.src = '';
+            mediaCont.style.display = 'none';
+        }
+    }
+
     renderCartelliPageMcqs(page.mcqs || []);
 }
 
@@ -468,7 +521,7 @@ function renderCartelliPageMcqs(mcqs) {
         return;
     }
 
-    const userStats = JSON.parse(localStorage.getItem('user_question_stats') || '{}');
+    const userStats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : JSON.parse(localStorage.getItem('user_question_stats') || '{}');
 
     mcqs.forEach((q, index) => {
         const databaseIsVero = q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
@@ -496,62 +549,73 @@ function renderCartelliPageMcqs(mcqs) {
         }
 
         const statsHtml = isAnswered ? `
-            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; text-align: center;">
-                <div style="color: var(--text-primary); font-weight: 800; margin-bottom: 4px; text-align: center;">(TU) Hai risposto:</div>
-                <div style="display: flex; justify-content: center; gap: 24px; font-size: 13px; font-weight: 700;">
+            <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 10px;">
+                <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
                     <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
                     <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
                 </div>
             </div>
-        ` : '';
+        ` : '<div style="flex: 1;"></div>';
 
         const card = document.createElement('div');
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (record && record.state === 'correct' ? 'correct' : 'incorrect')}`;
         card.style.position = 'relative';
 
-        let mediaHtml = '';
-        if (q.image) {
-            mediaHtml += `
-                <div style="margin-top: 12px; text-align: center;">
-                    <img src="${q.image}" style="max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid var(--border-card); object-fit: contain;">
-                </div>
-            `;
-        }
-
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
-                <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">Domanda #${index + 1}</div>
-                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, true)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Speech Speed">
-                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
+            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">${index + 1}</div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <button class="test-ctrl-btn" onclick="toggleCartelliQuestionAnswer(${q.id})" id="cartelli-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
+                        <i class="fa-regular fa-eye" id="cartelli-eye-icon-${q.id}" style="font-size: 13px; color: var(--text-secondary);"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">দেখুন</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="toggleCartelliPageTranslation(${q.id})" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
-                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="toggleCartelliBookmark(${q.id}, this)" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
-                        <i class="${bookmarkIconClass}" style="${bookmarkIconColor}"></i>
-                    </button>
-                    <button class="test-ctrl-btn" id="cartelli-note-btn-${q.id}" onclick="openCartelliNotesModal(${q.id})" style="width: 30px; height: 30px; min-width:30px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="${cartelliHasNote ? 'color: var(--accent-green);' : ''}"></i>
-                    </button>
-                    <i class="fa-regular fa-eye" id="cartelli-eye-icon-${q.id}" onclick="toggleCartelliQuestionAnswer(${q.id})" style="cursor: pointer; font-size: 15px; color: var(--text-secondary); margin-left: 2px;" title="Show Answer"></i>
-                    <span id="cartelli-ans-text-${q.id}" style="display: none; font-size: 13px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
+                    <span id="cartelli-ans-text-${q.id}" style="display: none; font-size: 14px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'}; flex-shrink: 0;">${databaseIsVero ? 'VERO ✓' : 'FALSO ✗'}</span>
                 </div>
             </div>
-            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || []) : (q.question || '')}</div>
-            <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
-            ${mediaHtml}
+
+            <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                <div style="flex: 1; min-width: 0;">
+                    <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || []) : (q.question || '')}</div>
+                    <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
+                </div>
+            </div>
 
             <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
-                <button class="test-speaker-btn" onclick="readCartelliQuestionSpeech(${index})" style="width: 36px; height: 36px; min-width:36px; flex-shrink: 0;">
-                    <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
+                ${(q.image || cartelliActivePageMainImage) ? `<img src="${q.image || cartelliActivePageMainImage}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || cartelliActivePageMainImage}')" style="width: 68px; height: 68px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                <button class="test-speaker-btn" onclick="readCartelliQuestionSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen TTS Pronunciation">
+                    <i class="fa-solid fa-microphone" style="font-size:14px;"></i>
+                    <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
                 </button>
-                <button class="test-ctrl-btn" id="cartelli-play-btn-${index}" onclick="playCartelliMcqAudioOrSpeech(${index})" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; flex-shrink: 0;">
-                    <i class="fa-solid fa-play"></i>
+                <button class="test-ctrl-btn" id="cartelli-play-btn-${index}" onclick="playCartelliMcqAudioOrSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio Voiceover">
+                    <i class="fa-solid fa-play" style="font-size: 13px;"></i>
+                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
                 </button>
                 <input type="range" class="test-slider" id="cartelli-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
             </div>
-            ${statsHtml}
+
+            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;">
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, true)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 14px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">স্পিড</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="toggleCartelliPageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="toggleCartelliBookmark(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
+                        <i class="${bookmarkIconClass}" style="${bookmarkIconColor} font-size: 14px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
+                    </button>
+                    <button class="test-ctrl-btn" id="cartelli-note-btn-${q.id}" onclick="openCartelliNotesModal(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${cartelliHasNote ? 'color: var(--accent-green);' : ''} font-size: 14px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: ${cartelliHasNote ? 'var(--accent-green)' : 'var(--text-secondary)'}; white-space: nowrap;">নোট</span>
+                    </button>
+                
+                </div>
+                ${statsHtml}
+            </div>
         `;
         container.appendChild(card);
     });
@@ -560,16 +624,21 @@ function renderCartelliPageMcqs(mcqs) {
 function toggleCartelliQuestionAnswer(qId) {
     const textEl = document.getElementById(`cartelli-ans-text-${qId}`);
     const iconEl = document.getElementById(`cartelli-eye-icon-${qId}`);
+    const btnEl = document.getElementById(`cartelli-eye-btn-${qId}`);
     if (!textEl || !iconEl) return;
 
     if (textEl.style.display === 'none') {
         textEl.style.display = 'inline';
         iconEl.className = 'fa-regular fa-eye-slash';
         iconEl.style.color = 'var(--accent-green)';
+        const labelEl = btnEl ? btnEl.querySelector('span') : null;
+        if (labelEl) { labelEl.innerText = 'লুকান'; labelEl.style.color = 'var(--accent-green)'; }
     } else {
         textEl.style.display = 'none';
         iconEl.className = 'fa-regular fa-eye';
         iconEl.style.color = 'var(--text-secondary)';
+        const labelEl = btnEl ? btnEl.querySelector('span') : null;
+        if (labelEl) { labelEl.innerText = 'প্রশ্ন দেখুন'; labelEl.style.color = 'var(--text-secondary)'; }
     }
 }
 
@@ -648,7 +717,7 @@ function toggleCartelliPageTranslation(qId) {
     const q = page.mcqs.find(item => item.id === qId);
     if (!q) return;
     if (typeof openQuestionTranslationModal === 'function') {
-        openQuestionTranslationModal(q.question || q.italian || '', q.bn_question || q.bangla || '');
+        openQuestionTranslationModal(q.question || q.italian || '', q.bn_question || q.bangla || '', q.vocabulary || []);
     }
 }
 

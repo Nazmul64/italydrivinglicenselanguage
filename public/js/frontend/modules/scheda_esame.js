@@ -31,17 +31,26 @@ function loadSchedaEsameModule() {
         showSchedaInfoModal();
     }
 
-    fetch('/api/exams')
+    fetch('/api/v1/scheda-esame/generate')
         .then(res => res.json())
-        .then(data => {
-            allSchedaExamsData = Array.isArray(data) ? data : (data.data || []);
+        .then(resData => {
+            const questions = resData.data || resData || [];
+            allSchedaExamsData = Array.isArray(questions) ? questions : [];
             renderSchedaExamCards();
         })
         .catch(err => {
-            console.error("Error loading exam sheets:", err);
-            if (container) {
-                container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px; font-weight: bold;">Si è verificato un errore durante il caricamento delle schede.</div>`;
-            }
+            fetch('/api/exams')
+                .then(res => res.json())
+                .then(data => {
+                    allSchedaExamsData = Array.isArray(data) ? data : (data.data || []);
+                    renderSchedaExamCards();
+                })
+                .catch(err2 => {
+                    console.error("Error loading exam sheets:", err2);
+                    if (container) {
+                        container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px; font-weight: bold;">Si è verificato un errore durante il caricamento delle schede.</div>`;
+                    }
+                });
         });
 }
 

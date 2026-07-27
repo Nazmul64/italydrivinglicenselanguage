@@ -388,6 +388,13 @@
                         <option value="dizionario">dizionario (Dictionary)</option>
                         <option value="cartelli">cartelli (Traffic Signs)</option>
                         <option value="saved-mcqs">saved-mcqs (Bookmarks)</option>
+                        <option value="correct-mcqs">correct-mcqs (Correct MCQs - সঠিক এমসিকিউ)</option>
+                        <option value="wrong-mcqs">wrong-mcqs (Wrong MCQs - ভুল এমসিকিউ)</option>
+                        <option value="support">support (Support - Live Chat)</option>
+                        <option value="top-performers">top-performers (Top Performers - সেরা শিক্ষার্থী র‍্যাংকিং)</option>
+                        <option value="manuale">manuale (Manuale - ম্যানুয়াল থিওরি বই)</option>
+                        <option value="patente-social">patente-social (Patente Social - কমিউনিটি সোশ্যাল ফিড)</option>
+                        <option value="translation">translation (Translation - অনুবাদ ও সঠিক উচ্চারণ)</option>
                     </select>
                 </div>
 
@@ -587,7 +594,7 @@
                 <h3 class="modal-title" id="page-modal-title">Add Page</h3>
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closePageModal()"></i>
             </div>
-            <form id="page-form" onsubmit="savePage(event)">
+            <form id="page-form" onsubmit="savePage(event)" enctype="multipart/form-data">
                 <input type="hidden" id="form-page-crud-id">
                 <div class="form-group">
                     <label class="form-label" for="form-page-chapter-id">Selected Chapter</label>
@@ -612,6 +619,13 @@
                     <input type="text" class="form-control" id="form-page-title-bn" placeholder="e.g. রাস্তা এবং এর অংশসমূহ">
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label" for="form-page-image">Page Picture / Image</label>
+                    <input type="file" class="form-control" id="form-page-image" name="image" accept="image/*,image/gif,image/webp" onchange="previewArgomentiPageImage(this)">
+                    <div id="form-page-image-preview-container" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
+                        <img id="form-page-image-preview" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    </div>
+                </div>
 
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closePageModal()">Cancel</button>
@@ -776,12 +790,7 @@
                 <i class="fa-solid fa-xmark modal-close-btn" onclick="closeCartelloChapterModal()"></i>
             </div>
             <form id="cartello-chapter-form" onsubmit="saveCartelloChapter(event)" enctype="multipart/form-data">
-                <div class="form-group" style="display: none;">
-                    <label class="form-label" for="cch-category-id">CATEGORY <span style="color:var(--accent-red);">*</span></label>
-                    <select class="form-control" id="cch-category-id" name="category_id">
-                        <option value="">Patente B</option>
-                    </select>
-                </div>
+                <input type="hidden" id="cch-category-id" name="category_id" value="1">
                 <div class="form-group">
                     <label class="form-label" for="cch-chapter-number">CHAPTER NUMBER <span style="color:var(--accent-red);">*</span></label>
                     <input type="number" class="form-control" id="cch-chapter-number" name="chapter_number" placeholder="e.g. 1" min="1" required>
@@ -976,6 +985,166 @@
                 <div style="display:flex; gap:12px; margin-top:24px; justify-content:flex-end;">
                     <button type="button" class="btn btn-secondary" onclick="closeCartelloMcqModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary" style="background-color: #009688; border: none; font-weight: bold;">Save Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Chat Preset Modal -->
+    <div class="modal-overlay" id="chat-preset-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999999;">
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 480px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <h4 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text-primary);" id="chat-preset-modal-title">Add Chat Response Button</h4>
+                <button onclick="closeChatPresetModal()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveChatPreset(event)">
+                <input type="hidden" id="form-preset-id">
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="form-preset-title" style="font-weight: bold;">Button Title (Required)</label>
+                    <input type="text" class="form-control" id="form-preset-title" placeholder="e.g. Send 3 Years (1095 days) or Whatsapp" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="form-preset-type" style="font-weight: bold;">Preset Type</label>
+                    <select class="form-control" id="form-preset-type" onchange="toggleChatPresetTypeFields(this.value)" required>
+                        <option value="license">License Key Card (লাইসেন্স কার্ড)</option>
+                        <option value="text">Custom Text Message (টেক্সট মেসেজ)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="form-preset-days-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="form-preset-days" style="font-weight: bold;">License Validity Days (e.g. 31, 90, 365, 1095)</label>
+                    <input type="number" class="form-control" id="form-preset-days" placeholder="365">
+                </div>
+
+                <div class="form-group" id="form-preset-text-group" style="margin-bottom: 12px; display: none;">
+                    <label class="form-label" for="form-preset-text" style="font-weight: bold;">Custom Response Message Text</label>
+                    <textarea class="form-control" id="form-preset-text" rows="3" placeholder="Enter message text to send to user..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" for="form-preset-bg-color" style="font-weight: bold;">Background Color</label>
+                        <input type="color" class="form-control" id="form-preset-bg-color" value="#3b82f6" style="height: 38px; padding: 2px;">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" for="form-preset-text-color" style="font-weight: bold;">Text Color</label>
+                        <input type="color" class="form-control" id="form-preset-text-color" value="#ffffff" style="height: 38px; padding: 2px;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" for="form-preset-order" style="font-weight: bold;">Sort Order Index</label>
+                    <input type="number" class="form-control" id="form-preset-order" value="0" required>
+                </div>
+
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeChatPresetModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #10b981; border: none; font-weight: bold;">Save Preset Button</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Chat Presets Manager List Modal -->
+    <div class="modal-overlay" id="admin-preset-manager-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999;">
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 650px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <h4 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text-primary);">Manage Chat Response Buttons</h4>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddChatPresetModal()"><i class="fa-solid fa-plus"></i> + Add New Button</button>
+                    <button onclick="closeChatPresetManagerModal()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm" style="width: 100%; font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">Order</th>
+                            <th>Button Preview / Title</th>
+                            <th style="width: 90px; text-align: center;">Type</th>
+                            <th style="width: 120px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chat-presets-manager-tbody">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    <!-- Admin Edit Profile & Password Modal -->
+    <div class="modal-overlay" id="admin-edit-profile-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999999;">
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 480px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <h4 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text-primary);">Admin Profile & Password Settings</h4>
+                <button onclick="closeAdminEditProfileModal()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveAdminProfileSettings(event)" enctype="multipart/form-data">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="admin-profile-name" style="font-weight: bold;">Admin Name (এডমিনের নাম)</label>
+                    <input type="text" class="form-control" id="admin-profile-name" required placeholder="e.g. M Rahman">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="admin-profile-email" style="font-weight: bold;">Admin Email (ইমেইল)</label>
+                    <input type="email" class="form-control" id="admin-profile-email" required placeholder="admin@gmail.com">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label" for="admin-profile-password" style="font-weight: bold;">New Password (অপরিবর্তিত রাখতে চাইলে খালি রাখুন)</label>
+                    <input type="password" class="form-control" id="admin-profile-password" placeholder="Enter new password to change...">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" for="admin-profile-avatar" style="font-weight: bold;">Profile Picture (প্রোফাইল ছবি)</label>
+                    <input type="file" class="form-control" id="admin-profile-avatar" accept="image/*">
+                    <div id="admin-avatar-preview" style="margin-top: 8px;"></div>
+                </div>
+
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAdminEditProfileModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #3b82f6; border: none; font-weight: bold;">Save Profile Settings</button>
+                </div>
+            </form>
+        </div>
+    <!-- Assign License Duration Modal -->
+    <div class="modal-overlay" id="assign-license-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999999;">
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 450px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <h4 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text-primary);">Grant / Extend Customer License</h4>
+                <button onclick="closeAssignLicenseModal()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="submitAssignLicense(event)">
+                <input type="hidden" id="license-form-client-id">
+                
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Customer Name</label>
+                    <input type="text" class="form-control" id="license-form-client-name" readonly style="background-color: var(--bg-content); cursor: not-allowed;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Select License Duration (মেয়াদ সিলেক্ট করুন)</label>
+                    <select class="form-control" id="license-form-preset-days" onchange="document.getElementById('license-form-custom-days').value = this.value">
+                        <option value="31">1 Month (31 Days)</option>
+                        <option value="92">3 Months (92 Days)</option>
+                        <option value="184">6 Months (184 Days)</option>
+                        <option value="365" selected>1 Year (365 Days)</option>
+                        <option value="1095">3 Years (1095 Days)</option>
+                        <option value="1825">5 Years (1825 Days)</option>
+                        <option value="3650">10 Years (3650 Days)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Or Custom Days (কাস্টম দিন)</label>
+                    <input type="number" class="form-control" id="license-form-custom-days" value="365" min="1" required>
+                </div>
+
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAssignLicenseModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #10b981; border: none; font-weight: bold;">Grant License</button>
                 </div>
             </form>
         </div>

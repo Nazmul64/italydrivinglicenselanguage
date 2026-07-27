@@ -298,8 +298,15 @@
     <!-- PANEL 4: Admin Chat Room Panel -->
     <div id="panel-chat-room" class="crud-panel">
         <div class="welcome-header">
-            <h2 class="welcome-title">Live Chat Room</h2>
-            <p class="welcome-subtitle">Chat with online customers and help them learn driving theory.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h2 class="welcome-title">Live Chat Room</h2>
+                    <p class="welcome-subtitle">Chat with online customers and help them learn driving theory.</p>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="openChatPresetManagerModal()">
+                    <i class="fa-solid fa-gear"></i> Manage Response Buttons (বাটন ম্যানেজার)
+                </button>
+            </div>
         </div>
         
         <div class="chat-room-container">
@@ -344,7 +351,10 @@
         <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 380px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 80vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                 <h4 style="font-size: 14px; font-weight: 800; margin: 0; color: var(--text-primary);">Utente: IMPOSTAZIONI</h4>
-                <button onclick="closeAdminChatSettings()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openChatPresetManagerModal()" style="font-size: 11px; padding: 3px 8px; font-weight: bold;"><i class="fa-solid fa-gear"></i> Manage</button>
+                    <button onclick="closeAdminChatSettings()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+                </div>
             </div>
             
             <div style="display: flex; flex-direction: column; gap: 8px;" id="admin-macro-buttons-container">
@@ -753,10 +763,7 @@
         <div id="cartello-sub-panel-chapters">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <select class="form-control" id="filter-chapter-category-id" onchange="fetchCartelloChapters()" style="width: 220px; height: 38px;">
-                        <option value="">সব ক্যাটাগরি</option>
-                    </select>
-                    <input type="text" class="form-control" id="cartello-chapter-search" placeholder="Search chapter..." oninput="fetchCartelloChapters()" style="width: 220px; height: 38px;">
+                    <input type="text" class="form-control" id="cartello-chapter-search" placeholder="Search chapter..." oninput="fetchCartelloChapters()" style="width: 280px; height: 38px;">
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-danger" id="btn-bulk-delete-cartello-chapters" onclick="bulkDeleteItems('cartello-chapters')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
@@ -777,12 +784,11 @@
                             <th style="width: 140px;">CHAPTER NUMBER</th>
                             <th>CHAPTER NAME (ITALIAN)</th>
                             <th>CHAPTER NAME (BANGLA)</th>
-                            <th>CATEGORY</th>
                             <th style="width: 150px; text-align: right;">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody id="cartello-chapters-tbody">
-                        <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
+                        <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">লোড হচ্ছে...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -792,13 +798,10 @@
         <div id="cartello-sub-panel-pages" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <select class="form-control" id="filter-page-category-id" onchange="handleCategoryChange('filter-page-category-id', 'filter-page-chapter-id'); fetchCartelloPages();" style="width: 200px; height: 38px;">
-                        <option value="">সব ক্যাটাগরি</option>
-                    </select>
-                    <select class="form-control" id="filter-page-chapter-id" onchange="fetchCartelloPages()" style="width: 200px; height: 38px;">
+                    <select class="form-control" id="filter-page-chapter-id" onchange="fetchCartelloPages()" style="width: 220px; height: 38px;">
                         <option value="">সব চ্যাপ্টার</option>
                     </select>
-                    <input type="text" class="form-control" id="cartello-page-search" placeholder="Search page..." oninput="fetchCartelloPages()" style="width: 200px; height: 38px;">
+                    <input type="text" class="form-control" id="cartello-page-search" placeholder="Search page..." oninput="fetchCartelloPages()" style="width: 220px; height: 38px;">
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-danger" id="btn-bulk-delete-cartello-pages" onclick="bulkDeleteItems('cartello-pages')" style="display: none; background-color: var(--accent-red); color: white; border: none; font-weight: bold; border-radius: 8px; font-size: 13px; padding: 0 16px;">
@@ -1449,6 +1452,12 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);"><i class="fa-solid fa-key" style="color: var(--accent-green); margin-right: 6px;"></i> License Key Auto-Message (লাইসেন্স মেসেজ)</label>
+                    <textarea id="settings-license-message" name="license_message" class="form-control" style="width: 100%; min-height: 90px; resize: vertical;" placeholder="লাইসেন্স পাঠানোর সময় যে মেসেজ যাবে সেটি এখানে লিখুন..."></textarea>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">লাইসেন্স কি পাঠানোর পর ইউজারকে automatically এই মেসেজটি পাঠানো হবে। ফাঁকা রাখলে ডিফল্ট মেসেজ যাবে।</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Application Logo</label>
                     <div style="display: flex; align-items: center; gap: 16px;">
                         <div id="settings-logo-preview-container" style="width: 80px; height: 80px; border-radius: 12px; border: 1.5px solid var(--border-card); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
@@ -1906,6 +1915,123 @@
                     <i class="fa-solid fa-save"></i> Save Settings
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- PANEL: Admin Profile & Password Settings -->
+    <div id="panel-admin-profile" class="crud-panel">
+        <div class="welcome-header">
+            <h2 class="welcome-title">Admin Profile & Password Settings</h2>
+            <p class="welcome-subtitle">Update your admin account name, email, password, and profile picture avatar.</p>
+        </div>
+
+        <div style="max-width: 600px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <form onsubmit="saveAdminProfileSettingsFromPanel(event)" enctype="multipart/form-data">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Admin Name (এডমিনের নাম)</label>
+                    <input type="text" class="form-control" id="panel-admin-profile-name" required placeholder="e.g. M Rahman">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Admin Email (ইমেইল)</label>
+                    <input type="email" class="form-control" id="panel-admin-profile-email" required placeholder="admin@gmail.com">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">New Password (নতুন পাসওয়ার্ড - অপরিবর্তিত রাখতে চাইলে খালি রাখুন)</label>
+                    <input type="password" class="form-control" id="panel-admin-profile-password" placeholder="Enter new password to change...">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label" style="font-weight: bold; margin-bottom: 6px; display: block;">Profile Picture Avatar (প্রোফাইল ছবি)</label>
+                    <input type="file" class="form-control" id="panel-admin-profile-avatar" accept="image/*">
+                    <div id="panel-admin-avatar-preview" style="margin-top: 10px;"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="background-color: #10b981; border: none; font-weight: bold; padding: 10px 24px;">
+                    <i class="fa-solid fa-save"></i> Save Profile & Password
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PANEL: Manage Customers (App Clients) -->
+    <div id="panel-customers" class="crud-panel">
+        <div class="welcome-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h2 class="welcome-title">Manage App Customers (কাস্টমার তালিকা)</h2>
+                    <p class="welcome-subtitle">View all registered customers, grant licenses, block/unblock users, and manage account statuses.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Statistics Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div class="card" style="padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">Total Customers</div>
+                    <div style="font-size: 24px; font-weight: 800; margin-top: 4px; color: var(--text-primary);" id="stat-cust-total">0</div>
+                </div>
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); display: flex; align-items: center; justify-content: center; color: #3b82f6;">
+                    <i class="fa-solid fa-users" style="font-size: 20px;"></i>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">Active Licenses</div>
+                    <div style="font-size: 24px; font-weight: 800; margin-top: 4px; color: #10b981;" id="stat-cust-active">0</div>
+                </div>
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(16, 185, 129, 0.12); display: flex; align-items: center; justify-content: center; color: #10b981;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 20px;"></i>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">Pending Activation</div>
+                    <div style="font-size: 24px; font-weight: 800; margin-top: 4px; color: #f59e0b;" id="stat-cust-pending">0</div>
+                </div>
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); display: flex; align-items: center; justify-content: center; color: #f59e0b;">
+                    <i class="fa-solid fa-hourglass-half" style="font-size: 20px;"></i>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">Blocked Users</div>
+                    <div style="font-size: 24px; font-weight: 800; margin-top: 4px; color: #ef4444;" id="stat-cust-blocked">0</div>
+                </div>
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(239, 68, 68, 0.12); display: flex; align-items: center; justify-content: center; color: #ef4444;">
+                    <i class="fa-solid fa-user-slash" style="font-size: 20px;"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div style="margin-bottom: 16px; display: flex; gap: 12px;">
+            <input type="text" class="form-control" id="search-customer-input" placeholder="Search customer by name, phone or session..." oninput="debounceFetchCustomers()" style="max-width: 380px;">
+        </div>
+
+        <!-- Customer Data Table -->
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px; text-align: center;">Avatar</th>
+                        <th>Customer Name</th>
+                        <th>Phone Number</th>
+                        <th style="width: 140px; text-align: center;">License Status</th>
+                        <th style="width: 120px; text-align: center;">Block Status</th>
+                        <th style="width: 140px;">Registered Date</th>
+                        <th style="width: 240px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="customers-table-body">
+                    <!-- Customers dynamically injected -->
+                </tbody>
+            </table>
         </div>
     </div>
 @endsection

@@ -6,10 +6,10 @@
     </div>
 
     <!-- Selection Control Pills matching screenshot -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 10px;">
-        <button class="pill-btn" onclick="unselectAllCartelliChapters()">Unselect All</button>
-        <button class="pill-btn" onclick="toggleSelectCartelliChapters()">Select</button>
-        <button class="pill-btn" onclick="selectAllCartelliChapters()">Select All</button>
+    <div class="pill-btn-group" style="margin-bottom: 24px;">
+        <button class="pill-btn" id="cartelli-chap-btn-unselect" onclick="unselectAllCartelliChapters()">Unselect All</button>
+        <button class="pill-btn" id="cartelli-chap-btn-select" onclick="toggleSelectCartelliChapters()">Select</button>
+        <button class="pill-btn" id="cartelli-chap-btn-select-all" onclick="selectAllCartelliChapters()">Select All</button>
     </div>
 
     <div id="cartelli-chapters-grid" class="argomenti-grid" style="padding-bottom: 80px; width: 100%;">
@@ -40,7 +40,7 @@
     </div>
 
     <!-- Pills -->
-    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+    <div class="pill-btn-group" style="margin-bottom: 16px;">
         <button class="pill-btn active" id="cartelli-schede-btn-unselect" onclick="unselectAllCartelliSchede()">Unselect All</button>
         <button class="pill-btn" id="cartelli-schede-btn-select" onclick="toggleSelectCartelliSchede()">Select</button>
         <button class="pill-btn" id="cartelli-schede-btn-select-all" onclick="selectAllCartelliSchede()">Select All</button>
@@ -76,10 +76,17 @@
             <div class="chapter-dropdown-list-panel" id="cartelli-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;"></div>
         </div>
         <!-- Select controls -->
-        <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <div class="pill-btn-group" style="margin-top: 4px; margin-bottom: 8px;">
             <button class="pill-btn" onclick="toggleCartelliPageSelection()">Select Page</button>
             <button class="pill-btn active" onclick="selectAllCartelliPages()">Select All</button>
             <button class="pill-btn" onclick="unselectAllCartelliPages()">Unselect All</button>
+        </div>
+
+        <!-- Standalone Top Image Card -->
+        <div id="cartelli-page-media-container" style="display: none; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 14px; margin-top: 8px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.03); width: 100%;">
+            <div style="width: 100%; display: flex; align-items: center; justify-content: center;">
+                <img id="cartelli-page-image" src="" style="max-height: 210px; width: auto; max-width: 100%; object-fit: contain; border-radius: 10px; cursor: pointer; display: inline-block;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)" title="Zoom Image">
+            </div>
         </div>
     </div>
 

@@ -40,6 +40,35 @@ function initSocialModule() {
     if (avatarEl) avatarEl.src = user.avatar;
 
     fetchSocialFeed();
+    fetchPatenteSocialCards();
+    fetchPatenteSocialBanners();
+}
+
+function fetchPatenteSocialCards() {
+    return fetch('/api/v1/patente-social/cards')
+        .then(res => res.json())
+        .then(resData => {
+            return resData.data || [];
+        })
+        .catch(err => console.error('Error fetching social cards:', err));
+}
+
+function fetchPatenteSocialBanners() {
+    return fetch('/api/v1/patente-social/banners')
+        .then(res => res.json())
+        .then(resData => {
+            return resData.data || [];
+        })
+        .catch(err => console.error('Error fetching social banners:', err));
+}
+
+function fetchPatenteSocialSettings() {
+    return fetch('/api/v1/patente-social/settings')
+        .then(res => res.json())
+        .then(resData => {
+            return resData.data || null;
+        })
+        .catch(err => console.error('Error fetching social settings:', err));
 }
 
 function fetchSocialFeed() {

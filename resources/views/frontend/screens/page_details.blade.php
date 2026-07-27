@@ -25,10 +25,17 @@
         </div>
 
         <!-- Page selection controls -->
-        <div style="display: flex; gap: 8px; margin-top: 4px; justify-content: flex-start;">
+        <div class="pill-btn-group" style="margin-top: 4px; margin-bottom: 8px;">
             <button class="pill-btn" id="page-details-select-toggle-btn" onclick="toggleCurrentPageSelection()">Select Page</button>
             <button class="pill-btn active" id="page-details-select-all-btn" onclick="selectAllPagesInDetails()">Select All</button>
             <button class="pill-btn" id="page-details-unselect-all-btn" onclick="unselectAllPagesInDetails()">Unselect All</button>
+        </div>
+
+        <!-- Standalone Top Image Card -->
+        <div id="page-details-media-container" style="display: none; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 14px; margin-top: 8px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.03); width: 100%;">
+            <div style="width: 100%; display: flex; align-items: center; justify-content: center;">
+                <img id="page-details-image" src="" style="max-height: 210px; width: auto; max-width: 100%; object-fit: contain; border-radius: 10px; cursor: pointer; display: inline-block;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)" title="Zoom Image">
+            </div>
         </div>
     </div>
 
@@ -44,11 +51,6 @@
 
         <!-- Page Text Content -->
         <div id="page-details-content-text" style="font-size: 13px; color: var(--text-primary); line-height: 1.6; font-weight: 600;"></div>
-        
-        <!-- Optional Page Image (Placed at top above questions list, matching red circle) -->
-        <div id="page-details-media-container" style="display: none; width: 100%; text-align: center; border-radius: 12px; overflow: hidden; background-color: var(--bg-page); padding: 12px; margin-bottom: 12px;">
-            <img id="page-details-image" src="" style="max-height: 280px; width: auto; max-width: 100%; object-fit: contain; display: inline-block; border-radius: 8px;">
-        </div>
 
         <!-- Hidden native audio element -->
         <audio id="page-native-audio" style="display: none;"></audio>

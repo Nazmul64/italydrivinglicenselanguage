@@ -56,5 +56,6 @@ class Setting extends Model
         'argomenti_chapter_image_width_mobile',
         'argomenti_page_image_width_desktop',
         'argomenti_page_image_width_mobile',
+        'license_message',
     ];
 }

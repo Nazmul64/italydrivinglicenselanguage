@@ -1,0 +1,22 @@
+{
+  "name": "Italy Bangla Patente App",
+  "short_name": "PatenteApp",
+  "description": "Italy Bangla Driving License Preparation Mobile App",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/uploads/system/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/uploads/system/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

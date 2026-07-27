@@ -47,6 +47,7 @@ class SettingsController extends Controller
         if ($request->has('home_card_gap')) $setting->home_card_gap = (int) $request->input('home_card_gap', 24);
         if ($request->has('schede_desktop_columns')) $setting->schede_desktop_columns = (int) $request->input('schede_desktop_columns', 2);
         if ($request->has('schede_mobile_columns')) $setting->schede_mobile_columns = (int) $request->input('schede_mobile_columns', 1);
+        if ($request->has('license_message')) $setting->license_message = $request->input('license_message');
 
         if ($request->has('icon_size_desktop')) $setting->icon_size_desktop = (int) $request->input('icon_size_desktop', 90);
         if ($request->has('icon_size_mobile')) $setting->icon_size_mobile = (int) $request->input('icon_size_mobile', 60);

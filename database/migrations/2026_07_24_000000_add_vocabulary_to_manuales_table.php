@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasColumn('manuales', 'vocabulary')) {
+        if (Schema::hasTable('manuales') && !Schema::hasColumn('manuales', 'vocabulary')) {
             Schema::table('manuales', function (Blueprint $table) {
                 $table->text('vocabulary')->nullable()->after('content');
             });
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (Schema::hasColumn('manuales', 'vocabulary')) {
+        if (Schema::hasTable('manuales') && Schema::hasColumn('manuales', 'vocabulary')) {
             Schema::table('manuales', function (Blueprint $table) {
                 $table->dropColumn('vocabulary');
             });

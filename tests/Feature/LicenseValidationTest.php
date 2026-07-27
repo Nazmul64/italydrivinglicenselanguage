@@ -87,4 +87,55 @@ class LicenseValidationTest extends TestCase
             'is_active' => false,
         ]);
     }
+
+    public function test_persistent_client_phone_session_recovery_and_reverification(): void
+    {
+        // 1. Create an activated client with phone number
+        $client = AppClient::create([
+            'session_id' => 'old_session_123',
+            'first_name' => 'Nazmul',
+            'last_name' => 'Hossain',
+            'phone' => '01706640864',
+            'is_active' => true,
+            'expires_at' => now()->addDays(365),
+        ]);
+
+        // 2. New session ID (e.g. new tab / next day / cleared cookies) checks status with phone
+        $newSessionId = 'new_session_456';
+        $response = $this->getJson("/api/client/status?session_id={$newSessionId}&phone=01706640864");
+        $response->assertStatus(200);
+        $response->assertJson([
+            'is_active' => true,
+            'verified' => true,
+            'phone' => '01706640864',
+        ]);
+
+        // Verify session_id was updated in database
+        $client->refresh();
+        $this->assertEquals($newSessionId, $client->session_id);
+
+        // 3. User submits verification on a new device/browser with existing activated phone number
+        $anotherSessionId = 'device_session_789';
+        $response = $this->postJson('/api/client/verify', [
+            'first_name' => 'Nazmul',
+            'last_name' => 'Hossain',
+            'phone' => '01706640864',
+            'session_id' => $anotherSessionId,
+        ]);
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'already_active' => true,
+            'is_active' => true,
+        ]);
+
+        // Verify session_id was updated again to the latest active session
+        $client->refresh();
+        $this->assertEquals($anotherSessionId, $client->session_id);
+
+        // 4. Test request with X-Client-Phone header to protected endpoint
+        $response = $this->withHeaders(['X-Client-Phone' => '01706640864'])
+            ->getJson('/api/user-mcq-results?per_page=5000');
+        $response->assertStatus(200);
+    }
 }

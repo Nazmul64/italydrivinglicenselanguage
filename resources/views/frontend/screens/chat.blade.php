@@ -1,7 +1,19 @@
 <!-- 7. Floating Chat Widget Overlay -->
+@php
+    $adminUser = \App\Models\User::where('role', 'super_admin')->first() ?? \App\Models\User::first();
+    $adminName = $adminUser ? $adminUser->name : 'M Rahman';
+    $adminAvatar = ($adminUser && $adminUser->avatar) ? asset($adminUser->avatar) : null;
+@endphp
 <div class="chat-widget-container" id="guest-chat-widget">
-    <div class="chat-widget-header">
-        <span>M Rahman (Online Support)</span>
+    <div class="chat-widget-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            @if($adminAvatar)
+                <img src="{{ $adminAvatar }}" alt="Admin Avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+            @else
+                <i class="fa-solid fa-user-tie" style="font-size: 16px;"></i>
+            @endif
+            <span style="font-weight: 700; font-size: 13px; color: #ffffff;">{{ $adminName }} (Online Support)</span>
+        </div>
         <button class="chat-widget-close" onclick="toggleGuestChat(false)"><i class="fa-solid fa-xmark"></i></button>
     </div>
     

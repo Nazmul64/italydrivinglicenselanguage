@@ -98,85 +98,140 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Seed Home Navigation Cards
-        if (\App\Models\HomeCard::count() === 0) {
-            $cards = [
-                [
-                    'title' => 'Lezioni',
-                    'subtitle' => 'Classes',
-                    'screen_key' => 'lezioni',
-                    'icon_class' => 'fa-solid fa-video',
-                    'icon_color' => '#3B82F6',
-                    'order_index' => 1
-                ],
-                [
-                    'title' => 'Test',
-                    'subtitle' => 'Practice Test',
-                    'screen_key' => 'test',
-                    'icon_class' => 'fa-solid fa-laptop-code',
-                    'icon_color' => '#475569',
-                    'order_index' => 2
-                ],
-                [
-                    'title' => 'ARGOMENTI',
-                    'subtitle' => 'TOPICS',
-                    'screen_key' => 'argomenti',
-                    'icon_class' => 'fa-solid fa-graduation-cap',
-                    'icon_color' => '#8B5CF6',
-                    'order_index' => 3
-                ],
-                [
-                    'title' => 'E-Class',
-                    'subtitle' => 'E-Class',
-                    'screen_key' => 'eclass',
-                    'icon_class' => 'fa-solid fa-chalkboard-user',
-                    'icon_color' => '#06B6D4',
-                    'order_index' => 4
-                ],
-                [
-                    'title' => 'Sfida',
-                    'subtitle' => 'Challenge',
-                    'screen_key' => 'sfida',
-                    'icon_class' => 'fa-solid fa-trophy',
-                    'icon_color' => '#F59E0B',
-                    'order_index' => 5
-                ],
-                [
-                    'title' => 'Scheda Esame',
-                    'subtitle' => 'Exam Test',
-                    'screen_key' => 'scheda-esame',
-                    'icon_class' => 'fa-solid fa-file-signature',
-                    'icon_color' => '#F43F5E',
-                    'order_index' => 6
-                ],
-                [
-                    'title' => 'Dizionario',
-                    'subtitle' => 'Dictionary',
-                    'screen_key' => 'dizionario',
-                    'icon_class' => 'fa-solid fa-book-open',
-                    'icon_color' => '#10B981',
-                    'order_index' => 7
-                ],
-                [
-                    'title' => 'Cartelli',
-                    'subtitle' => 'Traffic Signs',
-                    'screen_key' => 'cartelli',
-                    'icon_class' => 'fa-solid fa-map-signs',
-                    'icon_color' => '#F97316',
-                    'order_index' => 8
-                ],
-                [
-                    'title' => 'Saved MCQs',
-                    'subtitle' => 'Bookmarks',
-                    'screen_key' => 'saved-mcqs',
-                    'icon_class' => 'fa-solid fa-bookmark',
-                    'icon_color' => '#EF4444',
-                    'order_index' => 9
-                ]
-            ];
-            foreach ($cards as $c) {
-                \App\Models\HomeCard::create($c);
-            }
+        // Seed Home Navigation Cards (Truncate & fresh seed all 16 cards)
+        \App\Models\HomeCard::truncate();
+        $cards = [
+            [
+                'title' => 'Lezioni',
+                'subtitle' => 'ক্লাস ভিডিও',
+                'screen_key' => 'lezioni',
+                'icon_class' => 'fa-solid fa-video',
+                'icon_color' => '#3B82F6',
+                'order_index' => 1
+            ],
+            [
+                'title' => 'Test',
+                'subtitle' => 'অনুশীলন টেস্ট',
+                'screen_key' => 'test',
+                'icon_class' => 'fa-solid fa-laptop-code',
+                'icon_color' => '#475569',
+                'order_index' => 2
+            ],
+            [
+                'title' => 'ARGOMENTI',
+                'subtitle' => 'অধ্যায়সমূহ',
+                'screen_key' => 'argomenti',
+                'icon_class' => 'fa-solid fa-graduation-cap',
+                'icon_color' => '#8B5CF6',
+                'order_index' => 3
+            ],
+            [
+                'title' => 'E-Class',
+                'subtitle' => 'অনলাইন ক্লাস',
+                'screen_key' => 'eclass',
+                'icon_class' => 'fa-solid fa-chalkboard-user',
+                'icon_color' => '#06B6D4',
+                'order_index' => 4
+            ],
+            [
+                'title' => 'Sfida',
+                'subtitle' => 'চ্যালেঞ্জ',
+                'screen_key' => 'sfida',
+                'icon_class' => 'fa-solid fa-trophy',
+                'icon_color' => '#F59E0B',
+                'order_index' => 5
+            ],
+            [
+                'title' => 'Scheda Esame',
+                'subtitle' => 'পরীক্ষার শিট',
+                'screen_key' => 'scheda-esame',
+                'icon_class' => 'fa-solid fa-file-signature',
+                'icon_color' => '#F43F5E',
+                'order_index' => 6
+            ],
+            [
+                'title' => 'Dizionario',
+                'subtitle' => 'অভিধান',
+                'screen_key' => 'dizionario',
+                'icon_class' => 'fa-solid fa-book-open',
+                'icon_color' => '#10B981',
+                'order_index' => 7
+            ],
+            [
+                'title' => 'Cartelli',
+                'subtitle' => 'ট্রাফিক সাইন',
+                'screen_key' => 'cartelli',
+                'icon_class' => 'fa-solid fa-map-signs',
+                'icon_color' => '#F97316',
+                'order_index' => 8
+            ],
+            [
+                'title' => 'Saved MCQs',
+                'subtitle' => 'সেভ করা এমসিকিউ',
+                'screen_key' => 'saved-mcqs',
+                'icon_class' => 'fa-solid fa-bookmark',
+                'icon_color' => '#EF4444',
+                'order_index' => 9
+            ],
+            [
+                'title' => 'Correct MCQs',
+                'subtitle' => 'সঠিক এমসিকিউ',
+                'screen_key' => 'correct-mcqs',
+                'icon_class' => 'fa-solid fa-circle-check',
+                'icon_color' => '#22C55E',
+                'order_index' => 10
+            ],
+            [
+                'title' => 'Wrong MCQs',
+                'subtitle' => 'ভুল এমসিকিউ',
+                'screen_key' => 'wrong-mcqs',
+                'icon_class' => 'fa-solid fa-circle-xmark',
+                'icon_color' => '#EF4444',
+                'order_index' => 11
+            ],
+            [
+                'title' => 'Support',
+                'subtitle' => 'লাইভ চ্যাট',
+                'screen_key' => 'support',
+                'icon_class' => 'fa-solid fa-headset',
+                'icon_color' => '#0EA5E9',
+                'order_index' => 12
+            ],
+            [
+                'title' => 'Top Performers',
+                'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং',
+                'screen_key' => 'top-performers',
+                'icon_class' => 'fa-solid fa-ranking-star',
+                'icon_color' => '#F59E0B',
+                'order_index' => 13
+            ],
+            [
+                'title' => 'Manuale',
+                'subtitle' => 'ম্যানুয়াল থিওরি বই',
+                'screen_key' => 'manuale',
+                'icon_class' => 'fa-solid fa-book-bookmark',
+                'icon_color' => '#2563EB',
+                'order_index' => 14
+            ],
+            [
+                'title' => 'Patente Social',
+                'subtitle' => 'কমিউনিটি সোশ্যাল ফিড',
+                'screen_key' => 'patente-social',
+                'icon_class' => 'fa-solid fa-users',
+                'icon_color' => '#8B5CF6',
+                'order_index' => 15
+            ],
+            [
+                'title' => 'Translation',
+                'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ',
+                'screen_key' => 'translation',
+                'icon_class' => 'fa-solid fa-language',
+                'icon_color' => '#0284C7',
+                'order_index' => 16
+            ]
+        ];
+        foreach ($cards as $c) {
+            \App\Models\HomeCard::create($c);
         }
 
         // Seed Lecture Classes (Videos)

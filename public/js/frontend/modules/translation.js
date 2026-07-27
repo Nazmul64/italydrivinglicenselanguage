@@ -71,27 +71,56 @@ function performTranslation() {
     formData.append('from_lang', fromLang);
     formData.append('to_lang', toLang);
 
-    fetch('/api/translate', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-        },
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success' && data.translated_text) {
-            lastTranslatedText = data.translated_text;
-            lastTargetLang = toLang;
-            if (resultTextEl) resultTextEl.innerText = data.translated_text;
-        } else {
-            if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
-        }
-    })
-    .catch(err => {
-        console.error('Translation error:', err);
-        if (resultTextEl) resultTextEl.innerText = 'অনুবাদ করতে সমস্যা হয়েছে';
-    });
+    fetch(`/api/v1/translation?term=${encodeURIComponent(text)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.data) {
+                const translationResult = (toLang === 'bn') ? (data.data.bangla || data.data.definition) : (data.data.italian || data.data.term);
+                lastTranslatedText = translationResult || text;
+                lastTargetLang = toLang;
+                if (resultTextEl) resultTextEl.innerText = translationResult || text;
+            } else {
+                fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data2 => {
+                    if (data2.status === 'success' && data2.translated_text) {
+                        lastTranslatedText = data2.translated_text;
+                        lastTargetLang = toLang;
+                        if (resultTextEl) resultTextEl.innerText = data2.translated_text;
+                    } else {
+                        if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
+                    }
+                })
+                .catch(() => {
+                    if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
+                });
+            }
+        })
+        .catch(err => {
+            console.error('Translation error:', err);
+            if (resultTextEl) resultTextEl.innerText = 'অনুবাদ করতে সমস্যা হয়েছে';
+        });
+}
+
+function fetchQuestionTranslationApi(questionId) {
+    return fetch(`/api/v1/translation?question_id=${questionId}`)
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.status === 'success' && resData.data) {
+                return resData.data;
+            }
+            return null;
+        })
+        .catch(err => {
+            console.error('Error fetching question translation details:', err);
+            return null;
+        });
 }
 
 function playTranslationAudio() {

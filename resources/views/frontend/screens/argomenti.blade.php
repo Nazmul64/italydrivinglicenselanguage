@@ -6,7 +6,7 @@
     </div>
 
     <!-- Selection Control Pills matching screenshot -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 10px;">
+    <div class="pill-btn-group" style="margin-bottom: 24px;">
         <button class="pill-btn active" id="pill-argomenti-chap-unselect" onclick="unselectAllArgomentiChapters()">Unselect All</button>
         <button class="pill-btn" id="pill-argomenti-chap-select" onclick="toggleSelectArgomentiChapters()">Select</button>
         <button class="pill-btn" id="pill-argomenti-chap-select-all" onclick="selectAllArgomentiChapters()">Select All</button>

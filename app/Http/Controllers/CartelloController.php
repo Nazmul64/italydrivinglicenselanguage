@@ -120,7 +120,7 @@ class CartelloController extends Controller
     public function storeChapter(Request $request)
     {
         $request->validate([
-            'category_id'    => 'required|exists:cartello_categories,id',
+            'category_id'    => 'nullable',
             'name'           => 'required|string|max:255',
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
@@ -128,13 +128,10 @@ class CartelloController extends Controller
             'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
         ]);
 
-        // Max 25 chapters check
-        $category = CartelloCategory::findOrFail($request->category_id);
-        if ($category->chapters()->count() >= 25) {
-            return response()->json([
-                'success' => false,
-                'message' => 'একটি ক্যাটাগরির অধীনে সর্বোচ্চ ২৫টি চ্যাপ্টার তৈরি করা সম্ভব।'
-            ], 422);
+        $categoryId = $request->category_id;
+        if (!$categoryId) {
+            $defaultCat = CartelloCategory::first();
+            $categoryId = $defaultCat ? $defaultCat->id : 1;
         }
 
         $imagePath = null;
@@ -143,7 +140,7 @@ class CartelloController extends Controller
         }
 
         $chapter = CartelloChapter::create([
-            'category_id'    => $request->category_id,
+            'category_id'    => $categoryId,
             'name'           => $request->name,
             'bn_name'        => $request->bn_name,
             'chapter_number' => $request->chapter_number,
@@ -159,7 +156,7 @@ class CartelloController extends Controller
     {
         $chapter = CartelloChapter::findOrFail($id);
         $request->validate([
-            'category_id'    => 'required|exists:cartello_categories,id',
+            'category_id'    => 'nullable',
             'name'           => 'required|string|max:255',
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
@@ -167,33 +164,25 @@ class CartelloController extends Controller
             'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
         ]);
 
-        // Max 25 chapters check if changing category
-        if ($chapter->category_id != $request->category_id) {
-            $newCategory = CartelloCategory::findOrFail($request->category_id);
-            if ($newCategory->chapters()->count() >= 25) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'উদ্দিষ্ট ক্যাটাগরির অধীনে ইতিমধ্যেই ২৫টি চ্যাপ্টার রয়েছে।'
-                ], 422);
-            }
+        $categoryId = $request->category_id ?: $chapter->category_id;
+        if (!$categoryId) {
+            $defaultCat = CartelloCategory::first();
+            $categoryId = $defaultCat ? $defaultCat->id : 1;
         }
 
-        $data = [
-            'category_id'    => $request->category_id,
-            'name'           => $request->name,
-            'bn_name'        => $request->bn_name,
-            'chapter_number' => $request->chapter_number,
-            'sort_order'     => $request->sort_order ?? $chapter->sort_order,
-        ];
+        $chapter->name = $request->name;
+        $chapter->bn_name = $request->bn_name;
+        $chapter->chapter_number = $request->chapter_number;
+        $chapter->category_id = $categoryId;
+        if ($request->has('sort_order')) {
+            $chapter->sort_order = $request->sort_order ?? 0;
+        }
 
         if ($request->hasFile('image')) {
-            if ($chapter->image && Storage::disk('public')->exists(str_replace('/storage/', '', $chapter->image))) {
-                Storage::disk('public')->delete(str_replace('/storage/', '', $chapter->image));
-            }
-            $data['image'] = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/cartelli/chapters', 'cartello_chap_' . $chapter->id . '_' . time(), 800, 80);
+            $chapter->image = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/cartelli/chapters', 'cartello_chap_' . time(), 800, 80);
         }
 
-        $chapter->update($data);
+        $chapter->save();
 
         return response()->json(['success' => true, 'chapter' => $chapter]);
     }

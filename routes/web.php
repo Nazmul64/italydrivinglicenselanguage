@@ -13,6 +13,16 @@ Route::get('/', function () {
     return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
 });
 
+Route::get('/app', function () {
+    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
+    $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
+    $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
+    $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
+    $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
+    $setting = \App\Models\Setting::first();
+    return view('frontend.mobile_app', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
+});
+
 Route::get('/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
 
 Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(function () {
@@ -48,6 +58,13 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
 
         $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
         return response()->json($combined);
+    });
+
+    Route::get('/documentation.php', function() {
+        return response()->file(public_path('documentation.php'));
+    });
+    Route::get('/documentation', function() {
+        return response()->file(public_path('documentation.php'));
     });
 
     Route::get('/api/dashboard/cards', [\App\Http\Controllers\DynamicContentController::class, 'getPublicHomeCards']);
@@ -175,9 +192,36 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
         if ($currentUser) {
             $currentUser->name = $name;
             if ($avatar) {
-                $currentUser->avatar_url = $avatar;
+                if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'avatar')) {
+                    $currentUser->avatar = $avatar;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'avatar_url')) {
+                    $currentUser->avatar_url = $avatar;
+                }
             }
             $currentUser->save();
+        }
+
+        // Update AppClient for customer
+        $phone = session('app_client_phone') ?: request()->cookie('app_client_phone');
+        $sessionId = request()->input('session_id') ?: session()->getId();
+
+        $client = null;
+        if ($phone) {
+            $client = \App\Models\AppClient::where('phone', $phone)->first();
+        }
+        if (!$client && $sessionId) {
+            $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+        }
+
+        if ($client) {
+            $nameParts = explode(' ', $name, 2);
+            $client->first_name = $nameParts[0];
+            $client->last_name = isset($nameParts[1]) ? $nameParts[1] : '';
+            if ($avatar) {
+                $client->avatar = $avatar;
+            }
+            $client->save();
         }
 
         session(['user_name' => $name]);
@@ -190,7 +234,7 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
             'message' => 'প্রোফাইল সফলভাবে আপডেট করা হয়েছে!',
             'data' => [
                 'name' => $name,
-                'avatar' => $avatar ?? ($currentUser->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=6366F1&color=fff')
+                'avatar' => $avatar ?? ($client->avatar ?? ($currentUser->avatar ?? null))
             ]
         ]);
     });
@@ -292,6 +336,7 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     // Argomenti Public API Endpoints
     Route::get('/api/chapters', [\App\Http\Controllers\ArgomentiController::class, 'getChapters']);
     Route::get('/api/chapters/{id}/pages', [\App\Http\Controllers\ArgomentiController::class, 'getChapterPages']);
+    Route::get('/api/all-pages', [\App\Http\Controllers\ArgomentiController::class, 'getAllPages']);
     Route::get('/api/pages/{id}', [\App\Http\Controllers\ArgomentiController::class, 'getPageDetails']);
     Route::get('/api/saved-mcqs', [\App\Http\Controllers\ArgomentiController::class, 'getSavedMcqs']);
     Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\ArgomentiController::class, 'toggleSavedMcq']);
@@ -445,6 +490,56 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::get('/admin/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
     Route::post('/admin/api/settings/update', [\App\Http\Controllers\SettingsController::class, 'updateSettings']);
 
+    // Admin Profile & Password Update API Endpoints
+    Route::get('/admin/api/profile', function () {
+        $user = \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::first();
+        return response()->json([
+            'name' => $user ? $user->name : 'Admin',
+            'email' => $user ? $user->email : 'admin@gmail.com',
+            'avatar' => ($user && $user->avatar) ? asset($user->avatar) : null
+        ]);
+    });
+
+    Route::post('/admin/api/profile/update', function (Request $request) {
+        $user = \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::first();
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'password' => 'nullable|string|min:6',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+        ]);
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+
+        if ($request->filled('password')) {
+            $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
+        }
+
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $filename = 'admin_avatar_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/admin'), $filename);
+            $user->avatar = '/uploads/admin/' . $filename;
+        }
+
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'প্রোফাইল ও পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে',
+            'user' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'avatar' => $user->avatar ? asset($user->avatar) : null
+            ]
+        ]);
+    });
+
     Route::get('/admin/api/stats', function () {
         return response()->json([
             'total_chapters'      => \App\Models\Chapter::count(),
@@ -458,7 +553,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     });
 
     Route::get('/admin/api/chapters', function () {
-        $chapters = \App\Models\Chapter::orderBy('id', 'asc')->get();
+        $chapters = \App\Models\Chapter::orderBy('chapter_number', 'asc')->orderBy('id', 'asc')->get();
         foreach ($chapters as $ch) {
             $ch->question_count = \App\Models\Question::where('chapter', $ch->id)->count();
             $ch->chapter = $ch->id;
@@ -651,7 +746,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             ]);
             
             // 2. Create Text Instruction Message
-            $messageText = "apnake license key daoa hoise,click kore active korun.thanks call 3663584525 for info\n\nPial - TMM PATENTE TEAM";
+            $setting = \App\Models\Setting::first();
+            $messageText = ($setting && !empty($setting->license_message))
+                ? $setting->license_message
+                : "apnake license key daoa hoise,click kore active korun.thanks call 3663584525 for info\n\nPial - TMM PATENTE TEAM";
             $message = \App\Models\Message::create([
                 'session_id' => $sessionId,
                 'sender' => 'admin',
@@ -700,6 +798,126 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         ]);
         
         return response()->json($message);
+    });
+
+    // Admin Chat Presets Management CRUD & Execution
+    Route::get('/admin/api/chat-presets', function () {
+        $presets = \App\Models\ChatPreset::orderBy('order_index', 'asc')->get();
+        return response()->json($presets);
+    });
+
+    Route::post('/admin/api/chat-presets/store', function (Request $request) {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'type' => 'required|string|in:license,text',
+            'days' => 'nullable|integer',
+            'message_text' => 'nullable|string',
+            'bg_color' => 'nullable|string|max:20',
+            'text_color' => 'nullable|string|max:20',
+            'order_index' => 'required|integer',
+        ]);
+
+        $preset = \App\Models\ChatPreset::create([
+            'title' => $request->title,
+            'type' => $request->type,
+            'days' => $request->days,
+            'message_text' => $request->message_text,
+            'bg_color' => $request->bg_color ?: '#4b5563',
+            'text_color' => $request->text_color ?: '#ffffff',
+            'order_index' => $request->order_index,
+            'status' => true,
+        ]);
+
+        return response()->json($preset);
+    });
+
+    Route::post('/admin/api/chat-presets/update/{id}', function (Request $request, $id) {
+        $preset = \App\Models\ChatPreset::findOrFail($id);
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'type' => 'required|string|in:license,text',
+            'days' => 'nullable|integer',
+            'message_text' => 'nullable|string',
+            'bg_color' => 'nullable|string|max:20',
+            'text_color' => 'nullable|string|max:20',
+            'order_index' => 'required|integer',
+        ]);
+
+        $preset->update([
+            'title' => $request->title,
+            'type' => $request->type,
+            'days' => $request->days,
+            'message_text' => $request->message_text,
+            'bg_color' => $request->bg_color ?: '#4b5563',
+            'text_color' => $request->text_color ?: '#ffffff',
+            'order_index' => $request->order_index,
+        ]);
+
+        return response()->json($preset);
+    });
+
+    Route::post('/admin/api/chat-presets/delete/{id}', function ($id) {
+        $preset = \App\Models\ChatPreset::findOrFail($id);
+        $preset->delete();
+        return response()->json(['success' => true]);
+    });
+
+    Route::post('/admin/api/chat/preset-execute', function (Request $request) {
+        $request->validate([
+            'session_id' => 'required|string',
+            'preset_id' => 'required|integer'
+        ]);
+
+        $preset = \App\Models\ChatPreset::findOrFail($request->preset_id);
+        $sessionId = $request->session_id;
+
+        if ($preset->type === 'license' && $preset->days) {
+            $days = $preset->days;
+            $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+            if (!$client) {
+                $client = new \App\Models\AppClient();
+                $client->session_id = $sessionId;
+                $client->first_name = 'Guest';
+                $client->last_name = 'User';
+                $client->phone = 'N/A';
+                $client->stars = 4;
+                $client->progress = 50;
+            }
+            $client->save();
+
+            // 1. Create License Card Message
+            $keyNum = rand(10000, 99999);
+            \App\Models\Message::create([
+                'session_id' => $sessionId,
+                'sender' => 'admin',
+                'sender_name' => 'Admin',
+                'message' => "[LICENSE_CARD:days={$days},key={$keyNum}]"
+            ]);
+
+            // 2. Create Text Instruction Message
+            $setting = \App\Models\Setting::first();
+            $messageText = ($setting && !empty($setting->license_message))
+                ? $setting->license_message
+                : "apnake license key daoa hoise,click kore active korun.thanks call 3663584525 for info\n\nPial - TMM PATENTE TEAM";
+            $message = \App\Models\Message::create([
+                'session_id' => $sessionId,
+                'sender' => 'admin',
+                'sender_name' => 'Admin',
+                'message' => $messageText
+            ]);
+
+            return response()->json($message);
+        } else {
+            $messageText = $preset->message_text ?: $preset->title;
+            $message = \App\Models\Message::create([
+                'session_id' => $sessionId,
+                'sender' => 'admin',
+                'sender_name' => 'Admin',
+                'message' => $messageText
+            ]);
+
+            return response()->json($message);
+        }
     });
 
     // Admin Category CRUD API Endpoints
@@ -994,6 +1212,9 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     // Admin Client Verification & Activation CRUD
     Route::get('/admin/api/clients', [\App\Http\Controllers\DynamicContentController::class, 'getClients']);
     Route::post('/admin/api/clients/toggle-active/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleClientActive']);
+    Route::post('/admin/api/clients/toggle-blocked/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleClientBlocked']);
+    Route::post('/admin/api/clients/update-license/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateClientLicense']);
+    Route::post('/admin/api/clients/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteClient']);
     Route::post('/admin/api/clients/update-stars/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateClientStars']);
 
     // Admin Lecture Classes CRUD
@@ -1011,6 +1232,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/live-classes/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteLiveClass']);
 
     // Admin Exam CRUD Endpoints
+    Route::get('/admin/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
     Route::post('/admin/api/exams/store', [\App\Http\Controllers\ExamSheetController::class, 'storeExam']);
     Route::post('/admin/api/exams/delete/{id}', [\App\Http\Controllers\ExamSheetController::class, 'deleteExam']);
 
