@@ -12,9 +12,26 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'admin/api/*',
+            'api/*',
+        ]);
         $middleware->append(\App\Http\Middleware\MonitorPerformanceAndApi::class);
+        $middleware->append(\App\Http\Middleware\SeoRedirectMiddleware::class);
+        $middleware->append(\App\Http\Middleware\WebQrGate::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Handle CSRF TokenMismatchException gracefully for API & Admin requests
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->is('api/*') || $request->is('admin/api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'CSRF token or session expired. Please refresh the page.',
+                    'csrf_expired' => true
+                ], 419);
+            }
+        });
+
         // Log all exceptions to system_errors table
         $exceptions->report(function (\Throwable $e) {
             \App\Exceptions\DiagnosticsLogger::log($e);

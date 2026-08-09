@@ -49,6 +49,8 @@ function toggleGuestChat(show) {
         const savedPhone = localStorage.getItem('app_client_phone');
         if (savedPhone || currentClientVerified) {
             setChatWidgetView('normal');
+        } else {
+            setChatWidgetView('verify');
         }
         checkClientActivation();
         fetchGuestChatMessages();
@@ -203,6 +205,14 @@ function triggerChatAttachment() {
 function uploadChatAttachment(input) {
     if (!input.files || !input.files[0]) return;
 
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    if (!savedPhone && !currentClientVerified) {
+        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        setChatWidgetView('verify');
+        input.value = '';
+        return;
+    }
+
     const file = input.files[0];
     const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
     const formData = new FormData();
@@ -235,6 +245,13 @@ function uploadChatAttachment(input) {
 }
 
 function sendGuestChatMessage() {
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    if (!savedPhone && !currentClientVerified) {
+        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        setChatWidgetView('verify');
+        return;
+    }
+
     const input = document.getElementById('guest-chat-input');
     if (!input) return;
     const messageText = input.value.trim();
@@ -263,3 +280,8 @@ function sendGuestChatMessage() {
 
 // Start continuous background polling for live chat messages
 setInterval(fetchGuestChatMessages, 3000);
+
+window.openTeacherHelpModal = function() {
+    toggleGuestChat(true);
+};
+

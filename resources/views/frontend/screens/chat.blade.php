@@ -22,7 +22,7 @@
         <div style="text-align: center; margin-bottom: 10px;">
             <i class="fa-solid fa-user-shield" style="font-size: 32px; color: var(--accent-green); margin-bottom: 8px;"></i>
             <h4 style="font-size: 14px; font-weight: 800; color: var(--text-primary);">ভেরিফিকেশন ফরম</h4>
-            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">অ্যাপ্লিকেশনটি সক্রিয় করতে আপনার নাম ও মোবাইল নাম্বার দিন</p>
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">চ্যাট সাপোর্ট পেতে আপনার নাম ও মোবাইল নাম্বার দিন</p>
         </div>
         <div class="form-group-chat">
             <input type="text" id="verify-first-name" class="chat-input-verify" placeholder="নাম (First Name)" required>

@@ -1,3 +1,6 @@
+@php
+    $seoData = $seo ?? \App\Services\SeoService::getSeoData();
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,9 +11,85 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Italy Bangla Patente">
+    <meta name="apple-mobile-web-app-title" content="{{ $gSettings->app_name ?? 'Italy Bangla Patente' }}">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
-    <title>{{ $gSettings->app_name }}</title>
+
+    <!-- Dynamic Enterprise SEO Meta Tags -->
+    <title>{{ $seoData->title }}</title>
+    <meta name="description" content="{{ $seoData->description }}">
+    <meta name="keywords" content="{{ $seoData->keywords }}">
+    <meta name="robots" content="{{ $seoData->robots }}">
+    <link rel="canonical" href="{{ $seoData->canonical }}">
+
+    <!-- Hreflang Tags -->
+    <link rel="alternate" hreflang="bn" href="{{ $seoData->canonical }}" />
+    <link rel="alternate" hreflang="it" href="{{ $seoData->canonical }}" />
+    <link rel="alternate" hreflang="x-default" href="{{ $seoData->canonical }}" />
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ $seoData->og_url }}">
+    <meta property="og:title" content="{{ $seoData->og_title }}">
+    <meta property="og:description" content="{{ $seoData->og_description }}">
+    <meta property="og:image" content="{{ $seoData->og_image }}">
+    <meta property="og:site_name" content="{{ $gSettings->app_name ?? 'Italy Bangla Patente' }}">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $seoData->twitter_title }}">
+    <meta name="twitter:description" content="{{ $seoData->twitter_description }}">
+    <meta name="twitter:image" content="{{ $seoData->twitter_image }}">
+
+    <!-- JSON-LD Schemas -->
+    @if(!empty($seoData->schemas))
+        @foreach($seoData->schemas as $schemaItem)
+            <script type="application/ld+json">
+                {!! json_encode($schemaItem, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
+            </script>
+        @endforeach
+    @endif
+
+    <!-- Analytics & Verification Integrations -->
+    @if(!empty($seoData->analytics->search_console))
+        <meta name="google-site-verification" content="{{ $seoData->analytics->search_console }}" />
+    @endif
+
+    @if(!empty($seoData->analytics->ga4))
+        <!-- Google Analytics 4 -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoData->analytics->ga4 }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{{ $seoData->analytics->ga4 }}');
+        </script>
+    @endif
+
+    @if(!empty($seoData->analytics->gtm))
+        <!-- Google Tag Manager -->
+        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','{{ $seoData->analytics->gtm }}');</script>
+    @endif
+
+    @if(!empty($seoData->analytics->fb_pixel))
+        <!-- Meta Pixel Code -->
+        <script>
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '{{ $seoData->analytics->fb_pixel }}');
+        fbq('track', 'PageView');
+        </script>
+    @endif
+
     @if($gSettings->favicon)
         <link rel="icon" type="image/x-icon" href="{{ asset($gSettings->favicon) }}">
     @endif
@@ -100,8 +179,15 @@
             --argomenti-page-img-w-desk: {{ !empty($gSettings->argomenti_page_image_width_desktop) ? (is_numeric($gSettings->argomenti_page_image_width_desktop) ? $gSettings->argomenti_page_image_width_desktop . 'px' : $gSettings->argomenti_page_image_width_desktop) : 'auto' }};
             --argomenti-page-img-w-mob: {{ !empty($gSettings->argomenti_page_image_width_mobile) ? (is_numeric($gSettings->argomenti_page_image_width_mobile) ? $gSettings->argomenti_page_image_width_mobile . 'px' : $gSettings->argomenti_page_image_width_mobile) : 'auto' }};
 
-            --argomenti-q-text-desk: {{ ($gSettings->argomenti_question_text_font_desktop ?? 15) . 'px' }};
-            --argomenti-q-text-mob: {{ ($gSettings->argomenti_question_text_font_mobile ?? 13) . 'px' }};
+            --argomenti-q-text-desk: {{ ($gSettings->argomenti_question_text_font_desktop ?? 18) . 'px' }};
+            --argomenti-q-text-mob: {{ ($gSettings->argomenti_question_text_font_mobile ?? 16) . 'px' }};
+            --argomenti-q-img-size-desk: {{ ($gSettings->argomenti_question_image_size_desktop ?? 110) . 'px' }};
+            --argomenti-q-img-size-mob: {{ ($gSettings->argomenti_question_image_size_mobile ?? 85) . 'px' }};
+
+            --mcq-num-font-desk: {{ ($gSettings->mcq_number_font_desktop ?? 16) . 'px' }};
+            --mcq-num-font-mob: {{ ($gSettings->mcq_number_font_mobile ?? 14) . 'px' }};
+            --schede-stat-font-desk: {{ ($gSettings->schede_stat_font_desktop ?? 13) . 'px' }};
+            --schede-stat-font-mob: {{ ($gSettings->schede_stat_font_mobile ?? 11) . 'px' }};
 
             --custom-bg-card: {{ $primColor }};
             --custom-accent: {{ $accColor }};
@@ -140,13 +226,20 @@
 
         .chapter-image-card h3,
         .chapter-image-card .card-title,
-        .chapter-card-header h3 {
+        .chapter-card-header h3,
+        #screen-cartelli-schede .chapter-selector-trigger,
+        #screen-cartelli-schede #cartelli-schede-chapter-label,
+        #screen-cartelli-page #cartelli-page-chapter-label,
+        #cartelli-page-chapter-label {
             font-size: var(--cartelli-chap-title-desk) !important;
         }
 
         .content-card h4,
         .content-card .card-title,
-        .schede-page-title {
+        .schede-page-title,
+        #screen-cartelli-schede .schede-page-title,
+        #screen-cartelli-page #cartelli-page-label,
+        #cartelli-page-label {
             font-size: var(--cartelli-page-title-desk) !important;
         }
 
@@ -167,7 +260,11 @@
         }
 
         #screen-argomenti .chapter-image-card h3,
-        #screen-argomenti .chapter-card-header h3 {
+        #screen-argomenti .chapter-card-header h3,
+        #screen-argomenti-schede .chapter-selector-trigger,
+        #screen-argomenti-schede #argomenti-schede-chapter-label,
+        #screen-page-details #page-details-chapter-label,
+        #page-details-chapter-label {
             font-size: var(--argomenti-chap-title-desk) !important;
         }
 
@@ -180,7 +277,9 @@
         }
 
         #screen-argomenti-schede .content-card h4,
-        #screen-argomenti-schede .schede-page-title {
+        #screen-argomenti-schede .schede-page-title,
+        #screen-page-details #page-details-page-label,
+        #page-details-page-label {
             font-size: var(--argomenti-page-title-desk) !important;
         }
 
@@ -193,8 +292,30 @@
         }
 
         #screen-argomenti-questions .question-text-box,
-        #screen-argomenti-questions .question-italian-text {
+        #screen-argomenti-questions .question-italian-text,
+        .detail-q-text-it {
             font-size: var(--argomenti-q-text-desk) !important;
+        }
+
+        #screen-argomenti-questions .question-image-box img,
+        .detail-q-img {
+            max-height: var(--argomenti-q-img-size-desk) !important;
+            height: var(--argomenti-q-img-size-desk) !important;
+            width: var(--argomenti-q-img-size-desk) !important;
+            min-width: var(--argomenti-q-img-size-desk) !important;
+            max-width: var(--argomenti-q-img-size-desk) !important;
+            object-fit: contain !important;
+        }
+
+        .detail-q-num {
+            font-size: var(--mcq-num-font-desk) !important;
+        }
+
+        .schede-stat-item,
+        .schede-card-footer span,
+        .schede-card-footer div,
+        .stat-badge {
+            font-size: var(--schede-stat-font-desk) !important;
         }
 
         .services-grid {
@@ -249,13 +370,20 @@
 
             .chapter-image-card h3,
             .chapter-image-card .card-title,
-            .chapter-card-header h3 {
+            .chapter-card-header h3,
+            #screen-cartelli-schede .chapter-selector-trigger,
+            #screen-cartelli-schede #cartelli-schede-chapter-label,
+            #screen-cartelli-page #cartelli-page-chapter-label,
+            #cartelli-page-chapter-label {
                 font-size: var(--cartelli-chap-title-mob) !important;
             }
 
             .content-card h4,
             .content-card .card-title,
-            .schede-page-title {
+            .schede-page-title,
+            #screen-cartelli-schede .schede-page-title,
+            #screen-cartelli-page #cartelli-page-label,
+            #cartelli-page-label {
                 font-size: var(--cartelli-page-title-mob) !important;
             }
 
@@ -274,7 +402,11 @@
             }
 
             #screen-argomenti .chapter-image-card h3,
-            #screen-argomenti .chapter-card-header h3 {
+            #screen-argomenti .chapter-card-header h3,
+            #screen-argomenti-schede .chapter-selector-trigger,
+            #screen-argomenti-schede #argomenti-schede-chapter-label,
+            #screen-page-details #page-details-chapter-label,
+            #page-details-chapter-label {
                 font-size: var(--argomenti-chap-title-mob) !important;
             }
 
@@ -286,7 +418,9 @@
             }
 
             #screen-argomenti-schede .content-card h4,
-            #screen-argomenti-schede .schede-page-title {
+            #screen-argomenti-schede .schede-page-title,
+            #screen-page-details #page-details-page-label,
+            #page-details-page-label {
                 font-size: var(--argomenti-page-title-mob) !important;
             }
 
@@ -298,8 +432,30 @@
             }
 
             #screen-argomenti-questions .question-text-box,
-            #screen-argomenti-questions .question-italian-text {
+            #screen-argomenti-questions .question-italian-text,
+            .detail-q-text-it {
                 font-size: var(--argomenti-q-text-mob) !important;
+            }
+
+            #screen-argomenti-questions .question-image-box img,
+            .detail-q-img {
+                max-height: var(--argomenti-q-img-size-mob) !important;
+                height: var(--argomenti-q-img-size-mob) !important;
+                width: var(--argomenti-q-img-size-mob) !important;
+                min-width: var(--argomenti-q-img-size-mob) !important;
+                max-width: var(--argomenti-q-img-size-mob) !important;
+                object-fit: contain !important;
+            }
+
+            .detail-q-num {
+                font-size: var(--mcq-num-font-mob) !important;
+            }
+
+            .schede-stat-item,
+            .schede-card-footer span,
+            .schede-card-footer div,
+            .stat-badge {
+                font-size: var(--schede-stat-font-mob) !important;
             }
         }
     </style>

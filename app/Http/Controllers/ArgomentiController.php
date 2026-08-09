@@ -98,7 +98,7 @@ class ArgomentiController extends Controller
         $userId = $request->query('user_id') ?: ($user ? $user->id : null);
         $sessionId = $request->query('session_id') ?: session()->getId();
 
-        $query = SavedMcq::with(['question.page.chapter']);
+        $query = SavedMcq::with(['question.page.chapter', 'cartelloQuestion.page.chapter']);
 
         if ($userId) {
             $query->where(function ($q) use ($userId, $sessionId) {
@@ -111,8 +111,55 @@ class ArgomentiController extends Controller
             $query->where('session_id', $sessionId);
         }
 
-        $saved = $query->orderBy('created_at', 'desc')->get();
-        return response()->json($saved);
+        $savedList = $query->orderBy('created_at', 'desc')->get();
+
+        $result = $savedList->map(function ($item) {
+            if ($item->type === 'cartelli' || (!$item->question && $item->cartelloQuestion)) {
+                $c = $item->cartelloQuestion;
+                if ($c) {
+                    $page = $c->page;
+                    $chapter = $page ? $page->chapter : null;
+
+                    $questionData = [
+                        'id'             => $c->id,
+                        'italian'        => $c->question ?? '',
+                        'bangla'         => $c->bn_question ?? '',
+                        'is_vero'        => $c->correct_answer === 'vero' || $c->correct_answer === '1' || $c->correct_answer === 1,
+                        'image'          => $c->image ?: ($page ? $page->image : null),
+                        'audio'          => $c->voice,
+                        'video'          => $c->video,
+                        'vocabulary'     => $c->vocabulary ?? [],
+                        'type'           => 'cartelli',
+                        'page'           => $page ? [
+                            'id'         => $page->id,
+                            'title'      => $page->title,
+                            'sort_order' => $page->sort_order,
+                            'chapter'    => $chapter ? [
+                                'id'             => $chapter->id,
+                                'name'           => $chapter->name,
+                                'chapter_number' => $chapter->chapter_number
+                            ] : null
+                        ] : null
+                    ];
+
+                    $itemArray = $item->toArray();
+                    $itemArray['question'] = $questionData;
+                    return $itemArray;
+                }
+            }
+
+            if ($item->question) {
+                $itemArray = $item->toArray();
+                $itemArray['question']['type'] = 'argomenti';
+                return $itemArray;
+            }
+
+            return $item->toArray();
+        })->filter(function ($item) {
+            return !empty($item['question']);
+        })->values();
+
+        return response()->json($result);
     }
 
     /**
@@ -129,9 +176,16 @@ class ArgomentiController extends Controller
             $userId = $user ? $user->id : $request->input('user_id');
             $sessionId = session()->getId();
             $questionId = $request->input('question_id');
+            $type = $request->input('type', 'argomenti');
+
+            if (!$request->has('type')) {
+                if (\App\Models\CartelloMcq::where('id', $questionId)->exists() && !\App\Models\Question::where('id', $questionId)->exists()) {
+                    $type = 'cartelli';
+                }
+            }
 
             // Check if already saved
-            $query = SavedMcq::where('question_id', $questionId);
+            $query = SavedMcq::where('question_id', $questionId)->where('type', $type);
             if ($userId) {
                 $query->where(function ($q) use ($userId, $sessionId) {
                     $q->where('user_id', $userId)
@@ -148,9 +202,10 @@ class ArgomentiController extends Controller
                 return response()->json(['saved' => false, 'message' => 'Question removed from bookmarks.']);
             } else {
                 SavedMcq::create([
-                    'session_id' => $userId ? null : $sessionId,
-                    'user_id' => $userId,
-                    'question_id' => $questionId
+                    'session_id'  => $userId ? null : $sessionId,
+                    'user_id'     => $userId,
+                    'question_id' => $questionId,
+                    'type'        => $type
                 ]);
                 return response()->json(['saved' => true, 'message' => 'Question added to bookmarks.']);
             }
@@ -293,7 +348,7 @@ class ArgomentiController extends Controller
         $this->checkPermission('chapters');
 
         $request->validate([
-            'category_id'       => 'required|integer|exists:categories,id',
+            'category_id'       => 'nullable',
             'name'              => 'required|string|max:255',
             'bn_name'           => 'nullable|string|max:255',
             'chapter_number'    => 'nullable|integer',
@@ -306,8 +361,10 @@ class ArgomentiController extends Controller
             'cover_image'       => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
         ]);
 
+        $categoryId = $request->category_id ? (\App\Models\Category::where('id', $request->category_id)->exists() ? $request->category_id : null) : null;
+
         $data = [
-            'category_id'       => $request->category_id,
+            'category_id'       => $categoryId,
             'name'              => $request->name,
             'bn_name'           => $request->bn_name,
             'chapter_number'    => $request->chapter_number ?? 0,
@@ -345,7 +402,7 @@ class ArgomentiController extends Controller
         $chapter = Chapter::findOrFail($id);
 
         $request->validate([
-            'category_id'       => 'required|integer|exists:categories,id',
+            'category_id'       => 'nullable',
             'name'              => 'required|string|max:255',
             'bn_name'           => 'nullable|string|max:255',
             'chapter_number'    => 'nullable|integer',
@@ -358,8 +415,10 @@ class ArgomentiController extends Controller
             'cover_image'       => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
         ]);
 
+        $categoryId = $request->category_id ? (\App\Models\Category::where('id', $request->category_id)->exists() ? $request->category_id : null) : $chapter->category_id;
+
         $updateData = [
-            'category_id'       => $request->category_id,
+            'category_id'       => $categoryId,
             'name'              => $request->name,
             'bn_name'           => $request->bn_name,
             'chapter_number'    => $request->chapter_number ?? $chapter->chapter_number,
@@ -1051,11 +1110,11 @@ class ArgomentiController extends Controller
     public function getUserMcqResults(Request $request)
     {
         $sessionId = $request->query('session_id') ?: session()->getId();
-        $userId = $request->query('user_id');
+        $userId = $request->query('user_id') ?: auth()->id();
         $isCorrect = $request->query('is_correct');
         $categoryId = $request->query('category_id');
-        $chapterId = $request->query('chapter_id');
-        $pageId = $request->query('page_id');
+        $chapterId = $request->query('chapter_id') ?: $request->query('chapter');
+        $pageId = $request->query('page_id') ?: $request->query('page');
         $date = $request->query('date');
         $search = $request->query('search');
 
@@ -1074,14 +1133,19 @@ class ArgomentiController extends Controller
         ]);
 
         if ($userId) {
-            $query->where('user_id', $userId);
+            $query->where(function($q) use ($userId, $sessionId) {
+                $q->where('user_id', $userId);
+                if ($sessionId) {
+                    $q->orWhere('session_id', $sessionId);
+                }
+            });
         } else {
             $query->where('session_id', $sessionId);
         }
 
-        if ($isCorrect !== null) {
+        if ($isCorrect !== null && $isCorrect !== '') {
             $val = ($isCorrect === 'true' || $isCorrect === '1' || $isCorrect === 1);
-            $query->where('is_correct', $val);
+            $query->where('is_correct', $val ? 1 : 0);
         }
 
         if ($categoryId) {

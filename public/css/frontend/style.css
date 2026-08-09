@@ -146,9 +146,113 @@ body {
 
 .app-title {
     color: var(--text-light);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 576px) {
+    .app-title {
+        font-size: 16px;
+        letter-spacing: 0;
+        white-space: nowrap;
+    }
+}
+
+/* Detail Cards Header & Action Row (Desktop Top-Right vs Mobile Full Width) */
+.detail-q-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.detail-q-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.detail-q-action-row .test-ctrl-btn,
+.detail-q-action-row .test-speaker-btn {
+    padding: 5px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 50px;
+}
+
+@media (max-width: 768px) {
+    .detail-q-header-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .detail-q-action-row {
+        width: 100%;
+        justify-content: space-between;
+        gap: 4px;
+        flex-wrap: nowrap;
+    }
+    .detail-q-action-row .test-ctrl-btn,
+    .detail-q-action-row .test-speaker-btn {
+        flex: 1;
+        min-width: 0;
+        padding: 5px 2px;
+    }
+}
+
+/* Custom Audio Player Range Slider */
+.test-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100% !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 6px !important;
+    border-radius: 4px !important;
+    background: #cbd5e1;
+    outline: none;
+    cursor: pointer;
+    margin: 0 10px;
+    box-sizing: border-box;
+}
+
+.test-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+    cursor: pointer;
+    margin-top: 0;
+    transition: transform 0.15s ease;
+}
+
+.test-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+}
+
+.test-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: none;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+    cursor: pointer;
 }
 
 /* Profile Avatar with Notification Badge */
@@ -1573,7 +1677,7 @@ body.dark-mode .test-num-box {
     border: 1px solid var(--border-card);
     border-radius: 14px;
     padding: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
 }
 
@@ -1974,37 +2078,34 @@ body.dark-mode .vf-btn:hover {
 }
 
 .detail-q-card {
-    background-color: var(--nm-bg);
-    border-radius: 20px;
-    padding: 24px;
-    border-left: 6px solid #e2e8f0;
-    box-shadow: var(--nm-shadow);
-    border-top: none;
-    border-right: none;
-    border-bottom: none;
+    background-color: var(--bg-card);
+    border-radius: 24px;
+    padding: 16px;
+    border: 2px solid var(--border-card);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 
 .detail-q-card:hover {
     transform: translateY(-2px);
-    box-shadow: 8px 8px 20px rgba(163, 177, 198, 0.5), -8px -8px 20px rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
 }
 
 body.dark-mode .detail-q-card:hover {
-    box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.45), -8px -8px 20px rgba(30, 41, 59, 0.45);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 .detail-q-card.correct {
-    border-left-color: #4CAF50;
+    border: 2px solid #4CAF50 !important;
 }
 
 .detail-q-card.incorrect {
-    border-left-color: #ef4444;
+    border: 2px solid #ef4444 !important;
 }
 
 .detail-q-card.unanswered {
-    border-left-color: #f59e0b;
+    border: 2px solid #f59e0b !important;
 }
 
 .detail-q-header-row {
@@ -2350,19 +2451,60 @@ body.dark-mode .detail-q-card.selected-q-card {
     font-weight: 800;
 }
 
+.detail-q-text-it {
+    font-size: var(--argomenti-q-text-desk, 18px);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .detail-q-text-it {
+        font-size: var(--argomenti-q-text-mob, 16px);
+    }
+}
+
+.detail-q-text-bn {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-card);
+}
+
+/* Audio Speed Control Button Dropdown Style */
+.speed-popover {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    width: 120px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 /* Interactive Dictionary Underline Links */
 .dict-term-link {
-    border-bottom: 2px dashed var(--accent-green);
+    text-decoration: underline !important;
+    text-decoration-color: #111111 !important;
+    text-decoration-thickness: 2px !important;
+    border-bottom: none !important;
     cursor: pointer;
-    transition: color 0.2s, border-bottom-color 0.2s;
+    transition: color 0.2s;
     font-weight: inherit;
-    color: inherit;
+    color: #111111 !important;
     display: inline-block;
+}
+
+body.dark-mode .dict-term-link {
+    text-decoration-color: #ffffff !important;
+    color: #ffffff !important;
 }
 
 .dict-term-link:hover {
     color: var(--accent-green) !important;
-    border-bottom-style: solid;
+    text-decoration-color: var(--accent-green) !important;
 }
 
 /* ==============================
@@ -2782,6 +2924,7 @@ input:checked+.slider-toggle::before {
 }
 
 @media (max-width: 768px) {
+
     .argomenti-grid,
     .argomenti-schede-grid {
         grid-template-columns: 1fr !important;
@@ -3237,7 +3380,7 @@ body.dark-mode .bottom-nav .nav-item.active {
     border: 1px solid var(--border-card);
     background: #fff;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 @media (max-width: 768px) {

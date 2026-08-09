@@ -85,8 +85,12 @@ class BackupService
             $sqlDump .= "DROP TABLE IF EXISTS `{$table}`;\n";
             $sqlDump .= $createTable . ";\n\n";
 
-            // 2. Fetch rows and construct inserts
-            $rows = DB::select("SELECT * FROM `{$table}`");
+            // 2. Fetch rows and construct inserts (limit log tables to avoid bloat)
+            if (in_array($table, ['api_logs', 'system_errors'])) {
+                $rows = DB::select("SELECT * FROM `{$table}` ORDER BY id DESC LIMIT 50");
+            } else {
+                $rows = DB::select("SELECT * FROM `{$table}`");
+            }
             if (empty($rows)) continue;
 
             foreach ($rows as $row) {

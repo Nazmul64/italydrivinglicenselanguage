@@ -17,10 +17,9 @@
         <!-- Saved MCQ cards injected dynamically by JS -->
     </div>
 
-    <!-- Sticky Bottom Quiz Bar -->
-    <div id="saved-mcqs-quiz-btn-container" style="position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 800px; z-index: 1000; display: none;">
-        <button class="btn btn-primary" id="saved-mcqs-quiz-btn" onclick="startSavedMcqsQuiz()" style="width: 100%; height: 50px; border-radius: 12px; font-weight: 800; font-size: 16px; background-color: var(--accent-green); color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
-            <i class="fa-solid fa-circle-play" style="font-size: 18px;"></i>
+    <!-- Sticky Bottom Right Quiz Button -->
+    <div id="saved-mcqs-quiz-btn-container" style="position: fixed; bottom: 80px; right: 24px; z-index: 1000; display: none;">
+        <button class="btn btn-primary" id="saved-mcqs-quiz-btn" onclick="startSavedMcqsQuiz()" style="height: 40px; border-radius: 20px; font-weight: 800; font-size: 13px; background-color: var(--accent-green); color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 20px; cursor: pointer;">
             <span>QUIZ &gt;</span>
         </button>
     </div>

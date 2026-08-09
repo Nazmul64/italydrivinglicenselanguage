@@ -30,4 +30,9 @@ class Chapter extends Model
     {
         return $this->hasMany(Page::class, 'chapter_id')->orderBy('id', 'asc');
     }
+
+    public function questions()
+    {
+        return $this->hasMany(Question::class, 'chapter');
+    }
 }

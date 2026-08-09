@@ -1,7 +1,7 @@
 // --- Global Fetch Interceptor for Client License Headers ---
-(function() {
+(function () {
     const originalFetch = window.fetch;
-    window.fetch = function(resource, init = {}) {
+    window.fetch = function (resource, init = {}) {
         const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : null);
         const sessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : null);
 
@@ -28,6 +28,15 @@
 const speedOptionsList = [0.65, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 let testAudioSpeed = 1.0;
 let isSpeechSpeaking = false;
+
+window.openTeacherHelpModal = function () {
+    if (typeof toggleGuestChat === 'function') {
+        toggleGuestChat(true);
+    } else {
+        const widget = document.getElementById('guest-chat-widget');
+        if (widget) widget.style.display = 'flex';
+    }
+};
 let practiceMode = 'exam';
 let activeSavedMcqs = [];
 let isSchedeSelectMode = false;
@@ -35,7 +44,7 @@ let isSchedeSelectMode = false;
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
-let currentClientActive = false;
+let currentClientActive = localStorage.getItem('app_client_active') !== 'false';
 let currentClientPhone = null;
 let currentClientSessionId = null;
 
@@ -124,6 +133,15 @@ function openImageZoomModal(imgSrc) {
     modal.style.display = 'flex';
 }
 window.openImageZoomModal = openImageZoomModal;
+
+function toggleQCorrectAnswerInfo(qId) {
+    const badge = document.getElementById(`q-correct-badge-${qId}`);
+    if (badge) {
+        const isHidden = getComputedStyle(badge).display === 'none' || badge.style.display === 'none' || !badge.style.display;
+        badge.style.display = isHidden ? 'flex' : 'none';
+    }
+}
+window.toggleQCorrectAnswerInfo = toggleQCorrectAnswerInfo;
 
 
 // --- Helper: Retrieve CSRF Token from meta tag ---

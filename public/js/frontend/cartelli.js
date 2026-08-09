@@ -23,12 +23,18 @@ function renderCartelliChaptersGrid() {
 
     fetch('/api/cartelli/chapters')
         .then(res => res.json())
-        .then(chapters => {
+        .then(resData => {
+            const chapters = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
             cartelliAllChapters = chapters;
             container.innerHTML = '';
 
             const badge = document.getElementById('cartelli-chapters-count-badge');
-            if (badge) badge.innerText = `${chapters.length} Capitoli`;
+            if (badge) badge.innerText = `${chapters ? chapters.length : 0} Capitoli`;
+
+            if (!chapters || chapters.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;">Nessun capitolo trovato.</div>`;
+                return;
+            }
 
             chapters.forEach(ch => {
                 const isSelected = selectedCartelliChapters.includes(ch.id);
@@ -288,7 +294,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
                 card.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <span class="schede-page-title" style="font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
                             ${displaySheetTitle}
                         </span>
@@ -297,7 +303,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
                     ${pageImgHTML}
 
-                    <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary);">
+                    <div class="schede-card-footer" style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-secondary);">
                         <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
                         <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
                         <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
@@ -494,22 +500,61 @@ function openCartelliPageScreen(pageId) {
     populateCartelliPageChapterDropdown();
     populateCartelliPageDropdown(page.chapter_id);
 
-    const pageMainImage = page.image || page.img || (page.mcqs && page.mcqs.find(q => q.image || q.img)?.image) || (ch && (ch.image || ch.img) ? (ch.image || ch.img) : null);
+    const mcqImage = (page.mcqs && page.mcqs.length) ? (page.mcqs.find(q => q.image || q.img)?.image || page.mcqs.find(q => q.image || q.img)?.img) : null;
+    const pageMainImage = mcqImage || null;
     cartelliActivePageMainImage = pageMainImage || null;
     const mediaCont = document.getElementById('cartelli-page-media-container');
-    const pageImgEl = document.getElementById('cartelli-page-image');
-    if (mediaCont && pageImgEl) {
-        if (pageMainImage) {
-            pageImgEl.src = pageMainImage;
-            mediaCont.style.display = 'block';
-        } else {
-            pageImgEl.src = '';
-            mediaCont.style.display = 'none';
-        }
-    }
+    if (mediaCont) mediaCont.style.display = 'none';
+
+    // Save state for F5 reload restore
+    try {
+        sessionStorage.setItem('cartelliActivePageId', pageId);
+        sessionStorage.setItem('cartelliActiveChapterId', page.chapter_id || '');
+    } catch(e) {}
 
     renderCartelliPageMcqs(page.mcqs || []);
 }
+
+function loadCartelliPageScreenFromSession() {
+    const savedPageId = parseInt(sessionStorage.getItem('cartelliActivePageId'));
+    const savedChapterId = parseInt(sessionStorage.getItem('cartelliActiveChapterId'));
+    if (!savedPageId) {
+        openScreen('cartelli', 'Cartelli');
+        if (typeof renderCartelliChaptersGrid === 'function') renderCartelliChaptersGrid();
+        return;
+    }
+
+    // Load all chapters first, then load pages for the chapter, then open the page
+    fetch('/api/cartelli/chapters')
+        .then(r => r.json())
+        .then(chapters => {
+            cartelliAllChapters = chapters;
+            const chapterId = savedChapterId || (chapters.length > 0 ? chapters[0].id : null);
+            if (!chapterId) {
+                openScreen('cartelli', 'Cartelli');
+                renderCartelliChaptersGrid();
+                return;
+            }
+            cartelliActiveChapterId = chapterId;
+            return fetch(`/api/cartelli/pages/${chapterId}`);
+        })
+        .then(r => r ? r.json() : [])
+        .then(pages => {
+            if (!pages || pages.length === 0) {
+                openScreen('cartelli', 'Cartelli');
+                renderCartelliChaptersGrid();
+                return;
+            }
+            cartelliPagesList = pages;
+            const page = pages.find(p => p.id === savedPageId) || pages[0];
+            openCartelliPageScreen(page.id);
+        })
+        .catch(() => {
+            openScreen('cartelli', 'Cartelli');
+            if (typeof renderCartelliChaptersGrid === 'function') renderCartelliChaptersGrid();
+        });
+}
+
 
 function renderCartelliPageMcqs(mcqs) {
     const container = document.getElementById('cartelli-page-mcq-list');
@@ -562,11 +607,19 @@ function renderCartelliPageMcqs(mcqs) {
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (record && record.state === 'correct' ? 'correct' : 'incorrect')}`;
         card.style.position = 'relative';
 
+        if (q.image || q.img) {
+            const topImgCard = document.createElement('div');
+            topImgCard.className = 'detail-q-top-image-card';
+            topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
+            topImgCard.innerHTML = `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            container.appendChild(topImgCard);
+        }
+
         card.innerHTML = `
-            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
                 <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">${index + 1}</div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                    <button class="test-ctrl-btn" onclick="toggleCartelliQuestionAnswer(${q.id})" id="cartelli-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; justify-content: flex-end; margin-left: auto;">
+                    <button class="test-ctrl-btn" onclick="toggleCartelliQuestionAnswer(${q.id})" id="cartelli-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
                         <i class="fa-regular fa-eye" id="cartelli-eye-icon-${q.id}" style="font-size: 13px; color: var(--text-secondary);"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">দেখুন</span>
                     </button>
@@ -574,48 +627,51 @@ function renderCartelliPageMcqs(mcqs) {
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+            <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
+                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || []) : (q.question || '')}</div>
-                    <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
+                    <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
-                ${(q.image || cartelliActivePageMainImage) ? `<img src="${q.image || cartelliActivePageMainImage}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || cartelliActivePageMainImage}')" style="width: 68px; height: 68px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
-                <button class="test-speaker-btn" onclick="readCartelliQuestionSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen TTS Pronunciation">
-                    <i class="fa-solid fa-microphone" style="font-size:14px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
-                </button>
-                <button class="test-ctrl-btn" id="cartelli-play-btn-${index}" onclick="playCartelliMcqAudioOrSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio Voiceover">
-                    <i class="fa-solid fa-play" style="font-size: 13px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
-                </button>
-                <input type="range" class="test-slider" id="cartelli-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
-            </div>
-
-            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;">
-                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, true)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Speech Speed">
-                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 14px;"></i>
+            <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
+                    <button class="test-ctrl-btn" id="cartelli-play-btn-${index}" onclick="playCartelliMcqAudioOrSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Play Audio Voiceover">
+                        <i class="fa-solid fa-play" style="font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
+                    </button>
+                    <input type="range" class="test-slider" id="cartelli-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+                    <button class="test-speaker-btn" onclick="readCartelliQuestionSpeech(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Listen TTS Pronunciation">
+                        <i class="fa-solid fa-microphone" style="font-size: 13px; color: var(--accent-green);"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">Italiano</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, true)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">স্পিড</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="toggleCartelliPageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
-                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                    <button class="test-ctrl-btn" onclick="toggleCartelliPageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="toggleCartelliBookmark(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
-                        <i class="${bookmarkIconClass}" style="${bookmarkIconColor} font-size: 14px;"></i>
+                    <button class="test-ctrl-btn" onclick="toggleCartelliBookmark(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Bookmark">
+                        <i class="${bookmarkIconClass}" style="${bookmarkIconColor} font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
                     </button>
-                    <button class="test-ctrl-btn" id="cartelli-note-btn-${q.id}" onclick="openCartelliNotesModal(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="${cartelliHasNote ? 'color: var(--accent-green);' : ''} font-size: 14px;"></i>
+                    <button class="test-ctrl-btn" id="cartelli-note-btn-${q.id}" onclick="openCartelliNotesModal(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${cartelliHasNote ? 'color: var(--accent-green);' : ''} font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: ${cartelliHasNote ? 'var(--accent-green)' : 'var(--text-secondary)'}; white-space: nowrap;">নোট</span>
                     </button>
-                
                 </div>
+            </div>
+
+            ${isAnswered ? `
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); display: flex; justify-content: center; align-items: center;">
                 ${statsHtml}
             </div>
+            ` : ''}
         `;
         container.appendChild(card);
     });
@@ -944,56 +1000,51 @@ function playCartelliSpeechSequentially(index) {
 
 
 function toggleCartelliBookmark(qId, btn) {
-    let bookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
-    const idx = bookmarks.indexOf(qId);
-    if (idx > -1) {
-        bookmarks.splice(idx, 1);
-        localStorage.setItem('cartelli_bookmarks', JSON.stringify(bookmarks));
-        if (btn) {
-            const icon = btn.querySelector('i');
-            if (icon) {
-                icon.className = 'fa-regular fa-bookmark';
-                icon.style.color = '';
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    fetch('/api/saved-mcqs/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token
+        },
+        body: JSON.stringify({ question_id: qId, type: 'cartelli' })
+    })
+        .then(res => res.json())
+        .then(data => {
+            showToast(data.message);
+            let bookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
+            const idx = bookmarks.indexOf(qId);
+            if (data.saved) {
+                if (idx === -1) bookmarks.push(qId);
+                if (btn) {
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa-solid fa-bookmark';
+                        icon.style.color = 'var(--accent-green)';
+                    }
+                }
+            } else {
+                if (idx > -1) bookmarks.splice(idx, 1);
+                if (btn) {
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa-regular fa-bookmark';
+                        icon.style.color = '';
+                    }
+                }
             }
-        }
-        showToast('বুকমার্ক মুছে ফেলা হয়েছে');
-    } else {
-        bookmarks.push(qId);
-        localStorage.setItem('cartelli_bookmarks', JSON.stringify(bookmarks));
-        if (btn) {
-            const icon = btn.querySelector('i');
-            if (icon) {
-                icon.className = 'fa-solid fa-bookmark';
-                icon.style.color = 'var(--accent-green)';
-            }
-        }
-        showToast('বুকমার্ক করা হয়েছে');
-    }
+            localStorage.setItem('cartelli_bookmarks', JSON.stringify(bookmarks));
+        })
+        .catch(err => {
+            console.error("Error bookmarking Cartelli MCQ:", err);
+            showToast('বুকমার্ক করতে সমস্যা হয়েছে');
+        });
 }
 
 function openCartelliNotesModal(qId) {
     let notes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
     const existingNote = notes[qId] || '';
-    const newNote = prompt("এখানে আপনার নোট লিখুন:", existingNote);
-    if (newNote !== null) {
-        if (newNote.trim() === '') {
-            delete notes[qId];
-        } else {
-            notes[qId] = newNote;
-        }
-        localStorage.setItem('cartelli_notes', JSON.stringify(notes));
-        showToast('নোট আপডেট করা হয়েছে');
-
-        const noteBtn = document.getElementById(`cartelli-note-btn-${qId}`);
-        if (noteBtn) {
-            const icon = noteBtn.querySelector('i');
-            if (icon) {
-                if (newNote.trim() !== '') {
-                    icon.style.color = 'var(--accent-green)';
-                } else {
-                    icon.style.color = '';
-                }
-            }
-        }
+    if (typeof openNotesModal === 'function') {
+        openNotesModal(null, qId, null, existingNote);
     }
 }

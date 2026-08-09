@@ -5,21 +5,15 @@ $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
 try {
-    // Check what the /api/pages/{id} endpoint returns
-    $controller = new App\Http\Controllers\Api\PageApiController();
-    $page = App\Models\Page::has('questions')->first();
-    echo "Page ID: " . $page->id . "\n";
-    $request = Illuminate\Http\Request::create('/api/pages/' . $page->id, 'GET');
-    $response = $controller->show($request, $page->id);
-    $data = json_decode($response->getContent(), true);
-    
-    echo "Page image: " . ($data['image'] ?? 'none') . "\n";
-    echo "Questions count: " . count($data['questions'] ?? []) . "\n";
-    if (!empty($data['questions'])) {
-        $q = $data['questions'][0];
-        echo "First question keys: " . implode(', ', array_keys($q)) . "\n";
-        echo "First question image: " . ($q['image'] ?? 'EMPTY') . "\n";
+    echo "CHAPTERS COUNT: " . App\Models\Chapter::count() . "\n";
+    echo "PAGES COUNT: " . App\Models\Page::count() . "\n";
+    echo "QUESTIONS COUNT: " . App\Models\Question::count() . "\n";
+    echo "CARTELLI MCQS COUNT: " . App\Models\CartelloMcq::count() . "\n";
+
+    $chapters = App\Models\Chapter::withCount(['pages', 'questions'])->get();
+    foreach ($chapters as $c) {
+        echo "Chap {$c->id}: {$c->name} | status={$c->status} | pages={$c->pages_count} | questions={$c->questions_count}\n";
     }
 } catch (\Throwable $e) {
-    echo "Error: " . $e->getMessage() . "\n" . $e->getFile() . ':' . $e->getLine();
+    echo "Error: " . $e->getMessage() . "\n" . $e->getFile() . ':' . $e->getLine() . "\n";
 }

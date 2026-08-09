@@ -433,26 +433,8 @@
                 <input type="hidden" id="form-class-id">
                 
                 <div class="form-group">
-                    <label class="form-label" for="form-class-title">Video Lesson Title</label>
-                    <input type="text" class="form-control" id="form-class-title" required placeholder="e.g. Capitolo 1: Definizione della strada">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-class-duration">Duration</label>
-                    <input type="text" class="form-control" id="form-class-duration" placeholder="e.g. ১২ মিনিট">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-class-url">Video Stream URL</label>
-                    <input type="text" class="form-control" id="form-class-url" required placeholder="e.g. https://www.w3schools.com/html/mov_bbb.mp4">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="form-class-thumb">Thumbnail Image</label>
-                    <input type="file" class="form-control" id="form-class-thumb" accept="image/*">
-                    <div id="class-thumb-preview" style="margin-top: 10px; display: none;">
-                        <img src="" id="class-preview-img" style="max-width: 100%; height: 90px; border-radius: 8px; object-fit: cover;">
-                    </div>
+                    <label class="form-label" for="form-class-url"><i class="fa-brands fa-youtube" style="color: #ef4444; margin-right: 6px;"></i> YouTube Video URL (ইউটিউব ভিডিও ইউআরএল)</label>
+                    <input type="text" class="form-control" id="form-class-url" required placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ or https://youtu.be/dQw4w9WgXcQ">
                 </div>
 
                 <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">

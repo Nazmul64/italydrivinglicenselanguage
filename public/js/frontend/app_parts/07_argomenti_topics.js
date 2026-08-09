@@ -38,10 +38,19 @@ function openPageDetailsScreen(pageId) {
 
     openScreen('page-details', 'Vere e False');
 
+    // Save state for F5 reload restore
+    try { sessionStorage.setItem('activePageDetailsId', pageId); } catch(e) {}
+
     fetch(`/api/pages/${pageId}`)
         .then(res => res.json())
-        .then(page => {
+        .then(resData => {
+            const page = (resData && resData.data) ? resData.data : resData;
             activePageDetails = page;
+
+            if (!page || !page.id) {
+                if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Pagina non trovata.</div>`;
+                return;
+            }
 
             const chapterName = page.chapter?.name || '';
             const chapterNum = page.chapter?.chapter_number || page.chapter?.id || page.chapter_id;
@@ -53,18 +62,8 @@ function openPageDetailsScreen(pageId) {
             const descEl = document.getElementById('page-details-content-text');
             if (descEl) descEl.innerText = page.content || '';
 
-            const pageMainImage = page.image || page.img || (page.questions && page.questions.find(q => q.image || q.img)?.image) || null;
             const mediaCont = document.getElementById('page-details-media-container');
-            const pageImgEl = document.getElementById('page-details-image');
-            if (mediaCont && pageImgEl) {
-                if (pageMainImage) {
-                    pageImgEl.src = pageMainImage;
-                    mediaCont.style.display = 'block';
-                } else {
-                    pageImgEl.src = '';
-                    mediaCont.style.display = 'none';
-                }
-            }
+            if (mediaCont) mediaCont.style.display = 'none';
 
             // Video display logic
             const videoContainer = document.getElementById('page-details-video-container');
@@ -214,11 +213,19 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
+        if (q.image || q.img) {
+            const topImgCard = document.createElement('div');
+            topImgCard.className = 'detail-q-top-image-card';
+            topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
+            topImgCard.innerHTML = `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            container.appendChild(topImgCard);
+        }
+
         card.innerHTML = `
-            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
                 <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">${index + 1}</div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                    <button class="test-ctrl-btn" onclick="toggleArgomentiQuestionAnswer(${q.id})" id="page-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; justify-content: flex-end; margin-left: auto;">
+                    <button class="test-ctrl-btn" onclick="toggleArgomentiQuestionAnswer(${q.id})" id="page-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
                         <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" style="font-size: 13px; color: var(--text-secondary);"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">দেখুন</span>
                     </button>
@@ -226,51 +233,53 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+            <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
+                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
-                ${(q.image || (activePageDetails && (activePageDetails.image || activePageDetails.img))) ? `<img src="${q.image || activePageDetails.image || activePageDetails.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || activePageDetails.image || activePageDetails.img}')" style="width: 68px; height: 68px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
-                <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen TTS Pronunciation">
-                    <i class="fa-solid fa-microphone" style="font-size:14px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
-                </button>
-                <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="playQuestionAudioOrSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio Voiceover">
-                    <i class="fa-solid fa-play" style="font-size: 13px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
-                </button>
-                <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
-            </div>
-
-
-            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;">
-                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Speech Speed">
-                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 14px;"></i>
+            <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
+                    <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="playQuestionAudioOrSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Play Audio Voiceover">
+                        <i class="fa-solid fa-play" style="font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
+                    </button>
+                    <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+                    <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Listen TTS Pronunciation">
+                        <i class="fa-solid fa-microphone" style="font-size: 13px; color: var(--accent-green);"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">Italiano</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">স্পিড</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
-                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
-                        <i class="${saveIconClass}" style="${saveIconColor} font-size: 14px;"></i>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Bookmark">
+                        <i class="${saveIconClass}" style="${saveIconColor} font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
                     </button>
-                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''} font-size: 14px;"></i>
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''} font-size: 13px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: ${userNote ? 'var(--accent-green)' : 'var(--text-secondary)'}; white-space: nowrap;">নোট</span>
                     </button>
-                
                 </div>
-                ${statsHtml}
             </div>
 
+            ${isAnswered ? `
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); display: flex; justify-content: center; align-items: center;">
+                ${statsHtml}
+            </div>
+            ` : ''}
         `;
+        card.setAttribute('data-q-img', q.image || q.img || '');
         container.appendChild(card);
     });
 }

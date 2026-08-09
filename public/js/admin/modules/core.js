@@ -109,6 +109,8 @@ function switchPanel(panelId) {
         if (typeof fetchManualeAdminData === 'function') fetchManualeAdminData();
     } else if (panelId === 'general-settings') {
         if (typeof fetchGeneralSettings === 'function') fetchGeneralSettings();
+    } else if (panelId === 'server-mode') {
+        if (typeof fetchServerModeSettings === 'function') fetchServerModeSettings();
     }
 }
 

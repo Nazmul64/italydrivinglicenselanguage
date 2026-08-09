@@ -307,7 +307,7 @@ function deleteHomeCard(id) {
 function fetchLectureClasses() {
     const tbody = document.getElementById('classes-table-body');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px;">Loading video lectures...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 30px;">Loading video lectures...</td></tr>`;
 
     fetch('/admin/api/classes')
         .then(res => res.json())
@@ -316,21 +316,16 @@ function fetchLectureClasses() {
             const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 30px;">No video lectures found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 30px;">No video lectures found.</td></tr>`;
                 return;
             }
 
             list.forEach(cls => {
-                const thumbHtml = cls.thumbnail_url
-                    ? `<img src="${cls.thumbnail_url}" style="width: 80px; height: 45px; object-fit: cover; border-radius: 6px;">`
-                    : `<div style="width: 80px; height: 45px; background: var(--bg-page); display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 6px; border: 1px dashed var(--border-color); color: var(--text-secondary);">No thumb</div>`;
+                const vUrl = cls.video_url || cls.youtube_url || '';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${cls.id}</td>
-                    <td style="text-align: center;">${thumbHtml}</td>
-                    <td style="font-weight: bold; color: var(--text-primary);">${cls.title}</td>
-                    <td>${cls.duration || ''}</td>
-                    <td><code>${cls.video_url || ''}</code></td>
+                    <td><code style="background: rgba(16, 185, 129, 0.1); color: var(--accent-teal); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold;">${vUrl}</code></td>
                     <td style="text-align: right;">
                         <button class="btn btn-secondary btn-sm" onclick="openEditClassModal(${JSON.stringify(cls).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteLectureClass(${cls.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
@@ -341,35 +336,21 @@ function fetchLectureClasses() {
         })
         .catch(err => {
             console.error("Error loading classes: ", err);
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--accent-red); padding: 30px;">Error loading video lectures.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--accent-red); padding: 30px;">Error loading video lectures.</td></tr>`;
         });
 }
 
 function openAddClassModal() {
     document.getElementById('class-modal-title').textContent = 'Add Lecture Video';
     document.getElementById('form-class-id').value = '';
-    document.getElementById('form-class-title').value = '';
-    document.getElementById('form-class-duration').value = '';
     document.getElementById('form-class-url').value = '';
-    document.getElementById('form-class-thumb').value = '';
-    document.getElementById('class-thumb-preview').style.display = 'none';
     document.getElementById('class-modal').style.display = 'flex';
 }
 
 function openEditClassModal(cls) {
     document.getElementById('class-modal-title').textContent = 'Edit Lecture Video';
     document.getElementById('form-class-id').value = cls.id;
-    document.getElementById('form-class-title').value = cls.title;
-    document.getElementById('form-class-duration').value = cls.duration || '';
-    document.getElementById('form-class-url').value = cls.video_url || '';
-    document.getElementById('form-class-thumb').value = '';
-
-    if (cls.thumbnail_url) {
-        document.getElementById('class-preview-img').src = cls.thumbnail_url;
-        document.getElementById('class-thumb-preview').style.display = 'block';
-    } else {
-        document.getElementById('class-thumb-preview').style.display = 'none';
-    }
+    document.getElementById('form-class-url').value = cls.video_url || cls.youtube_url || '';
     document.getElementById('class-modal').style.display = 'flex';
 }
 
@@ -380,18 +361,12 @@ function closeClassModal() {
 function saveClass(e) {
     e.preventDefault();
     const id = document.getElementById('form-class-id').value;
-    const title = document.getElementById('form-class-title').value;
-    const duration = document.getElementById('form-class-duration').value;
     const videoUrl = document.getElementById('form-class-url').value;
-    const thumbFile = document.getElementById('form-class-thumb').files[0];
 
     const formData = new FormData();
-    formData.append('title', title);
-    formData.append('duration', duration);
+    formData.append('title', 'Lecture Video');
     formData.append('video_url', videoUrl);
-    if (thumbFile) {
-        formData.append('thumbnail', thumbFile);
-    }
+    formData.append('youtube_url', videoUrl);
 
     const url = id ? `/admin/api/classes/update/${id}` : '/admin/api/classes/store';
 

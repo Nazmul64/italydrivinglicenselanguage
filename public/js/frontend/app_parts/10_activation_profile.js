@@ -15,6 +15,7 @@ function checkClientActivation() {
             currentClientVerified = data.verified || !!savedPhone;
             const wasActive = currentClientActive;
             currentClientActive = data.is_active;
+            localStorage.setItem('app_client_active', data.is_active ? 'true' : 'false');
 
             if (data.phone) {
                 currentClientPhone = data.phone;
@@ -29,14 +30,14 @@ function checkClientActivation() {
 
             const lockEl = document.getElementById('app-activation-lock');
 
-            if (!currentClientActive) {
-                // Display appropriate view in Chat widget
-                if (!currentClientVerified && !savedPhone) {
-                    setChatWidgetView('verify');
-                } else {
-                    setChatWidgetView('normal');
-                }
+            // Set chat widget view strictly based on client verification state
+            if (!currentClientVerified && !savedPhone) {
+                setChatWidgetView('verify');
+            } else {
+                setChatWidgetView('normal');
+            }
 
+            if (!currentClientActive) {
                 // Start polling if not already started
                 if (!activationStatusInterval) {
                     activationStatusInterval = setInterval(checkClientActivation, 5000);
@@ -45,8 +46,10 @@ function checkClientActivation() {
                 // Unlock app!
                 if (lockEl) lockEl.style.display = 'none';
 
-                // Normal chat view
-                setChatWidgetView('normal');
+                // Restore active screen based on URL if needed
+                if (typeof restoreScreenFromUrl === 'function') {
+                    restoreScreenFromUrl();
+                }
 
                 // Stop polling
                 if (activationStatusInterval) {
@@ -347,6 +350,17 @@ function readTranslationModalText() {
 }
 
 function speakTextTTS(text) {
+    if (typeof text === 'number') {
+        const qId = text;
+        let foundText = '';
+        if (typeof window.cachedQuestionsMap !== 'undefined' && window.cachedQuestionsMap[qId]) {
+            foundText = window.cachedQuestionsMap[qId].italian || window.cachedQuestionsMap[qId].question || '';
+        } else if (typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+            const q = activeSavedMcqs.find(item => item.id == qId || (item.question && item.question.id == qId));
+            if (q) foundText = (q.question ? (q.question.italian || q.question.question) : (q.italian || q.question)) || '';
+        }
+        text = foundText || String(text);
+    }
     if (!text) return;
     const cleanText = String(text).replace(/<[^>]*>/g, '');
     if ('speechSynthesis' in window) {
@@ -680,40 +694,75 @@ function loadCorrectMcqsList() {
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
                 const isChecked = window.selectedCorrectMcqIds && window.selectedCorrectMcqIds.has(q.id);
+                const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+
+                const topImageCardHtml = qImage ? `
+                    <div style="width: 100%; text-align: center; padding: 12px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03); box-sizing: border-box;">
+                        <img src="${qImage}" style="max-height: 200px; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const leftThumbHtml = qImage ? `
+                    <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const itemWrapper = document.createElement('div');
+                itemWrapper.className = 'correct-mcq-item-wrapper';
+                itemWrapper.style.marginBottom = '12px';
+                itemWrapper.style.flex = '1';
+                itemWrapper.style.minWidth = '0';
+                itemWrapper.style.maxWidth = '100%';
+                itemWrapper.style.boxSizing = 'border-box';
+                if (topImageCardHtml) {
+                    itemWrapper.innerHTML = topImageCardHtml;
+                }
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; flex-wrap: wrap; gap: 6px; box-sizing: border-box;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <input type="checkbox" id="correct-mcq-check-${q.id}" onchange="toggleCorrectMcqSelection(${q.id}, this.checked)" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-green);">
-                            <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                            <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
-                            ${databaseIsVero ? `
-                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;">
-                                    <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
-                                </span>
-                            ` : `
-                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #dc2626; border: 1.5px solid #ef4444;">
-                                    <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
-                                </span>
-                            `}
+                        <div style="display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap;">
+                            <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                                ${databaseIsVero ? `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;">
+                                        <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
+                                    </span>
+                                ` : `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #dc2626; border: 1.5px solid #ef4444;">
+                                        <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
+                                    </span>
+                                `}
+                            </div>
+                            <button onclick="toggleQCorrectAnswerInfo(${q.id})" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Mostra Risposta Corretta">
+                                <i class="fa fa-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="correct-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
-                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                        ${leftThumbHtml}
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-bn" id="correct-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: flex-end; width: 100%; flex-wrap: wrap;">
                         <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
                             <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
-                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
+                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                         </button>
                         ${q.audio ? `
                             <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
                                 <i class="fa-solid fa-play" style="font-size:12px;"></i>
-                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
+                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                             </button>
-                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 200px;" readonly>
+                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 140px;" readonly>
                         ` : ''}
                         <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
                             <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
@@ -729,7 +778,27 @@ function loadCorrectMcqsList() {
                         </button>
                     </div>
                 `;
-                container.appendChild(card);
+
+                const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
+                const record = userStatsMap[q.id] || {};
+                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 1);
+                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+
+                if (correctCount > 0 || wrongCount > 0) {
+                    const statsDiv = document.createElement('div');
+                    statsDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;';
+                    statsDiv.innerHTML = `
+                        <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                        <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
+                            <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+                            <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
+                        </div>
+                    `;
+                    card.appendChild(statsDiv);
+                }
+
+                itemWrapper.appendChild(card);
+                container.appendChild(itemWrapper);
             });
             updateCorrectMcqSelectionUI();
         })
@@ -888,51 +957,55 @@ function loadWrongMcqsList() {
         populateFilterChapters('wrong');
     }
 
-    const selectedChapter = document.getElementById('wrong-filter-chapter')?.value;
-    const selectedPage = document.getElementById('wrong-filter-page')?.value;
+    const selectedChapter = document.getElementById('wrong-filter-chapter')?.value || '';
+    const selectedPage = document.getElementById('wrong-filter-page')?.value || '';
+    const selectedDate = document.getElementById('wrong-filter-date')?.value || '';
     const searchQuery = document.getElementById('wrong-search-input')?.value?.toLowerCase()?.trim() || '';
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
 
-    const userStats = getUserQuestionStats();
-    const wrongIds = [];
-
-    Object.keys(userStats).forEach(idStr => {
-        const item = userStats[idStr];
-        if (item && typeof item === 'object') {
-            const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
-            const cCount = typeof item.correct === 'number' ? item.correct : 0;
-            if (item.state !== 'correct' && (item.state === 'wrong' || (wCount >= cCount && wCount > 0))) {
-                wrongIds.push(parseInt(idStr));
-            }
-        }
+    const queryParams = new URLSearchParams({
+        chapter_id: selectedChapter,
+        page_id: selectedPage,
+        date: selectedDate,
+        search: searchQuery
     });
 
-    if (wrongIds.length === 0) {
-        if (countEl) countEl.innerText = '0 Domande';
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
-        window.currentWrongQuestions = [];
-        updateWrongMcqSelectionUI();
-        return;
-    }
-
-    fetch(`/api/questions/by-ids?ids=${wrongIds.join(',')}`)
+    fetch(`/api/v1/wrong-mcqs?${queryParams.toString()}`)
         .then(res => res.json())
-        .then(questions => {
-            let filtered = questions;
-            if (selectedChapter) {
-                filtered = filtered.filter(q => String(q.chapter) === String(selectedChapter) || String(q.chapter_id) === String(selectedChapter));
-            }
-            if (selectedPage) {
-                filtered = filtered.filter(q => String(q.page_id) === String(selectedPage) || String(q.page) === String(selectedPage));
-            }
-            if (searchQuery) {
-                filtered = filtered.filter(q => (q.italian && q.italian.toLowerCase().includes(searchQuery)) || (q.bangla && q.bangla.toLowerCase().includes(searchQuery)));
+        .then(resData => {
+            let questions = resData.data || resData || [];
+            if (!Array.isArray(questions)) questions = [];
+
+            // Fallback: Check local user stats if backend array is empty (e.g. offline mode)
+            if (questions.length === 0 && !selectedChapter && !selectedPage && !selectedDate && !searchQuery) {
+                const userStats = getUserQuestionStats();
+                const wrongIds = [];
+                Object.keys(userStats).forEach(idStr => {
+                    const item = userStats[idStr];
+                    if (item && typeof item === 'object') {
+                        const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
+                        const cCount = typeof item.correct === 'number' ? item.correct : 0;
+                        if (item.state !== 'correct' && (item.state === 'wrong' || (wCount >= cCount && wCount > 0))) {
+                            wrongIds.push(parseInt(idStr));
+                        }
+                    }
+                });
+
+                if (wrongIds.length > 0) {
+                    return fetch(`/api/questions/by-ids?ids=${wrongIds.join(',')}`)
+                        .then(r => r.json())
+                        .then(qs => Array.isArray(qs) ? qs : [])
+                        .catch(() => []);
+                }
             }
 
+            return questions;
+        })
+        .then(filtered => {
             if (countEl) countEl.innerText = `${filtered.length} Domande`;
-            if (filtered.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">কোনো ভুল উত্তর পাওয়া যায়নি।</div>`;
+            if (!filtered || filtered.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
                 window.currentWrongQuestions = [];
                 updateWrongMcqSelectionUI();
                 return;
@@ -985,52 +1058,108 @@ function loadWrongMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+                const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+
+                const topImageCardHtml = qImage ? `
+                    <div style="width: 100%; text-align: center; padding: 12px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03); box-sizing: border-box;">
+                        <img src="${qImage}" style="max-height: 200px; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const leftThumbHtml = qImage ? `
+                    <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const itemWrapper = document.createElement('div');
+                itemWrapper.className = 'wrong-mcq-item-wrapper';
+                itemWrapper.style.flex = '1';
+                itemWrapper.style.minWidth = '0';
+                itemWrapper.style.maxWidth = '100%';
+                itemWrapper.style.boxSizing = 'border-box';
+                if (topImageCardHtml) {
+                    itemWrapper.innerHTML = topImageCardHtml;
+                }
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
-                            </span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
-                            </span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; flex-wrap: wrap; gap: 6px; box-sizing: border-box;">
+                        <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
+                        <div style="display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap;">
+                            <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                                ${databaseIsVero ? `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;">
+                                        <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
+                                    </span>
+                                ` : `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;">
+                                        <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
+                                    </span>
+                                `}
+                            </div>
+                            <button onclick="toggleQCorrectAnswerInfo(${q.id})" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Mostra Risposta Corretta">
+                                <i class="fa fa-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
-                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                        ${leftThumbHtml}
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: flex-end; width: 100%; flex-wrap: wrap;">
                         <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
                             <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
-                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
+                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                         </button>
                         ${q.audio ? `
                             <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
                                 <i class="fa-solid fa-play" style="font-size:12px;"></i>
-                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
+                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                             </button>
-                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 200px;" readonly>
+                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 140px;" readonly>
                         ` : ''}
-                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
                             <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
                             <i class="fa-regular fa-bookmark" style="font-size: 13px;"></i>
                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
                             <i class="fa-regular fa-note-sticky" style="font-size: 13px;"></i>
                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">নোট</span>
                         </button>
                     </div>
                 `;
 
+                const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
+                const record = userStatsMap[q.id] || {};
+                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
+                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 1);
+
+                if (correctCount > 0 || wrongCount > 0) {
+                    const statsDiv = document.createElement('div');
+                    statsDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;';
+                    statsDiv.innerHTML = `
+                        <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                        <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
+                            <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+                            <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
+                        </div>
+                    `;
+                    card.appendChild(statsDiv);
+                }
+
+                itemWrapper.appendChild(card);
                 row.appendChild(checkboxCol);
-                row.appendChild(card);
+                row.appendChild(itemWrapper);
                 container.appendChild(row);
             });
             updateWrongMcqSelectionUI();
@@ -1362,34 +1491,74 @@ function renderManualeTopics(topics) {
     container.innerHTML = '';
 
     if (!topics || topics.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-secondary);">কোনো ম্যানুয়াল চ্যাপ্টার পাওয়া যায়নি</div>';
+        container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-secondary);">কোনো ম্যানুয়াল থিওরি পাওয়া যায়নি</div>';
         return;
     }
 
     topics.forEach((item, index) => {
-        const chapNum = item.sort_order || item.chapter_number || (index + 1);
-        const chapName = item.name || item.title || '';
-        const pagesCount = item.pages_count || item.question_count || 0;
+        const chapNum = item.chapter_number || item.sort_order || (index + 1);
+        const titleText = item.title || item.name || `Capitolo ${chapNum}`;
+        const imgUrl = item.image_path || item.image || '';
+        const contentText = item.content || 'Nessuna spiegazione teorica inserita.';
+
+        let vocabs = item.vocabulary || [];
+        if (typeof vocabs === 'string') {
+            try { vocabs = JSON.parse(vocabs); } catch(e) { vocabs = []; }
+        }
+
+        let vocabHtml = '';
+        if (Array.isArray(vocabs) && vocabs.length > 0) {
+            vocabHtml = `
+                <div style="margin-top: 18px; border-top: 1px dashed var(--border-card); padding-top: 14px;">
+                    <h4 style="font-size: 14px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-spell-check" style="color: var(--accent-blue);"></i> Vocabolario & Traduzioni (${vocabs.length})
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                        ${vocabs.map(v => {
+                            const word = v.italian || v.word || '';
+                            const meaning = v.bangla || v.meaning || '';
+                            const vImg = v.image || '';
+                            return `
+                                <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+                                    ${vImg ? `<img src="${vImg}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-card);">` : ''}
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${word}</div>
+                                        <div style="font-size: 12px; color: var(--accent-green); font-weight: 600; margin-top: 2px;">${meaning}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         const card = document.createElement('div');
         card.className = 'content-card';
-        card.style.cssText = 'padding: 16px 20px; border-radius: 16px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-card);';
-        card.onclick = () => {
-            if (typeof openArgomentiSchedeScreen === 'function') {
-                openArgomentiSchedeScreen(item.id);
-            }
-        };
+        card.style.cssText = 'padding: 20px; border-radius: 20px; background: var(--bg-card); border: 1px solid var(--border-card); margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.04);';
+
         card.innerHTML = `
-            <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-                    <span style="background: rgba(37, 99, 235, 0.12); color: #2563EB; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 10px; white-space: nowrap;">
-                        Capitolo ${chapNum}
-                    </span>
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 14px;">
+                <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">
+                    ${chapNum}
                 </div>
-                <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); line-height: 1.4; margin-top: 4px;">${chapName}</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">${pagesCount} Pagine &amp; Teoria</div>
+                <div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.5px;">Capitolo ${chapNum}</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-top: 2px;">${titleText}</div>
+                </div>
             </div>
-            <i class="fa-solid fa-book-open" style="color: #2563EB; font-size: 18px; flex-shrink: 0;"></i>
+
+            ${imgUrl ? `
+                <div style="text-align: center; margin-bottom: 16px; background: var(--bg-primary); padding: 12px; border-radius: 16px; border: 1px solid var(--border-card);">
+                    <img src="${imgUrl}" style="max-height: 320px; width: auto; max-width: 100%; object-fit: contain; border-radius: 12px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)">
+                </div>
+            ` : ''}
+
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 14px; padding: 16px 18px; color: var(--text-primary); font-size: 15px; line-height: 1.8; font-weight: 500;">
+                ${contentText}
+            </div>
+
+            ${vocabHtml}
         `;
         container.appendChild(card);
     });
@@ -1406,8 +1575,9 @@ function filterManualeTopics() {
 
     const filtered = allManualeTopics.filter(item => {
         const nameMatch = (item.name || item.title || '').toLowerCase().includes(query);
+        const contentMatch = (item.content || '').toLowerCase().includes(query);
         const chapMatch = String(item.sort_order || item.chapter_number || '').includes(query);
-        return nameMatch || chapMatch;
+        return nameMatch || contentMatch || chapMatch;
     });
 
     renderManualeTopics(filtered);

@@ -13,22 +13,43 @@ class CorrectMcqsController extends Controller
      */
     public function index(Request $request)
     {
-        $userId = auth()->id() ?? 1;
-        $results = UserMcqResult::where('user_id', $userId)
-            ->where('correct_count', '>', 0)
-            ->get();
+        $userId = auth()->id() ?? $request->query('user_id');
+        $sessionId = $request->query('session_id') ?: session()->getId();
+
+        $query = UserMcqResult::query();
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where(function($q) use ($sessionId) {
+                $q->where('session_id', $sessionId)->orWhereNull('user_id');
+            });
+        }
+        $results = $query->get();
 
         $correctIds = [];
         foreach ($results as $res) {
-            $answers = json_decode($res->answers, true) ?? [];
-            foreach ($answers as $qId => $isCorrect) {
-                if ($isCorrect) {
-                    $correctIds[] = $qId;
+            if (!empty($res->question_id) && ($res->is_correct == 1 || $res->is_correct === true || $res->is_correct === '1')) {
+                $correctIds[] = (int)$res->question_id;
+            }
+            if (!empty($res->answers)) {
+                $answers = is_string($res->answers) ? json_decode($res->answers, true) : $res->answers;
+                if (is_array($answers)) {
+                    foreach ($answers as $qId => $item) {
+                        if (is_array($item)) {
+                            $qIdVal = $item['question_id'] ?? ($item['id'] ?? null);
+                            $isCorr = $item['is_correct'] ?? ($item['correct'] ?? null);
+                            if ($qIdVal && ($isCorr === true || $isCorr == 1 || $isCorr === '1')) {
+                                $correctIds[] = (int)$qIdVal;
+                            }
+                        } else if ($item) {
+                            $correctIds[] = (int)$qId;
+                        }
+                    }
                 }
             }
         }
 
-        $correctIds = array_unique($correctIds);
+        $correctIds = array_values(array_unique(array_filter($correctIds)));
         $questions = Question::whereIn('id', $correctIds)->get();
 
         if ($request->wantsJson() || $request->is('api/*')) {

@@ -320,9 +320,19 @@ function openEditQuestionModal(q) {
     try {
         vocabArr = typeof q.vocabulary === 'string' ? JSON.parse(q.vocabulary) : q.vocabulary;
     } catch (e) { }
-    if (Array.isArray(vocabArr)) {
-        vocabArr.forEach(item => addQuestionVocabRow(item.italian, item.bangla, item.image));
+    if (Array.isArray(vocabArr) && vocabArr.length > 0) {
+        vocabArr.forEach(item => {
+            if (item) {
+                const it = item.italian || item.word || item.italian_word || '';
+                const bn = item.bangla || item.meaning || item.bangla_meaning || item.translation || '';
+                const img = item.image || item.image_path || item.img || '';
+                addQuestionVocabRow(it, bn, img);
+            }
+        });
     }
+
+    // Auto-detect and populate any <u>...</u> tagged words from the Italian statement
+    updateQuestionUnderlinedWordsList();
 
     const isVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
     document.getElementById('form-is-vero').value = isVero ? '1' : '0';
@@ -1140,19 +1150,12 @@ function updateQuestionUnderlinedWordsList() {
     const currentWordsMap = new Map();
     currentRows.forEach(row => {
         const it = row.querySelector('.vocab-it')?.value;
-        if (it) currentWordsMap.set(it, row);
-    });
-
-    currentRows.forEach(row => {
-        const it = row.querySelector('.vocab-it')?.value;
-        if (it && !detectedWords.has(it)) {
-            row.remove();
-        }
+        if (it && it.trim()) currentWordsMap.set(it.trim().toLowerCase(), row);
     });
 
     detectedWords.forEach(word => {
-        if (!currentWordsMap.has(word)) {
-            addQuestionVocabRow(word, '', '');
+        if (!currentWordsMap.has(word.trim().toLowerCase())) {
+            addQuestionVocabRow(word.trim(), '', '');
         }
     });
 }

@@ -42,6 +42,8 @@ class Setting extends Model
         'argomenti_page_title_font_mobile',
         'argomenti_question_text_font_desktop',
         'argomenti_question_text_font_mobile',
+        'argomenti_question_image_size_desktop',
+        'argomenti_question_image_size_mobile',
         'cartelli_chapter_image_size_desktop',
         'cartelli_chapter_image_size_mobile',
         'argomenti_chapter_image_size_desktop',
@@ -56,6 +58,14 @@ class Setting extends Model
         'argomenti_chapter_image_width_mobile',
         'argomenti_page_image_width_desktop',
         'argomenti_page_image_width_mobile',
+        'mcq_number_font_desktop',
+        'mcq_number_font_mobile',
+        'schede_stat_font_desktop',
+        'schede_stat_font_mobile',
         'license_message',
+        'qr_protection_enabled',
+        'qr_target_mode',
+        'qr_live_url',
+        'qr_local_url',
     ];
 }

@@ -7,7 +7,7 @@
     <!-- Dropdown Selector Wrapper -->
     <div style="position: relative; margin-bottom: 16px;">
         <div class="chapter-selector-trigger" onclick="toggleChapterDropdownList()">
-            <span id="selected-chapter-display-label">Capitolo 1) DOVERI NELL'USO DELLA STRADA</span>
+            <span id="selected-chapter-display-label">Caricamento...</span>
             <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-secondary);"></i>
         </div>
         <!-- Dropdown Panel (Screenshot 4 list) -->

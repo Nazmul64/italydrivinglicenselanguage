@@ -387,17 +387,26 @@ function renderArgomentiList() {
 
     fetch('/api/chapters')
         .then(res => res.json())
-        .then(chapters => {
-            allArgomentiChapters = Array.isArray(chapters) ? chapters : [];
+        .then(resData => {
+            const chapters = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
+            allArgomentiChapters = chapters;
             const countBadge = document.getElementById('argomenti-chapters-count-badge');
             if (countBadge) {
                 countBadge.innerText = `${chapters ? chapters.length : 0} Capitoli`;
             }
             container.innerHTML = '';
+
+            if (!chapters || chapters.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;">Nessun capitolo trovato.</div>`;
+                updateCategoryQuizButtonVisibility();
+                updateArgomentiChapterPillStates();
+                return;
+            }
+
             chapters.forEach(ch => {
                 let correct = 0;
                 let wrong = 0;
-                let total = ch.question_count || 0;
+                let total = ch.question_count || ch.questions_count || 0;
 
                 for (let key in userStats) {
                     let record = userStats[key];
@@ -474,16 +483,20 @@ function openChapterSheetsScreen(chapterId) {
         fetch(`/api/questions/chapter/${chapterId}`).then(res => res.json()),
         fetch(`/api/chapters/${chapterId}/pages`).then(res => res.json())
     ])
-        .then(([questions, pages]) => {
+        .then(([questionsData, pagesData]) => {
+            const questions = Array.isArray(questionsData) ? questionsData : (questionsData && Array.isArray(questionsData.data) ? questionsData.data : []);
+            const pages = Array.isArray(pagesData) ? pagesData : (pagesData && Array.isArray(pagesData.data) ? pagesData.data : []);
+
             activeChapterQuestions = questions;
             activeChapterPages = pages;
 
             fetch('/api/chapters')
                 .then(r => r.json())
-                .then(chapters => {
-                    const ch = chapters.find(c => c.id === chapterId);
+                .then(chData => {
+                    const chaptersList = Array.isArray(chData) ? chData : (chData && Array.isArray(chData.data) ? chData.data : []);
+                    const ch = chaptersList.find(c => c.id === chapterId || c.id == chapterId);
                     if (ch && labelEl) {
-                        labelEl.innerText = `Capitolo ${chapterId}) ${ch.name}`;
+                        labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
                     }
                 });
 
@@ -555,14 +568,14 @@ function renderSheetsList() {
 
         card.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <span class="schede-page-title" style="font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
                     ${displaySheetTitle}
                 </span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
             </div>
 
-            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary);">
+            <div class="schede-card-footer" style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-secondary);">
                 <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
                 <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
                 <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
@@ -695,12 +708,39 @@ function startSheetQuiz(sheetIndex) {
 // --- 5. Navigation Logic ---
 let screenHistory = ['home'];
 
-function openScreen(screenId, headerTitle) {
+const SCREEN_TITLES = {
+    'home': 'mbanglapatenteb',
+    'lezioni': 'Lezioni Video',
+    'test': 'Practice Quiz',
+    'argomenti': 'Argomenti',
+    'argomenti-schede': 'Scegli Scheda',
+    'page-details': 'Vere e False',
+    'eclass': 'E-Class',
+    'sfida': 'Sfida Challenge',
+    'scheda-esame': 'Scheda Esame',
+    'exam-simulation': 'Exam Simulation',
+    'dizionario': 'Dizionario',
+    'cartelli': 'Cartelli',
+    'cartelli-schede': 'Scegli Scheda',
+    'cartelli-page': 'Vere e False',
+    'saved-mcqs': 'Saved MCQs',
+    'correct-mcqs': 'Correct MCQs',
+    'wrong-mcqs': 'Wrong MCQs',
+    'social': 'Patente Social',
+    'profilo': 'Profilo',
+    'manuale': 'Manuale',
+    'translation': 'Translation',
+    'test-results-detail': 'Test Details'
+};
+
+function openScreen(screenId, headerTitle, skipPushState = false) {
     if (!currentClientActive && screenId !== 'home') {
         const lockEl = document.getElementById('app-activation-lock');
         if (lockEl) lockEl.style.display = 'flex';
         return;
     }
+
+    const resolvedTitle = headerTitle || SCREEN_TITLES[screenId] || 'mbanglapatenteb';
 
     const screens = document.querySelectorAll('.screen');
     screens.forEach(s => s.classList.remove('active'));
@@ -718,7 +758,7 @@ function openScreen(screenId, headerTitle) {
         if (backBtn) backBtn.style.display = 'none';
         screenHistory = ['home'];
     } else {
-        if (appHeaderTitle) appHeaderTitle.innerText = headerTitle;
+        if (appHeaderTitle) appHeaderTitle.innerText = resolvedTitle;
         if (backBtn) backBtn.style.display = 'flex';
         if (screenHistory[screenHistory.length - 1] !== screenId) {
             screenHistory.push(screenId);
@@ -726,6 +766,14 @@ function openScreen(screenId, headerTitle) {
     }
 
     syncBottomNav(screenId);
+
+    // Synchronize HTML5 History API (URL in address bar)
+    if (!skipPushState && typeof history !== 'undefined' && history.pushState) {
+        const targetPath = screenId === 'home' ? '/' : '/' + screenId;
+        if (window.location.pathname !== targetPath) {
+            history.pushState({ screenId: screenId, headerTitle: resolvedTitle }, resolvedTitle, targetPath);
+        }
+    }
 
     if (screenId === 'test') {
         if (!testQuestions || testQuestions.length === 0) {
@@ -789,73 +837,86 @@ function openScreen(screenId, headerTitle) {
         loadUserProfileData();
     } else if (screenId === 'manuale') {
         loadManualeTopics();
+    } else if (screenId === 'test-results-detail') {
+        if (typeof loadTestResultsDetailScreen === 'function') {
+            loadTestResultsDetailScreen();
+        }
     }
 }
 
 function navigateBack() {
-    if (screenHistory.length > 0) {
-        const activeScreen = screenHistory[screenHistory.length - 1];
-        if (activeScreen === 'test-results-detail') {
-            openScreen('home', 'mbanglapatenteb');
-            return;
-        }
-        if (activeScreen === 'exam-simulation') {
-            if (confirm("আপনি কি পরীক্ষা বাতিল করে ফিরে যেতে চান?")) {
-                if (examTimerInterval) clearInterval(examTimerInterval);
-                openScreen('scheda-esame', 'Scheda Esame');
-            }
-            return;
-        }
-        if (activeScreen === 'test') {
-            submitTestExam();
-            return;
-        }
-        if (activeScreen === 'argomenti-schede') {
-            openScreen('argomenti', 'Argomenti');
-            return;
-        }
-        if (activeScreen === 'page-details') {
-            openScreen('argomenti-schede', 'Scegli Scheda');
-            return;
-        }
-        if (activeScreen === 'cartelli-schede') {
-            openScreen('cartelli', 'Cartelli');
-            return;
-        }
-        if (activeScreen === 'cartelli-page') {
-            if (typeof stopAllCartelliAudio === 'function') stopAllCartelliAudio();
-            openScreen('cartelli-schede', 'Scegli Scheda');
-            return;
-        }
-        if (activeScreen === 'saved-mcqs') {
-            openScreen('home', 'mbanglapatenteb');
-            return;
-        }
-    }
-    if (screenHistory.length > 1) {
-        screenHistory.pop();
-        const prevScreen = screenHistory[screenHistory.length - 1];
-
-        let title = 'mbanglapatenteb';
-        if (prevScreen === 'lezioni') title = 'Lezioni';
-        else if (prevScreen === 'test') title = 'Test Practice';
-        else if (prevScreen === 'argomenti') title = 'Argomenti';
-        else if (prevScreen === 'argomenti-schede') title = 'Scegli Scheda';
-        else if (prevScreen === 'page-details') title = 'Vere e False';
-        else if (prevScreen === 'saved-mcqs') title = 'Saved MCQs';
-        else if (prevScreen === 'eclass') title = 'E-Class';
-        else if (prevScreen === 'sfida') title = 'Sfida';
-        else if (prevScreen === 'scheda-esame') title = 'Scheda Esame';
-        else if (prevScreen === 'exam-simulation') title = 'Exam Simulation';
-        else if (prevScreen === 'dizionario') title = 'Dizionario';
-        else if (prevScreen === 'cartelli') title = 'Cartelli';
-        else if (prevScreen === 'profilo') title = 'Profilo';
-
-        openScreen(prevScreen, title);
-    } else {
+    if (screenHistory.length === 0) {
         openScreen('home', 'mbanglapatenteb');
+        return;
+    }
+
+    const activeScreen = screenHistory[screenHistory.length - 1];
+
+    // Special confirm cases
+    if (activeScreen === 'exam-simulation') {
+        if (confirm("আপনি কি পরীক্ষা বাতিল করে ফিরে যেতে চান?")) {
+            if (typeof examTimerInterval !== 'undefined') clearInterval(examTimerInterval);
+            screenHistory.pop();
+            openScreen('scheda-esame', 'Scheda Esame');
+        }
+        return;
+    }
+    if (activeScreen === 'test') {
+        submitTestExam();
+        return;
+    }
+
+    // Pop the current screen
+    screenHistory.pop();
+    const prevScreen = screenHistory.length > 0 ? screenHistory[screenHistory.length - 1] : 'home';
+
+    // Stop audio if leaving cartelli-page
+    if (activeScreen === 'cartelli-page' && typeof stopAllCartelliAudio === 'function') {
+        stopAllCartelliAudio();
+    }
+
+    // Map prevScreen to title
+    const titleMap = {
+        'home': 'mbanglapatenteb', 'lezioni': 'Lezioni', 'test': 'Practice Quiz',
+        'argomenti': 'Argomenti', 'argomenti-schede': 'Scegli Scheda',
+        'page-details': 'Vere e False', 'saved-mcqs': 'Saved MCQs',
+        'correct-mcqs': 'Correct MCQs', 'wrong-mcqs': 'Wrong MCQs',
+        'eclass': 'E-Class', 'sfida': 'Sfida', 'scheda-esame': 'Scheda Esame',
+        'exam-simulation': 'Exam Simulation', 'dizionario': 'Dizionario',
+        'cartelli': 'Cartelli', 'cartelli-schede': 'Scegli Scheda',
+        'cartelli-page': 'Vere e False', 'profilo': 'Profilo',
+        'manuale': 'Manuale', 'test-results-detail': 'Test Details'
+    };
+    const prevTitle = titleMap[prevScreen] || 'mbanglapatenteb';
+
+    // Screens that need data loading when navigating back TO them
+    if (prevScreen === 'argomenti') {
+        renderArgomentiList();
+        openScreen('argomenti', 'Argomenti');
+    } else if (prevScreen === 'argomenti-schede') {
+        if (typeof activeChapterId !== 'undefined' && activeChapterId && typeof openChapterSheetsScreen === 'function') {
+            openChapterSheetsScreen(activeChapterId);
+        } else {
+            renderArgomentiList();
+            openScreen('argomenti', 'Argomenti');
+        }
+    } else if (prevScreen === 'cartelli') {
+        renderCartelliChaptersGrid();
+        openScreen('cartelli', 'Cartelli');
+    } else if (prevScreen === 'cartelli-schede') {
+        if (typeof cartelliActiveChapterId !== 'undefined' && cartelliActiveChapterId && typeof openCartelliSchedeScreen === 'function') {
+            openCartelliSchedeScreen(cartelliActiveChapterId, true);
+        } else {
+            renderCartelliChaptersGrid();
+            openScreen('cartelli', 'Cartelli');
+        }
+    } else if (prevScreen === 'test-results-detail') {
+        openScreen('home', 'mbanglapatenteb');
+    } else {
+        openScreen(prevScreen, prevTitle);
     }
 }
+
 
 function clickBottomNav(screenId) {
     let title = 'mbanglapatenteb';
@@ -904,3 +965,66 @@ function showToast(message) {
         toast.classList.remove('show');
     }, 3000);
 }
+
+// Browser history back/forward navigation handler
+window.addEventListener('popstate', function (event) {
+    let screenId = 'home';
+    let headerTitle = 'mbanglapatenteb';
+    if (event.state && event.state.screenId) {
+        screenId = event.state.screenId;
+        headerTitle = event.state.headerTitle;
+    } else {
+        const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+        if (path && SCREEN_TITLES[path]) {
+            screenId = path;
+            headerTitle = SCREEN_TITLES[path];
+        }
+    }
+    // For data-dependent screens, restore data from session on popstate
+    if (screenId === 'cartelli-page') {
+        if (typeof loadCartelliPageScreenFromSession === 'function') {
+            loadCartelliPageScreenFromSession();
+        }
+    } else if (screenId === 'page-details') {
+        const savedPageId = sessionStorage.getItem('activePageDetailsId');
+        if (savedPageId && typeof openPageDetailsScreen === 'function') {
+            openPageDetailsScreen(parseInt(savedPageId));
+        } else {
+            openScreen('argomenti', 'Argomenti');
+        }
+    } else {
+        openScreen(screenId, headerTitle, true);
+    }
+});
+
+function restoreScreenFromUrl() {
+    if (typeof currentClientActive !== 'undefined' && !currentClientActive) return;
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (path && path !== 'app' && SCREEN_TITLES[path]) {
+        // Screens that need data loading on F5 restore
+        if (path === 'cartelli-page') {
+            openScreen(path, SCREEN_TITLES[path], true);
+            if (typeof loadCartelliPageScreenFromSession === 'function') {
+                loadCartelliPageScreenFromSession();
+            }
+        } else if (path === 'page-details') {
+            const savedPageId = sessionStorage.getItem('activePageDetailsId');
+            if (savedPageId && typeof openPageDetailsScreen === 'function') {
+                openPageDetailsScreen(parseInt(savedPageId));
+            } else {
+                openScreen('argomenti', 'Argomenti');
+            }
+        } else {
+            const activeScreen = document.querySelector('.screen.active');
+            if (!activeScreen || activeScreen.id !== `screen-${path}`) {
+                openScreen(path, SCREEN_TITLES[path], true);
+            }
+        }
+    }
+}
+window.restoreScreenFromUrl = restoreScreenFromUrl;
+
+// Restore active screen based on URL on initial page load / refresh
+document.addEventListener('DOMContentLoaded', function () {
+    restoreScreenFromUrl();
+});

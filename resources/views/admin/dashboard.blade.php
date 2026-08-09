@@ -927,11 +927,7 @@
                 <thead>
                     <tr>
                         <th style="width: 80px;">ID</th>
-                        <th style="width: 120px; text-align: center;">Thumbnail</th>
-                        <th>Video Title</th>
-                        <th style="width: 120px;">Duration</th>
-                        <th>Video URL/Path</th>
-                        <th style="width: 100px; text-align: center;">Status</th>
+                        <th>YouTube Video Stream URL</th>
                         <th style="width: 180px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
@@ -1767,7 +1763,41 @@
                     </div>
                 </div>
 
-                <!-- Argomenti Chapter Image Height & Width (Desktop vs Mobile) -->
+                <!-- Argomenti Chapter Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Title Font Size Desktop (চ্যাপ্টার ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-title-font-desktop" name="argomenti_chapter_title_font_desktop" class="form-control" min="10" max="50" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Chapter Title Font Size Mobile (চ্যাপ্টার মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-argomenti-chapter-title-font-mobile" name="argomenti_chapter_title_font_mobile" class="form-control" min="8" max="40" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <!-- Cartelli Chapter Title Font Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Cartelli Chapter Title Font Size Desktop (চ্যাপ্টার ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-title-font-desktop" name="cartelli_chapter_title_font_desktop" class="form-control" min="10" max="50" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            Cartelli Chapter Title Font Size Mobile (চ্যাপ্টার মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-cartelli-chapter-title-font-mobile" name="cartelli_chapter_title_font_mobile" class="form-control" min="8" max="40" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <!-- Cartelli Chapter Image Height & Width (Desktop vs Mobile) -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
                     <div class="form-group">
                         <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
@@ -1850,20 +1880,69 @@
                     </div>
                 </div>
 
-                <!-- Argomenti Question Text Font Size (Desktop vs Mobile) -->
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                <!-- Argomenti Question Text Font Size & Image Size (Desktop vs Mobile) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
                     <div class="form-group">
                         <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
-                            Question Text Font Size Desktop (প্রশ্ন ডেসকটপ ফন্ট px)
+                            <i class="fa-solid fa-font" style="color: var(--accent-green);"></i> Question Text Font Size Desktop (প্রশ্ন ডেসকটপ ফন্ট px)
                         </label>
-                        <input type="number" id="settings-argomenti-question-text-font-desktop" name="argomenti_question_text_font_desktop" class="form-control" min="10" max="40" placeholder="15" value="15">
+                        <input type="number" id="settings-argomenti-question-text-font-desktop" name="argomenti_question_text_font_desktop" class="form-control" min="10" max="50" placeholder="18" value="18">
                     </div>
 
                     <div class="form-group">
                         <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
-                            Question Text Font Size Mobile (প্রশ্ন মোবাইল ফন্ট px)
+                            <i class="fa-solid fa-font" style="color: var(--accent-green);"></i> Question Text Font Size Mobile (প্রশ্ন মোবাইল ফন্ট px)
                         </label>
-                        <input type="number" id="settings-argomenti-question-text-font-mobile" name="argomenti_question_text_font_mobile" class="form-control" min="8" max="30" placeholder="13" value="13">
+                        <input type="number" id="settings-argomenti-question-text-font-mobile" name="argomenti_question_text_font_mobile" class="form-control" min="8" max="40" placeholder="16" value="16">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-image" style="color: var(--accent-blue);"></i> Question Left Image Size Desktop (প্রশ্ন ডেসকটপ ইমেজ সাইজ px)
+                        </label>
+                        <input type="number" id="settings-argomenti-question-image-size-desktop" name="argomenti_question_image_size_desktop" class="form-control" min="30" max="300" placeholder="110" value="110">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-image" style="color: var(--accent-blue);"></i> Question Left Image Size Mobile (প্রশ্ন মোবাইল ইমেজ সাইজ px)
+                        </label>
+                        <input type="number" id="settings-argomenti-question-image-size-mobile" name="argomenti_question_image_size_mobile" class="form-control" min="20" max="200" placeholder="85" value="85">
+                    </div>
+                </div>
+
+                <!-- MCQ Number & Schede Stats Font Sizes -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-list-ol" style="color: var(--accent-blue);"></i> MCQ Serial Number Font Desktop (এমসিকিউ নম্বর ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-mcq-number-font-desktop" name="mcq_number_font_desktop" class="form-control" min="10" max="40" placeholder="16" value="16">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-list-ol" style="color: var(--accent-blue);"></i> MCQ Serial Number Font Mobile (এমসিকিউ নম্বর মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-mcq-number-font-mobile" name="mcq_number_font_mobile" class="form-control" min="8" max="30" placeholder="14" value="14">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-chart-simple" style="color: var(--accent-green);"></i> Schede Stats Font Size Desktop (কার্ডের স্ট্যাটাস টেক্সট ডেসকটপ ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-schede-stat-font-desktop" name="schede_stat_font_desktop" class="form-control" min="8" max="30" placeholder="13" value="13">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); font-size: 13px;">
+                            <i class="fa-solid fa-chart-simple" style="color: var(--accent-green);"></i> Schede Stats Font Size Mobile (কার্ডের স্ট্যাটাস টেক্সট মোবাইল ফন্ট px)
+                        </label>
+                        <input type="number" id="settings-schede-stat-font-mobile" name="schede_stat_font_mobile" class="form-control" min="6" max="25" placeholder="11" value="11">
                     </div>
                 </div>
 
@@ -1911,10 +1990,240 @@
                     </div>
                 </div>
 
+                <hr style="margin: 30px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-magnifying-glass-chart" style="color: #2563eb;"></i>
+                    <span>Enterprise SEO, Schema & Organization Details (এসইও এবং প্রতিষ্ঠান সংক্রান্ত তথ্য)</span>
+                </h4>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Company / Business Name (প্রতিষ্ঠান / কোম্পানির নাম)</label>
+                        <input type="text" id="settings-company-name" name="company_name" class="form-control" placeholder="Italy Bangla Patente B">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Company Phone (ফোন নম্বর)</label>
+                        <input type="text" id="settings-company-phone" name="company_phone" class="form-control" placeholder="+8801700000000 / +39000000000">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Company Email (ইমেইল এড্রেস)</label>
+                        <input type="email" id="settings-company-email" name="company_email" class="form-control" placeholder="info@italybanglapatente.com">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Street Address (ঠিকানা)</label>
+                        <input type="text" id="settings-company-address" name="company_address" class="form-control" placeholder="Dhaka, Bangladesh / Rome, Italy">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Geo Latitude</label>
+                        <input type="text" id="settings-geo-latitude" name="geo_latitude" class="form-control" placeholder="23.8103">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Geo Longitude</label>
+                        <input type="text" id="settings-geo-longitude" name="geo_longitude" class="form-control" placeholder="90.4125">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Opening Hours</label>
+                        <input type="text" id="settings-opening-hours" name="opening_hours" class="form-control" placeholder="Mo-Sa 09:00-20:00">
+                    </div>
+                </div>
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-chart-line" style="color: #10b981;"></i>
+                    <span>Analytics & Search Console Integrations (গুগল এনালাইটিক্স ও ট্যাগ ট্র্যাকিং)</span>
+                </h4>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">GA4 Measurement ID (Google Analytics 4)</label>
+                        <input type="text" id="settings-ga4-id" name="ga4_measurement_id" class="form-control" placeholder="G-XXXXXXXXXX">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Google Search Console Verification Tag</label>
+                        <input type="text" id="settings-search-console-id" name="search_console_verification" class="form-control" placeholder="meta verification code">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">GTM Container ID</label>
+                        <input type="text" id="settings-gtm-id" name="gtm_container_id" class="form-control" placeholder="GTM-XXXXXXX">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Facebook Pixel ID</label>
+                        <input type="text" id="settings-fb-pixel-id" name="fb_pixel_id" class="form-control" placeholder="1234567890">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Microsoft Clarity Project ID</label>
+                        <input type="text" id="settings-clarity-id" name="clarity_project_id" class="form-control" placeholder="xxxxxxxxxx">
+                </div>
+
+                <hr style="margin: 24px 0; border-color: var(--border-color);">
+
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-qrcode" style="color: #10b981;"></i>
+                    <span>Web QR Code Protection & Security Gate (ওয়েবসাইট কিউআর কোড সিকিউরিটি সেটিং)</span>
+                </h4>
+
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1.5px solid rgba(16, 185, 129, 0.2); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text-primary); cursor: pointer;">
+                            <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" style="width: 18px; height: 18px; accent-color: #10b981;">
+                            <span>Enable Web QR Code Security Gate (ওয়েবসাইটে প্রবেশের সময় কিউআর কোড লকার অন করুন)</span>
+                        </label>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: block; margin-left: 28px;">
+                            অন করা থাকলে ওয়েবসাইটে প্রবেশের সময় স্ক্রিনশটের মতো ফুল-স্ক্রিন কিউআর কোড শো করবে। মোবাইল অ্যাপের কিউআর স্ক্যানার দিয়ে স্ক্যান করা ছাড়া ওয়েবসাইটে ঢুকতে পারবে না।
+                        </span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">QR Target Mode (মোড নির্ধারণ করুন)</label>
+                            <select id="settings-qr-target-mode" name="qr_target_mode" class="form-control">
+                                <option value="live">Live Website (http://mbanglapatenteb.com)</option>
+                                <option value="local">Local Website (http://127.0.0.1:8000)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Live Website URL</label>
+                            <input type="text" id="settings-qr-live-url" name="qr_live_url" class="form-control" placeholder="http://mbanglapatenteb.com" value="http://mbanglapatenteb.com">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Local Website URL</label>
+                            <input type="text" id="settings-qr-local-url" name="qr_local_url" class="form-control" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                        </div>
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary" id="save-settings-btn">
                     <i class="fa-solid fa-save"></i> Save Settings
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- PANEL: Server Mode Configuration -->
+    <div id="panel-server-mode" class="crud-panel">
+        <div class="welcome-header" style="margin-bottom: 24px;">
+            <h2 class="welcome-title" style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-server" style="color: #3b82f6;"></i>
+                Server Mode Configuration
+            </h2>
+            <p class="welcome-subtitle">
+                Switch between Local Development Server and Live Production Server easily from Admin Panel.
+            </p>
+        </div>
+
+        <div style="max-width: 900px; display: flex; flex-direction: column; gap: 24px;">
+            
+            <!-- CURRENT ACTIVE SERVER MODE CARD -->
+            <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #64748b;">
+                        CURRENT ACTIVE SERVER MODE
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" onclick="quickSwitchServerMode('local')" class="btn" style="background: #eab308; color: #000000; font-weight: 800; border-radius: 8px; padding: 8px 14px; font-size: 13px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-mobile-screen"></i> Switch to Local Server
+                        </button>
+                        <button type="button" onclick="quickSwitchServerMode('live')" class="btn" style="background: #ffffff; color: #16a34a; font-weight: 800; border-radius: 8px; padding: 8px 14px; font-size: 13px; border: 1.5px solid #22c55e; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-globe"></i> Switch to Live Server
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ACTIVE MODE DISPLAY BANNER -->
+                <div id="active-server-mode-banner" style="background: #fef08a; border: 2px solid #eab308; border-radius: 12px; padding: 14px 20px; display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                    <i class="fa-solid fa-server" id="active-server-icon" style="font-size: 28px; color: #000000;"></i>
+                    <span id="active-server-mode-text" style="font-size: 22px; font-weight: 900; color: #000000; letter-spacing: 0.5px;">
+                        LOCAL SERVER MODE
+                    </span>
+                </div>
+
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #1e293b);">
+                    Active Base URL: <code id="active-base-url-display" style="background: rgba(59, 130, 246, 0.1); color: #2563eb; padding: 4px 10px; border-radius: 6px; font-size: 14px; font-weight: 700;">http://10.0.2.2:8000</code>
+                </div>
+            </div>
+
+            <!-- SERVER URL SETTINGS CARD -->
+            <div style="background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+                <h3 style="font-size: 20px; font-weight: 800; color: var(--text-primary, #1e293b); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-sliders" style="color: #64748b;"></i> Server URL Settings
+                </h3>
+
+                <form id="server-mode-config-form" onsubmit="saveServerModeSettingsForm(event)">
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-weight: 700; font-size: 13px; color: var(--text-secondary, #64748b); margin-bottom: 12px; display: block;">
+                            Select Active Server Mode:
+                        </label>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px;">
+                            
+                            <!-- LOCAL SERVER OPTION CARD -->
+                            <div id="card-option-local" onclick="selectServerModeRadio('local')" style="border: 2px solid #3b82f6; background: rgba(59, 130, 246, 0.03); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                                    <input type="radio" id="server-mode-radio-local" name="qr_target_mode" value="local" style="width: 20px; height: 20px; accent-color: #3b82f6; margin-top: 2px;">
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 15px; color: var(--text-primary, #1e293b); display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-beer-mug-empty" style="color: #f59e0b;"></i> Local Server Mode
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--text-secondary, #64748b); margin-top: 4px;">
+                                            Use for local development and testing on Emulator or Wi-Fi network.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 14px;">
+                                    <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary, #64748b); display: block; margin-bottom: 4px;">
+                                        Local Server URL:
+                                    </label>
+                                    <input type="text" id="server-config-local-url" name="qr_local_url" class="form-control" value="http://10.0.2.2:8000" placeholder="http://10.0.2.2:8000" style="background: var(--bg-main, #f8fafc); border: 1px solid var(--border-color, #cbd5e1); font-family: monospace;">
+                                    <span style="font-size: 11px; color: #ef4444; margin-top: 4px; display: block;">
+                                        Example: <code style="color: #ef4444;">http://10.0.2.2:8000</code> (Android Emulator) or <code style="color: #ef4444;">http://192.168.1.100:8000</code>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- LIVE SERVER OPTION CARD -->
+                            <div id="card-option-live" onclick="selectServerModeRadio('live')" style="border: 2px solid var(--border-color, #cbd5e1); background: var(--bg-card, #ffffff); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                                    <input type="radio" id="server-mode-radio-live" name="qr_target_mode" value="live" style="width: 20px; height: 20px; accent-color: #22c55e; margin-top: 2px;">
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 15px; color: var(--text-primary, #1e293b); display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-globe" style="color: #22c55e;"></i> Live Production Server Mode
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--text-secondary, #64748b); margin-top: 4px;">
+                                            Use for public users connecting to production site domain.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 14px;">
+                                    <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary, #64748b); display: block; margin-bottom: 4px;">
+                                        Live Production Server URL:
+                                    </label>
+                                    <input type="text" id="server-config-live-url" name="qr_live_url" class="form-control" value="http://mbanglapatenteb.com" placeholder="http://mbanglapatenteb.com" style="background: var(--bg-main, #f8fafc); border: 1px solid var(--border-color, #cbd5e1); font-family: monospace;">
+                                    <span style="font-size: 11px; color: #ef4444; margin-top: 4px; display: block;">
+                                        Example: <code style="color: #ef4444;">http://mbanglapatenteb.com</code>
+                                    </span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                        <button type="submit" class="btn btn-primary" id="save-server-config-btn" style="background: #2563eb; color: #ffffff; font-weight: 800; border-radius: 8px; padding: 10px 24px; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                            <i class="fa-solid fa-box-archive"></i> Save Server Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
         </div>
     </div>
 

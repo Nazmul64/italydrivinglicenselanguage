@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\HomeCard;
+use App\Models\Setting;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,8 +17,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
+        // Admin User
         $admin = User::firstOrCreate(
             ['email' => 'admin@gmail.com'],
             [
@@ -29,77 +30,14 @@ class DatabaseSeeder extends Seeder
             $admin->update(['role' => 'super_admin']);
         }
 
-        // Seed initial driving categories
-        if (\App\Models\Category::count() === 0) {
-            \App\Models\Category::create([
-                'name' => 'Patente AM',
-                'description' => 'Moped and light quadricycles theory questions.',
-            ]);
-            \App\Models\Category::create([
-                'name' => 'Patente B',
-                'description' => 'Passenger car and light commercial vehicle theory questions.',
-            ]);
-            \App\Models\Category::create([
-                'name' => 'Patente C',
-                'description' => 'Heavy truck and freight vehicle theory questions.',
-            ]);
-        }
+        // Default Application Setting
+        Setting::firstOrCreate(
+            ['id' => 1],
+            ['app_name' => 'Italy Bangla Patente']
+        );
 
-        // Seed Manuale Theory Guidebook Topics
-        if (\App\Models\Manuale::count() === 0) {
-            \App\Models\Manuale::create([
-                'title' => 'Capitolo 1: Definizione della Strada e della Carreggiata',
-                'chapter_number' => 1,
-                'content' => 'La <u>strada</u> è l\'area aperta alla circolazione dei pedoni, degli animali e dei veicoli. Essa comprende le <u>carreggiate</u> riservate ai veicoli, i <u>marciapiedi</u> per i pedoni, le <u>piste ciclabili</u> e le banchine. Una carreggiata può essere a doppio senso di circolazione o a senso unico.',
-                'image_path' => '/storage/cartelli/strada.png',
-                'order_index' => 1,
-                'status' => true
-            ]);
-            \App\Models\Manuale::create([
-                'title' => 'Capitolo 2: I Segnali di Pericolo e la Precedenza',
-                'chapter_number' => 2,
-                'content' => 'I <u>segnali di pericolo</u> hanno di norma forma triangolare con vertice verso l\'alto e bordo rosso. Vengono posti a circa <u>150 metri</u> dal punto di pericolo e prescrivono di moderare la velocità e prestare particolare attenzione.',
-                'image_path' => '/storage/cartelli/pericolo.png',
-                'order_index' => 2,
-                'status' => true
-            ]);
-        }
-
-        // Seed Banner Sliders
-        if (\App\Models\Slider::count() === 0) {
-            $sliders = [
-                [
-                    'title' => 'সহজে ড্রাইভিং লাইসেন্স পাস করুন',
-                    'subtitle' => 'ইতালিয়ান ড্রাইভিং লাইসেন্স গাইড',
-                    'image_url' => 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200&auto=format&fit=crop',
-                    'link_url' => '#'
-                ],
-                [
-                    'title' => 'সব ট্রাফিক সাইন জানুন',
-                    'subtitle' => 'গুরুত্বপূর্ণ সংকেতসমূহের বিস্তারিত ব্যাখ্যা',
-                    'image_url' => 'https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=1200&auto=format&fit=crop',
-                    'link_url' => '#'
-                ],
-                [
-                    'title' => 'অনলাইন লেকচার ও ক্লাস',
-                    'subtitle' => 'ভিডিও টিউটোরিয়ালের সাথে থিওরি শিখুন',
-                    'image_url' => 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop',
-                    'link_url' => '#'
-                ],
-                [
-                    'title' => 'পরীক্ষার সঠিক প্রস্তুতি নিন',
-                    'subtitle' => 'আনলিমিটেড এক্সাম সিমুলেশন কুইজ',
-                    'image_url' => 'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=1200&auto=format&fit=crop',
-                    'link_url' => '#'
-                ]
-            ];
-            foreach ($sliders as $s) {
-                \App\Models\Slider::create($s);
-            }
-        }
-
-        // Seed Home Navigation Cards (Truncate & fresh seed all 16 cards)
-        \App\Models\HomeCard::truncate();
+        // ONLY Homepage Cards Seeder
+        HomeCard::truncate();
         $cards = [
             [
                 'title' => 'Lezioni',
@@ -231,44 +169,7 @@ class DatabaseSeeder extends Seeder
             ]
         ];
         foreach ($cards as $c) {
-            \App\Models\HomeCard::create($c);
-        }
-
-        // Seed Lecture Classes (Videos)
-        if (\App\Models\LectureClass::count() === 0) {
-            $lectures = [
-                [
-                    'title' => 'Capitolo 1: Definizione della strada',
-                    'duration' => '১২ মিনিট',
-                    'thumbnail_url' => 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=150',
-                    'video_url' => 'https://www.w3schools.com/html/mov_bbb.mp4'
-                ],
-                [
-                    'title' => 'Capitolo 2: I Segnali di Pericolo',
-                    'duration' => '১৮ মিনিট',
-                    'thumbnail_url' => 'https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=150',
-                    'video_url' => 'https://www.w3schools.com/html/mov_bbb.mp4'
-                ],
-                [
-                    'title' => 'Capitolo 3: Segnali di Divieto',
-                    'duration' => '১৫ মিনিট',
-                    'thumbnail_url' => 'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=150',
-                    'video_url' => 'https://www.w3schools.com/html/mov_bbb.mp4'
-                ]
-            ];
-            foreach ($lectures as $l) {
-                \App\Models\LectureClass::create($l);
-            }
-        }
-
-        // Seed Live Classes
-        if (\App\Models\LiveClass::count() === 0) {
-            \App\Models\LiveClass::create([
-                'title' => 'পরবর্তী লাইভ ক্লাস আজ রাত ৯:০০ টায়',
-                'subtitle' => 'অধ্যায় ৪: অগ্রাধিকার নিয়ম (Precedenza)',
-                'scheduled_at' => now()->setHour(21)->setMinute(0)->setSecond(0),
-                'room_link' => 'https://meet.google.com/abc-defg-hij'
-            ]);
+            HomeCard::create($c);
         }
     }
 }

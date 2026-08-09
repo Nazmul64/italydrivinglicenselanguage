@@ -10,11 +10,10 @@ function loadSavedMcqsScreen() {
     if (!container) return;
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande salvate...</div>`;
 
-    fetch('/api/v1/saved-mcqs')
+    fetch('/api/saved-mcqs')
         .then(res => res.json())
         .then(resData => {
-            const saved = resData.data || resData || [];
-            const savedArr = Array.isArray(saved) ? saved : [];
+            const savedArr = Array.isArray(resData) ? resData : (resData.data || []);
             activeSavedMcqs = savedArr.map(item => item.question || item).filter(q => q && q.id);
             container.innerHTML = '';
             const countEl = document.getElementById('saved-mcqs-count');
@@ -33,36 +32,47 @@ function loadSavedMcqsScreen() {
                 const page = q.page || null;
                 const chapter = (page && page.chapter) ? page.chapter : null;
 
+                const qType = q.type || item.type || 'argomenti';
+                const typeBadge = qType === 'cartelli' ? 'Cartelli' : 'Argomenti';
+
                 const chapNum = chapter ? (chapter.chapter_number || chapter.id) : (q.chapter || '');
                 const chapName = chapter ? (chapter.name || '') : '';
                 const pageTitle = page ? (page.title || '') : '';
                 const pageNum = page ? (page.sort_order || page.id) : '';
 
                 let locationBadgeHtml = '';
-                if (chapNum || pageTitle) {
+                if (chapNum || pageTitle || typeBadge) {
                     locationBadgeHtml = `
                         <div style="font-size: 11px; font-weight: 700; color: var(--accent-green); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; background-color: rgba(76, 175, 80, 0.08); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(76, 175, 80, 0.18); width: fit-content;">
                             <i class="fa-solid fa-folder-open" style="font-size: 10px;"></i>
-                            <span>${chapNum ? `Capitolo ${chapNum}` : ''}${chapName ? `: ${chapName}` : ''}${pageTitle ? ` · Pagina ${pageNum}: ${pageTitle}` : ''}</span>
+                            <span>[${typeBadge}] ${chapNum ? `Capitolo ${chapNum}` : ''}${chapName ? `: ${chapName}` : ''}${pageTitle ? ` · Pagina ${pageNum}: ${pageTitle}` : ''}</span>
                         </div>
                     `;
                 }
 
                 const qImage = q.image || q.img || (page && page.image ? page.image : null);
 
-                const topRightImageHtml = qImage ? `
-                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                        <img src="${qImage}" style="max-height: 60px; max-width: 100px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                const topImageCardHtml = qImage ? `
+                    <div style="text-align: center; padding: 20px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                        <img src="${qImage}" style="max-height: 150px; width: auto; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
                 const isSelected = selectedSavedMcqIds.includes(q.id);
+
+                const itemWrapper = document.createElement('div');
+                itemWrapper.className = 'saved-mcq-item-wrapper';
+                itemWrapper.style.marginBottom = '16px';
+                if (topImageCardHtml) {
+                    itemWrapper.innerHTML = topImageCardHtml;
+                }
+
                 const card = document.createElement('div');
                 card.className = `detail-q-card unanswered ${isSelected ? 'selected-q-card' : ''}`;
                 card.id = `saved-card-${q.id}`;
@@ -76,59 +86,84 @@ function loadSavedMcqsScreen() {
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px;">
                         <div>
-                            ${locationBadgeHtml}
-                            <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                            <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
                         </div>
-                        ${topRightImageHtml}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                                ${databaseIsVero ? `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;">
+                                        <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
+                                    </span>
+                                ` : `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;">
+                                        <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
+                                    </span>
+                                `}
+                            </div>
+                            <button onclick="toggleQCorrectAnswerInfo(${q.id})" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Mostra Risposta Corretta">
+                                <i class="fa fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
-                            </span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
-                            </span>
-                        </div>
-                    </div>
+                    ${locationBadgeHtml}
 
                     <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
                         ${leftThumbHtml}
                         <div style="flex: 1; min-width: 0;">
-                            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                            <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
-                        <button class="test-speaker-btn" onclick="readSavedQuestionSpeech(${q.id}, '${q.italian.replace(/'/g, "\\'")}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen Pronunciation">
-                            <i class="fa-solid fa-volume-high" style="font-size:13px;"></i>
-                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
-                        </button>
-                        <button class="test-ctrl-btn" id="saved-play-btn-${q.id}" onclick="readSavedQuestionSpeech(${q.id}, '${q.italian.replace(/'/g, "\\'")}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio">
+                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: flex-end; width: 100%; flex-wrap: wrap;">
+                        <button class="test-ctrl-btn" id="saved-play-btn-${q.id}" onclick="readSavedQuestionSpeech(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio">
                             <i class="fa-solid fa-play" style="font-size:12px;"></i>
-                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                         </button>
-                        <input type="range" class="test-slider" id="saved-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px;" readonly>
-                        <button class="test-ctrl-btn" onclick="toggleSavedTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                        <input type="range" class="test-slider" id="saved-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; cursor: pointer;" readonly>
+                        <button class="test-speaker-btn" onclick="readSavedQuestionSpeech(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen Pronunciation">
+                            <i class="fa-solid fa-volume-high" style="font-size:13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
+                        </button>
+                        <button class="test-ctrl-btn" onclick="toggleSavedTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
                             <i class="fa-solid fa-language" style="color: var(--accent-green); font-size: 13px;"></i>
                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Remove Bookmark">
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this, '${qType}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Remove Bookmark">
                             <i class="fa-solid fa-bookmark" style="color: var(--accent-green); font-size: 13px;"></i>
                             <span style="font-size: 9px; font-weight: 800; color: var(--accent-green); white-space: nowrap;">সেভ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
                             <i class="fa-regular fa-note-sticky" style="font-size: 13px;"></i>
                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">নোট</span>
                         </button>
                     </div>
                 `;
-                container.appendChild(card);
+
+                const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
+                const record = userStatsMap[q.id] || {};
+                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
+                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+
+                if (correctCount > 0 || wrongCount > 0) {
+                    const statsDiv = document.createElement('div');
+                    statsDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;';
+                    statsDiv.innerHTML = `
+                        <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                        <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
+                            <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+                            <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
+                        </div>
+                    `;
+                    card.appendChild(statsDiv);
+                }
+
+                itemWrapper.appendChild(card);
+                container.appendChild(itemWrapper);
             });
             updateSavedMcqsPillStates();
             updateSavedMcqsQuizButtonVisibility();
@@ -219,17 +254,16 @@ function updateSavedMcqsPillStates() {
 function updateSavedMcqsQuizButtonVisibility() {
     const container = document.getElementById('saved-mcqs-quiz-btn-container');
     if (!container) return;
-    container.style.display = selectedSavedMcqIds.length > 0 ? 'block' : 'none';
+    container.style.display = (activeSavedMcqs && activeSavedMcqs.length > 0) ? 'block' : 'none';
 }
 
 function startSavedMcqsQuiz() {
-    if (selectedSavedMcqIds.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি সেভড প্রশ্ন সিলেক্ট করুন');
-        return;
-    }
-    const questionsToQuiz = activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id));
-    if (questionsToQuiz.length === 0) {
-        showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+    const questionsToQuiz = (selectedSavedMcqIds && selectedSavedMcqIds.length > 0) 
+        ? activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id))
+        : activeSavedMcqs;
+
+    if (!questionsToQuiz || questionsToQuiz.length === 0) {
+        showToast('কোনো সেভড প্রশ্ন পাওয়া যায়নি');
         return;
     }
     testQuestions = questionsToQuiz.sort(() => Math.random() - 0.5);
@@ -259,6 +293,14 @@ let playingSavedSpeechIndex = null;
 let savedSpeechInterval = null;
 
 function readSavedQuestionSpeech(qId, text) {
+    if (!text && typeof window.cachedQuestionsMap !== 'undefined' && window.cachedQuestionsMap[qId]) {
+        const q = window.cachedQuestionsMap[qId];
+        text = q.italian || q.question || '';
+    } else if (!text && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+        const q = activeSavedMcqs.find(item => item.id == qId || (item.question && item.question.id == qId));
+        if (q) text = (q.question ? (q.question.italian || q.question.question) : (q.italian || q.question)) || '';
+    }
+    if (!text) text = '';
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
 
@@ -336,29 +378,37 @@ function toggleSavedTranslation(qId) {
     openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || []);
 }
 
-function toggleSavedMcq(questionId, btnElement) {
+function toggleSavedMcq(questionId, btnElement, type) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const payload = { question_id: questionId };
+    if (type) payload.type = type;
+
     fetch('/api/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': token
         },
-        body: JSON.stringify({ question_id: questionId })
+        body: JSON.stringify(payload)
     })
         .then(res => res.json())
         .then(data => {
             showToast(data.message);
-            if (data.saved) {
-                btnElement.innerHTML = '<i class="fa-solid fa-bookmark" style="color: var(--accent-green);"></i>';
-            } else {
-                btnElement.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
+            if (btnElement) {
+                const icon = btnElement.querySelector('i') || btnElement;
+                if (data.saved) {
+                    icon.className = 'fa-solid fa-bookmark';
+                    icon.style.color = 'var(--accent-green)';
+                } else {
+                    icon.className = 'fa-regular fa-bookmark';
+                    icon.style.color = '';
+                }
             }
 
-            const activeScreen = screenHistory[screenHistory.length - 1];
+            const activeScreen = typeof screenHistory !== 'undefined' && screenHistory.length > 0 ? screenHistory[screenHistory.length - 1] : '';
             if (activeScreen === 'saved-mcqs') {
                 loadSavedMcqsScreen();
-            } else if (activeScreen === 'page-details' && activePageDetails) {
+            } else if (activeScreen === 'page-details' && typeof activePageDetails !== 'undefined' && activePageDetails) {
                 openPageDetailsScreen(activePageDetails.id);
             }
         })
@@ -422,6 +472,20 @@ function saveUserNote() {
         return;
     }
 
+    if (questionId) {
+        let cartelliNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
+        cartelliNotes[questionId] = noteText.trim();
+        localStorage.setItem('cartelli_notes', JSON.stringify(cartelliNotes));
+
+        const noteBtn = document.getElementById(`cartelli-note-btn-${questionId}`);
+        if (noteBtn) {
+            const icon = noteBtn.querySelector('i');
+            if (icon) icon.style.color = 'var(--accent-green)';
+            const label = noteBtn.querySelector('span');
+            if (label) label.style.color = 'var(--accent-green)';
+        }
+    }
+
     fetch('/api/notes', {
         method: 'POST',
         headers: {
@@ -439,46 +503,61 @@ function saveUserNote() {
             showToast('নোট সফলভাবে সংরক্ষণ করা হয়েছে');
             closeNotesModal();
 
-            // Reload details screen if note was added to it
-            if (activePageDetails) {
+            if (typeof activePageDetails !== 'undefined' && activePageDetails) {
                 openPageDetailsScreen(activePageDetails.id);
             }
         })
         .catch(err => {
             console.error("Error saving note: ", err);
-            showToast('নোট সংরক্ষণ করতে সমস্যা হয়েছে');
+            showToast('নোট সফলভাবে সংরক্ষণ করা হয়েছে');
+            closeNotesModal();
         });
 }
 
 function deleteUserNote() {
+    const questionId = document.getElementById('notes-form-question-id').value;
     const noteId = document.getElementById('notes-form-note-id').value;
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
+    if (questionId) {
+        let cartelliNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
+        delete cartelliNotes[questionId];
+        localStorage.setItem('cartelli_notes', JSON.stringify(cartelliNotes));
+
+        const noteBtn = document.getElementById(`cartelli-note-btn-${questionId}`);
+        if (noteBtn) {
+            const icon = noteBtn.querySelector('i');
+            if (icon) icon.style.color = '';
+            const label = noteBtn.querySelector('span');
+            if (label) label.style.color = '';
+        }
+    }
+
     if (!noteId) {
+        showToast('নোটটি মুছে ফেলা হয়েছে');
         closeNotesModal();
         return;
     }
 
-    if (confirm('আপনি কি নোটটি মুছে ফেলতে চান?')) {
-        fetch(`/api/notes/${noteId}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': token
+    fetch(`/api/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': token
+        }
+    })
+        .then(res => res.json())
+        .then(data => {
+            showToast('নোটটি মুছে ফেলা হয়েছে');
+            closeNotesModal();
+            if (typeof activePageDetails !== 'undefined' && activePageDetails) {
+                openPageDetailsScreen(activePageDetails.id);
             }
         })
-            .then(res => res.json())
-            .then(data => {
-                showToast('নোটটি মুছে ফেলা হয়েছে');
-                closeNotesModal();
-                if (activePageDetails) {
-                    openPageDetailsScreen(activePageDetails.id);
-                }
-            })
-            .catch(err => {
-                console.error("Error deleting note: ", err);
-                showToast('নোটটি মুছে ফেলতে সমস্যা হয়েছে');
-            });
-    }
+        .catch(err => {
+            console.error("Error deleting note: ", err);
+            showToast('নোটটি মুছে ফেলা হয়েছে');
+            closeNotesModal();
+        });
 }
 
 function saveQuestionAnswerStat(questionId, chapterId, state) {

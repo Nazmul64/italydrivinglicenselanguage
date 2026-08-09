@@ -209,30 +209,40 @@
         </nav>
 
         <!-- Notes Popup Modal -->
-        <div class="modal-overlay" id="notes-modal" style="display: none; align-items: center; justify-content: center; z-index: 1000;">
-            <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 340px; background-color: var(--bg-card); position: relative;">
-                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); text-align: center; margin-bottom: 12px;">Inserisci note</h3>
+        <div class="modal-overlay" id="notes-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100000; padding: 16px;">
+            <div class="modal-content" style="padding: 24px; border-radius: 24px; width: 100%; max-width: 360px; background-color: var(--bg-card, #ffffff); position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid var(--border-card);">
                 
+                <i class="fa-solid fa-xmark" onclick="closeNotesModal()" style="position: absolute; right: 18px; top: 18px; font-size: 18px; cursor: pointer; color: var(--text-secondary, #64748b);"></i>
+
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: rgba(76, 175, 80, 0.12); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px auto;">
+                        <i class="fa-regular fa-note-sticky" style="font-size: 22px; color: var(--accent-green);"></i>
+                    </div>
+                    <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); margin: 0;">নোট লিখুন</h3>
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-top: 2px;">Inserisci le tue note personali</div>
+                </div>
+
                 <input type="hidden" id="notes-form-page-id">
                 <input type="hidden" id="notes-form-question-id">
                 <input type="hidden" id="notes-form-note-id">
 
-                <textarea id="notes-textarea" rows="5" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-card); background-color: var(--bg-page); color: var(--text-primary); font-size: 13px; font-weight: 600; resize: none; outline: none; margin-bottom: 10px;" placeholder="Scrivi qui la tua nota..."></textarea>
-                
-                <div style="font-size: 11px; color: var(--text-secondary); text-align: center; margin-bottom: 16px;">
-                    Le tue note non verranno condivise con nessuno
+                <textarea id="notes-textarea" rows="4" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--border-card); background-color: var(--bg-page); color: var(--text-primary); font-size: 13px; font-weight: 600; resize: none; outline: none; margin-bottom: 12px; font-family: inherit; transition: border-color 0.2s;" placeholder="এখানে আপনার প্রয়োজনীয় নোটটি লিখুন..."></textarea>
+
+                <div style="font-size: 11px; color: var(--text-secondary); text-align: center; margin-bottom: 18px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="fa-solid fa-lock" style="font-size: 10px;"></i>
+                    <span>নোটগুলো আপনার জন্য সংরক্ষিত থাকবে</span>
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button class="action-btn" style="background-color: var(--accent-green); color: white; margin: 0; font-weight: 800; padding: 10px;" onclick="saveUserNote()">
-                        Salva
+                    <button class="action-btn" style="background-color: var(--accent-green); color: white; margin: 0; font-weight: 800; padding: 12px; border-radius: 14px; border: none; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);" onclick="saveUserNote()">
+                        <i class="fa-solid fa-check" style="margin-right: 6px;"></i> সংরক্ষণ করুন
                     </button>
                     <div style="display: flex; gap: 8px;">
-                        <button class="action-btn" id="notes-delete-btn" style="flex: 1; background-color: var(--accent-red); color: white; margin: 0; font-weight: bold; font-size: 12px; padding: 8px; display: none;" onclick="deleteUserNote()">
-                            Elimina
+                        <button class="action-btn" id="notes-delete-btn" style="flex: 1; background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); margin: 0; font-weight: 700; font-size: 12px; padding: 10px; border-radius: 12px; cursor: pointer; display: none;" onclick="deleteUserNote()">
+                            <i class="fa-solid fa-trash-can" style="margin-right: 4px;"></i> ডিলিট
                         </button>
-                        <button class="action-btn" style="flex: 1; background-color: var(--bg-page); color: var(--text-secondary); margin: 0; font-weight: bold; border: 1px solid var(--border-card); font-size: 12px; padding: 8px;" onclick="closeNotesModal()">
-                            Chiudi
+                        <button class="action-btn" style="flex: 1; background-color: var(--bg-page); color: var(--text-secondary); margin: 0; font-weight: 700; border: 1px solid var(--border-card); font-size: 12px; padding: 10px; border-radius: 12px; cursor: pointer;" onclick="closeNotesModal()">
+                            বন্ধ করুন
                         </button>
                     </div>
                 </div>

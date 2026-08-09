@@ -9,7 +9,7 @@
             @endif
             {{ $gSettings->app_name }}
         </span>
-        <i class="fa-solid fa-bars-staggered action-icon" style="color: white; font-size: 16px;"></i>
+        <i class="fa-solid fa-bars-staggered" style="color: var(--text-sidebar); font-size: 16px; cursor: pointer; transition: color 0.2s;" onclick="showToast('Sidebar View')"></i>
     </div>
 
     <div class="sidebar-menu">
@@ -162,6 +162,13 @@
         </script>
 
         <div class="menu-header">System</div>
+
+        <a href="/admin/server-mode" class="menu-item" id="menu-server-mode" style="text-decoration: none; display: block;">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-server" style="color: #3b82f6;"></i>
+                <span>Server Mode Configuration</span>
+            </span>
+        </a>
 
         <div class="menu-item" onclick="switchPanel('general-settings')" id="menu-general-settings">
             <span class="menu-link-group">

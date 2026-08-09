@@ -54,6 +54,14 @@ class MonitorPerformanceAndApi
                     'status_code' => $response->getStatusCode(),
                     'execution_time_ms' => round($executionTimeMs, 2),
                 ]);
+
+                // Periodically trim api_logs (1% chance) to prevent DB size inflation
+                if (rand(1, 100) === 1) {
+                    $maxId = ApiLog::max('id');
+                    if ($maxId && $maxId > 500) {
+                        ApiLog::where('id', '<=', $maxId - 500)->delete();
+                    }
+                }
             } catch (\Throwable $e) {
                 // Log failed middleware writing quietly
                 \Illuminate\Support\Facades\Log::warning('ApiLog writing failed: ' . $e->getMessage());

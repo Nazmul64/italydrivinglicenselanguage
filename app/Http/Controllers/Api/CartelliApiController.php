@@ -28,7 +28,7 @@ class CartelliApiController extends Controller
      */
     public function getChapters($categoryId = null)
     {
-        $query = CartelloChapter::query();
+        $query = CartelloChapter::where('status', true);
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
@@ -44,7 +44,7 @@ class CartelliApiController extends Controller
      */
     public function getPages($chapterId)
     {
-        $pages = CartelloPage::where('chapter_id', $chapterId)->orderBy('sort_order', 'asc')->get();
+        $pages = CartelloPage::where('chapter_id', $chapterId)->where('status', true)->orderBy('sort_order', 'asc')->get();
         return response()->json([
             'status' => 'success',
             'data' => $pages
@@ -56,7 +56,7 @@ class CartelliApiController extends Controller
      */
     public function getPageMcqs($pageId)
     {
-        $mcqs = CartelloMcq::where('page_id', $pageId)->where('status', true)->get();
+        $mcqs = CartelloMcq::where('page_id', $pageId)->where('status', true)->orderBy('sort_order', 'asc')->get();
         return response()->json([
             'status' => 'success',
             'data' => $mcqs

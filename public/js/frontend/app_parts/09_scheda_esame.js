@@ -328,7 +328,7 @@ function highlightDictionaryTerms(text, questionVocabulary) {
     // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
     resultText = resultText.replace(/<u>(.*?)<\/u>/gi, (match, innerWord) => {
         const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
-        return `<span class="dict-term-link" style="text-decoration: underline; color: var(--accent-green, #4CAF50); font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${cleanWord.toLowerCase()}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
+        return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${cleanWord.toLowerCase()}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
     });
 
     // 2. Highlight per-question vocabulary words

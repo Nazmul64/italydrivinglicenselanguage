@@ -1027,12 +1027,90 @@ function resetDefaultThemeColors() {
     }
 }
 
+function safeParseAdminJson(res) {
+    if (res.status === 419) {
+        if (typeof showToast === 'function') showToast('সেশন বা CSRF টোকেন মেয়াদোত্তীর্ণ হয়েছে। অনুগ্রহ করে পেজ রিফ্রেশ করুন।', 'error');
+        throw new Error('CSRF or Session expired');
+    }
+    if (res.status === 401) {
+        if (typeof showToast === 'function') showToast('লগইন মেয়াদের শেষ হয়েছে, পুনরায় লগইন করুন।', 'error');
+        setTimeout(() => { window.location.href = '/admin/login'; }, 1200);
+        throw new Error('Unauthenticated');
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        throw new Error('Response is not valid JSON');
+    }
+    return res.json();
+}
+
 function fetchGeneralSettings() {
     fetch('/admin/api/settings')
-        .then(response => response.json())
+        .then(safeParseAdminJson)
         .then(settings => {
-            const appNameInput = document.getElementById('settings-app-name');
-            if (appNameInput) appNameInput.value = settings.app_name || '';
+            if (!settings) return;
+            const fieldsMap = {
+                'settings-app-name': settings.app_name,
+                'settings-exam-time': settings.exam_time_minutes,
+                'settings-license-message': settings.license_message,
+                'settings-home-desktop-columns': settings.home_desktop_columns,
+                'settings-home-tablet-columns': settings.home_tablet_columns,
+                'settings-home-mobile-columns': settings.home_mobile_columns,
+                'settings-home-card-width': settings.home_card_width,
+                'settings-home-card-height': settings.home_card_height,
+                'settings-home-card-gap': settings.home_card_gap,
+                'settings-schede-desktop-columns': settings.schede_desktop_columns,
+                'settings-schede-mobile-columns': settings.schede_mobile_columns,
+                'settings-icon-size-desktop': settings.icon_size_desktop,
+                'settings-icon-size-mobile': settings.icon_size_mobile,
+                'settings-title-font-size-desktop': settings.title_font_size_desktop,
+                'settings-title-font-size-mobile': settings.title_font_size_mobile,
+                'settings-subtitle-font-size-desktop': settings.subtitle_font_size_desktop,
+                'settings-subtitle-font-size-mobile': settings.subtitle_font_size_mobile,
+                'settings-cartelli-chapter-title-font-desktop': settings.cartelli_chapter_title_font_desktop,
+                'settings-cartelli-chapter-title-font-mobile': settings.cartelli_chapter_title_font_mobile,
+                'settings-cartelli-chapter-image-size-desktop': settings.cartelli_chapter_image_size_desktop,
+                'settings-cartelli-chapter-image-size-mobile': settings.cartelli_chapter_image_size_mobile,
+                'settings-cartelli-chapter-image-width-desktop': settings.cartelli_chapter_image_width_desktop,
+                'settings-cartelli-chapter-image-width-mobile': settings.cartelli_chapter_image_width_mobile,
+                'settings-cartelli-page-title-font-desktop': settings.cartelli_page_title_font_desktop,
+                'settings-cartelli-page-title-font-mobile': settings.cartelli_page_title_font_mobile,
+                'settings-cartelli-page-image-size-desktop': settings.cartelli_page_image_size_desktop,
+                'settings-cartelli-page-image-size-mobile': settings.cartelli_page_image_size_mobile,
+                'settings-cartelli-page-image-width-desktop': settings.cartelli_page_image_width_desktop,
+                'settings-cartelli-page-image-width-mobile': settings.cartelli_page_image_width_mobile,
+                'settings-argomenti-chapter-title-font-desktop': settings.argomenti_chapter_title_font_desktop,
+                'settings-argomenti-chapter-title-font-mobile': settings.argomenti_chapter_title_font_mobile,
+                'settings-argomenti-chapter-image-size-desktop': settings.argomenti_chapter_image_size_desktop,
+                'settings-argomenti-chapter-image-size-mobile': settings.argomenti_chapter_image_size_mobile,
+                'settings-argomenti-chapter-image-width-desktop': settings.argomenti_chapter_image_width_desktop,
+                'settings-argomenti-chapter-image-width-mobile': settings.argomenti_chapter_image_width_mobile,
+                'settings-argomenti-page-title-font-desktop': settings.argomenti_page_title_font_desktop,
+                'settings-argomenti-page-title-font-mobile': settings.argomenti_page_title_font_mobile,
+                'settings-argomenti-page-image-size-desktop': settings.argomenti_page_image_size_desktop,
+                'settings-argomenti-page-image-size-mobile': settings.argomenti_page_image_size_mobile,
+                'settings-argomenti-page-image-width-desktop': settings.argomenti_page_image_width_desktop,
+                'settings-argomenti-page-image-width-mobile': settings.argomenti_page_image_width_mobile,
+                'settings-argomenti-question-text-font-desktop': settings.argomenti_question_text_font_desktop,
+                'settings-argomenti-question-text-font-mobile': settings.argomenti_question_text_font_mobile,
+                'settings-argomenti-question-image-size-desktop': settings.argomenti_question_image_size_desktop,
+                'settings-argomenti-question-image-size-mobile': settings.argomenti_question_image_size_mobile,
+                'settings-qr-target-mode': settings.qr_target_mode || 'live',
+                'settings-qr-live-url': settings.qr_live_url || 'http://mbanglapatenteb.com',
+                'settings-qr-local-url': settings.qr_local_url || 'http://127.0.0.1:8000',
+            };
+
+            const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+            if (qrCheckbox) {
+                qrCheckbox.checked = settings.qr_protection_enabled == 1 || settings.qr_protection_enabled === true || settings.qr_protection_enabled === '1';
+            }
+
+            for (const [elemId, val] of Object.entries(fieldsMap)) {
+                const elem = document.getElementById(elemId);
+                if (elem && val !== undefined && val !== null) {
+                    elem.value = val;
+                }
+            }
 
             if (document.getElementById('settings-primary-color')) {
                 const pColor = settings.primary_color || '#F4F7FA';
@@ -1101,6 +1179,11 @@ function saveGeneralSettingsForm(e) {
     const form = document.getElementById('general-settings-form');
     const formData = new FormData(form);
 
+    const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+    if (qrCheckbox) {
+        formData.set('qr_protection_enabled', qrCheckbox.checked ? '1' : '0');
+    }
+
     fetch('/admin/api/settings/update', {
         method: 'POST',
         headers: {
@@ -1108,7 +1191,7 @@ function saveGeneralSettingsForm(e) {
         },
         body: formData
     })
-        .then(response => response.json())
+        .then(safeParseAdminJson)
         .then(res => {
             if (btn) {
                 btn.disabled = false;
@@ -1205,3 +1288,185 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// =========================================================================
+// Server Mode Configuration JS Functions
+// =========================================================================
+
+function fetchServerModeSettings() {
+    fetch('/admin/api/settings', {
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        }
+    })
+        .then(safeParseAdminJson)
+        .then(data => {
+            const targetMode = data.qr_target_mode || data.server_mode || 'local';
+            const liveUrl = data.qr_live_url || data.live_server_url || 'http://mbanglapatenteb.com';
+            const localUrl = data.qr_local_url || data.local_server_url || 'http://10.0.2.2:8000';
+            const activeUrl = data.active_base_url || (targetMode === 'live' ? liveUrl : localUrl);
+
+            // Inputs
+            const inputLive = document.getElementById('server-config-live-url');
+            const inputLocal = document.getElementById('server-config-local-url');
+            if (inputLive) inputLive.value = liveUrl;
+            if (inputLocal) inputLocal.value = localUrl;
+
+            // Update Radio selection and active mode visuals
+            selectServerModeRadio(targetMode, activeUrl);
+        })
+        .catch(err => {
+            console.error('Error fetching server mode settings:', err);
+        });
+}
+
+function selectServerModeRadio(mode, activeUrl) {
+    const radioLocal = document.getElementById('server-mode-radio-local');
+    const radioLive = document.getElementById('server-mode-radio-live');
+    const cardLocal = document.getElementById('card-option-local');
+    const cardLive = document.getElementById('card-option-live');
+
+    if (mode === 'live') {
+        if (radioLive) radioLive.checked = true;
+        if (radioLocal) radioLocal.checked = false;
+        if (cardLive) {
+            cardLive.style.borderColor = '#22c55e';
+            cardLive.style.background = 'rgba(34, 197, 94, 0.05)';
+        }
+        if (cardLocal) {
+            cardLocal.style.borderColor = 'var(--border-color, #cbd5e1)';
+            cardLocal.style.background = 'var(--bg-card, #ffffff)';
+        }
+    } else {
+        if (radioLocal) radioLocal.checked = true;
+        if (radioLive) radioLive.checked = false;
+        if (cardLocal) {
+            cardLocal.style.borderColor = '#3b82f6';
+            cardLocal.style.background = 'rgba(59, 130, 246, 0.05)';
+        }
+        if (cardLive) {
+            cardLive.style.borderColor = 'var(--border-color, #cbd5e1)';
+            cardLive.style.background = 'var(--bg-card, #ffffff)';
+        }
+    }
+
+    updateActiveServerModeBanner(mode, activeUrl);
+}
+
+function updateActiveServerModeBanner(mode, activeUrl) {
+    const banner = document.getElementById('active-server-mode-banner');
+    const modeText = document.getElementById('active-server-mode-text');
+    const icon = document.getElementById('active-server-icon');
+    const displayUrl = document.getElementById('active-base-url-display');
+
+    const liveUrlVal = document.getElementById('server-config-live-url')?.value || 'http://mbanglapatenteb.com';
+    const localUrlVal = document.getElementById('server-config-local-url')?.value || 'http://10.0.2.2:8000';
+    const currentActiveUrl = activeUrl || (mode === 'live' ? liveUrlVal : localUrlVal);
+
+    if (displayUrl) {
+        displayUrl.innerText = currentActiveUrl;
+    }
+
+    if (mode === 'live') {
+        if (banner) {
+            banner.style.background = '#dcfce7';
+            banner.style.borderColor = '#22c55e';
+        }
+        if (modeText) {
+            modeText.innerText = 'LIVE PRODUCTION SERVER MODE';
+            modeText.style.color = '#15803d';
+        }
+        if (icon) {
+            icon.className = 'fa-solid fa-globe';
+            icon.style.color = '#15803d';
+        }
+    } else {
+        if (banner) {
+            banner.style.background = '#fef08a';
+            banner.style.borderColor = '#eab308';
+        }
+        if (modeText) {
+            modeText.innerText = 'LOCAL SERVER MODE';
+            modeText.style.color = '#854d0e';
+        }
+        if (icon) {
+            icon.className = 'fa-solid fa-server';
+            icon.style.color = '#854d0e';
+        }
+    }
+}
+
+function quickSwitchServerMode(targetMode) {
+    selectServerModeRadio(targetMode);
+
+    const form = document.getElementById('server-mode-config-form');
+    if (!form) return;
+    const formData = new FormData(form);
+    formData.set('qr_target_mode', targetMode);
+    formData.set('app_name', 'mbanglapatenteb');
+
+    fetch('/admin/api/settings/update', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: formData
+    })
+        .then(safeParseAdminJson)
+        .then(data => {
+            if (data.success) {
+                showToast('\u2705 \u09b8\u09ab\u09b2! ' + (targetMode === 'live' ? '\ud83c\udf10 LIVE PRODUCTION SERVER' : '\ud83d\udda5\ufe0f LOCAL SERVER') + ' \u09ae\u09cb\u09a1\u09c7 \u09b8\u09c1\u0987\u099a \u09b9\u09af\u09bc\u09c7\u099b\u09c7!');
+                fetchServerModeSettings();
+            } else {
+                showToast('\u274c ' + (data.message || '\u09b8\u09be\u09b0\u09cd\u09ad\u09be\u09b0 \u09ae\u09cb\u09a1 \u09aa\u09b0\u09bf\u09ac\u09b0\u09cd\u09a4\u09a8 \u09b8\u09ae\u09b8\u09cd\u09af\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7'));
+            }
+        })
+        .catch(err => {
+            console.error('Error switching server mode:', err);
+        });
+}
+
+function saveServerModeSettingsForm(e) {
+    e.preventDefault();
+    const btn = document.getElementById('save-server-config-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    }
+
+    const form = document.getElementById('server-mode-config-form');
+    const formData = new FormData(form);
+    formData.set('app_name', 'mbanglapatenteb');
+
+    const selectedMode = document.querySelector('input[name="qr_target_mode"]:checked')?.value || 'local';
+    formData.set('qr_target_mode', selectedMode);
+
+    fetch('/admin/api/settings/update', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: formData
+    })
+        .then(safeParseAdminJson)
+        .then(data => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Save Server Settings';
+            }
+            if (data.success) {
+                showToast('✅ সার্ভার সেটিংস সফলভাবে সংরক্ষিত হয়েছে! মোবাইল অ্যাপ রিস্টার্ট করলেই নতুন সেটিং কার্যকর হবে।');
+                fetchServerModeSettings();
+            } else {
+                showToast('❌ ' + (data.message || 'সেটিংস সংরক্ষণ করা যায়নি'));
+            }
+        })
+        .catch(err => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Save Server Settings';
+            }
+            console.error('Error saving server settings:', err);
+        });
+}

@@ -15,10 +15,16 @@ class SavedMcq extends Model
         'session_id',
         'user_id',
         'question_id',
+        'type',
     ];
 
     public function question()
     {
         return $this->belongsTo(Question::class, 'question_id');
+    }
+
+    public function cartelloQuestion()
+    {
+        return $this->belongsTo(CartelloMcq::class, 'question_id');
     }
 }

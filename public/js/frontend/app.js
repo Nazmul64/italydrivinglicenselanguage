@@ -1,7 +1,7 @@
 // --- Global Fetch Interceptor for Client License Headers ---
-(function() {
+(function () {
     const originalFetch = window.fetch;
-    window.fetch = function(resource, init = {}) {
+    window.fetch = function (resource, init = {}) {
         const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : null);
         const sessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : null);
 
@@ -28,6 +28,15 @@
 const speedOptionsList = [0.65, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 let testAudioSpeed = 1.0;
 let isSpeechSpeaking = false;
+
+window.openTeacherHelpModal = function () {
+    if (typeof toggleGuestChat === 'function') {
+        toggleGuestChat(true);
+    } else {
+        const widget = document.getElementById('guest-chat-widget');
+        if (widget) widget.style.display = 'flex';
+    }
+};
 let practiceMode = 'exam';
 let activeSavedMcqs = [];
 let isSchedeSelectMode = false;
@@ -35,7 +44,7 @@ let isSchedeSelectMode = false;
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
-let currentClientActive = false;
+let currentClientActive = localStorage.getItem('app_client_active') !== 'false';
 let currentClientPhone = null;
 let currentClientSessionId = null;
 
@@ -124,6 +133,15 @@ function openImageZoomModal(imgSrc) {
     modal.style.display = 'flex';
 }
 window.openImageZoomModal = openImageZoomModal;
+
+function toggleQCorrectAnswerInfo(qId) {
+    const badge = document.getElementById(`q-correct-badge-${qId}`);
+    if (badge) {
+        const isHidden = getComputedStyle(badge).display === 'none' || badge.style.display === 'none' || !badge.style.display;
+        badge.style.display = isHidden ? 'flex' : 'none';
+    }
+}
+window.toggleQCorrectAnswerInfo = toggleQCorrectAnswerInfo;
 
 
 // --- Helper: Retrieve CSRF Token from meta tag ---
@@ -778,14 +796,14 @@ function renderSheetsList() {
 
         card.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <span class="schede-page-title" style="font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
                     ${displaySheetTitle}
                 </span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
             </div>
 
-            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--text-secondary);">
+            <div class="schede-card-footer" style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-secondary);">
                 <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
                 <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
                 <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
@@ -1012,6 +1030,10 @@ function openScreen(screenId, headerTitle) {
         loadUserProfileData();
     } else if (screenId === 'manuale') {
         loadManualeTopics();
+    } else if (screenId === 'test-results-detail') {
+        if (typeof loadTestResultsDetailScreen === 'function') {
+            loadTestResultsDetailScreen();
+        }
     }
 }
 
@@ -1601,6 +1623,8 @@ function toggleGuestChat(show) {
         const savedPhone = localStorage.getItem('app_client_phone');
         if (savedPhone || currentClientVerified) {
             setChatWidgetView('normal');
+        } else {
+            setChatWidgetView('verify');
         }
         checkClientActivation();
         fetchGuestChatMessages();
@@ -1755,6 +1779,14 @@ function triggerChatAttachment() {
 function uploadChatAttachment(input) {
     if (!input.files || !input.files[0]) return;
 
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    if (!savedPhone && !currentClientVerified) {
+        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        setChatWidgetView('verify');
+        input.value = '';
+        return;
+    }
+
     const file = input.files[0];
     const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
     const formData = new FormData();
@@ -1787,6 +1819,13 @@ function uploadChatAttachment(input) {
 }
 
 function sendGuestChatMessage() {
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    if (!savedPhone && !currentClientVerified) {
+        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        setChatWidgetView('verify');
+        return;
+    }
+
     const input = document.getElementById('guest-chat-input');
     if (!input) return;
     const messageText = input.value.trim();
@@ -2579,8 +2618,99 @@ function openTestDetailsView() {
     let totalDuration = getExamDurationSeconds();
     let timeSpent = totalDuration - testTimerSeconds;
     if (timeSpent < 0) timeSpent = 0;
-    let mins = Math.floor(timeSpent / 60);
-    let secs = timeSpent % 60;
+
+    let correctAnswers = 0;
+    let wrongAnswers = 0;
+    let unansweredAnswers = 0;
+    const totalQuestions = testQuestions.length;
+
+    const stats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
+    const logBatchPayload = [];
+
+    for (let i = 0; i < totalQuestions; i++) {
+        const q = testQuestions[i];
+        const userAnswer = testAnswers[i];
+        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+
+        if (userAnswer === null) {
+            unansweredAnswers++;
+        } else if (userAnswer === databaseIsVero) {
+            correctAnswers++;
+            if (q && q.id) {
+                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'correct' };
+                stats[q.id].correct = (stats[q.id].correct || 0) + 1;
+                stats[q.id].state = 'correct';
+                logBatchPayload.push({ question_id: q.id, is_correct: true });
+            }
+        } else {
+            wrongAnswers++;
+            if (q && q.id) {
+                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'wrong' };
+                stats[q.id].wrong = (stats[q.id].wrong || 0) + 1;
+                stats[q.id].state = 'wrong';
+                logBatchPayload.push({ question_id: q.id, is_correct: false });
+            }
+        }
+    }
+
+    if (typeof saveUserQuestionStats === 'function') {
+        saveUserQuestionStats(stats);
+    }
+
+    if (logBatchPayload.length > 0) {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        fetch('/api/user-mcq-results/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+            body: JSON.stringify({ results: logBatchPayload })
+        }).catch(err => console.error("Error logging exam results: ", err));
+    }
+
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('saved_test_detail_questions', JSON.stringify(testQuestions));
+            sessionStorage.setItem('saved_test_detail_answers', JSON.stringify(testAnswers));
+            sessionStorage.setItem('saved_test_detail_time_spent', timeSpent.toString());
+        }
+    } catch(e) {
+        console.error("Error saving test detail data:", e);
+    }
+
+    openScreen('test-results-detail', 'Test Details');
+}
+
+function loadTestResultsDetailScreen() {
+    if ((!testQuestions || testQuestions.length === 0) && typeof sessionStorage !== 'undefined') {
+        try {
+            const storedQ = sessionStorage.getItem('saved_test_detail_questions');
+            const storedA = sessionStorage.getItem('saved_test_detail_answers');
+            if (storedQ) {
+                testQuestions = JSON.parse(storedQ);
+                testAnswers = storedA ? JSON.parse(storedA) : [];
+            }
+        } catch (e) {
+            console.error("Error restoring test details from sessionStorage:", e);
+        }
+    }
+
+    if (!testQuestions || testQuestions.length === 0) {
+        const container = document.getElementById('detail-cards-list-container');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); font-weight: 700;">Nessun dettaglio del test disponibile.</div>';
+        }
+        return;
+    }
+
+    let savedTimeSpent = 0;
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            const t = sessionStorage.getItem('saved_test_detail_time_spent');
+            if (t) savedTimeSpent = parseInt(t) || 0;
+        }
+    } catch(e) {}
+
+    let mins = Math.floor(savedTimeSpent / 60);
+    let secs = savedTimeSpent % 60;
     const outcomeTime = document.getElementById('detail-outcome-time');
     if (outcomeTime) outcomeTime.innerText = `Tempo: ${mins} minuti ${secs} secondi`;
 
@@ -2590,10 +2720,13 @@ function openTestDetailsView() {
     const totalQuestions = testQuestions.length;
 
     for (let i = 0; i < totalQuestions; i++) {
-        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1' || testQuestions[i].correct_answer === 'vero' || testQuestions[i].correct_answer === '1' || testQuestions[i].correct_answer === 1;
-        if (testAnswers[i] === null) {
+        const q = testQuestions[i];
+        const userAnswer = testAnswers[i];
+        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+
+        if (userAnswer === null) {
             unansweredAnswers++;
-        } else if (testAnswers[i] === databaseIsVero) {
+        } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
         } else {
             wrongAnswers++;
@@ -2697,8 +2830,7 @@ function openTestDetailsView() {
         }
     }
 
-    openScreen('test-results-detail', 'Test Details');
-    filterDetailResults('all');
+    filterDetailResults(typeof currentDetailFilter !== 'undefined' ? currentDetailFilter : 'all');
 }
 
 function filterDetailResults(filterType) {
@@ -2744,84 +2876,69 @@ function renderDetailResultsList() {
         const card = document.createElement('div');
         card.className = `detail-q-card ${userAnswer === null ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
 
-        let badgeHtml = '';
-        let optionVeroStyle = `padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: space-between; flex: 1; font-weight: bold; background-color: var(--bg-page); color: var(--text-primary);`;
-        let optionFalsoStyle = `padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: space-between; flex: 1; font-weight: bold; background-color: var(--bg-page); color: var(--text-primary);`;
-
-        let veroIcon = '';
-        let falsoIcon = '';
-
-        // If Vero is correct
-        if (databaseIsVero) {
-            optionVeroStyle += ` border-color: #4CAF50 !important; color: #4CAF50;`;
-            veroIcon = `<i class="fa-solid fa-circle-check" style="color: #4CAF50;"></i>`;
-
-            if (userAnswer === true) {
-                optionVeroStyle += ` background-color: rgba(76, 175, 80, 0.08);`;
-            } else if (userAnswer === false) {
-                optionFalsoStyle += ` border-color: #ef4444 !important; color: #ef4444; background-color: rgba(239, 68, 68, 0.08);`;
-                falsoIcon = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i>`;
-            }
-        } else {
-            // If Falso is correct
-            optionFalsoStyle += ` border-color: #4CAF50 !important; color: #4CAF50;`;
-            falsoIcon = `<i class="fa-solid fa-circle-check" style="color: #4CAF50;"></i>`;
-
-            if (userAnswer === false) {
-                optionFalsoStyle += ` background-color: rgba(76, 175, 80, 0.08);`;
-            } else if (userAnswer === true) {
-                optionVeroStyle += ` border-color: #ef4444 !important; color: #ef4444; background-color: rgba(239, 68, 68, 0.08);`;
-                veroIcon = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i>`;
-            }
-        }
-
-        if (userAnswer === null) {
-            badgeHtml = `<span style="background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(245, 158, 11, 0.2);"><i class="fa-solid fa-circle-question"></i> No Response</span>`;
-        } else if (isCorrect) {
-            badgeHtml = `<span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-check"></i> Correct ✔</span>`;
-        } else {
-            badgeHtml = `<span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Incorrect ✘</span>`;
-        }
+        const qThumbImage = q.image || (typeof activePageDetails !== 'undefined' && activePageDetails && (activePageDetails.image || activePageDetails.img)) || (typeof cartelliActivePageMainImage !== 'undefined' ? cartelliActivePageMainImage : null);
 
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${i + 1}</div>
-                ${badgeHtml}
-            </div>
-            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-            <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none;">${q.bangla}</div>
+            <div style="font-size: var(--mcq-num-font-mob, 13px); font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">${i + 1}</div>
 
-            <div style="display: flex; gap: 12px; margin-top: 14px;">
-                <div style="${optionVeroStyle}">
-                    <span>VERO (True)</span>
-                    ${veroIcon}
+            <div class="detail-q-header-row">
+                <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
+                    ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="detail-q-text-it" style="font-weight: 700; color: var(--text-primary); line-height: 1.4;">${highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary)}</div>
+                        <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
+                    </div>
                 </div>
-                <div style="${optionFalsoStyle}">
-                    <span>FALSO (False)</span>
-                    ${falsoIcon}
+
+                <div class="detail-q-action-row">
+                    <button class="test-speaker-btn" onclick="readDetailQuestionSpeechTTS(${i})" title="Italiano TTS">
+                        <i class="fa-solid fa-volume-high" style="font-size: 12px; color: #fff;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #fff;">italiano</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="background: #ecfdf5; border: 1px solid #10b981; color: #10b981;" title="Bookmark">
+                        <i class="fa-regular fa-bookmark" style="font-size: 12px;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">শীট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="font-size: 12px;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #3b82f6;">নোট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleGuestChat(true)" style="background: #fff8f0; border: 1.5px solid #d97706;" title="Live Chat Support">
+                        <i class="fa-solid fa-user-tie" style="font-size: 12px; color: #d97706;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #d97706;">লাইভ চ্যাট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="background: #f0fdf4; border: 1px solid #22c55e; color: #22c55e;" title="Translate">
+                        <div style="border: 1.5px solid #22c55e; border-radius: 3px; padding: 0 2px; font-size: 7.5px; font-weight: 900; line-height: 1.1;">A Z</div>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #22c55e;">অনুবাদ</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="detail-q-actions-row" style="display: flex; gap: 4px; margin-top: 14px; align-items: center; width: 100%; box-sizing: border-box;">
-                <button class="test-speaker-btn" onclick="readDetailQuestionSpeechTTS(${i})" style="width: 32px; height: 32px; min-width: 32px; flex-shrink: 0; border-width: 2px;" title="Listen Pronunciation (TTS)">
-                    <i class="fa-solid fa-microphone" style="font-size:12px;"></i>
+            <div style="background: #e2e8f0; border-radius: 20px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; box-sizing: border-box; margin-bottom: 12px;">
+                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="playDetailQuestionAudioOrSpeech(${i})" style="height: 32px; padding: 0 12px; border-radius: 16px; background: #1e293b; border: none; color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);" title="বাংলা অডিও শুনুন">
+                    <i class="fa-solid fa-play" style="font-size: 11px;"></i>
+                    <span style="font-size: 11px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>
                 </button>
-                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="playDetailQuestionAudioOrSpeech(${i})" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Play Audio Voiceover">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; margin: 0 2px;" readonly>
-                <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
-                    <div style="border: 1.5px solid var(--accent-green); border-radius: 3px; padding: 1px 2px; font-size: 7px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
-                </button>
-                <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark"><i class="fa-regular fa-bookmark"></i></button>
-                <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 30px; height: 30px; min-width: 30px; flex-shrink: 0; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note"><i class="fa-regular fa-note-sticky"></i></button>
+
+                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1; min-width: 0; width: 100%; accent-color: #22c55e; margin: 0 2px;" readonly>
+
+                <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-left: auto;">
+                    <button onclick="toggleDetailSpeedDropdown(event, ${i})" id="detail-speed-btn-${i}" style="height: 28px; padding: 0 8px; border-radius: 14px; background: #ffffff; border: 1px solid #cbd5e1; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0; font-size: 11px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" title="অডিও স্পিড">
+                        <i class="fa-solid fa-gauge-high" style="font-size: 11px; color: #4CAF50;"></i>
+                        <span id="detail-speed-lbl-${i}">${getDetailQuestionSpeed(i)}x</span>
+                    </button>
+                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none; position: absolute; bottom: 34px; right: 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px; z-index: 100; min-width: 90px; max-height: 220px; overflow-y: auto;">
+                    </div>
+                </div>
             </div>
 
-            <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
-                <div style="color: var(--text-primary);">Risposta Corretta: <span style="color:#4CAF50;">${databaseIsVero ? 'V' : 'F'}</span></div>
-                <div style="color: ${userAnswer === null ? '#f59e0b' : (isCorrect ? '#4CAF50' : '#ef4444')};">
-                    (TU) Hai risposto: ${userAnswer === null ? 'Non hai risposto (No Response)' : (userAnswer ? 'V' : 'F')}
-                </div>
+            <div style="text-align: center; font-size: 14px; font-weight: 800; display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-primary);">Risposta Corretta: <span style="color: #1e293b;">${databaseIsVero ? 'V' : 'F'}</span></div>
+                <div style="color: var(--text-primary);">${userAnswer === null ? '<span style="color: #f59e0b;">(TU) Non hai risposto</span>' : `(TU) Hai risposto: <span style="color: ${isCorrect ? '#4CAF50' : '#ef4444'};">${userAnswer ? 'V' : 'F'}</span>`}</div>
             </div>
         `;
         container.appendChild(card);
@@ -2831,6 +2948,68 @@ function renderDetailResultsList() {
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">Nessuna domanda in questo filtro</div>`;
     }
 }
+
+function toggleDetailSpeedDropdown(event, index) {
+    if (event) event.stopPropagation();
+    
+    document.querySelectorAll('.detail-speed-popover-menu').forEach(el => {
+        if (el.id !== `detail-speed-popover-${index}`) {
+            el.style.display = 'none';
+        }
+    });
+
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (!popover) return;
+
+    const isHidden = popover.style.display === 'none' || popover.style.display === '';
+    if (isHidden) {
+        renderSpeedPopoverItems(index);
+        popover.style.display = 'block';
+    } else {
+        popover.style.display = 'none';
+    }
+}
+
+function renderSpeedPopoverItems(index) {
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (!popover) return;
+
+    const currentSpeed = getDetailQuestionSpeed(index);
+    const options = [0.5, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+    popover.innerHTML = options.map(rate => {
+        const isSelected = rate === currentSpeed;
+        return `
+            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : '#1e293b'}; background: ${isSelected ? '#f0fdf4' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isSelected ? '#f0fdf4' : 'transparent'}'">
+                <span style="width: 12px; font-weight: 900; color: #16a34a;">${isSelected ? '✓' : ''}</span>
+                <span>${rate}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectDetailQuestionSpeed(event, index, rate) {
+    if (event) event.stopPropagation();
+    detailQuestionSpeeds[index] = rate;
+
+    const lbl = document.getElementById(`detail-speed-lbl-${index}`);
+    if (lbl) lbl.innerText = `${rate}x`;
+
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (popover) popover.style.display = 'none';
+
+    if (activeDetailAudioIndex === index && activeDetailAudioPlayer) {
+        activeDetailAudioPlayer.playbackRate = rate;
+    }
+
+    if (typeof showToast === 'function') {
+        showToast(`স্পিড: ${rate}x`);
+    }
+}
+
+window.addEventListener('click', () => {
+    document.querySelectorAll('.detail-speed-popover-menu').forEach(el => el.style.display = 'none');
+});
 
 function toggleDetailTranslation(index) {
     if (!testQuestions || !testQuestions[index]) return;
@@ -2849,7 +3028,7 @@ function readDetailQuestionSpeechTTS(index) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = 'it-IT';
-        utterance.rate = testAudioSpeed;
+        utterance.rate = getDetailQuestionSpeed(index);
         window.speechSynthesis.speak(utterance);
     } else {
         showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
@@ -2859,6 +3038,12 @@ function readDetailQuestionSpeechTTS(index) {
 let activeDetailAudioPlayer = null;
 let activeDetailAudioIndex = null;
 let detailAudioInterval = null;
+
+function updateAudioSliderProgress(slider, val) {
+    if (!slider) return;
+    slider.value = val;
+    slider.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${val}%, #cbd5e1 ${val}%, #cbd5e1 100%)`;
+}
 
 function stopDetailAudioPlayer() {
     if (activeDetailAudioPlayer) {
@@ -2874,8 +3059,8 @@ function stopDetailAudioPlayer() {
     if (activeDetailAudioIndex !== null) {
         const oldBtn = document.getElementById(`detail-play-btn-${activeDetailAudioIndex}`);
         const oldSlider = document.getElementById(`detail-audio-slider-${activeDetailAudioIndex}`);
-        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        if (oldSlider) oldSlider.value = 0;
+        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
+        if (oldSlider) updateAudioSliderProgress(oldSlider, 0);
     }
     activeDetailAudioIndex = null;
 }
@@ -2902,8 +3087,9 @@ function playDetailQuestionAudioOrSpeech(index) {
             activeDetailAudioPlayer = new Audio();
         }
         activeDetailAudioPlayer.src = audioUrl;
+        activeDetailAudioPlayer.playbackRate = getDetailQuestionSpeed(index);
 
-        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="font-size: 11px; color: #ef4444;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
 
         activeDetailAudioPlayer.play().then(() => {
             detailAudioInterval = setInterval(() => {
@@ -2912,7 +3098,8 @@ function playDetailQuestionAudioOrSpeech(index) {
                     return;
                 }
                 if (slider && activeDetailAudioPlayer.duration) {
-                    slider.value = (activeDetailAudioPlayer.currentTime / activeDetailAudioPlayer.duration) * 100;
+                    let prg = (activeDetailAudioPlayer.currentTime / activeDetailAudioPlayer.duration) * 100;
+                    updateAudioSliderProgress(slider, prg);
                 }
             }, 100);
         }).catch(err => {
@@ -2937,39 +3124,40 @@ function readDetailQuestionSpeech(index) {
             playingDetailSpeechIndex = null;
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
             const pBtn = document.getElementById(`detail-play-btn-${index}`);
-            if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             const slider = document.getElementById(`detail-audio-slider-${index}`);
-            if (slider) slider.value = 0;
+            if (slider) updateAudioSliderProgress(slider, 0);
             return;
         }
 
         if (playingDetailSpeechIndex !== null) {
             const oldBtn = document.getElementById(`detail-play-btn-${playingDetailSpeechIndex}`);
             const oldSlider = document.getElementById(`detail-audio-slider-${playingDetailSpeechIndex}`);
-            if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            if (oldSlider) oldSlider.value = 0;
+            if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
+            if (oldSlider) updateAudioSliderProgress(oldSlider, 0);
         }
 
         playingDetailSpeechIndex = index;
         if (detailSpeechInterval) clearInterval(detailSpeechInterval);
 
         const q = testQuestions[index];
+        const qSpeed = getDetailQuestionSpeed(index);
         const utterance = new SpeechSynthesisUtterance(q.italian);
         utterance.lang = 'it-IT';
-        utterance.rate = testAudioSpeed;
+        utterance.rate = qSpeed;
 
         const pBtn = document.getElementById(`detail-play-btn-${index}`);
-        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="font-size: 11px; color: #ef4444;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
 
         let slider = document.getElementById(`detail-audio-slider-${index}`);
-        if (slider) slider.value = 0;
+        if (slider) updateAudioSliderProgress(slider, 0);
         let stepCount = 0;
-        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
+        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / qSpeed));
 
         detailSpeechInterval = setInterval(() => {
             stepCount++;
             let prg = Math.min(100, Math.floor((stepCount / durationSteps) * 100));
-            if (slider) slider.value = prg;
+            if (slider) updateAudioSliderProgress(slider, prg);
             if (prg >= 100) {
                 clearInterval(detailSpeechInterval);
             }
@@ -2977,17 +3165,17 @@ function readDetailQuestionSpeech(index) {
 
         utterance.onend = () => {
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
-            if (slider) slider.value = 100;
+            if (slider) updateAudioSliderProgress(slider, 100);
             const btn = document.getElementById(`detail-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             playingDetailSpeechIndex = null;
         };
 
         utterance.onerror = () => {
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
-            if (slider) slider.value = 0;
+            if (slider) updateAudioSliderProgress(slider, 0);
             const btn = document.getElementById(`detail-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             playingDetailSpeechIndex = null;
         };
 
@@ -3215,49 +3403,71 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '';
 
+        if (q.image || q.img) {
+            const topImgCard = document.createElement('div');
+            topImgCard.className = 'detail-q-top-image-card';
+            topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
+            topImgCard.innerHTML = `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            container.appendChild(topImgCard);
+        }
+
         card.innerHTML = `
-            <div class="detail-q-header-row">
-                <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">Domanda #${index + 1}</div>
-                ${topHeaderImageHtml}
+            <div class="detail-q-header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+                <div class="detail-q-num" style="margin-bottom: 0; flex-shrink: 0;">${index + 1}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; justify-content: flex-end; margin-left: auto;">
+                    <button class="test-ctrl-btn" onclick="toggleArgomentiQuestionAnswer(${q.id})" id="page-eye-btn-${q.id}" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Show Answer">
+                        <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" style="font-size: 13px; color: var(--text-secondary);"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">দেখুন</span>
+                    </button>
+                    <span id="page-ans-text-${q.id}" style="display: none; font-size: 14px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'}; flex-shrink: 0;">${databaseIsVero ? 'VERO ✓' : 'FALSO ✗'}</span>
+                </div>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
-                ${leftThumbHtml}
+            <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
+                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
-                <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: 36px; height: 36px; min-width:36px; flex-shrink: 0;" title="Listen TTS Pronunciation">
-                    <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
-                </button>
-                <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="playQuestionAudioOrSpeechOnPage(${index})" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; flex-shrink: 0;" title="Play Audio Voiceover">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-                <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
+            <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
+                    <button class="test-ctrl-btn" id="page-play-btn-${index}" onclick="playQuestionAudioOrSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Play Audio Voiceover">
+                        <i class="fa-solid fa-play" style="font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
+                    </button>
+                    <input type="range" class="test-slider" id="page-audio-slider-${index}" min="0" max="100" value="0" style="flex: 1;" readonly>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+                    <button class="test-speaker-btn" onclick="readQuestionSpeechOnPage(${index})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Listen TTS Pronunciation">
+                        <i class="fa-solid fa-microphone" style="font-size: 13px; color: var(--accent-green);"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">Italiano</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Speech Speed">
+                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">স্পিড</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
+                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Bookmark">
+                        <i class="${saveIconClass}" style="${saveIconColor} font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
+                    </button>
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''} font-size: 13px;"></i>
+                        <span style="font-size: 9px; font-weight: 800; color: ${userNote ? 'var(--accent-green)' : 'var(--text-secondary)'}; white-space: nowrap;">নোট</span>
+                    </button>
+                </div>
             </div>
 
-            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                    <button class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Speech Speed">
-                        <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="togglePageTranslation(${q.id})" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
-                        <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
-                        <i class="${saveIconClass}" style="${saveIconColor}"></i>
-                    </button>
-                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 32px; height: 32px; min-width:32px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="${userNote ? 'color: var(--accent-green);' : ''}"></i>
-                    </button>
-                    <i class="fa-regular fa-eye" id="page-eye-icon-${q.id}" onclick="toggleArgomentiQuestionAnswer(${q.id})" style="cursor: pointer; font-size: 16px; color: var(--text-secondary); margin-left: 2px;" title="Show Answer"></i>
-                    <span id="page-ans-text-${q.id}" style="display: none; font-size: 13px; font-weight: 900; color: ${databaseIsVero ? '#4CAF50' : '#ef4444'};">${databaseIsVero ? 'VERO' : 'FALSO'}</span>
-                </div>
+            ${isAnswered ? `
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); display: flex; justify-content: center; align-items: center;">
                 ${statsHtml}
             </div>
+            ` : ''}
         `;
         container.appendChild(card);
     });
@@ -3737,19 +3947,21 @@ function loadSavedMcqsScreen() {
 
     fetch('/api/saved-mcqs')
         .then(res => res.json())
-        .then(saved => {
-            activeSavedMcqs = saved.map(item => item.question).filter(Boolean);
+        .then(resData => {
+            const savedArr = Array.isArray(resData) ? resData : (resData.data || []);
+            activeSavedMcqs = savedArr.map(item => item.question || item).filter(Boolean);
             container.innerHTML = '';
-            document.getElementById('saved-mcqs-count').innerText = `${saved.length} Domande`;
+            const countEl = document.getElementById('saved-mcqs-count');
+            if (countEl) countEl.innerText = `${savedArr.length} Domande`;
 
-            if (saved.length === 0) {
+            if (savedArr.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">Nessuna domanda salvata.</div>`;
                 updateSavedMcqsQuizButtonVisibility();
                 return;
             }
 
-            saved.forEach((item, index) => {
-                const q = item.question;
+            savedArr.forEach((item, index) => {
+                const q = item.question || item;
                 if (!q) return;
 
                 const page = q.page || null;
@@ -3772,19 +3984,27 @@ function loadSavedMcqsScreen() {
 
                 const qImage = q.image || q.img || (page && page.image ? page.image : null);
 
-                const topRightImageHtml = qImage ? `
-                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                        <img src="${qImage}" style="max-height: 60px; max-width: 100px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                const topImageCardHtml = qImage ? `
+                    <div style="text-align: center; padding: 20px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                        <img src="${qImage}" style="max-height: 150px; width: auto; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-card); background: #fff; cursor: pointer;" onclick="openImageZoomModal('${qImage}')" title="Zoom Image">
+                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
                 const isSelected = selectedSavedMcqIds.includes(q.id);
+
+                const itemWrapper = document.createElement('div');
+                itemWrapper.className = 'saved-mcq-item-wrapper';
+                itemWrapper.style.marginBottom = '16px';
+                if (topImageCardHtml) {
+                    itemWrapper.innerHTML = topImageCardHtml;
+                }
+
                 const card = document.createElement('div');
                 card.className = `detail-q-card unanswered ${isSelected ? 'selected-q-card' : ''}`;
                 card.id = `saved-card-${q.id}`;
@@ -3798,50 +4018,58 @@ function loadSavedMcqsScreen() {
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
 
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px;">
                         <div>
-                            ${locationBadgeHtml}
-                            <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
+                            <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
                         </div>
-                        ${topRightImageHtml}
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
-                            </span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
-                            </span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                                ${databaseIsVero ? `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;">
+                                        <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
+                                    </span>
+                                ` : `
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;">
+                                        <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
+                                    </span>
+                                `}
+                            </div>
+                            <button onclick="toggleQCorrectAnswerInfo(${q.id})" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;" title="Mostra Risposta Corretta">
+                                <i class="fa fa-eye"></i>
+                            </button>
                         </div>
                     </div>
 
                     <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
                         ${leftThumbHtml}
                         <div style="flex: 1; min-width: 0;">
-                            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                            <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center;">
-                        <button class="test-speaker-btn" onclick="readSavedQuestionSpeech(${q.id}, '${q.italian.replace(/'/g, "\\'")}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;">
-                            <i class="fa-solid fa-volume-high" style="font-size:11px;"></i>
+                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; width: 100%;">
+                        <button class="test-ctrl-btn" id="saved-play-btn-${q.id}" onclick="readSavedQuestionSpeech(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio">
+                            <i class="fa-solid fa-play" style="font-size:12px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                         </button>
-                        <button class="test-ctrl-btn" id="saved-play-btn-${q.id}" onclick="readSavedQuestionSpeech(${q.id}, '${q.italian.replace(/'/g, "\\'")}')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;">
-                            <i class="fa-solid fa-play"></i>
+                        <input type="range" class="test-slider" id="saved-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; cursor: pointer;" readonly>
+                        <button class="test-speaker-btn" onclick="readSavedQuestionSpeech(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen Pronunciation">
+                            <i class="fa-solid fa-volume-high" style="font-size:13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                         </button>
-                        <input type="range" class="test-slider" id="saved-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1;" readonly>
-                        <button class="test-ctrl-btn" onclick="toggleSavedTranslation(${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Translate">
-                            <i class="fa-solid fa-language" style="color: var(--accent-green);"></i>
+                        <button class="test-ctrl-btn" onclick="toggleSavedTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                            <i class="fa-solid fa-language" style="color: var(--accent-green); font-size: 13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Remove Bookmark">
-                            <i class="fa-solid fa-bookmark" style="color: var(--accent-green);"></i>
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Remove Bookmark">
+                            <i class="fa-solid fa-bookmark" style="color: var(--accent-green); font-size: 13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--accent-green); white-space: nowrap;">সেভ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                            <i class="fa-regular fa-note-sticky"></i>
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
+                            <i class="fa-regular fa-note-sticky" style="font-size: 13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">নোট</span>
                         </button>
                     </div>
                 `;
@@ -3936,17 +4164,16 @@ function updateSavedMcqsPillStates() {
 function updateSavedMcqsQuizButtonVisibility() {
     const container = document.getElementById('saved-mcqs-quiz-btn-container');
     if (!container) return;
-    container.style.display = selectedSavedMcqIds.length > 0 ? 'block' : 'none';
+    container.style.display = (activeSavedMcqs && activeSavedMcqs.length > 0) ? 'block' : 'none';
 }
 
 function startSavedMcqsQuiz() {
-    if (selectedSavedMcqIds.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি সেভড প্রশ্ন সিলেক্ট করুন');
-        return;
-    }
-    const questionsToQuiz = activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id));
-    if (questionsToQuiz.length === 0) {
-        showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+    const questionsToQuiz = (selectedSavedMcqIds && selectedSavedMcqIds.length > 0) 
+        ? activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id))
+        : activeSavedMcqs;
+
+    if (!questionsToQuiz || questionsToQuiz.length === 0) {
+        showToast('কোনো সেভড প্রশ্ন পাওয়া যায়নি');
         return;
     }
     testQuestions = questionsToQuiz.sort(() => Math.random() - 0.5);
@@ -3976,6 +4203,14 @@ let playingSavedSpeechIndex = null;
 let savedSpeechInterval = null;
 
 function readSavedQuestionSpeech(qId, text) {
+    if (!text && typeof window.cachedQuestionsMap !== 'undefined' && window.cachedQuestionsMap[qId]) {
+        const q = window.cachedQuestionsMap[qId];
+        text = q.italian || q.question || '';
+    } else if (!text && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+        const q = activeSavedMcqs.find(item => item.id == qId || (item.question && item.question.id == qId));
+        if (q) text = (q.question ? (q.question.italian || q.question.question) : (q.italian || q.question)) || '';
+    }
+    if (!text) text = '';
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
 
@@ -4935,6 +5170,7 @@ function checkClientActivation() {
             currentClientVerified = data.verified || !!savedPhone;
             const wasActive = currentClientActive;
             currentClientActive = data.is_active;
+            localStorage.setItem('app_client_active', data.is_active ? 'true' : 'false');
 
             if (data.phone) {
                 currentClientPhone = data.phone;
@@ -4949,14 +5185,14 @@ function checkClientActivation() {
 
             const lockEl = document.getElementById('app-activation-lock');
 
-            if (!currentClientActive) {
-                // Display appropriate view in Chat widget
-                if (!currentClientVerified && !savedPhone) {
-                    setChatWidgetView('verify');
-                } else {
-                    setChatWidgetView('normal');
-                }
+            // Set chat widget view strictly based on client verification state
+            if (!currentClientVerified && !savedPhone) {
+                setChatWidgetView('verify');
+            } else {
+                setChatWidgetView('normal');
+            }
 
+            if (!currentClientActive) {
                 // Start polling if not already started
                 if (!activationStatusInterval) {
                     activationStatusInterval = setInterval(checkClientActivation, 5000);
@@ -4965,8 +5201,10 @@ function checkClientActivation() {
                 // Unlock app!
                 if (lockEl) lockEl.style.display = 'none';
 
-                // Normal chat view
-                setChatWidgetView('normal');
+                // Restore active screen based on URL if needed
+                if (typeof restoreScreenFromUrl === 'function') {
+                    restoreScreenFromUrl();
+                }
 
                 // Stop polling
                 if (activationStatusInterval) {
@@ -5267,6 +5505,17 @@ function readTranslationModalText() {
 }
 
 function speakTextTTS(text) {
+    if (typeof text === 'number') {
+        const qId = text;
+        let foundText = '';
+        if (typeof window.cachedQuestionsMap !== 'undefined' && window.cachedQuestionsMap[qId]) {
+            foundText = window.cachedQuestionsMap[qId].italian || window.cachedQuestionsMap[qId].question || '';
+        } else if (typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+            const q = activeSavedMcqs.find(item => item.id == qId || (item.question && item.question.id == qId));
+            if (q) foundText = (q.question ? (q.question.italian || q.question.question) : (q.italian || q.question)) || '';
+        }
+        text = foundText || String(text);
+    }
     if (!text) return;
     const cleanText = String(text).replace(/<[^>]*>/g, '');
     if ('speechSynthesis' in window) {
@@ -5504,7 +5753,7 @@ function loadCorrectMcqsList() {
                     <div class="detail-q-text-bn" id="correct-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
                     <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
-                        <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;" title="Pronunciation (TTS)">
+                        <button class="test-speaker-btn" onclick="speakTextTTS(${q.id})" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;" title="Pronunciation (TTS)">
                             <i class="fa-solid fa-microphone" style="font-size:11px;"></i>
                         </button>
                         ${q.audio ? `
@@ -5625,7 +5874,6 @@ function startSelectedWrongMcqsQuiz() {
         showToast('অনুগ্রহ করে অন্তত একটি প্রশ্ন সিলেক্ট করুন');
         return;
     }
-
     const selectedQuestions = [];
     window.selectedWrongMcqIds.forEach(id => {
         const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
@@ -5682,48 +5930,55 @@ function loadWrongMcqsList() {
         populateFilterChapters('wrong');
     }
 
-    const selectedChapter = document.getElementById('wrong-filter-chapter')?.value;
-    const selectedPage = document.getElementById('wrong-filter-page')?.value;
+    const selectedChapter = document.getElementById('wrong-filter-chapter')?.value || '';
+    const selectedPage = document.getElementById('wrong-filter-page')?.value || '';
+    const selectedDate = document.getElementById('wrong-filter-date')?.value || '';
     const searchQuery = document.getElementById('wrong-search-input')?.value?.toLowerCase()?.trim() || '';
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
 
-    const userStats = getUserQuestionStats();
-    const wrongIds = [];
-
-    Object.keys(userStats).forEach(idStr => {
-        const item = userStats[idStr];
-        if (item && typeof item === 'object') {
-            const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
-            const cCount = typeof item.correct === 'number' ? item.correct : 0;
-            if (item.state !== 'correct' && (item.state === 'wrong' || (wCount >= cCount && wCount > 0))) {
-                wrongIds.push(parseInt(idStr));
-            }
-        }
+    const queryParams = new URLSearchParams({
+        chapter_id: selectedChapter,
+        page_id: selectedPage,
+        date: selectedDate,
+        search: searchQuery
     });
 
-    if (wrongIds.length === 0) {
-        if (countEl) countEl.innerText = '0 Domande';
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
-        window.currentWrongQuestions = [];
-        updateWrongMcqSelectionUI();
-        return;
-    }
-
-    fetch(`/api/questions/by-ids?ids=${wrongIds.join(',')}`)
+    fetch(`/api/v1/wrong-mcqs?${queryParams.toString()}`)
         .then(res => res.json())
-        .then(questions => {
-            let filtered = questions;
-            if (selectedChapter) {
-                filtered = filtered.filter(q => String(q.chapter) === String(selectedChapter) || String(q.chapter_id) === String(selectedChapter));
-            }
-            if (searchQuery) {
-                filtered = filtered.filter(q => (q.italian && q.italian.toLowerCase().includes(searchQuery)) || (q.bangla && q.bangla.toLowerCase().includes(searchQuery)));
+        .then(resData => {
+            let questions = resData.data || resData || [];
+            if (!Array.isArray(questions)) questions = [];
+
+            // Fallback: Check local user stats if backend array is empty (e.g. offline mode)
+            if (questions.length === 0 && !selectedChapter && !selectedPage && !selectedDate && !searchQuery) {
+                const userStats = getUserQuestionStats();
+                const wrongIds = [];
+                Object.keys(userStats).forEach(idStr => {
+                    const item = userStats[idStr];
+                    if (item && typeof item === 'object') {
+                        const wCount = typeof item.wrong === 'number' ? item.wrong : (item.state === 'wrong' ? 1 : 0);
+                        const cCount = typeof item.correct === 'number' ? item.correct : 0;
+                        if (item.state !== 'correct' && (item.state === 'wrong' || (wCount >= cCount && wCount > 0))) {
+                            wrongIds.push(parseInt(idStr));
+                        }
+                    }
+                });
+
+                if (wrongIds.length > 0) {
+                    return fetch(`/api/questions/by-ids?ids=${wrongIds.join(',')}`)
+                        .then(r => r.json())
+                        .then(qs => Array.isArray(qs) ? qs : [])
+                        .catch(() => []);
+                }
             }
 
+            return questions;
+        })
+        .then(filtered => {
             if (countEl) countEl.innerText = `${filtered.length} Domande`;
-            if (filtered.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">কোনো ভুল উত্তর পাওয়া যায়নি।</div>`;
+            if (!filtered || filtered.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
                 window.currentWrongQuestions = [];
                 updateWrongMcqSelectionUI();
                 return;
@@ -5776,41 +6031,77 @@ function loadWrongMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+                const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+
+                const topImageCardHtml = qImage ? `
+                    <div style="text-align: center; padding: 20px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                        <img src="${qImage}" style="max-height: 150px; width: auto; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const leftThumbHtml = qImage ? `
+                    <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                    </div>
+                ` : '';
+
+                const itemWrapper = document.createElement('div');
+                itemWrapper.className = 'wrong-mcq-item-wrapper';
+                itemWrapper.style.flex = '1';
+                if (topImageCardHtml) {
+                    itemWrapper.innerHTML = topImageCardHtml;
+                }
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${index + 1}</div>
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
-                            </span>
-                            <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
-                                <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
-                            </span>
+                        <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
+                                <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                    <i class="fa-solid ${databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> VERO
+                                </span>
+                                <span style="padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; ${!databaseIsVero ? 'background-color: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1.5px solid #22c55e;' : 'background-color: rgba(239, 68, 68, 0.08); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.15); opacity: 0.6;'}">
+                                    <i class="fa-solid ${!databaseIsVero ? 'fa-circle-check' : 'fa-circle-xmark'}" style="font-size: 10px;"></i> FALSO
+                                </span>
+                            </div>
+                            <button onclick="toggleQCorrectAnswerInfo(${q.id})" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;" title="Info">
+                                <i class="fa-solid fa-circle-info"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
 
-                    <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
-                        <button class="test-speaker-btn" onclick="speakTextTTS('${safeItalian}')" style="width: 38px; height: 38px; min-width:38px; border-width: 2px;" title="Pronunciation (TTS)">
-                            <i class="fa-solid fa-microphone" style="font-size:11px;"></i>
+                    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
+                        ${leftThumbHtml}
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-bn" id="wrong-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                        <button class="test-speaker-btn" onclick="speakTextTTS(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
+                            <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                         </button>
                         ${q.audio ? `
-                            <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Play MP3 Voiceover">
-                                <i class="fa-solid fa-play"></i>
+                            <button class="test-ctrl-btn" id="list-play-btn-${q.id}" onclick="playQuestionMp3('${q.audio}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
+                                <i class="fa-solid fa-play" style="font-size:12px;"></i>
+                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                             </button>
-                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; max-width: 200px;" readonly>
+                            <input type="range" class="test-slider" id="list-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 200px;" readonly>
                         ` : ''}
-                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Translate">
-                            <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 2px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                        <button class="test-ctrl-btn" onclick="openCachedQuestionTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                            <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Bookmark">
-                            <i class="fa-regular fa-bookmark"></i>
+                        <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
+                            <i class="fa-regular fa-bookmark" style="font-size: 13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
                         </button>
-                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: 34px; height: 34px; min-width:34px; font-size: 12px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 50%; cursor: pointer;" title="Add Note">
-                            <i class="fa-regular fa-note-sticky"></i>
+                        <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
+                            <i class="fa-regular fa-note-sticky" style="font-size: 13px;"></i>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">নোট</span>
                         </button>
                     </div>
                 `;
@@ -6145,37 +6436,76 @@ function renderManualeTopics(topics) {
     container.innerHTML = '';
 
     if (!topics || topics.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-secondary);">কোনো থিওরি পাওয়া যায়নি</div>';
+        container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-secondary);">কোনো ম্যানুয়াল থিওরি পাওয়া যায়নি</div>';
         return;
     }
 
     topics.forEach((item, index) => {
-        const imgHtml = item.image_path ? `
-            <div style="width: 100%; max-height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; background: #000;">
-                <img src="${item.image_path}" style="width: 100%; height: 100%; object-fit: contain; display: block;" alt="${item.title}">
-            </div>
-        ` : '';
+        const chapNum = item.chapter_number || item.sort_order || (index + 1);
+        const titleText = item.title || item.name || `Capitolo ${chapNum}`;
+        const imgUrl = item.image_path || item.image || '';
+        const contentText = item.content || 'Nessuna spiegazione teorica inserita.';
 
-        const cardHtml = `
-            <div class="content-card" style="padding: 20px; border-radius: 16px; margin-bottom: 4px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="background: rgba(37, 99, 235, 0.12); color: #2563EB; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 10px;">
-                        Capitolo ${item.chapter_number || (index + 1)}
-                    </span>
-                    <span style="font-size: 11px; color: var(--text-secondary);">
-                        <i class="fa-solid fa-book-open"></i> Theory
-                    </span>
+        let vocabs = item.vocabulary || [];
+        if (typeof vocabs === 'string') {
+            try { vocabs = JSON.parse(vocabs); } catch(e) { vocabs = []; }
+        }
+
+        let vocabHtml = '';
+        if (Array.isArray(vocabs) && vocabs.length > 0) {
+            vocabHtml = `
+                <div style="margin-top: 18px; border-top: 1px dashed var(--border-card); padding-top: 14px;">
+                    <h4 style="font-size: 14px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-spell-check" style="color: var(--accent-blue);"></i> Vocabolario & Traduzioni (${vocabs.length})
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                        ${vocabs.map(v => {
+                            const word = v.italian || v.word || '';
+                            const meaning = v.bangla || v.meaning || '';
+                            const vImg = v.image || '';
+                            return `
+                                <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+                                    ${vImg ? `<img src="${vImg}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-card);">` : ''}
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${word}</div>
+                                        <div style="font-size: 12px; color: var(--accent-green); font-weight: 600; margin-top: 2px;">${meaning}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
-                <h3 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; line-height: 1.4;">
-                    ${item.title}
-                </h3>
-                ${imgHtml}
-                <div style="font-size: 14px; color: var(--text-primary); line-height: 1.6; font-weight: 500;">
-                    ${highlightDictionaryTerms(item.content || '', item.vocabulary || [])}
+            `;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'content-card';
+        card.style.cssText = 'padding: 20px; border-radius: 20px; background: var(--bg-card); border: 1px solid var(--border-card); margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.04);';
+
+        card.innerHTML = `
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 14px;">
+                <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">
+                    ${chapNum}
+                </div>
+                <div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.5px;">Capitolo ${chapNum}</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-top: 2px;">${titleText}</div>
                 </div>
             </div>
+
+            ${imgUrl ? `
+                <div style="text-align: center; margin-bottom: 16px; background: var(--bg-primary); padding: 12px; border-radius: 16px; border: 1px solid var(--border-card);">
+                    <img src="${imgUrl}" style="max-height: 320px; width: auto; max-width: 100%; object-fit: contain; border-radius: 12px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)">
+                </div>
+            ` : ''}
+
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 14px; padding: 16px 18px; color: var(--text-primary); font-size: 15px; line-height: 1.8; font-weight: 500;">
+                ${contentText}
+            </div>
+
+            ${vocabHtml}
         `;
-        container.innerHTML += cardHtml;
+        container.appendChild(card);
     });
 }
 

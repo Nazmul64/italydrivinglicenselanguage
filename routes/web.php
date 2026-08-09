@@ -3,6 +3,84 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
+Route::get('/qr-unlock', function (Request $request) {
+    $sessionId = $request->query('session_id') ?: session()->getId();
+    session(['qr_unlocked' => true]);
+    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400);
+    return redirect('/');
+});
+
+Route::get('/qr-check-session', function (Request $request) {
+    $sessionId = $request->query('session_id') ?: session()->getId();
+    $unlocked = session('qr_unlocked', false) 
+        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId, false)
+        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_demo', false)
+        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_global', false);
+
+    if ($unlocked) {
+        session(['qr_unlocked' => true]);
+        \Illuminate\Support\Facades\Cache::forget('qr_unlocked_global');
+        \Illuminate\Support\Facades\Cache::forget('qr_unlocked_demo');
+    }
+    return response()->json(['unlocked' => (bool)$unlocked]);
+});
+
+$qrUnlockHandler = function (Request $request) {
+    // Accept: token (new), session_id (legacy), qr_code, code, qrData
+    // Also accept customer identity fields: phone, firstName, lastName
+    $token     = $request->input('token');
+    $code      = $request->input('session_id')
+               ?: $request->input('qr_code')
+               ?: $request->input('code')
+               ?: $request->input('qrData');
+
+    // If URL with ?token= or ?session_id= was scanned directly
+    if (empty($token) && !empty($code) && str_contains($code, 'token=')) {
+        parse_str(parse_url($code, PHP_URL_QUERY) ?? '', $q);
+        $token = $q['token'] ?? null;
+    }
+    if (empty($code) && !empty($token)) {
+        $code = $token;
+    }
+    if (empty($code) && empty($token)) {
+        // Still allow unlock via phone / name (customer already activated)
+        $phone = $request->input('phone') ?: $request->input('phoneNumber');
+        if (!empty($phone)) {
+            $code = 'customer_' . preg_replace('/\D/', '', $phone);
+        }
+    }
+
+    if (empty($code) && empty($token)) {
+        return response()->json(['status' => 'error', 'message' => 'QR payload missing'], 422);
+    }
+
+    // ---- GLOBAL UNLOCK: unlocks every browser window showing QR gate ----
+    \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 300); // 5 minutes
+
+    // Also unlock by token and code for precise matching
+    if (!empty($token)) {
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $token, true, 300);
+    }
+    if (!empty($code)) {
+        $sessionId = $code;
+        if (str_contains($code, 'session_id=')) {
+            parse_str(parse_url($code, PHP_URL_QUERY) ?? '', $q);
+            $sessionId = $q['session_id'] ?? $code;
+        }
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 300);
+    }
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Website unlocked successfully!',
+    ]);
+};
+
+
+Route::post('/api/qr-unlock', $qrUnlockHandler);
+Route::post('/api/v1/qr-unlock', $qrUnlockHandler);
+Route::post('/qr-unlock', $qrUnlockHandler);
+
 Route::get('/', function () {
     $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
     $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
@@ -12,6 +90,16 @@ Route::get('/', function () {
     $setting = \App\Models\Setting::first();
     return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
 });
+
+Route::get('/{screen}', function ($screen) {
+    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
+    $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
+    $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
+    $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
+    $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
+    $setting = \App\Models\Setting::first();
+    return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
+})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|cartelli|cartelli-schede|cartelli-page|saved-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
 Route::get('/app', function () {
     $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
@@ -24,6 +112,29 @@ Route::get('/app', function () {
 });
 
 Route::get('/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+
+// =========================================================================
+// Enterprise SEO, Sitemap, Robots.txt & Merchant XML Feed Routes
+// =========================================================================
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index']);
+Route::get('/sitemaps/pages.xml', [\App\Http\Controllers\SitemapController::class, 'pages']);
+Route::get('/sitemaps/categories.xml', [\App\Http\Controllers\SitemapController::class, 'categories']);
+Route::get('/sitemaps/products.xml', [\App\Http\Controllers\SitemapController::class, 'products']);
+Route::get('/sitemap', [\App\Http\Controllers\SitemapController::class, 'htmlSitemap']);
+
+Route::get('/robots.txt', [\App\Http\Controllers\RobotsController::class, 'index']);
+
+Route::get('/feeds/google-merchant.xml', [\App\Http\Controllers\FeedController::class, 'googleMerchant']);
+Route::get('/feeds/facebook-catalog.xml', [\App\Http\Controllers\FeedController::class, 'facebookCatalog']);
+
+// Admin SEO Dashboard API Endpoints
+Route::get('/api/admin/seo/audit', [\App\Http\Controllers\Admin\AdminSeoController::class, 'audit']);
+Route::get('/api/admin/seo/redirects', [\App\Http\Controllers\Admin\AdminSeoController::class, 'getRedirects']);
+Route::post('/api/admin/seo/redirects', [\App\Http\Controllers\Admin\AdminSeoController::class, 'saveRedirect']);
+Route::delete('/api/admin/seo/redirects/{id}', [\App\Http\Controllers\Admin\AdminSeoController::class, 'deleteRedirect']);
+Route::post('/api/admin/seo/robots', [\App\Http\Controllers\Admin\AdminSeoController::class, 'saveRobotsTxt']);
+Route::get('/api/admin/seo/metas', [\App\Http\Controllers\Admin\AdminSeoController::class, 'getSeoMetas']);
+Route::post('/api/admin/seo/metas', [\App\Http\Controllers\Admin\AdminSeoController::class, 'saveSeoMeta']);
 
 Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(function () {
     // Front-end MCQ API Endpoints
@@ -484,6 +595,11 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     
     Route::get('/admin', function () {
         return view('admin.dashboard');
+    });
+
+    // Server Mode Configuration - Dedicated Page
+    Route::get('/admin/server-mode', function () {
+        return view('admin.server_mode');
     });
 
     // Admin Settings API Endpoints
@@ -1348,64 +1464,80 @@ Route::get('/admin/api/manuale', function () {
 });
 
 $saveManualeHandler = function (Request $request, $id = null) {
-    $manuale = $id ? \App\Models\Manuale::findOrFail($id) : new \App\Models\Manuale();
+    try {
+        $manuale = $id ? \App\Models\Manuale::findOrFail($id) : new \App\Models\Manuale();
 
-    $vocabData = [];
-    if ($request->has('vocab_italian') && is_array($request->input('vocab_italian'))) {
-        $italians = $request->input('vocab_italian');
-        $banglas = $request->input('vocab_bangla', []);
-        $existingImgs = $request->input('vocab_existing_image', []);
-        foreach ($italians as $idx => $itWord) {
-            if (trim($itWord) === '') continue;
-            $bnWord = $banglas[$idx] ?? '';
-            $img = $existingImgs[$idx] ?? '';
-            if ($request->hasFile("vocab_image_{$idx}")) {
-                $file = $request->file("vocab_image_{$idx}");
-                $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
-                $filename = 'vocab_' . time() . '_' . $idx . '_' . uniqid() . '.' . $ext;
-                $path = $file->storeAs('manuale/vocab', $filename, 'public');
-                $img = '/storage/' . $path;
-            }
-            $vocabData[] = [
-                'word' => $itWord,
-                'italian' => $itWord,
-                'bangla' => $bnWord,
-                'meaning' => $bnWord,
-                'image' => $img
-            ];
-        }
-    } elseif ($request->has('vocabulary')) {
-        $vocabData = is_array($request->input('vocabulary')) ? $request->input('vocabulary') : json_decode($request->input('vocabulary'), true);
-    } elseif (!$id) {
         $vocabData = [];
-    } else {
-        $vocabData = $manuale->vocabulary;
+        if ($request->has('vocab_italian') && is_array($request->input('vocab_italian'))) {
+            $italians = $request->input('vocab_italian');
+            $banglas = $request->input('vocab_bangla', []);
+            $existingImgs = $request->input('vocab_existing_image', []);
+            foreach ($italians as $idx => $itWord) {
+                if (trim($itWord) === '') continue;
+                $bnWord = $banglas[$idx] ?? '';
+                $img = $existingImgs[$idx] ?? '';
+                if ($request->hasFile("vocab_image_{$idx}")) {
+                    $file = $request->file("vocab_image_{$idx}");
+                    $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
+                    $filename = 'vocab_' . time() . '_' . $idx . '_' . uniqid() . '.' . $ext;
+                    $uploadDir = public_path('uploads/manuale/vocab');
+                    if (!file_exists($uploadDir)) {
+                        @mkdir($uploadDir, 0777, true);
+                    }
+                    $file->move($uploadDir, $filename);
+                    $img = '/uploads/manuale/vocab/' . $filename;
+                }
+                $vocabData[] = [
+                    'word' => $itWord,
+                    'italian' => $itWord,
+                    'bangla' => $bnWord,
+                    'meaning' => $bnWord,
+                    'image' => $img
+                ];
+            }
+        } elseif ($request->has('vocabulary')) {
+            $vocabData = is_array($request->input('vocabulary')) ? $request->input('vocabulary') : json_decode($request->input('vocabulary'), true);
+        } elseif (!$id) {
+            $vocabData = [];
+        } else {
+            $vocabData = $manuale->vocabulary;
+        }
+
+        $manuale->title = $request->input('title', $manuale->title);
+        $manuale->chapter_number = $request->input('chapter_number', $manuale->chapter_number ?? 1);
+        $manuale->content = $request->input('content', $manuale->content);
+        $manuale->vocabulary = $vocabData;
+        $manuale->order_index = $request->input('order_index', $manuale->order_index ?? 0);
+        if (!$id) {
+            $manuale->status = true;
+        }
+
+        if ($request->hasFile('image')) {
+            $imgFile = $request->file('image');
+            $ext = strtolower($imgFile->getClientOriginalExtension()) ?: ($imgFile->extension() ?: 'jpg');
+            $filename = 'manuale_' . time() . '_' . uniqid() . '.' . $ext;
+            $uploadDir = public_path('uploads/manuale');
+            if (!file_exists($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
+            }
+            $imgFile->move($uploadDir, $filename);
+            $manuale->image_path = '/uploads/manuale/' . $filename;
+        }
+
+        $manuale->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $id ? 'ম্যানুয়াল থিওরি আপডেট করা হয়েছে!' : 'ম্যানুয়াল থিওরি সফলভাবে যোগ করা হয়েছে!',
+            'data' => $manuale
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Error saving manuale: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Error saving theory topic: ' . $e->getMessage()
+        ], 500);
     }
-
-    $manuale->title = $request->input('title', $manuale->title);
-    $manuale->chapter_number = $request->input('chapter_number', $manuale->chapter_number ?? 1);
-    $manuale->content = $request->input('content', $manuale->content);
-    $manuale->vocabulary = $vocabData;
-    $manuale->order_index = $request->input('order_index', $manuale->order_index ?? 0);
-    if (!$id) {
-        $manuale->status = true;
-    }
-
-    if ($request->hasFile('image')) {
-        $imgFile = $request->file('image');
-        $ext = strtolower($imgFile->getClientOriginalExtension()) ?: ($imgFile->extension() ?: 'jpg');
-        $filename = 'manuale_' . time() . '_' . uniqid() . '.' . $ext;
-        $path = $imgFile->storeAs('manuale', $filename, 'public');
-        $manuale->image_path = '/storage/' . $path;
-    }
-
-    $manuale->save();
-
-    return response()->json([
-        'status' => 'success',
-        'message' => $id ? 'ম্যানুয়াল থিওরি আপডেট করা হয়েছে!' : 'ম্যানুয়াল থিওরি সফলভাবে যোগ করা হয়েছে!',
-        'data' => $manuale
-    ]);
 };
 
 Route::post('/api/admin/manuale/store', $saveManualeHandler);
@@ -1497,14 +1629,20 @@ Route::post('/api/social/posts/store', function (Request $request) {
         ], 422);
     }
 
-    $imagePath = null;
+    $imagePath = trim((string)$request->input('image_url', $request->input('image_path', ''))) ?: null;
     $file = $request->file('photo') ?: $request->file('image');
     if ($file) {
         $ext = strtolower($file->getClientOriginalExtension()) ?: ($file->extension() ?: 'jpg');
         $filename = 'social_' . time() . '_' . uniqid() . '.' . $ext;
         $path = $file->storeAs('social', $filename, 'public');
+        // Force 644 permission so file is world-readable on production server
+        $fullPath = storage_path('app/public/' . $path);
+        if (file_exists($fullPath)) {
+            @chmod($fullPath, 0644);
+        }
         $imagePath = '/storage/' . $path;
     }
+
 
     $post = \App\Models\SocialPost::create([
         'author_name' => $authorName ?: 'Anonymous User',
@@ -1754,3 +1892,256 @@ Route::post('/api/translate', function (Request $request) {
 });
 
 
+
+// Admin: Fix storage permissions (run once on production to fix 403 on social images)
+Route::get('/admin/fix-storage-permissions', function () {
+    if (!session('admin_logged_in')) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    $dir = storage_path('app/public/social');
+    $fixed = 0;
+    $errors = [];
+    if (is_dir($dir)) {
+        foreach (glob($dir . '/*') as $file) {
+            if (is_file($file)) {
+                if (@chmod($file, 0644)) {
+                    $fixed++;
+                } else {
+                    $errors[] = basename($file);
+                }
+            }
+        }
+    }
+    return response()->json([
+        'status'  => 'done',
+        'fixed'   => $fixed,
+        'errors'  => $errors,
+        'message' => $fixed . ' files fixed. ' . (count($errors) ? implode(', ', $errors) . ' failed.' : 'All OK.'),
+    ]);
+});
+
+// =========================================================================
+// 💬 LIVE SUPPORT CHAT, CLIENT VERIFICATION & LICENSE ACTIVATION ROUTES
+// =========================================================================
+
+// 1. Client Verification endpoint (from website & app)
+Route::post('/api/client/verify', function (Request $request) {
+    $firstName = trim($request->input('first_name', ''));
+    $lastName  = trim($request->input('last_name', ''));
+    $phone     = trim($request->input('phone', ''));
+    $sessionId = $request->input('session_id') ?: session()->getId();
+
+    if (empty($firstName) || empty($lastName) || empty($phone)) {
+        return response()->json(['success' => false, 'message' => 'সকল প্রয়োজনীয় ফিল্ড পূরণ করুন'], 422);
+    }
+
+    $client = \App\Models\AppClient::updateOrCreate(
+        ['session_id' => $sessionId],
+        [
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'phone'      => $phone,
+        ]
+    );
+
+    session(['client_verified' => true, 'client_phone' => $phone, 'app_client_id' => $client->id]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'ভেরিফিকেশন সফল হয়েছে',
+        'client'  => $client
+    ]);
+});
+
+// 2. Fetch Chat Messages (for current client session)
+Route::get('/api/chat/messages', function (Request $request) {
+    $sessionId = $request->query('session_id') ?: session()->getId();
+    
+    $phone = $request->query('phone');
+    if ($phone) {
+        $client = \App\Models\AppClient::where('phone', $phone)->first();
+        if ($client) {
+            $sessionId = $client->session_id;
+        }
+    }
+
+    $messages = \App\Models\Message::where('session_id', $sessionId)
+        ->orderBy('id', 'asc')
+        ->get();
+
+    return response()->json($messages);
+});
+
+// 3. Send Chat Message (from client)
+Route::post('/api/chat/messages', function (Request $request) {
+    $sessionId = $request->input('session_id') ?: session()->getId();
+    $text      = trim($request->input('message', ''));
+    $attachment = $request->input('attachment_path');
+
+    if (empty($text) && empty($attachment)) {
+        return response()->json(['success' => false, 'message' => 'বার্তা প্রদান করুন'], 422);
+    }
+
+    $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+    $senderName = $client ? ($client->first_name . ' ' . $client->last_name) : 'Guest User';
+
+    $msg = \App\Models\Message::create([
+        'session_id'      => $sessionId,
+        'sender'          => 'user',
+        'sender_name'     => $senderName,
+        'message'         => $text,
+        'attachment_path' => $attachment,
+    ]);
+
+    return response()->json($msg);
+});
+
+// 4. Activate License (when customer clicks "Attiva Licenza" on License Card)
+$activateLicenseHandler = function (Request $request) {
+    $sessionId = $request->input('session_id') ?: session()->getId();
+    $days      = (int)($request->input('days', 365));
+
+    $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+    if (!$client && $request->input('phone')) {
+        $client = \App\Models\AppClient::where('phone', $request->input('phone'))->first();
+    }
+
+    if ($client) {
+        $client->update([
+            'is_active'  => true,
+            'expires_at' => now()->addDays($days),
+        ]);
+        $sessionId = $client->session_id;
+    }
+
+    // Mark session & global cache as unlocked
+    session(['qr_unlocked' => true]);
+    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
+    \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 86400 * 365);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Licenza Attivata ✓',
+    ]);
+};
+
+Route::post('/api/client/activate-license', $activateLicenseHandler);
+Route::post('/api/client/activate', $activateLicenseHandler);
+
+// 5. Admin: Fetch Chat Conversations List
+Route::get('/admin/api/chat/conversations', function () {
+    $sessions = \App\Models\Message::select('session_id')
+        ->distinct()
+        ->get()
+        ->pluck('session_id');
+
+    $clientSessions = \App\Models\AppClient::pluck('session_id');
+    $allSessions = $sessions->concat($clientSessions)->unique();
+
+    $conversations = [];
+    foreach ($allSessions as $sId) {
+        $client = \App\Models\AppClient::where('session_id', $sId)->first();
+        $lastMsgObj = \App\Models\Message::where('session_id', $sId)->orderBy('id', 'desc')->first();
+
+        $conversations[] = [
+            'session_id'   => $sId,
+            'client'       => $client,
+            'last_message' => $lastMsgObj ? $lastMsgObj->message : 'No messages yet',
+            'last_time'    => $lastMsgObj ? $lastMsgObj->created_at->diffForHumans() : '',
+        ];
+    }
+
+    return response()->json($conversations);
+});
+
+// 6. Admin: Fetch Messages for a Conversation Session
+Route::get('/admin/api/chat/messages/{sessionId}', function ($sessionId) {
+    $messages = \App\Models\Message::where('session_id', $sessionId)
+        ->orderBy('id', 'asc')
+        ->get();
+    return response()->json($messages);
+});
+
+// 7. Admin: Send Chat Message / License Card to Client
+Route::post('/admin/api/chat/messages', function (Request $request) {
+    $sessionId = $request->input('session_id');
+    $text      = trim($request->input('message', ''));
+
+    if (empty($sessionId) || empty($text)) {
+        return response()->json(['success' => false, 'message' => 'Missing session_id or message'], 422);
+    }
+
+    $msg = \App\Models\Message::create([
+        'session_id'  => $sessionId,
+        'sender'      => 'admin',
+        'sender_name' => 'Support Admin',
+        'message'     => $text,
+    ]);
+
+    return response()->json($msg);
+});
+
+// 8. Admin: Toggle Client Activation
+Route::post('/admin/api/clients/toggle-active/{id}', function ($id) {
+    $client = \App\Models\AppClient::findOrFail($id);
+    $client->is_active = !$client->is_active;
+    if ($client->is_active) {
+        $client->expires_at = now()->addDays(365);
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * 365);
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 86400 * 365);
+    }
+    $client->save();
+
+    return response()->json([
+        'success' => true,
+        'client'  => $client
+    ]);
+});
+
+// 9. Admin: Get Chat Presets
+Route::get('/admin/api/chat-presets', function () {
+    $presets = \App\Models\ChatPreset::orderBy('order_index', 'asc')->get();
+    if ($presets->isEmpty()) {
+        $default = \App\Models\ChatPreset::create([
+            'title'        => '🔑 Send 1 Year License',
+            'type'         => 'license',
+            'days'         => 365,
+            'bg_color'     => '#10b981',
+            'text_color'   => '#ffffff',
+            'order_index'  => 1,
+            'status'       => true,
+        ]);
+        $presets = collect([$default]);
+    }
+    return response()->json($presets);
+});
+
+// 10. Admin: Execute Chat Preset (Send License Card)
+Route::post('/admin/api/chat/preset-execute', function (Request $request) {
+    $sessionId = $request->input('session_id');
+    $presetId  = $request->input('preset_id');
+
+    $preset = \App\Models\ChatPreset::findOrFail($presetId);
+
+    if ($preset->type === 'license') {
+        $days = $preset->days ?: 365;
+        $key  = rand(100000, 999999);
+        $cardMsg = "[LICENSE_CARD:key={$key},days={$days}]";
+
+        $msg = \App\Models\Message::create([
+            'session_id'  => $sessionId,
+            'sender'      => 'admin',
+            'sender_name' => 'Support Admin',
+            'message'     => $cardMsg,
+        ]);
+        return response()->json($msg);
+    } else {
+        $msg = \App\Models\Message::create([
+            'session_id'  => $sessionId,
+            'sender'      => 'admin',
+            'sender_name' => 'Support Admin',
+            'message'     => $preset->message_text,
+        ]);
+        return response()->json($msg);
+    }
+});

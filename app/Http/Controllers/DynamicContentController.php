@@ -174,7 +174,7 @@ class DynamicContentController extends Controller
         $this->checkPermission('lectures');
 
         $request->validate([
-            'title'       => 'required|string|max:255',
+            'title'       => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'duration'    => 'nullable|string|max:50',
             'video_url'   => 'nullable|string|max:500',
@@ -185,12 +185,14 @@ class DynamicContentController extends Controller
             'video_file'  => 'nullable|file|mimes:mp4,webm,ogg,mov|max:51200', // max 50MB
         ]);
 
+        $vUrl = $request->video_url ?? $request->youtube_url ?? '';
+
         $data = [
-            'title'       => $request->title,
+            'title'       => $request->title ?: 'Lecture Video',
             'description' => $request->description,
             'duration'    => $request->duration,
-            'video_url'   => $request->video_url,
-            'youtube_url' => $request->youtube_url,
+            'video_url'   => $vUrl,
+            'youtube_url' => $vUrl,
             'vimeo_url'   => $request->vimeo_url,
             'chapter_id'  => $request->chapter_id,
             'status'      => $request->status ?? true,
@@ -220,7 +222,7 @@ class DynamicContentController extends Controller
         $class = LectureClass::findOrFail($id);
 
         $request->validate([
-            'title'       => 'required|string|max:255',
+            'title'       => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'duration'    => 'nullable|string|max:50',
             'video_url'   => 'nullable|string|max:500',
@@ -231,12 +233,14 @@ class DynamicContentController extends Controller
             'video_file'  => 'nullable|file|mimes:mp4,webm,ogg,mov|max:51200',
         ]);
 
+        $vUrl = $request->video_url ?? $request->youtube_url ?? '';
+
         $data = [
-            'title'       => $request->title,
+            'title'       => $request->title ?: 'Lecture Video',
             'description' => $request->description,
             'duration'    => $request->duration,
-            'video_url'   => $request->video_url,
-            'youtube_url' => $request->youtube_url,
+            'video_url'   => $vUrl,
+            'youtube_url' => $vUrl,
             'vimeo_url'   => $request->vimeo_url,
             'chapter_id'  => $request->chapter_id,
         ];
@@ -823,21 +827,21 @@ class DynamicContentController extends Controller
 
         if ($cards->isEmpty()) {
             $defaultCards = [
-                ['title' => 'LEZIONI', 'subtitle' => 'Classes', 'screen_key' => 'tutorials', 'icon_class' => 'fa-solid fa-desktop', 'order_index' => 1],
-                ['title' => 'TEST', 'subtitle' => 'Practice Test', 'screen_key' => 'tasbih', 'icon_class' => 'fa-solid fa-list-check', 'order_index' => 2],
-                ['title' => 'ARGOMENTI', 'subtitle' => 'TOPICS', 'screen_key' => 'quotes', 'icon_class' => 'fa-solid fa-graduation-cap', 'order_index' => 3],
-                ['title' => 'E-CLASS', 'subtitle' => 'E-Class', 'screen_key' => 'text_analyzer', 'icon_class' => 'fa-solid fa-chalkboard-user', 'order_index' => 4],
-                ['title' => 'SFIDA', 'subtitle' => 'Challenge', 'screen_key' => 'sfida', 'icon_class' => 'fa-solid fa-trophy', 'order_index' => 5],
-                ['title' => 'SCHEDA ESAME', 'subtitle' => 'Exam Test', 'screen_key' => 'quiz', 'icon_class' => 'fa-solid fa-file-signature', 'order_index' => 6],
-                ['title' => 'DIZIONARIO', 'subtitle' => 'Dictionary', 'screen_key' => 'dictionary', 'icon_class' => 'fa-solid fa-book-open', 'order_index' => 7],
-                ['title' => 'CARTELLI', 'subtitle' => 'Traffic Signs', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'order_index' => 8],
-                ['title' => 'SAVED MCQS', 'subtitle' => 'Bookmarks', 'screen_key' => 'saved_questions', 'icon_class' => 'fa-solid fa-bookmark', 'order_index' => 9],
-                ['title' => 'CORRECT MCQS', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct_questions', 'icon_class' => 'fa-solid fa-circle-check', 'order_index' => 10],
-                ['title' => 'WRONG MCQS', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong_questions', 'icon_class' => 'fa-solid fa-circle-xmark', 'order_index' => 11],
-                ['title' => 'SUPPORT', 'subtitle' => 'Live Chat', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'order_index' => 12],
-                ['title' => 'TOP PERFORMERS', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top_performers', 'icon_class' => 'fa-solid fa-ranking-star', 'order_index' => 13],
+                ['title' => 'LEZIONI', 'subtitle' => 'ক্লাস ভিডিও', 'screen_key' => 'lezioni', 'icon_class' => 'fa-solid fa-video', 'order_index' => 1],
+                ['title' => 'TEST', 'subtitle' => 'অনুশীলন টেস্ট', 'screen_key' => 'test', 'icon_class' => 'fa-solid fa-laptop-code', 'order_index' => 2],
+                ['title' => 'ARGOMENTI', 'subtitle' => 'অধ্যায়সমূহ', 'screen_key' => 'argomenti', 'icon_class' => 'fa-solid fa-graduation-cap', 'order_index' => 3],
+                ['title' => 'E-CLASS', 'subtitle' => 'অনলাইন ক্লাস', 'screen_key' => 'eclass', 'icon_class' => 'fa-solid fa-chalkboard-user', 'order_index' => 4],
+                ['title' => 'SFIDA', 'subtitle' => 'চ্যালেঞ্জ', 'screen_key' => 'sfida', 'icon_class' => 'fa-solid fa-trophy', 'order_index' => 5],
+                ['title' => 'SCHEDA ESAME', 'subtitle' => 'পরীক্ষার শিট', 'screen_key' => 'scheda-esame', 'icon_class' => 'fa-solid fa-file-signature', 'order_index' => 6],
+                ['title' => 'DIZIONARIO', 'subtitle' => 'অভিধান', 'screen_key' => 'dizionario', 'icon_class' => 'fa-solid fa-book-open', 'order_index' => 7],
+                ['title' => 'CARTELLI', 'subtitle' => 'ট্রাফিক সাইন', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'order_index' => 8],
+                ['title' => 'SAVED MCQS', 'subtitle' => 'সেভ করা এমসিকিউ', 'screen_key' => 'saved-mcqs', 'icon_class' => 'fa-solid fa-bookmark', 'order_index' => 9],
+                ['title' => 'CORRECT MCQS', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct-mcqs', 'icon_class' => 'fa-solid fa-circle-check', 'order_index' => 10],
+                ['title' => 'WRONG MCQS', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong-mcqs', 'icon_class' => 'fa-solid fa-circle-xmark', 'order_index' => 11],
+                ['title' => 'SUPPORT', 'subtitle' => 'লাইভ চ্যাট', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'order_index' => 12],
+                ['title' => 'TOP PERFORMERS', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top-performers', 'icon_class' => 'fa-solid fa-ranking-star', 'order_index' => 13],
                 ['title' => 'MANUALE', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'order_index' => 14],
-                ['title' => 'PATENTE SOCIAL', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente_social', 'icon_class' => 'fa-solid fa-users', 'order_index' => 15],
+                ['title' => 'PATENTE SOCIAL', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente-social', 'icon_class' => 'fa-solid fa-users', 'order_index' => 15],
                 ['title' => 'TRANSLATION', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'order_index' => 16],
             ];
             foreach ($defaultCards as $dc) {

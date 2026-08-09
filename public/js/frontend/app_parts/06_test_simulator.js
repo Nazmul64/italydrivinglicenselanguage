@@ -782,8 +782,99 @@ function openTestDetailsView() {
     let totalDuration = getExamDurationSeconds();
     let timeSpent = totalDuration - testTimerSeconds;
     if (timeSpent < 0) timeSpent = 0;
-    let mins = Math.floor(timeSpent / 60);
-    let secs = timeSpent % 60;
+
+    let correctAnswers = 0;
+    let wrongAnswers = 0;
+    let unansweredAnswers = 0;
+    const totalQuestions = testQuestions.length;
+
+    const stats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
+    const logBatchPayload = [];
+
+    for (let i = 0; i < totalQuestions; i++) {
+        const q = testQuestions[i];
+        const userAnswer = testAnswers[i];
+        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+
+        if (userAnswer === null) {
+            unansweredAnswers++;
+        } else if (userAnswer === databaseIsVero) {
+            correctAnswers++;
+            if (q && q.id) {
+                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'correct' };
+                stats[q.id].correct = (stats[q.id].correct || 0) + 1;
+                stats[q.id].state = 'correct';
+                logBatchPayload.push({ question_id: q.id, is_correct: true });
+            }
+        } else {
+            wrongAnswers++;
+            if (q && q.id) {
+                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'wrong' };
+                stats[q.id].wrong = (stats[q.id].wrong || 0) + 1;
+                stats[q.id].state = 'wrong';
+                logBatchPayload.push({ question_id: q.id, is_correct: false });
+            }
+        }
+    }
+
+    if (typeof saveUserQuestionStats === 'function') {
+        saveUserQuestionStats(stats);
+    }
+
+    if (logBatchPayload.length > 0) {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        fetch('/api/user-mcq-results/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+            body: JSON.stringify({ results: logBatchPayload })
+        }).catch(err => console.error("Error logging exam results: ", err));
+    }
+
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('saved_test_detail_questions', JSON.stringify(testQuestions));
+            sessionStorage.setItem('saved_test_detail_answers', JSON.stringify(testAnswers));
+            sessionStorage.setItem('saved_test_detail_time_spent', timeSpent.toString());
+        }
+    } catch(e) {
+        console.error("Error saving test detail data:", e);
+    }
+
+    openScreen('test-results-detail', 'Test Details');
+}
+
+function loadTestResultsDetailScreen() {
+    if ((!testQuestions || testQuestions.length === 0) && typeof sessionStorage !== 'undefined') {
+        try {
+            const storedQ = sessionStorage.getItem('saved_test_detail_questions');
+            const storedA = sessionStorage.getItem('saved_test_detail_answers');
+            if (storedQ) {
+                testQuestions = JSON.parse(storedQ);
+                testAnswers = storedA ? JSON.parse(storedA) : [];
+            }
+        } catch (e) {
+            console.error("Error restoring test details from sessionStorage:", e);
+        }
+    }
+
+    if (!testQuestions || testQuestions.length === 0) {
+        const container = document.getElementById('detail-cards-list-container');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); font-weight: 700;">Nessun dettaglio del test disponibile.</div>';
+        }
+        return;
+    }
+
+    let savedTimeSpent = 0;
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            const t = sessionStorage.getItem('saved_test_detail_time_spent');
+            if (t) savedTimeSpent = parseInt(t) || 0;
+        }
+    } catch(e) {}
+
+    let mins = Math.floor(savedTimeSpent / 60);
+    let secs = savedTimeSpent % 60;
     const outcomeTime = document.getElementById('detail-outcome-time');
     if (outcomeTime) outcomeTime.innerText = `Tempo: ${mins} minuti ${secs} secondi`;
 
@@ -793,10 +884,13 @@ function openTestDetailsView() {
     const totalQuestions = testQuestions.length;
 
     for (let i = 0; i < totalQuestions; i++) {
-        const databaseIsVero = testQuestions[i].is_vero === 1 || testQuestions[i].is_vero === true || testQuestions[i].is_vero === '1' || testQuestions[i].correct_answer === 'vero' || testQuestions[i].correct_answer === '1' || testQuestions[i].correct_answer === 1;
-        if (testAnswers[i] === null) {
+        const q = testQuestions[i];
+        const userAnswer = testAnswers[i];
+        const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+
+        if (userAnswer === null) {
             unansweredAnswers++;
-        } else if (testAnswers[i] === databaseIsVero) {
+        } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
         } else {
             wrongAnswers++;
@@ -900,8 +994,7 @@ function openTestDetailsView() {
         }
     }
 
-    openScreen('test-results-detail', 'Test Details');
-    filterDetailResults('all');
+    filterDetailResults(typeof currentDetailFilter !== 'undefined' ? currentDetailFilter : 'all');
 }
 
 function filterDetailResults(filterType) {
@@ -989,54 +1082,66 @@ function renderDetailResultsList() {
         const qThumbImage = q.image || (typeof activePageDetails !== 'undefined' && activePageDetails && (activePageDetails.image || activePageDetails.img)) || (typeof cartelliActivePageMainImage !== 'undefined' ? cartelliActivePageMainImage : null);
 
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="detail-q-num" style="margin-bottom: 0;">Domanda #${i + 1}</div>
-                ${badgeHtml}
-            </div>
-            <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary)}</div>
-            <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none;">${q.bangla || q.bn_question || ''}</div>
+            <div style="font-size: var(--mcq-num-font-mob, 13px); font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">${i + 1}</div>
 
-            <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 10px; margin-bottom: 8px;">
-                <div style="padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; ${optionVeroStyle}">
-                    <span>VERO (True)</span>
-                    ${veroIcon}
+            <div class="detail-q-header-row">
+                <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
+                    ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="detail-q-text-it" style="font-weight: 700; color: var(--text-primary); line-height: 1.4;">${highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary)}</div>
+                        <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
+                    </div>
                 </div>
-                <div style="padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; ${optionFalsoStyle}">
-                    <span>FALSO (False)</span>
-                    ${falsoIcon}
-                </div>
-            </div>
 
-            <div class="detail-q-actions-row" style="display: flex; gap: 8px; margin-top: 12px; align-items: center; width: 100%; box-sizing: border-box;">
-                ${qThumbImage ? `<img src="${qThumbImage}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="width: 68px; height: 68px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
-                <button class="test-speaker-btn" onclick="readDetailQuestionSpeechTTS(${i})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Listen Pronunciation (TTS)">
-                    <i class="fa-solid fa-microphone" style="font-size:14px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">উচ্চারণ</span>
-                </button>
-                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="playDetailQuestionAudioOrSpeech(${i})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play Audio Voiceover">
-                    <i class="fa-solid fa-play" style="font-size:13px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">শুনুন</span>
-                </button>
-                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1;" readonly>
-                <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
-                    <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
-                </button>
-                <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Bookmark">
-                    <i class="fa-regular fa-bookmark" style="font-size: 14px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">সেভ</span>
-                </button>
-                <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Add Note">
-                    <i class="fa-regular fa-note-sticky" style="font-size: 14px;"></i>
-                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">নোট</span>
-                </button>
+                <div class="detail-q-action-row">
+                    <button class="test-speaker-btn" onclick="readDetailQuestionSpeechTTS(${i})" title="Italiano TTS">
+                        <i class="fa-solid fa-volume-high" style="font-size: 12px; color: #fff;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #fff;">italiano</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="background: #ecfdf5; border: 1px solid #10b981; color: #10b981;" title="Bookmark">
+                        <i class="fa-regular fa-bookmark" style="font-size: 12px;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">শীট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;" title="Add Note">
+                        <i class="fa-regular fa-note-sticky" style="font-size: 12px;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #3b82f6;">নোট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleGuestChat(true)" style="background: #fff8f0; border: 1.5px solid #d97706;" title="Live Chat Support">
+                        <i class="fa-solid fa-user-tie" style="font-size: 12px; color: #d97706;"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #d97706;">লাইভ চ্যাট</span>
+                    </button>
+
+                    <button class="test-ctrl-btn" onclick="toggleDetailTranslation(${i})" style="background: #f0fdf4; border: 1px solid #22c55e; color: #22c55e;" title="Translate">
+                        <div style="border: 1.5px solid #22c55e; border-radius: 3px; padding: 0 2px; font-size: 7.5px; font-weight: 900; line-height: 1.1;">A Z</div>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #22c55e;">অনুবাদ</span>
+                    </button>
+                </div>
             </div>
 
-            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; display: flex; flex-direction: column; gap: 4px;">
-                <div style="color: var(--text-primary);">Risposta Corretta: <span style="color:#4CAF50;">${databaseIsVero ? 'V' : 'F'}</span></div>
-                <div style="color: ${userAnswer === null ? '#f59e0b' : (isCorrect ? '#4CAF50' : '#ef4444')};">
-                    (TU) Hai risposto: ${userAnswer === null ? 'Non hai risposto (No Response)' : (userAnswer ? 'V' : 'F')}
+            <div style="background: #e2e8f0; border-radius: 20px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; box-sizing: border-box; margin-bottom: 12px;">
+                <button class="test-ctrl-btn" id="detail-play-btn-${i}" onclick="playDetailQuestionAudioOrSpeech(${i})" style="height: 32px; padding: 0 12px; border-radius: 16px; background: #1e293b; border: none; color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);" title="বাংলা অডিও শুনুন">
+                    <i class="fa-solid fa-play" style="font-size: 11px;"></i>
+                    <span style="font-size: 11px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>
+                </button>
+
+                <input type="range" class="test-slider" id="detail-audio-slider-${i}" min="0" max="100" value="0" style="flex: 1; min-width: 0; width: 100%; accent-color: #22c55e; margin: 0 2px;" readonly>
+
+                <div style="position: relative; display: flex; align-items: center; flex-shrink: 0; margin-left: auto;">
+                    <button onclick="toggleDetailSpeedDropdown(event, ${i})" id="detail-speed-btn-${i}" style="height: 28px; padding: 0 8px; border-radius: 14px; background: #ffffff; border: 1px solid #cbd5e1; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0; font-size: 11px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" title="অডিও স্পিড">
+                        <i class="fa-solid fa-gauge-high" style="font-size: 11px; color: #4CAF50;"></i>
+                        <span id="detail-speed-lbl-${i}">${getDetailQuestionSpeed(i)}x</span>
+                    </button>
+                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none; position: absolute; bottom: 34px; right: 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px; z-index: 100; min-width: 90px; max-height: 220px; overflow-y: auto;">
+                    </div>
                 </div>
+            </div>
+
+            <div style="text-align: center; font-size: 14px; font-weight: 800; display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-primary);">Risposta Corretta: <span style="color: #1e293b;">${databaseIsVero ? 'V' : 'F'}</span></div>
+                <div style="color: var(--text-primary);">${userAnswer === null ? '<span style="color: #f59e0b;">(TU) Non hai risposto</span>' : `(TU) Hai risposto: <span style="color: ${isCorrect ? '#4CAF50' : '#ef4444'};">${userAnswer ? 'V' : 'F'}</span>`}</div>
             </div>
         `;
         container.appendChild(card);
@@ -1046,6 +1151,74 @@ function renderDetailResultsList() {
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">Nessuna domanda in questo filtro</div>`;
     }
 }
+
+let detailQuestionSpeeds = {};
+
+function getDetailQuestionSpeed(index) {
+    return detailQuestionSpeeds[index] || 1.0;
+}
+
+function toggleDetailSpeedDropdown(event, index) {
+    if (event) event.stopPropagation();
+    
+    document.querySelectorAll('.detail-speed-popover-menu').forEach(el => {
+        if (el.id !== `detail-speed-popover-${index}`) {
+            el.style.display = 'none';
+        }
+    });
+
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (!popover) return;
+
+    const isHidden = popover.style.display === 'none' || popover.style.display === '';
+    if (isHidden) {
+        renderSpeedPopoverItems(index);
+        popover.style.display = 'block';
+    } else {
+        popover.style.display = 'none';
+    }
+}
+
+function renderSpeedPopoverItems(index) {
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (!popover) return;
+
+    const currentSpeed = getDetailQuestionSpeed(index);
+    const options = [0.5, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+    popover.innerHTML = options.map(rate => {
+        const isSelected = rate === currentSpeed;
+        return `
+            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : '#1e293b'}; background: ${isSelected ? '#f0fdf4' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isSelected ? '#f0fdf4' : 'transparent'}'">
+                <span style="width: 12px; font-weight: 900; color: #16a34a;">${isSelected ? '✓' : ''}</span>
+                <span>${rate}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectDetailQuestionSpeed(event, index, rate) {
+    if (event) event.stopPropagation();
+    detailQuestionSpeeds[index] = rate;
+
+    const lbl = document.getElementById(`detail-speed-lbl-${index}`);
+    if (lbl) lbl.innerText = `${rate}x`;
+
+    const popover = document.getElementById(`detail-speed-popover-${index}`);
+    if (popover) popover.style.display = 'none';
+
+    if (activeDetailAudioIndex === index && activeDetailAudioPlayer) {
+        activeDetailAudioPlayer.playbackRate = rate;
+    }
+
+    if (typeof showToast === 'function') {
+        showToast(`স্পিড: ${rate}x`);
+    }
+}
+
+window.addEventListener('click', () => {
+    document.querySelectorAll('.detail-speed-popover-menu').forEach(el => el.style.display = 'none');
+});
 
 function toggleDetailTranslation(index) {
     if (!testQuestions || !testQuestions[index]) return;
@@ -1064,7 +1237,7 @@ function readDetailQuestionSpeechTTS(index) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = 'it-IT';
-        utterance.rate = testAudioSpeed;
+        utterance.rate = getDetailQuestionSpeed(index);
         window.speechSynthesis.speak(utterance);
     } else {
         showToast('আপনার ব্রাউজার টেক্সট-টু-স্পিচ সমর্থন করে না');
@@ -1074,6 +1247,12 @@ function readDetailQuestionSpeechTTS(index) {
 let activeDetailAudioPlayer = null;
 let activeDetailAudioIndex = null;
 let detailAudioInterval = null;
+
+function updateAudioSliderProgress(slider, val) {
+    if (!slider) return;
+    slider.value = val;
+    slider.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${val}%, #cbd5e1 ${val}%, #cbd5e1 100%)`;
+}
 
 function stopDetailAudioPlayer() {
     if (activeDetailAudioPlayer) {
@@ -1089,8 +1268,8 @@ function stopDetailAudioPlayer() {
     if (activeDetailAudioIndex !== null) {
         const oldBtn = document.getElementById(`detail-play-btn-${activeDetailAudioIndex}`);
         const oldSlider = document.getElementById(`detail-audio-slider-${activeDetailAudioIndex}`);
-        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        if (oldSlider) oldSlider.value = 0;
+        if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
+        if (oldSlider) updateAudioSliderProgress(oldSlider, 0);
     }
     activeDetailAudioIndex = null;
 }
@@ -1117,8 +1296,9 @@ function playDetailQuestionAudioOrSpeech(index) {
             activeDetailAudioPlayer = new Audio();
         }
         activeDetailAudioPlayer.src = audioUrl;
+        activeDetailAudioPlayer.playbackRate = getDetailQuestionSpeed(index);
 
-        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="font-size: 11px; color: #ef4444;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
 
         activeDetailAudioPlayer.play().then(() => {
             detailAudioInterval = setInterval(() => {
@@ -1127,7 +1307,8 @@ function playDetailQuestionAudioOrSpeech(index) {
                     return;
                 }
                 if (slider && activeDetailAudioPlayer.duration) {
-                    slider.value = (activeDetailAudioPlayer.currentTime / activeDetailAudioPlayer.duration) * 100;
+                    let prg = (activeDetailAudioPlayer.currentTime / activeDetailAudioPlayer.duration) * 100;
+                    updateAudioSliderProgress(slider, prg);
                 }
             }, 100);
         }).catch(err => {
@@ -1152,39 +1333,40 @@ function readDetailQuestionSpeech(index) {
             playingDetailSpeechIndex = null;
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
             const pBtn = document.getElementById(`detail-play-btn-${index}`);
-            if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             const slider = document.getElementById(`detail-audio-slider-${index}`);
-            if (slider) slider.value = 0;
+            if (slider) updateAudioSliderProgress(slider, 0);
             return;
         }
 
         if (playingDetailSpeechIndex !== null) {
             const oldBtn = document.getElementById(`detail-play-btn-${playingDetailSpeechIndex}`);
             const oldSlider = document.getElementById(`detail-audio-slider-${playingDetailSpeechIndex}`);
-            if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            if (oldSlider) oldSlider.value = 0;
+            if (oldBtn) oldBtn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
+            if (oldSlider) updateAudioSliderProgress(oldSlider, 0);
         }
 
         playingDetailSpeechIndex = index;
         if (detailSpeechInterval) clearInterval(detailSpeechInterval);
 
         const q = testQuestions[index];
+        const qSpeed = getDetailQuestionSpeed(index);
         const utterance = new SpeechSynthesisUtterance(q.italian);
         utterance.lang = 'it-IT';
-        utterance.rate = testAudioSpeed;
+        utterance.rate = qSpeed;
 
         const pBtn = document.getElementById(`detail-play-btn-${index}`);
-        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="color:var(--accent-red);"></i>';
+        if (pBtn) pBtn.innerHTML = '<i class="fa-solid fa-pause" style="font-size: 11px; color: #ef4444;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
 
         let slider = document.getElementById(`detail-audio-slider-${index}`);
-        if (slider) slider.value = 0;
+        if (slider) updateAudioSliderProgress(slider, 0);
         let stepCount = 0;
-        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / testAudioSpeed));
+        let durationSteps = Math.max(15, Math.floor((q.italian.length / 3) / qSpeed));
 
         detailSpeechInterval = setInterval(() => {
             stepCount++;
             let prg = Math.min(100, Math.floor((stepCount / durationSteps) * 100));
-            if (slider) slider.value = prg;
+            if (slider) updateAudioSliderProgress(slider, prg);
             if (prg >= 100) {
                 clearInterval(detailSpeechInterval);
             }
@@ -1192,17 +1374,17 @@ function readDetailQuestionSpeech(index) {
 
         utterance.onend = () => {
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
-            if (slider) slider.value = 100;
+            if (slider) updateAudioSliderProgress(slider, 100);
             const btn = document.getElementById(`detail-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             playingDetailSpeechIndex = null;
         };
 
         utterance.onerror = () => {
             if (detailSpeechInterval) clearInterval(detailSpeechInterval);
-            if (slider) slider.value = 0;
+            if (slider) updateAudioSliderProgress(slider, 0);
             const btn = document.getElementById(`detail-play-btn-${index}`);
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-play" style="font-size: 11px;"></i><span style="font-size: 12px; font-weight: 800; color: #fff; line-height: 1;">বাংলা</span>';
             playingDetailSpeechIndex = null;
         };
 

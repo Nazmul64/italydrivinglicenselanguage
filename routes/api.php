@@ -91,6 +91,37 @@ Route::prefix('v1')->group(function () {
     Route::get('/patente-social/cards', [PatenteSocialApiController::class, 'getCards']);
     Route::get('/patente-social/banners', [PatenteSocialApiController::class, 'getBanners']);
     Route::get('/patente-social/settings', [PatenteSocialApiController::class, 'getSettings']);
+    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+    Route::post('/qr-unlock', function (Illuminate\Http\Request $request) {
+        $code = $request->input('session_id') ?: $request->input('qr_code') ?: $request->input('code') ?: $request->input('qrData');
+        if (empty($code)) {
+            return response()->json(['status' => 'error', 'message' => 'QR payload parameter missing'], 422);
+        }
+
+        $sessionId = $code;
+        if (str_contains($code, 'session_id=')) {
+            $queryString = parse_url($code, PHP_URL_QUERY);
+            if ($queryString) {
+                parse_str($queryString, $query);
+                if (!empty($query['session_id'])) {
+                    $sessionId = $query['session_id'];
+                }
+            }
+        }
+
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400);
+
+        if ($code === 'web_qr_scan_demo' || $sessionId === 'web_qr_scan_demo' || $code === 'demo') {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_demo', true, 86400);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 86400);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Web session unlocked successfully!',
+            'session_id' => $sessionId
+        ]);
+    });
 
     // 14. MANUALE API (Manual Theory Chapters & Pages)
     Route::get('/manuale/chapters', [ManualeApiController::class, 'getChapters']);

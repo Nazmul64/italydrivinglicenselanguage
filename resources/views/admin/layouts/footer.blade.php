@@ -10,3 +10,5 @@
 <script src="{{ asset('js/admin/modules/chat.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/content.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/system.js') }}?v={{ time() }}"></script>
+
+@stack('scripts')

@@ -62,7 +62,7 @@
         <!-- Chapter Dropdown -->
         <div style="position: relative; width: 100%;">
             <div class="chapter-selector-trigger" onclick="toggleCartelliPageChapterDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
-                <span id="cartelli-page-chapter-label" style="font-weight: 800; font-size: 13px; color: var(--text-primary);">Capitolo...</span>
+                <span id="cartelli-page-chapter-label" style="font-weight: 800; color: var(--text-primary);">Capitolo...</span>
                 <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
             </div>
             <div class="chapter-dropdown-list-panel" id="cartelli-page-chapter-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100;"></div>
@@ -70,7 +70,7 @@
         <!-- Page Dropdown -->
         <div style="position: relative; width: 100%;">
             <div class="chapter-selector-trigger" onclick="toggleCartelliPageDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
-                <span id="cartelli-page-label" style="font-weight: 800; font-size: 13px; color: var(--text-primary);">Pagina...</span>
+                <span id="cartelli-page-label" style="font-weight: 800; color: var(--text-primary);">Pagina...</span>
                 <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
             </div>
             <div class="chapter-dropdown-list-panel" id="cartelli-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;"></div>
@@ -95,15 +95,9 @@
         <!-- MCQ cards injected by JS -->
     </div>
 
-    <!-- Fixed Bottom Buttons -->
-    <div style="position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 100%; display: flex; justify-content: space-between; padding: 10px 16px; background-color: var(--bg-card); border-top: 1px solid var(--border-card); z-index: 99; gap: 12px; box-shadow: 0 -4px 10px rgba(0,0,0,0.03);">
-        <button class="action-btn" id="cartelli-play-all-btn" onclick="togglePlayAllCartelliMcqs()" style="flex: 1; background-color: var(--accent-green); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; border-radius: 12px; margin: 0; padding: 12px;">
-            <i class="fa-solid fa-circle-play"></i>
-            <span>Play All</span>
-        </button>
-        <button class="action-btn" onclick="startCartelliPageQuiz()" style="flex: 1; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; border-radius: 12px; margin: 0; padding: 12px;">
-            <span>QUIZ</span>
-            <i class="fa-solid fa-chevron-right"></i>
-        </button>
-    </div>
+    <!-- Compact Floating QUIZ button on bottom-right matching reference screenshot -->
+    <button class="floating-quiz-btn" onclick="startCartelliPageQuiz()" style="position: fixed; bottom: 85px; right: 20px; background-color: var(--accent-green, #4CAF50); color: white; border: none; padding: 8px 18px; border-radius: 20px; font-weight: 800; font-size: 12px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.35); cursor: pointer; z-index: 99;" title="Start Quiz">
+        <span>QUIZ</span>
+        <i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i>
+    </button>
 </div>

@@ -129,9 +129,21 @@ class CartelloController extends Controller
         ]);
 
         $categoryId = $request->category_id;
+        if ($categoryId && !CartelloCategory::where('id', $categoryId)->exists()) {
+            $categoryId = null;
+        }
+
         if (!$categoryId) {
             $defaultCat = CartelloCategory::first();
-            $categoryId = $defaultCat ? $defaultCat->id : 1;
+            if (!$defaultCat) {
+                $defaultCat = CartelloCategory::create([
+                    'name'        => 'Generale',
+                    'bn_name'     => 'সাধারণ ক্যাটাগরি',
+                    'sort_order'  => 1,
+                    'status'      => true
+                ]);
+            }
+            $categoryId = $defaultCat->id;
         }
 
         $imagePath = null;
@@ -165,9 +177,21 @@ class CartelloController extends Controller
         ]);
 
         $categoryId = $request->category_id ?: $chapter->category_id;
+        if ($categoryId && !CartelloCategory::where('id', $categoryId)->exists()) {
+            $categoryId = null;
+        }
+
         if (!$categoryId) {
             $defaultCat = CartelloCategory::first();
-            $categoryId = $defaultCat ? $defaultCat->id : 1;
+            if (!$defaultCat) {
+                $defaultCat = CartelloCategory::create([
+                    'name'        => 'Generale',
+                    'bn_name'     => 'সাধারণ ক্যাটাগরি',
+                    'sort_order'  => 1,
+                    'status'      => true
+                ]);
+            }
+            $categoryId = $defaultCat->id;
         }
 
         $chapter->name = $request->name;
