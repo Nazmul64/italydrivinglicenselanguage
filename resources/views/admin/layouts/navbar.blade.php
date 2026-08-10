@@ -1,9 +1,13 @@
 <!-- 3. Top Navbar -->
 <div class="top-navbar">
-    <div class="nav-search">
-        <i class="fa-solid fa-magnifying-glass" style="color: var(--text-secondary); font-size: 13px;"></i>
-        <input type="text" placeholder="Search tables, questions..." oninput="triggerGlobalSearch(this.value)">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1; max-width: 420px;">
+        <i class="fa-solid fa-bars mobile-menu-toggle" onclick="toggleMobileSidebar()"></i>
+        <div class="nav-search">
+            <i class="fa-solid fa-magnifying-glass" style="color: var(--text-secondary); font-size: 13px;"></i>
+            <input type="text" placeholder="Search tables, questions..." oninput="triggerGlobalSearch(this.value)">
+        </div>
     </div>
+
 
     <div class="nav-actions">
         <i class="fa-solid fa-sun action-icon" id="theme-toggle" onclick="toggleDarkMode()"></i>

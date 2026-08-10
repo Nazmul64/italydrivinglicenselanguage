@@ -12,7 +12,8 @@ function checkClientActivation() {
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            currentClientVerified = data.verified || !!savedPhone;
+            currentClientVerified = data.verified;
+
             const wasActive = currentClientActive;
             currentClientActive = data.is_active;
             localStorage.setItem('app_client_active', data.is_active ? 'true' : 'false');
@@ -26,7 +27,10 @@ function checkClientActivation() {
                 localStorage.setItem('app_client_session_id', data.session_id);
             }
 
-            syncUserQuestionStatsFromBackend();
+            if (currentClientActive) {
+                syncUserQuestionStatsFromBackend();
+            }
+
 
             const lockEl = document.getElementById('app-activation-lock');
 

@@ -85,10 +85,19 @@ function saveUserQuestionStats(stats) {
 }
 
 function syncUserQuestionStatsFromBackend() {
+    if (typeof currentClientActive !== 'undefined' && !currentClientActive && localStorage.getItem('app_client_active') !== 'true') {
+        return Promise.resolve();
+    }
+
     return fetch('/api/user-mcq-results?per_page=5000')
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) return null;
+            return res.json();
+        })
         .then(data => {
+            if (!data) return;
             const items = data.data || (Array.isArray(data) ? data : []);
+
             if (!items || !Array.isArray(items)) return;
 
             const stats = getUserQuestionStats();

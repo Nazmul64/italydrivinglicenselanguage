@@ -31,11 +31,28 @@ if (localStorage.getItem('admin-theme') === 'dark') {
     if (themeIcon) themeIcon.className = 'fa-solid fa-sun action-icon';
 }
 
+function toggleMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar) return;
+    sidebar.classList.toggle('show-mobile');
+    if (overlay) overlay.classList.toggle('show');
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('show-mobile');
+    if (overlay) overlay.classList.remove('show');
+}
+
 // Display panels switching
 function switchPanel(panelId) {
+    closeMobileSidebar();
     if (typeof stopAdminChatPolling === 'function') {
         stopAdminChatPolling();
     }
+
     currentPanel = panelId;
     document.querySelectorAll('.crud-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));

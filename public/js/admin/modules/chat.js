@@ -51,15 +51,15 @@ function renderConversationsList(conversations) {
 
         let avatarHTML = '<div class="conversation-avatar">GU</div>';
         let nameHTML = `<div class="conversation-name">Guest #${convo.session_id.substring(0, 8)}</div>`;
-        let statusHTML = '';
         let progressHTML = '';
+        const isActive = convo.client ? (!!convo.client.is_active) : false;
 
         if (convo.client) {
             const client = convo.client;
             const initials = `${client.first_name[0] || 'U'}${client.last_name[0] || 'S'}`.toUpperCase();
             avatarHTML = `<div class="conversation-avatar">${initials}</div>`;
 
-            let starsHTML = '<span class="client-stars-display" style="color: #fbbf24; margin-left: 6px; font-size: 11px;">';
+            let starsHTML = '<span class="client-stars-display" style="color: #fbbf24; margin-left: 4px; font-size: 10px;">';
             for (let i = 1; i <= 5; i++) {
                 starsHTML += i <= client.stars ? '★' : '☆';
             }
@@ -80,15 +80,16 @@ function renderConversationsList(conversations) {
                     </div>
                 </div>
             `;
-
-            statusHTML = `
-                <div class="client-status-box ${client.is_active ? 'active' : 'inactive'}" 
-                     onclick="event.stopPropagation(); toggleClientActivation(${client.id})"
-                     title="${client.is_active ? 'Deactivate Client' : 'Activate Client'}"
-                     style="width: 14px; height: 14px; border-radius: 3px; cursor: pointer; display: inline-block; margin-left: 10px; transition: background-color 0.2s;">
-                </div>
-            `;
         }
+
+        const statusHTML = `
+            <button class="btn-chat-toggle ${isActive ? 'active' : 'inactive'}"
+                    onclick="event.stopPropagation(); toggleClientActivation('${convo.session_id}')"
+                    title="${isActive ? 'Click to Deactivate Customer' : 'Click to Activate Customer'}">
+                <i class="fa-solid ${isActive ? 'fa-user-check' : 'fa-user-xmark'}"></i>
+                <span>${isActive ? 'Active' : 'Inactive'}</span>
+            </button>
+        `;
 
         item.innerHTML = `
             ${avatarHTML}
@@ -103,16 +104,19 @@ function renderConversationsList(conversations) {
     });
 }
 
-function toggleClientActivation(clientId) {
-    fetch(`/admin/api/clients/toggle-active/${clientId}`, {
+function toggleClientActivation(identifier) {
+    if (!identifier) return;
+    const safeIdentifier = encodeURIComponent(identifier);
+    fetch(`/admin/api/clients/toggle-active/${safeIdentifier}`, {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
         }
     })
         .then(res => res.json())
         .then(data => {
-            showToast(data.client.is_active ? 'গ্রাহক অ্যাকাউন্ট সক্রিয় করা হয়েছে' : 'গ্রাহক অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে');
+            showToast(data.is_active ? 'গ্রাহক অ্যাকাউন্ট সক্রিয় করা হয়েছে' : 'গ্রাহক অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে');
             fetchConversations();
         })
         .catch(err => {
@@ -120,6 +124,8 @@ function toggleClientActivation(clientId) {
             showToast('অ্যাক্টিভেশন স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে');
         });
 }
+
+
 
 function selectConversation(sessionId) {
     activeChatSessionId = sessionId;
@@ -224,24 +230,41 @@ function renderConversationMessages(messages, forceScroll) {
     }
 }
 
+let pendingAdminImageFile = null;
+
+function handleAdminImageSelected(input) {
+    if (input.files && input.files[0]) {
+        pendingAdminImageFile = input.files[0];
+        showToast('ছবি সিলেক্ট করা হয়েছে: ' + pendingAdminImageFile.name);
+        sendAdminChatMessage();
+    }
+}
+
 function sendAdminChatMessage() {
     const input = document.getElementById('admin-chat-input');
+    const imageInput = document.getElementById('admin-chat-image-input');
     if (!input) return;
+
     const messageText = input.value.trim();
-    if (!messageText || !activeChatSessionId) return;
+    const file = pendingAdminImageFile || (imageInput && imageInput.files ? imageInput.files[0] : null);
+
+    if ((!messageText && !file) || !activeChatSessionId) return;
 
     input.value = '';
+    if (imageInput) imageInput.value = '';
+    pendingAdminImageFile = null;
+
+    const formData = new FormData();
+    formData.append('session_id', activeChatSessionId);
+    if (messageText) formData.append('message', messageText);
+    if (file) formData.append('file', file);
 
     fetch('/admin/api/chat/messages', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken
         },
-        body: JSON.stringify({
-            session_id: activeChatSessionId,
-            message: messageText
-        })
+        body: formData
     })
         .then(res => res.json())
         .then(msg => {
@@ -250,14 +273,20 @@ function sendAdminChatMessage() {
         .catch(err => console.error("Error sending message: ", err));
 }
 
+
 let allChatPresetsList = [];
 
 function openAdminChatSettings() {
     if (!activeChatSessionId) {
-        showToast('দয়া করে প্রথমে একটি চ্যাট নির্বাচন করুন');
+        if (typeof openChatPresetManagerModal === 'function') {
+            openChatPresetManagerModal();
+        } else {
+            showToast('দয়া করে প্রথমে একটি চ্যাট নির্বাচন করুন');
+        }
         return;
     }
     const modal = document.getElementById('admin-chat-settings-modal');
+
     const container = document.getElementById('admin-macro-buttons-container');
     if (modal) modal.style.display = 'flex';
 

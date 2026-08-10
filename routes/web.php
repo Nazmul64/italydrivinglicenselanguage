@@ -501,6 +501,19 @@ Route::post('/api/client/activate', function (\Illuminate\Http\Request $request)
     $client->expires_at = now()->addDays($days);
     $client->save();
 
+    $user = \App\Models\User::where('uuid', $sessionId)->first();
+    if ($user) {
+        \App\Models\License::updateOrCreate(
+            ['user_id' => $user->uuid],
+            [
+                'license_key'  => rand(100000, 999999),
+                'status'       => 'active',
+                'activated_at' => now(),
+                'expires_at'   => now()->addDays($days),
+            ]
+        );
+    }
+
     if (!$hasWelcome) {
         $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা।\n"
                      . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন।\n"
@@ -509,15 +522,20 @@ Route::post('/api/client/activate', function (\Illuminate\Http\Request $request)
                      . "আপনার জন্য রইল অনেক শুভকামনা।";
         
         \App\Models\Message::create([
-            'session_id' => $sessionId,
-            'sender' => 'admin',
+            'session_id'  => $sessionId,
+            'sender'      => 'admin',
             'sender_name' => 'Admin',
-            'message' => $welcomeText
+            'message'     => $welcomeText
         ]);
     }
 
-    return response()->json(['success' => true]);
+    return response()->json([
+        'success'   => true,
+        'is_active' => true,
+        'client'    => $client
+    ]);
 });
+
 
 // Guest Chat API Endpoints
 Route::get('/api/chat/messages', function (Request $request) {
@@ -753,6 +771,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     // Admin Chat Room API Endpoints
     Route::get('/admin/api/chat/conversations', function () {
         $conversations = \App\Models\Message::select('session_id')
+            ->whereNotNull('session_id')
             ->selectRaw('MAX(created_at) as last_activity')
             ->groupBy('session_id')
             ->orderBy('last_activity', 'desc')
@@ -761,13 +780,24 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                 $latest = \App\Models\Message::where('session_id', $convo->session_id)
                     ->orderBy('created_at', 'desc')
                     ->first();
+
                 $client = \App\Models\AppClient::where('session_id', $convo->session_id)->first();
-                return [
-                    'session_id' => $convo->session_id,
-                    'last_message' => $latest->message ?? '',
-                    'sender' => $latest->sender ?? '',
-                    'updated_at' => $convo->last_activity,
-                    'client' => $client ? [
+                $user = \App\Models\User::where('uuid', $convo->session_id)->first();
+
+                $clientData = null;
+                if ($user) {
+                    $license = \App\Models\License::where('user_id', $user->uuid)->where('status', 'active')->first();
+                    $clientData = [
+                        'id' => $user->id,
+                        'first_name' => $user->first_name ?: $user->name,
+                        'last_name' => $user->last_name ?: '',
+                        'phone' => $user->phone ?: '',
+                        'is_active' => $license ? true : false,
+                        'stars' => 5,
+                        'progress' => 100
+                    ];
+                } elseif ($client) {
+                    $clientData = [
                         'id' => $client->id,
                         'first_name' => $client->first_name,
                         'last_name' => $client->last_name,
@@ -775,12 +805,31 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                         'is_active' => $client->is_active,
                         'stars' => $client->stars,
                         'progress' => $client->progress
-                    ] : null
+                    ];
+                } else {
+                    $clientData = [
+                        'id' => 0,
+                        'first_name' => 'Support',
+                        'last_name' => 'User',
+                        'phone' => 'N/A',
+                        'is_active' => false,
+                        'stars' => 0,
+                        'progress' => 0
+                    ];
+                }
+
+                return [
+                    'session_id' => $convo->session_id,
+                    'last_message' => $latest->message ?? '',
+                    'sender' => $latest->sender ?? '',
+                    'updated_at' => $convo->last_activity,
+                    'client' => $clientData
                 ];
             });
-            
+
         return response()->json($conversations);
     });
+
 
     Route::get('/admin/api/chat/unread-count', function () {
         $conversations = \App\Models\Message::select('session_id')
@@ -808,18 +857,42 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/chat/messages', function (Request $request) {
         $request->validate([
             'session_id' => 'required|string',
-            'message' => 'required|string'
+            'message'    => 'nullable|string',
+            'file'       => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
         ]);
-        
+
+        $attachmentPath = $request->input('attachment_path');
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = 'admin_chat_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/attachments'), $fileName);
+            $attachmentPath = '/uploads/attachments/' . $fileName;
+        }
+
+        if (empty($request->message) && !$attachmentPath) {
+            return response()->json(['error' => 'Message or image required'], 422);
+        }
+
+        $user = \App\Models\User::where('uuid', $request->session_id)->first();
+        $conversationId = null;
+        if ($user) {
+            $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+            $conversationId = $convo->id;
+        }
+
         $message = \App\Models\Message::create([
-            'session_id' => $request->session_id,
-            'sender' => 'admin',
-            'sender_name' => 'Admin',
-            'message' => $request->message
+            'conversation_id' => $conversationId,
+            'session_id'      => $request->session_id,
+            'sender'          => 'admin',
+            'sender_type'     => 'admin',
+            'sender_name'     => 'Admin',
+            'message'         => $request->message ?: '',
+            'attachment_path' => $attachmentPath,
         ]);
-        
+
         return response()->json($message);
     });
+
 
     Route::post('/admin/api/chat/macro', function (Request $request) {
         $request->validate([
@@ -1977,17 +2050,40 @@ Route::post('/api/chat/messages', function (Request $request) {
     $sessionId = $request->input('session_id') ?: session()->getId();
     $text      = trim($request->input('message', ''));
     $attachment = $request->input('attachment_path');
-
-    if (empty($text) && empty($attachment)) {
-        return response()->json(['success' => false, 'message' => 'বার্তা প্রদান করুন'], 422);
+    if ($request->hasFile('file')) {
+        $file = $request->file('file');
+        $fileName = 'chat_client_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+        $file->move(public_path('uploads/attachments'), $fileName);
+        $attachment = '/uploads/attachments/' . $fileName;
     }
 
+    if (empty($text) && empty($attachment)) {
+        return response()->json(['success' => false, 'message' => 'বার্তা বা ছবি প্রদান করুন'], 422);
+    }
+
+
+    $user = \App\Models\User::where('uuid', $sessionId)->first();
     $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-    $senderName = $client ? ($client->first_name . ' ' . $client->last_name) : 'Guest User';
+
+    $senderName = 'Guest User';
+    if ($user) {
+        $senderName = $user->first_name . ' ' . $user->last_name;
+    } elseif ($client) {
+        $senderName = $client->first_name . ' ' . $client->last_name;
+    }
+
+    $conversationId = null;
+    if ($user) {
+        $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+        $conversationId = $convo->id;
+    }
 
     $msg = \App\Models\Message::create([
+        'conversation_id' => $conversationId,
         'session_id'      => $sessionId,
         'sender'          => 'user',
+        'sender_type'     => 'user',
+        'sender_id'       => $user ? $user->uuid : $sessionId,
         'sender_name'     => $senderName,
         'message'         => $text,
         'attachment_path' => $attachment,
@@ -1995,6 +2091,7 @@ Route::post('/api/chat/messages', function (Request $request) {
 
     return response()->json($msg);
 });
+
 
 // 4. Activate License (when customer clicks "Attiva Licenza" on License Card)
 $activateLicenseHandler = function (Request $request) {
@@ -2082,19 +2179,69 @@ Route::post('/admin/api/chat/messages', function (Request $request) {
 });
 
 // 8. Admin: Toggle Client Activation
-Route::post('/admin/api/clients/toggle-active/{id}', function ($id) {
-    $client = \App\Models\AppClient::findOrFail($id);
-    $client->is_active = !$client->is_active;
-    if ($client->is_active) {
+Route::post('/admin/api/clients/toggle-active/{identifier}', function ($identifier) {
+    $client = \App\Models\AppClient::where('id', $identifier)
+        ->orWhere('session_id', $identifier)
+        ->first();
+
+    $user = \App\Models\User::where('uuid', $identifier)->first();
+
+    if (!$client && $user && $user->phone) {
+        $client = \App\Models\AppClient::where('phone', $user->phone)->first();
+    }
+
+    if (!$client && $user) {
+        $client = \App\Models\AppClient::create([
+            'session_id' => $user->uuid,
+            'first_name' => $user->first_name ?: $user->name,
+            'last_name'  => $user->last_name ?: '',
+            'phone'      => $user->phone ?: 'N/A',
+            'is_active'  => false,
+        ]);
+    }
+
+    if (!$client) {
+        $client = \App\Models\AppClient::create([
+            'session_id' => $identifier,
+            'first_name' => 'Guest',
+            'last_name'  => 'User',
+            'phone'      => 'N/A',
+            'is_active'  => false,
+        ]);
+    }
+
+    $newStatus = !$client->is_active;
+    $client->is_active = $newStatus;
+    if ($newStatus) {
         $client->expires_at = now()->addDays(365);
         \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * 365);
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 86400 * 365);
     }
     $client->save();
 
+    if ($client->phone && $client->phone !== 'N/A') {
+        \App\Models\AppClient::where('phone', $client->phone)->update([
+            'is_active'  => $newStatus,
+            'expires_at' => $newStatus ? now()->addDays(365) : null,
+        ]);
+    }
+
+    if ($user || $client->session_id) {
+        $userId = $user ? $user->uuid : $client->session_id;
+        \App\Models\License::updateOrCreate(
+            ['user_id' => $userId],
+            [
+                'license_key' => rand(100000, 999999),
+                'status'      => $newStatus ? 'active' : 'inactive',
+                'activated_at'=> $newStatus ? now() : null,
+                'expires_at'  => $newStatus ? now()->addDays(365) : null,
+            ]
+        );
+    }
+
     return response()->json([
-        'success' => true,
-        'client'  => $client
+        'success'   => true,
+        'is_active' => $newStatus,
+        'client'    => $client
     ]);
 });
 
@@ -2116,7 +2263,7 @@ Route::get('/admin/api/chat-presets', function () {
     return response()->json($presets);
 });
 
-// 10. Admin: Execute Chat Preset (Send License Card)
+// 10. Admin: Execute Chat Preset (Send License Card & Auto-Activate)
 Route::post('/admin/api/chat/preset-execute', function (Request $request) {
     $sessionId = $request->input('session_id');
     $presetId  = $request->input('preset_id');
@@ -2128,13 +2275,63 @@ Route::post('/admin/api/chat/preset-execute', function (Request $request) {
         $key  = rand(100000, 999999);
         $cardMsg = "[LICENSE_CARD:key={$key},days={$days}]";
 
+        // Auto-activate client & user when license card preset is sent by admin!
+        $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+        if (!$client) {
+            $user = \App\Models\User::where('uuid', $sessionId)->first();
+            if ($user && $user->phone) {
+                $client = \App\Models\AppClient::where('phone', $user->phone)->first();
+            }
+        }
+
+        if (!$client) {
+            $client = \App\Models\AppClient::create([
+                'session_id' => $sessionId,
+                'first_name' => 'Guest',
+                'last_name'  => 'User',
+                'phone'      => 'N/A',
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+        } else {
+            $client->is_active = true;
+            $client->expires_at = now()->addDays($days);
+            $client->save();
+        }
+
+        if ($client->phone && $client->phone !== 'N/A') {
+            \App\Models\AppClient::where('phone', $client->phone)->update([
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+        }
+
+        $user = \App\Models\User::where('uuid', $sessionId)->first();
+        if ($user) {
+            \App\Models\License::updateOrCreate(
+                ['user_id' => $user->uuid],
+                [
+                    'license_key'  => $key,
+                    'status'       => 'active',
+                    'activated_at' => now(),
+                    'expires_at'   => now()->addDays($days),
+                ]
+            );
+        }
+
         $msg = \App\Models\Message::create([
             'session_id'  => $sessionId,
             'sender'      => 'admin',
             'sender_name' => 'Support Admin',
             'message'     => $cardMsg,
         ]);
-        return response()->json($msg);
+
+        return response()->json([
+            'success'   => true,
+            'is_active' => true,
+            'message'   => $msg,
+            'client'    => $client
+        ]);
     } else {
         $msg = \App\Models\Message::create([
             'session_id'  => $sessionId,
@@ -2145,3 +2342,11 @@ Route::post('/admin/api/chat/preset-execute', function (Request $request) {
         return response()->json($msg);
     }
 });
+
+
+// Admin Customer & License Management Routes
+Route::get('/admin/customers', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'index'])->name('admin.customers.index');
+Route::get('/admin/customers/{uuid}', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'show'])->name('admin.customers.show');
+Route::post('/admin/customers/{uuid}/assign-license', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'assignLicense'])->name('admin.customers.assignLicense');
+Route::post('/admin/licenses/{id}/status', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'updateLicenseStatus'])->name('admin.licenses.updateStatus');
+Route::post('/admin/customers/{uuid}/send-message', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'sendMessage'])->name('admin.customers.sendMessage');

@@ -303,11 +303,17 @@
                     <h2 class="welcome-title">Live Chat Room</h2>
                     <p class="welcome-subtitle">Chat with online customers and help them learn driving theory.</p>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="openChatPresetManagerModal()">
-                    <i class="fa-solid fa-gear"></i> Manage Response Buttons (বাটন ম্যানেজার)
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="btn btn-secondary" onclick="openAdminChatSettings()" title="License Key & Response Presets">
+                        <i class="fa-solid fa-gear"></i> Settings / Presets
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="openChatPresetManagerModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <i class="fa-solid fa-sliders"></i> Manage Response Buttons (বাটন ম্যানেজার)
+                    </button>
+                </div>
             </div>
         </div>
+
         
         <div class="chat-room-container">
             <!-- Sidebar list of conversations -->
@@ -333,9 +339,14 @@
                 </div>
                 
                 <div class="chat-input-container">
+                    <input type="file" id="admin-chat-image-input" accept="image/*" style="display: none;" onchange="handleAdminImageSelected(this)">
+                    <button type="button" onclick="document.getElementById('admin-chat-image-input').click()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 0 8px;" title="Attach Image">
+                        <i class="fa-solid fa-paperclip"></i>
+                    </button>
                     <input type="text" id="admin-chat-input" placeholder="আপনার উত্তর লিখুন..." onkeydown="if(event.key === 'Enter') sendAdminChatMessage()">
                     <button class="chat-send-btn" onclick="sendAdminChatMessage()">Send <i class="fa-solid fa-paper-plane" style="margin-left: 6px;"></i></button>
                 </div>
+
             </div>
             
             <!-- Fallback placeholder if no chat selected -->

@@ -107,9 +107,10 @@ function renderGuestChatMessages(messages) {
 
     container.innerHTML = '';
     if (messages.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 11px; margin-top: 20px;">আপনার বার্তা লিখে চ্যাট শুরু করুন। রহমান স্যার খুব শীঘ্রই উত্তর দেবেন!</div>`;
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 11px; margin-top: 20px;">আপনার বার্তা লিখে চ্যাট শুরু করুন। খুব শীঘ্রই উত্তর দেওয়া হবে!</div>`;
         return;
     }
+
 
     messages.forEach(msg => {
         const bubble = document.createElement('div');
@@ -123,7 +124,7 @@ function renderGuestChatMessages(messages) {
             bubble.className = `license-card-bubble`;
             let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza</button>`;
             if (currentClientActive) {
-                buttonHTML = `<div style="text-align: center; font-size: 13px; font-weight: 800; color: #4CAF50; border: 1.5px solid #4CAF50; border-radius: 12px; padding: 10px; margin-top: 12px; font-family: inherit;">Licenza Attivata ✓</div>`;
+                buttonHTML = '';
             }
 
             bubble.innerHTML = `
@@ -185,8 +186,21 @@ function activateLicenseFromCard(days) {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast(`লাইসেন্স সফলভাবে সক্রিয় করা হয়েছে! (${days} দিন)`);
+                currentClientActive = true;
+                localStorage.setItem('app_client_active', 'true');
+
+                const lockEl = document.getElementById('app-activation-lock');
+                if (lockEl) {
+                    lockEl.style.display = 'none';
+                }
+
+                if (typeof closeAllModals === 'function') {
+                    closeAllModals();
+                }
+
+                showToast(`🎉 লাইসেন্স সফলভাবে সক্রিয় করা হয়েছে! (${days} দিন)`);
                 checkClientActivation();
+                fetchGuestChatMessages();
             } else {
                 showToast('সক্রিয় করতে সমস্যা হয়েছে');
             }
@@ -196,6 +210,7 @@ function activateLicenseFromCard(days) {
             showToast('সক্রিয় করতে সমস্যা হয়েছে');
         });
 }
+
 
 function triggerChatAttachment() {
     const fileInput = document.getElementById('guest-chat-file');
