@@ -13,6 +13,10 @@ function loadSavedMcqsScreen() {
     const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
+    selectedSavedMcqIds = [];
+    isSavedMcqSelectMode = false;
+    updateSavedMcqsPillStates();
+
     fetch(`/api/v1/saved-mcqs?phone=${encodeURIComponent(savedPhone)}&session_id=${encodeURIComponent(savedSessionId)}`, {
         headers: { 'X-Client-Phone': savedPhone }
     })
@@ -99,7 +103,7 @@ function loadSavedMcqsScreen() {
                     <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; width: 100%;">
                         ${leftThumbHtml}
                         <div style="flex: 1; min-width: 0;">
-                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary) : (q.italian || '')}</div>
+                            <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian, q.vocabulary, q.id) : (q.italian || '')}</div>
                             <div class="detail-q-text-bn" id="saved-q-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || ''}</div>
                         </div>
                     </div>
@@ -184,6 +188,9 @@ function toggleSavedMcqsSelectMode() {
     renderSavedMcqsSelectionUI();
     updateSavedMcqsPillStates();
     updateSavedMcqsQuizButtonVisibility();
+    if (typeof showToast === 'function') {
+        showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
+    }
 }
 
 function selectAllSavedMcqs() {
@@ -192,7 +199,9 @@ function selectAllSavedMcqs() {
     renderSavedMcqsSelectionUI();
     updateSavedMcqsPillStates();
     updateSavedMcqsQuizButtonVisibility();
-    showToast('সব সেভড প্রশ্ন সিলেক্ট করা হয়েছে');
+    if (typeof showToast === 'function') {
+        showToast('সব সেভড প্রশ্ন সিলেক্ট করা হয়েছে');
+    }
 }
 
 function unselectAllSavedMcqs() {
@@ -201,7 +210,9 @@ function unselectAllSavedMcqs() {
     renderSavedMcqsSelectionUI();
     updateSavedMcqsPillStates();
     updateSavedMcqsQuizButtonVisibility();
-    showToast('সব আন-সিলেক্ট করা হয়েছে');
+    if (typeof showToast === 'function') {
+        showToast('সব আন-সিলেক্ট করা হয়েছে');
+    }
 }
 
 function renderSavedMcqsSelectionUI() {
@@ -226,12 +237,14 @@ function updateSavedMcqsPillStates() {
     if (btnAll) btnAll.classList.remove('active');
     if (btnUnselect) btnUnselect.classList.remove('active');
 
-    if (selectedSavedMcqIds.length === 0) {
+    if (isSavedMcqSelectMode || selectedSavedMcqIds.length > 0) {
+        if (btnSelect) btnSelect.style.display = 'none';
+        if (activeSavedMcqs.length > 0 && selectedSavedMcqIds.length === activeSavedMcqs.length) {
+            if (btnAll) btnAll.classList.add('active');
+        }
+    } else {
+        if (btnSelect) btnSelect.style.display = 'inline-block';
         if (btnUnselect) btnUnselect.classList.add('active');
-    } else if (activeSavedMcqs.length > 0 && selectedSavedMcqIds.length === activeSavedMcqs.length) {
-        if (btnAll) btnAll.classList.add('active');
-    } else if (isSavedMcqSelectMode) {
-        if (btnSelect) btnSelect.classList.add('active');
     }
 }
 
@@ -286,8 +299,6 @@ function readSavedQuestionSpeech(qId, text) {
     }
     if (!text) text = '';
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-
         if (playingSavedSpeechIndex === qId) {
             playingSavedSpeechIndex = null;
             if (savedSpeechInterval) clearInterval(savedSpeechInterval);
@@ -308,6 +319,7 @@ function readSavedQuestionSpeech(qId, text) {
         playingSavedSpeechIndex = qId;
         if (savedSpeechInterval) clearInterval(savedSpeechInterval);
 
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'it-IT';
         utterance.rate = testAudioSpeed;

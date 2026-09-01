@@ -321,7 +321,7 @@ function renderSchedaExamDots() {
 // vocabCache: stores per-question vocabulary by word (for modal lookup)
 const vocabCache = {};
 
-function highlightDictionaryTerms(text, questionVocabulary) {
+function highlightDictionaryTerms(text, questionVocabulary, questionId) {
     if (!text) return '';
     let resultText = text;
 
@@ -342,7 +342,7 @@ function highlightDictionaryTerms(text, questionVocabulary) {
         resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
             const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
             const lowerClean = cleanWord.toLowerCase();
-            return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
+            return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this); }">${innerWord}</span>`;
         });
         // If the author explicitly specified <u> tags, do NOT auto-highlight any additional occurrences outside the tags!
         return resultText;
@@ -360,7 +360,7 @@ function highlightDictionaryTerms(text, questionVocabulary) {
             const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">${match}</span>`;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}', this)">${match}</span>`;
             });
         });
     }
@@ -373,7 +373,7 @@ function highlightDictionaryTerms(text, questionVocabulary) {
             const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">${match}</span>`;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}', this)">${match}</span>`;
             });
         });
     }
@@ -387,10 +387,29 @@ let savedDictWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]'
 
 function updateDictSaveIconState() {
     const saveBtn = document.getElementById('dict-modal-save-btn');
-    if (!saveBtn || !currentDictTerm || !currentDictTerm.word) return;
+    if (!saveBtn || !currentDictTerm) return;
 
-    const saved = savedDictWords.includes(currentDictTerm.word.toLowerCase());
-    if (saved) {
+    let isSaved = false;
+    const qId = currentDictTerm.questionId;
+    const wordKey = currentDictTerm.word ? currentDictTerm.word.toLowerCase() : '';
+
+    if (qId) {
+        if (typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+            isSaved = activeSavedMcqs.some(q => (q.id === qId || (q.question && q.question.id === qId)));
+        }
+        if (!isSaved) {
+            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark`);
+            if (cardBookmark && cardBookmark.style.color && cardBookmark.style.color.includes('green')) {
+                isSaved = true;
+            }
+        }
+    }
+
+    if (!isSaved && wordKey) {
+        isSaved = savedDictWords.includes(wordKey);
+    }
+
+    if (isSaved) {
         saveBtn.className = 'fa-solid fa-bookmark';
         saveBtn.style.color = '#4CAF50';
     } else {
@@ -400,10 +419,70 @@ function updateDictSaveIconState() {
 }
 
 function saveDictWord() {
-    if (!currentDictTerm || !currentDictTerm.word) return;
-    const wordKey = currentDictTerm.word.toLowerCase();
-    const index = savedDictWords.indexOf(wordKey);
+    if (!currentDictTerm) return;
+    const wordKey = currentDictTerm.word ? currentDictTerm.word.toLowerCase() : '';
+    const qId = currentDictTerm.questionId;
 
+    if (qId) {
+        const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+        const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        fetch('/api/v1/saved-mcqs/toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Client-Phone': savedPhone
+            },
+            body: JSON.stringify({
+                question_id: qId,
+                phone: savedPhone,
+                session_id: savedSessionId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            const isNowSaved = data.saved ?? (data.status === 'saved' || data.is_saved);
+            const saveBtn = document.getElementById('dict-modal-save-btn');
+            if (saveBtn) {
+                saveBtn.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                saveBtn.style.color = isNowSaved ? '#4CAF50' : 'var(--text-primary, #1e293b)';
+            }
+
+            const cardBookmark = document.querySelector(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark`);
+            if (cardBookmark) {
+                cardBookmark.style.color = isNowSaved ? 'var(--accent-green)' : 'var(--text-secondary)';
+            }
+
+            if (typeof showToast === 'function') {
+                showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভড এমসিকিউ-তে সংরক্ষণ করা হয়েছে' : 'সেভ থেকে সরানো হয়েছে'));
+            }
+
+            if (wordKey) {
+                const idx = savedDictWords.indexOf(wordKey);
+                if (isNowSaved && idx === -1) savedDictWords.push(wordKey);
+                else if (!isNowSaved && idx > -1) savedDictWords.splice(idx, 1);
+                localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
+            }
+
+            if (typeof loadSavedMcqsScreen === 'function' && typeof activeScreen !== 'undefined' && activeScreen === 'saved-mcqs') {
+                loadSavedMcqsScreen();
+            }
+        })
+        .catch(err => {
+            console.error('Error toggling save MCQ from modal:', err);
+            toggleLocalDictWordSave(wordKey);
+        });
+    } else if (wordKey) {
+        toggleLocalDictWordSave(wordKey);
+    }
+}
+
+function toggleLocalDictWordSave(wordKey) {
+    if (!wordKey) return;
+    const index = savedDictWords.indexOf(wordKey);
     if (index > -1) {
         savedDictWords.splice(index, 1);
         if (typeof showToast === 'function') showToast('শব্দটি বুকমার্ক থেকে সরানো হয়েছে');
@@ -411,10 +490,19 @@ function saveDictWord() {
         savedDictWords.push(wordKey);
         if (typeof showToast === 'function') showToast('শব্দটি বুকমার্কে সংরক্ষণ করা হয়েছে');
     }
-
     localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
     updateDictSaveIconState();
 }
+
+function openDictWordNote() {
+    if (!currentDictTerm) return;
+    const qId = currentDictTerm.questionId;
+    closeDictTermModal();
+    if (typeof openNotesModal === 'function') {
+        openNotesModal(null, qId, null, '');
+    }
+}
+window.openDictWordNote = openDictWordNote;
 
 function closeDictTermModal() {
     const modal = document.getElementById('dict-term-modal');
@@ -464,12 +552,29 @@ function speakDictWord() {
     }
 }
 
-function openDictionaryTermModal(wordText) {
+function extractTargetQuestionId(elOrQId) {
+    if (typeof elOrQId === 'number') return elOrQId;
+    let card = null;
+    if (elOrQId && typeof elOrQId.closest === 'function') {
+        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"]');
+    }
+    if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
+        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"]');
+    }
+    if (card) {
+        const match = (card.id || '').match(/\d+/);
+        if (match) return parseInt(match[0]);
+    }
+    return null;
+}
+
+function openDictionaryTermModal(wordText, elOrQId) {
     const cleanWord = (wordText || '').trim();
     if (!cleanWord) return;
+    const questionId = extractTargetQuestionId(elOrQId);
 
     if (typeof vocabCache !== 'undefined' && vocabCache[cleanWord.toLowerCase()]) {
-        openVocabModal(cleanWord);
+        openVocabModal(cleanWord, questionId);
         return;
     }
 
@@ -485,18 +590,18 @@ function openDictionaryTermModal(wordText) {
                 if (resData && resData.data && resData.data.length > 0) {
                     termData = resData.data.find(d => (d.word || '').toLowerCase() === cleanWord.toLowerCase()) || resData.data[0];
                 }
-                displayDictTermModal(termData || { word: cleanWord, desc_it: cleanWord, desc_bn: '' });
+                displayDictTermModal(termData || { word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId);
             })
             .catch(err => {
-                displayDictTermModal({ word: cleanWord, desc_it: cleanWord, desc_bn: '' });
+                displayDictTermModal({ word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId);
             });
         return;
     }
 
-    displayDictTermModal(item);
+    displayDictTermModal(item, questionId);
 }
 
-function displayDictTermModal(item) {
+function displayDictTermModal(item, questionId) {
     if (!item) return;
 
     currentDictTerm = {
@@ -504,7 +609,8 @@ function displayDictTermModal(item) {
         desc_it: item.desc_it || item.word || '',
         desc_bn: item.desc_bn || item.bn || '',
         image: item.image || '',
-        video: item.video || null
+        video: item.video || null,
+        questionId: questionId || null
     };
     currentDictModalLang = 'bn';
 
@@ -581,15 +687,17 @@ function speakTranslationModalText() {
 }
 
 // Open popup for per-question vocabulary words
-function openVocabModal(wordText) {
+function openVocabModal(wordText, elOrQId) {
     const item = vocabCache[wordText.toLowerCase()];
     if (!item) return;
+    const questionId = extractTargetQuestionId(elOrQId);
 
     currentDictTerm = {
         word: item.italian || wordText,
         desc_it: item.italian || wordText,
         desc_bn: item.bangla || '',
-        image: item.image || ''
+        image: item.image || '',
+        questionId: questionId || null
     };
     currentDictModalLang = 'bn';
 

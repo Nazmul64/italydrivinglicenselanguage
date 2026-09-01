@@ -305,9 +305,10 @@
                         <span id="dict-modal-lang-text" style="font-size: 11px; font-weight: 600; color: var(--text-secondary, #64748b);">Bangla</span>
                     </div>
                     
-                    <!-- Action Icons (Green Ribbon Bookmark, Search, Speaker) -->
-                    <div style="display: flex; gap: 24px; align-items: center; padding-bottom: 6px;">
-                        <i class="fa-solid fa-bookmark" id="dict-modal-save-btn" onclick="saveDictWord()" style="font-size: 22px; cursor: pointer; color: #4CAF50;" title="Save word"></i>
+                    <!-- Action Icons (Green Ribbon Bookmark, Note, Search, Speaker) -->
+                    <div style="display: flex; gap: 20px; align-items: center; padding-bottom: 6px;">
+                        <i class="fa-solid fa-bookmark" id="dict-modal-save-btn" onclick="saveDictWord()" style="font-size: 22px; cursor: pointer; color: #4CAF50;" title="Save / Bookmark"></i>
+                        <i class="fa-regular fa-note-sticky" id="dict-modal-note-btn" onclick="openDictWordNote()" style="font-size: 22px; cursor: pointer; color: var(--text-primary, #1e293b);" title="Add Note"></i>
                         <i class="fa-solid fa-magnifying-glass" onclick="searchDictWord()" style="font-size: 22px; cursor: pointer; color: var(--text-primary, #1e293b);" title="Search in dictionary"></i>
                         <i class="fa-solid fa-volume-high" onclick="speakDictWord()" style="font-size: 24px; cursor: pointer; color: var(--text-primary, #1e293b);" title="Speak word"></i>
                     </div>

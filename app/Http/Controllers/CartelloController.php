@@ -8,6 +8,7 @@ use App\Models\CartelloPage;
 use App\Models\CartelloMcq;
 use App\Helpers\ImageHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class CartelloController extends Controller
@@ -51,7 +52,7 @@ class CartelloController extends Controller
             'status'         => true,
         ]);
 
-        return response()->json(['success' => true, 'category' => $category]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'category' => $category]);
     }
 
     public function updateCategory(Request $request, $id)
@@ -73,7 +74,7 @@ class CartelloController extends Controller
             'sort_order'     => $request->sort_order ?? $category->sort_order,
         ]);
 
-        return response()->json(['success' => true, 'category' => $category]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'category' => $category]);
     }
 
     public function deleteCategory($id)
@@ -82,14 +83,14 @@ class CartelloController extends Controller
 
         // Check if related chapters exist before deleting
         if ($category->chapters()->count() > 0) {
-            return response()->json([
+            Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json([
                 'success' => false,
                 'message' => 'এই ক্যাটাগরির অধীনে চ্যাপ্টার রয়েছে, তাই এটি সরাসরি ডিলিট করা যাবে না। প্রথমে চ্যাপ্টারগুলো ডিলিট করুন।'
             ], 422);
         }
 
         $category->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     // =================================================
@@ -161,7 +162,7 @@ class CartelloController extends Controller
             'status'         => true,
         ]);
 
-        return response()->json(['success' => true, 'chapter' => $chapter]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'chapter' => $chapter]);
     }
 
     public function updateChapter(Request $request, $id)
@@ -208,7 +209,7 @@ class CartelloController extends Controller
 
         $chapter->save();
 
-        return response()->json(['success' => true, 'chapter' => $chapter]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'chapter' => $chapter]);
     }
 
     public function deleteChapter($id)
@@ -217,14 +218,14 @@ class CartelloController extends Controller
 
         // Check if related pages exist
         if ($chapter->pages()->count() > 0) {
-            return response()->json([
+            Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json([
                 'success' => false,
                 'message' => 'এই চ্যাপ্টারের অধীনে পেজ রয়েছে, তাই এটি সরাসরি ডিলিট করা যাবে না। প্রথমে পেজগুলো ডিলিট করুন।'
             ], 422);
         }
 
         $chapter->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     // =================================================
@@ -310,7 +311,7 @@ class CartelloController extends Controller
             'status'         => true,
         ]);
 
-        return response()->json(['success' => true, 'page' => $page]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'page' => $page]);
     }
 
     public function updatePage(Request $request, $id)
@@ -380,7 +381,7 @@ class CartelloController extends Controller
             'sort_order'     => $request->sort_order ?? $page->sort_order,
         ]);
 
-        return response()->json(['success' => true, 'page' => $page]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'page' => $page]);
     }
 
     public function deletePage($id)
@@ -399,7 +400,7 @@ class CartelloController extends Controller
         }
 
         $page->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     /**
@@ -414,14 +415,14 @@ class CartelloController extends Controller
 
         $hasChapters = CartelloChapter::whereIn('category_id', $request->ids)->exists();
         if ($hasChapters) {
-            return response()->json([
+            Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json([
                 'success' => false,
                 'message' => 'নির্বাচিত কোনো কোনো ক্যাটাগরির অধীনে চ্যাপ্টার রয়েছে, তাই ডিলিট করা সম্ভব নয়। প্রথমে চ্যাপ্টারগুলো ডিলিট করুন।'
             ], 422);
         }
 
         CartelloCategory::whereIn('id', $request->ids)->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     /**
@@ -436,14 +437,14 @@ class CartelloController extends Controller
 
         $hasPages = CartelloPage::whereIn('chapter_id', $request->ids)->exists();
         if ($hasPages) {
-            return response()->json([
+            Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json([
                 'success' => false,
                 'message' => 'নির্বাচিত কোনো কোনো চ্যাপ্টারের অধীনে পেজ রয়েছে, তাই ডিলিট করা সম্ভব নয়। প্রথমে পেজগুলো ডিলিট করুন।'
             ], 422);
         }
 
         CartelloChapter::whereIn('id', $request->ids)->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     /**
@@ -470,7 +471,7 @@ class CartelloController extends Controller
             $page->delete();
         }
 
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     // =================================================
@@ -647,7 +648,7 @@ class CartelloController extends Controller
             'status'         => true,
         ]);
 
-        return response()->json(['success' => true, 'mcq' => $mcq]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'mcq' => $mcq]);
     }
 
     public function updateMcq(Request $request, $id)
@@ -744,7 +745,7 @@ class CartelloController extends Controller
             'vocabulary'     => $vocabData,
         ]);
 
-        return response()->json(['success' => true, 'mcq' => $mcq]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true, 'mcq' => $mcq]);
     }
 
     public function deleteMcq($id)
@@ -757,7 +758,7 @@ class CartelloController extends Controller
             @unlink(public_path($mcq->voice));
         }
         $mcq->delete();
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 
     public function bulkDeleteMcq(Request $request)
@@ -780,6 +781,6 @@ class CartelloController extends Controller
             }
         }
 
-        return response()->json(['success' => true]);
+        Cache::forget('frontend_cached_view_data'); Cache::forget('public_cartelli_categories'); Cache::forget('public_cartelli_all_chapters'); return response()->json(['success' => true]);
     }
 }

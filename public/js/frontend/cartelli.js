@@ -35,6 +35,49 @@ function renderCartelliChaptersGrid() {
         updateCartelliChapterPillStates();
         return;
     }
+
+    // Dynamic fetch fallback if container has no cards
+    fetch('/api/cartelli/chapters')
+        .then(res => res.json())
+        .then(data => {
+            const chapters = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+            cartelliAllChapters = chapters;
+            const countBadge = document.getElementById('cartelli-chapters-count-badge');
+            if (countBadge) countBadge.innerText = `${chapters.length} Capitoli`;
+
+            if (chapters.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;">Nessun capitolo trovato.</div>';
+                return;
+            }
+
+            container.innerHTML = chapters.map(ch => {
+                const chapNum = ch.chapter_number || ch.sort_order || ch.id;
+                const isSelected = selectedCartelliChapters.includes(ch.id);
+                const imgSrc = ch.image ? ((ch.image.startsWith('http') || ch.image.startsWith('/')) ? ch.image : `/storage/${ch.image}`) : '';
+                const imgHtml = imgSrc ? `
+                    <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                        <img src="${imgSrc}" class="chapter-card-img" alt="${ch.name}" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}" data-cartelli-chapter-id="${ch.id}" onclick="handleCartelliChapterCardClick(${ch.id})">
+                        <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
+                            <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
+                                ${chapNum}) ${ch.name}
+                            </div>
+                            ${imgHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateCartelliCategoryQuizButtonVisibility();
+            updateCartelliChapterPillStates();
+        })
+        .catch(err => {
+            console.error('Error fetching cartelli chapters:', err);
+        });
 }
 
 function toggleCartelliChapterSelection(chId) {

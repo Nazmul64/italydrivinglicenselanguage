@@ -172,7 +172,10 @@ if (!function_exists('getFrontendHomeCards')) {
 
 if (!function_exists('getFrontendViewData')) {
     function getFrontendViewData() {
-        return \Illuminate\Support\Facades\Cache::remember('frontend_cached_view_data', 1800, function () {
+        if (request()->has('nocache') || app()->environment('local')) {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        }
+        return \Illuminate\Support\Facades\Cache::remember('frontend_cached_view_data', 300, function () {
             $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
             $homeCards = getFrontendHomeCards();
             $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
