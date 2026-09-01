@@ -138,6 +138,116 @@ Route::prefix('v1')->group(function () {
         return response()->json(['status' => 'success', 'data' => $questions]);
     });
 
+    
+    // Live Chat & Support Messages for App & Frontend
+    Route::get('/chat/messages', function (Request $request) {
+        $sessionId = $request->query('session_id') ?: $request->header('X-Session-ID');
+        $phone = $request->query('phone') ?: $request->header('X-Client-Phone');
+        
+        $query = \App\Models\Message::query();
+        if ($phone) {
+            $user = \App\Models\User::where('phone', $phone)->first();
+            $client = \App\Models\AppClient::where('phone', $phone)->first();
+            $userUuids = array_filter([$user?->uuid, $client?->session_id, $sessionId]);
+            $query->where(function($q) use ($userUuids, $sessionId) {
+                if (!empty($userUuids)) {
+                    $q->whereIn('session_id', $userUuids)
+                      ->orWhereIn('sender_id', $userUuids);
+                }
+                if ($sessionId) {
+                    $q->orWhere('session_id', $sessionId);
+                }
+            });
+        } elseif ($sessionId) {
+            $query->where('session_id', $sessionId)->orWhere('sender_id', $sessionId);
+        }
+        
+        $messages = $query->orderBy('created_at', 'asc')->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $messages
+        ]);
+    });
+
+    Route::post('/chat/messages', function (Request $request) {
+        $sessionId = $request->input('session_id') ?: $request->header('X-Session-ID') ?: session()->getId();
+        $phone = $request->input('phone') ?: $request->header('X-Client-Phone');
+        $firstName = $request->input('first_name');
+        $lastName = $request->input('last_name');
+        $messageText = $request->input('message') ?: '';
+        $attachmentPath = $request->input('attachment_path') ?: $request->input('attachment');
+
+        $user = $phone ? \App\Models\User::where('phone', $phone)->first() : null;
+        $client = $phone ? \App\Models\AppClient::where('phone', $phone)->first() : null;
+
+        $senderName = trim(($firstName . ' ' . $lastName)) ?: ($user ? $user->name : ($client ? $client->first_name : 'Customer'));
+        $senderId = $user ? $user->uuid : ($client ? $client->session_id : $sessionId);
+
+        $convo = null;
+        if ($user) {
+            $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+        }
+
+        $msg = \App\Models\Message::create([
+            'conversation_id' => $convo ? $convo->id : null,
+            'session_id'      => $sessionId,
+            'sender'          => 'user',
+            'sender_type'     => 'user',
+            'sender_id'       => $senderId,
+            'sender_name'     => $senderName,
+            'message'         => $messageText,
+            'attachment_path' => $attachmentPath,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'data' => $msg
+        ]);
+    });
+
+    Route::post('/client/activate', function (Request $request) {
+        $sessionId = $request->input('session_id') ?: $request->header('X-Session-ID');
+        $phone = $request->input('phone') ?: $request->header('X-Client-Phone');
+        $days = (int) ($request->input('days') ?: 365);
+
+        $client = null;
+        if ($phone) {
+            $client = \App\Models\AppClient::where('phone', $phone)->first();
+        }
+        if (!$client && $sessionId) {
+            $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+        }
+
+        if ($client) {
+            $client->is_active = true;
+            $client->expires_at = now()->addDays($days);
+            $client->save();
+        }
+
+        if ($phone) {
+            $user = \App\Models\User::where('phone', $phone)->first();
+            if ($user) {
+                \App\Models\License::updateOrCreate(
+                    ['user_id' => $user->uuid],
+                    [
+                        'license_key'  => (string) rand(100000, 999999),
+                        'status'       => 'active',
+                        'activated_at' => now(),
+                        'expires_at'   => now()->addDays($days),
+                    ]
+                );
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'message' => 'License activated successfully for ' . $days . ' days.',
+            'expires_at' => now()->addDays($days)->toIso8601String()
+        ]);
+    });
+
     Route::get('/quiz/exam', [SchedaEsameApiController::class, 'generateSheet']);
     Route::get('/classes', [DynamicContentController::class, 'getLectureClasses']);
     Route::get('/live-classes', [DynamicContentController::class, 'getLiveClasses']);
