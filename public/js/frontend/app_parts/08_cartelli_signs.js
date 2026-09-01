@@ -65,6 +65,8 @@ function loadSavedMcqsScreen() {
                 const card = document.createElement('div');
                 card.className = `detail-q-card unanswered ${isSelected ? 'selected-q-card' : ''}`;
                 card.id = `saved-card-${q.id}`;
+                card.setAttribute('data-qid', q.id);
+                card.setAttribute('data-qtype', qType);
                 card.style.position = 'relative';
 
                 card.onclick = (e) => {
@@ -378,41 +380,57 @@ function toggleSavedMcq(questionId, btnElement, type) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const qType = type || 'argomenti';
 
     const payload = { 
         question_id: questionId,
+        type: qType,
         phone: savedPhone,
         session_id: savedSessionId
     };
-    if (type) payload.type = type;
 
-    fetch('/api/saved-mcqs/toggle', {
+    fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': token,
+            'X-Client-Phone': savedPhone
         },
         body: JSON.stringify(payload)
     })
         .then(res => res.json())
         .then(data => {
-            showToast(data.message);
-            if (btnElement) {
-                const icon = btnElement.querySelector('i') || btnElement;
-                if (data.saved) {
-                    icon.className = 'fa-solid fa-bookmark';
-                    icon.style.color = 'var(--accent-green)';
-                } else {
-                    icon.className = 'fa-regular fa-bookmark';
-                    icon.style.color = '';
+            const isNowSaved = data.saved ?? (data.status === 'saved' || data.is_saved);
+            showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভ করা হয়েছে' : 'সেভ থেকে সরানো হয়েছে'));
+
+            // Sync with local storage bookmarks
+            const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
+            let bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            const idx = bookmarks.indexOf(questionId);
+            if (isNowSaved && idx === -1) bookmarks.push(questionId);
+            else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
+            localStorage.setItem(storageKey, JSON.stringify(bookmarks));
+
+            // Sync all matching card icons
+            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${questionId} .fa-bookmark, #saved-card-${questionId} .fa-bookmark, #cartelli-mcq-card-${questionId} .fa-bookmark, #cartelli-card-${questionId} .fa-bookmark, [data-qid="${questionId}"] .fa-bookmark`);
+            cardBookmarks.forEach(icon => {
+                icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
+            });
+
+            // Update modal bookmark icon if open
+            if (typeof currentDictTerm !== 'undefined' && currentDictTerm && currentDictTerm.questionId == questionId) {
+                const saveBtn = document.getElementById('dict-modal-save-btn');
+                if (saveBtn) {
+                    saveBtn.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                    saveBtn.style.color = isNowSaved ? '#4CAF50' : 'var(--text-primary, #1e293b)';
                 }
             }
 
             const activeScreen = typeof screenHistory !== 'undefined' && screenHistory.length > 0 ? screenHistory[screenHistory.length - 1] : '';
             if (activeScreen === 'saved-mcqs') {
                 loadSavedMcqsScreen();
-            } else if (activeScreen === 'page-details' && typeof activePageDetails !== 'undefined' && activePageDetails) {
-                openPageDetailsScreen(activePageDetails.id);
             }
         })
         .catch(err => {

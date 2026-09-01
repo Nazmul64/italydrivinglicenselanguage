@@ -444,23 +444,21 @@ function updateDictSaveIconState() {
     if (qId) {
         if (qType === 'cartelli') {
             const cBookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
-            isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId));
+            isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId)) || cBookmarks.includes(parseInt(qId));
         } else {
             const aBookmarks = JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]');
-            isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId));
+            isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId)) || aBookmarks.includes(parseInt(qId));
         }
         if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
-            isSaved = activeSavedMcqs.some(q => (q.id === qId || (q.question && q.question.id === qId)));
+            isSaved = activeSavedMcqs.some(q => (q.id == qId || (q.question && q.question.id == qId)));
         }
         if (!isSaved) {
-            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
+            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark, #cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
             if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
                 isSaved = true;
             }
         }
-    }
-
-    if (!isSaved && wordKey) {
+    } else if (wordKey) {
         isSaved = savedDictWords.includes(wordKey);
     }
 
@@ -526,7 +524,7 @@ function saveDictWord() {
             localStorage.setItem(storageKey, JSON.stringify(bookmarks));
 
             // Sync card bookmark icons on current screen
-            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
+            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
             cardBookmarks.forEach(icon => {
                 icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
                 icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
@@ -543,8 +541,8 @@ function saveDictWord() {
                 localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
             }
 
-            // Refresh saved screen if active
-            if (typeof loadSavedMcqsScreen === 'function' && typeof activeScreen !== 'undefined' && activeScreen === 'saved-mcqs') {
+            // Refresh saved screen if active or reload cached saved MCQs
+            if (typeof loadSavedMcqsScreen === 'function') {
                 loadSavedMcqsScreen();
             }
         })

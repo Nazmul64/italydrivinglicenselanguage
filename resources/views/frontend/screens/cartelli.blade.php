@@ -306,6 +306,7 @@
         const targetBox = document.getElementById(`cartelli-page-container-${pageId}`);
         if (targetBox) {
             targetBox.style.display = 'flex';
+            syncCartelliBookmarkStates(targetBox);
             
             const chName = targetBox.getAttribute('data-chapter-name') || '';
             const chNum = targetBox.getAttribute('data-chapter-num') || chId;
@@ -335,6 +336,25 @@
         if (typeof openScreen === 'function') {
             openScreen('cartelli-page', 'Vere e False');
         }
+    }
+
+    function syncCartelliBookmarkStates(container) {
+        const root = container || document;
+        const cBookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
+        root.querySelectorAll('[id^="cartelli-mcq-card-"]').forEach(card => {
+            const match = card.id.match(/\d+/);
+            if (!match) return;
+            const qId = parseInt(match[0]);
+            let isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId));
+            if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+                isSaved = activeSavedMcqs.some(q => (q.id == qId || (q.question && q.question.id == qId)));
+            }
+            const icon = card.querySelector('.fa-bookmark');
+            if (icon) {
+                icon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                icon.style.color = isSaved ? 'var(--accent-green)' : '';
+            }
+        });
     }
 
     function toggleCartelliSchedeChapterDropdown() {

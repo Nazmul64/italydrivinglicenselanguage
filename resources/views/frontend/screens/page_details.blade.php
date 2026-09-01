@@ -156,6 +156,7 @@
         const targetBox = document.getElementById(`argomenti-page-container-${pageId}`);
         if (targetBox) {
             targetBox.style.display = 'flex';
+            syncArgomentiBookmarkStates(targetBox);
 
             const chName = targetBox.getAttribute('data-chapter-name') || '';
             const chNum = targetBox.getAttribute('data-chapter-num') || chId;
@@ -185,6 +186,25 @@
         if (typeof openScreen === 'function') {
             openScreen('page-details', 'Vere e False');
         }
+    }
+
+    function syncArgomentiBookmarkStates(container) {
+        const root = container || document;
+        const aBookmarks = JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]');
+        root.querySelectorAll('[id^="argomenti-q-card-"]').forEach(card => {
+            const match = card.id.match(/\d+/);
+            if (!match) return;
+            const qId = parseInt(match[0]);
+            let isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId));
+            if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+                isSaved = activeSavedMcqs.some(q => (q.id == qId || (q.question && q.question.id == qId)));
+            }
+            const icon = card.querySelector('.fa-bookmark');
+            if (icon) {
+                icon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                icon.style.color = isSaved ? 'var(--accent-green)' : '';
+            }
+        });
     }
 
     function toggleArgomentiPageChapterDropdown() {

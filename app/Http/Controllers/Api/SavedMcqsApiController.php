@@ -93,7 +93,7 @@ class SavedMcqsApiController extends Controller
                     $questionData = [
                         "id"             => $c->id,
                         "chapter_id"     => $chapter ? $chapter->id : 1,
-                        "chapter_name"   => $chapter ? ($chapter->name ?? "Cartelli") : "Cartelli",
+                        "chapter_name"   => $chapter ? ($chapter->name ?? ($chapter->title ?? "Cartelli")) : "Cartelli",
                         "italian"        => $c->question ?? "",
                         "bangla"         => $c->bn_question ?? "",
                         "is_vero"        => $c->correct_answer === "vero" || $c->correct_answer === "1" || $c->correct_answer === 1,
@@ -105,10 +105,24 @@ class SavedMcqsApiController extends Controller
                         "page"           => $page ? [
                             "id" => $page->id,
                             "title" => $page->title,
-                            "chapter" => $chapter
+                            "chapter" => $chapter ? [
+                                "id" => $chapter->id,
+                                "chapter_number" => $chapter->chapter_number,
+                                "name" => $chapter->name ?? ($chapter->title ?? "Cartelli")
+                            ] : null
                         ] : null
                     ];
-                    $item->question = (object)$questionData;
+
+                    return [
+                        "id" => $item->id,
+                        "session_id" => $item->session_id,
+                        "user_id" => $item->user_id,
+                        "question_id" => $item->question_id,
+                        "type" => "cartelli",
+                        "created_at" => $item->created_at,
+                        "updated_at" => $item->updated_at,
+                        "question" => $questionData
+                    ];
                 }
             }
             return $item;
