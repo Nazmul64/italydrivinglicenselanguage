@@ -35,7 +35,7 @@ return new class extends Migration
         // 2. Chapters (Max 25 per Category)
         Schema::create('cartello_chapters', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('category_id');
+            $table->unsignedBigInteger('category_id')->nullable();
             $table->string('name');           // Italian Chapter Name
             $table->string('bn_name')->nullable(); // Bangla Chapter Name
             $table->integer('chapter_number');

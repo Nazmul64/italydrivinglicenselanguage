@@ -71,7 +71,7 @@ class DynamicContentController extends Controller
             'button_text'  => 'nullable|string|max:255',
             'link_url'     => 'nullable|string|max:500',
             'order_index'  => 'nullable|integer',
-            'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'image'        => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -105,7 +105,7 @@ class DynamicContentController extends Controller
             'button_text'  => 'nullable|string|max:255',
             'link_url'     => 'nullable|string|max:500',
             'order_index'  => 'nullable|integer',
-            'image'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'image'        => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -181,8 +181,8 @@ class DynamicContentController extends Controller
             'youtube_url' => 'nullable|string|max:500',
             'vimeo_url'   => 'nullable|string|max:500',
             'chapter_id'  => 'nullable|integer|exists:chapters,id',
-            'thumbnail'   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
-            'video_file'  => 'nullable|file|mimes:mp4,webm,ogg,mov|max:51200', // max 50MB
+            'thumbnail'   => 'nullable|max:20480',
+            'video_file'  => 'nullable|max:51200',
         ]);
 
         $vUrl = $request->video_url ?? $request->youtube_url ?? '';
@@ -229,8 +229,8 @@ class DynamicContentController extends Controller
             'youtube_url' => 'nullable|string|max:500',
             'vimeo_url'   => 'nullable|string|max:500',
             'chapter_id'  => 'nullable|integer|exists:chapters,id',
-            'thumbnail'   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
-            'video_file'  => 'nullable|file|mimes:mp4,webm,ogg,mov|max:51200',
+            'thumbnail'   => 'nullable|max:20480',
+            'video_file'  => 'nullable|max:51200',
         ]);
 
         $vUrl = $request->video_url ?? $request->youtube_url ?? '';
@@ -328,7 +328,7 @@ class DynamicContentController extends Controller
             'meet_link'    => 'nullable|string|max:500',
             'live_url'     => 'nullable|string|max:500',
             'speaker_name' => 'nullable|string|max:255',
-            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'thumbnail'    => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -372,7 +372,7 @@ class DynamicContentController extends Controller
             'meet_link'    => 'nullable|string|max:500',
             'live_url'     => 'nullable|string|max:500',
             'speaker_name' => 'nullable|string|max:255',
-            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'thumbnail'    => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -456,7 +456,7 @@ class DynamicContentController extends Controller
             'icon_class'  => 'nullable|string|max:255',
             'color'       => 'nullable|string|max:7',
             'order_index' => 'required|integer',
-            'icon_file'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'icon_file'   => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -494,7 +494,7 @@ class DynamicContentController extends Controller
             'icon_class'  => 'nullable|string|max:255',
             'color'       => 'nullable|string|max:7',
             'order_index' => 'required|integer',
-            'icon_file'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'icon_file'   => 'nullable|max:20480',
         ]);
 
         $data = [
@@ -562,7 +562,7 @@ class DynamicContentController extends Controller
         $this->checkPermission('sliders');
 
         $request->validate([
-            'image'     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'image'     => 'nullable|max:20480',
             'link_url'  => 'nullable|string|max:500',
             'is_active' => 'required|boolean',
         ]);
@@ -601,25 +601,129 @@ class DynamicContentController extends Controller
     // CLIENT ACTIVATION & VERIFICATION
     // ==============================
 
-    public function getClientStatus()
+    public function getClientStatus(Request $request)
     {
-        $sessionId = request()->input('session_id') ?: session()->getId();
-        $phone = request()->input('phone') ?: request()->cookie('app_client_phone') ?: session('app_client_phone');
-        
+        $sessionId = $request->input('session_id') 
+                  ?: $request->header('X-Client-Session-ID') 
+                  ?: $request->cookie('app_client_session_id') 
+                  ?: session()->getId();
+
+        $phone = $request->query('phone') 
+              ?: $request->input('phone') 
+              ?: $request->header('X-Client-Phone') 
+              ?: $request->cookie('app_client_phone') 
+              ?: session('app_client_phone')
+              ?: \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId);
+
         $client = null;
         if ($phone) {
-            $client = AppClient::where('phone', $phone)->first();
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $last10Digits = strlen($cleanPhone) >= 10 ? substr($cleanPhone, -10) : $cleanPhone;
+
+            $client = AppClient::where(function ($q) use ($phone, $cleanPhone, $last10Digits) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10Digits) && strlen($last10Digits) >= 7) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10Digits) . ") = ?", [$last10Digits]);
+                    }
+                }
+            })
+            ->orderBy('is_active', 'desc')
+            ->orderBy('updated_at', 'desc')
+            ->first();
         }
         
         if (!$client && $sessionId) {
-            $client = AppClient::where('session_id', $sessionId)->first();
+            $client = AppClient::where('session_id', $sessionId)
+                ->orderBy('is_active', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->first();
         }
+
+        if ($client && $client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
+            $client->is_active = false;
+            $client->save();
+            session()->forget('qr_unlocked');
+            \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $sessionId);
+            if ($client->phone) {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->phone);
+            }
+        }
+
+        $isQrUnlocked = session('qr_unlocked') === true
+            || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId) === true
+            || $request->query('qr_unlocked') === '1'
+            || $request->header('X-QR-Unlocked') === '1'
+            || (!empty($phone) && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $phone) === true);
+
+        if ($isQrUnlocked) {
+            session(['qr_unlocked' => true]);
+            if ($phone) session(['app_client_phone' => $phone]);
+            session()->save();
+        }
+
+        $userActive = false;
+        $userObj = null;
+        if ($phone || $sessionId) {
+            $cleanPhone = $phone ? preg_replace('/\D/', '', $phone) : null;
+            $last10Digits = ($cleanPhone && strlen($cleanPhone) >= 10) ? substr($cleanPhone, -10) : $cleanPhone;
+
+            $userQuery = \App\Models\User::query();
+            if ($phone) {
+                $userQuery->where(function($q) use ($phone, $cleanPhone, $last10Digits) {
+                    $q->where('phone', $phone);
+                    if (!empty($cleanPhone)) {
+                        $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                        if (!empty($last10Digits) && strlen($last10Digits) >= 7) {
+                            $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10Digits) . ") = ?", [$last10Digits]);
+                        }
+                    }
+                });
+            } else {
+                $userQuery->where('uuid', $sessionId);
+            }
+            $userObj = $userQuery->first();
+            if ($userObj) {
+                $userActive = \App\Models\License::where('user_id', $userObj->uuid)
+                    ->where('status', 'active')
+                    ->where(function ($q) {
+                        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                    })
+                    ->exists();
+            }
+        }
+
+        $setting = \App\Models\Setting::first();
+        $isProtectionEnabled = $setting ? (bool)$setting->qr_protection_enabled : false;
+
+        $isClientExpired = $client && $client->expires_at && now()->gt($client->expires_at);
+
+        $isActive = !$isProtectionEnabled || (!$isClientExpired && (
+            $isQrUnlocked 
+            || $userActive 
+            || ($client && $client->is_active && (!$client->expires_at || $client->expires_at->isFuture()))
+        ));
         
         if ($client) {
+            if ($phone && !$client->phone) {
+                $client->phone = $phone;
+            }
+            if ($userObj) {
+                if (!$client->first_name && $userObj->first_name) $client->first_name = $userObj->first_name;
+                if (!$client->last_name && $userObj->last_name) $client->last_name = $userObj->last_name;
+            }
+            if ($isActive && !$client->is_active) {
+                $client->is_active = true;
+            }
+            if ($client->isDirty()) {
+                $client->save();
+            }
+
             if ($client->phone) {
                 session(['app_client_phone' => $client->phone]);
             }
-            if ($client->session_id && $client->session_id !== $sessionId && $client->is_active) {
+            if ($client->session_id && $client->session_id !== $sessionId && $isActive) {
                 $oldSessionId = $client->session_id;
                 $client->session_id = $sessionId;
                 $client->save();
@@ -629,22 +733,37 @@ class DynamicContentController extends Controller
                 \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
                 \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
             }
-            
-            if ($client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
-                $client->is_active = false;
-                $client->save();
-            }
         }
         
+        $firstName = $client ? $client->first_name : ($userObj ? $userObj->first_name : null);
+        $lastName  = $client ? $client->last_name : ($userObj ? $userObj->last_name : null);
+        $phoneNum  = $client ? $client->phone : ($userObj ? $userObj->phone : $phone);
+
+        if (empty($firstName) && $sessionId) {
+            $firstName = \Illuminate\Support\Facades\Cache::get('qr_first_name_' . $sessionId);
+        }
+        if (empty($lastName) && $sessionId) {
+            $lastName = \Illuminate\Support\Facades\Cache::get('qr_last_name_' . $sessionId);
+        }
+        if (empty($phoneNum) && $sessionId) {
+            $phoneNum = \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId);
+        }
+
+        if (empty($firstName)) $firstName = 'Customer';
+        if (empty($lastName))  $lastName  = 'User';
+        $isVerified = !empty($phoneNum) || $isQrUnlocked;
+
         $response = response()->json([
             'session_id' => $client ? $client->session_id : $sessionId,
-            'verified' => $client ? true : false,
-            'is_active' => $client ? (bool)$client->is_active : false,
-            'first_name' => $client ? $client->first_name : null,
-            'last_name' => $client ? $client->last_name : null,
-            'phone' => $client ? $client->phone : null,
+            'verified'   => (bool)(!$isProtectionEnabled || $isVerified),
+            'is_active'  => (bool)$isActive,
+            'free_access_mode' => !$isProtectionEnabled,
+            'qr_protection_enabled' => (bool)$isProtectionEnabled,
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'phone'      => $phoneNum,
             'expires_at' => $client && $client->expires_at ? $client->expires_at->toIso8601String() : null,
-            'days_left' => $client && $client->expires_at ? now()->diffInDays($client->expires_at, false) : null
+            'days_left'  => $client && $client->expires_at ? max(0, now()->diffInDays($client->expires_at, false)) : null
         ]);
 
         if ($client && $client->phone) {
@@ -663,49 +782,119 @@ class DynamicContentController extends Controller
         ]);
 
         $sessionId = $request->input('session_id') ?: session()->getId();
+        $rawPhone  = trim($request->phone);
+        $firstName = trim($request->first_name);
+        $lastName  = trim($request->last_name);
+        $cleanPhone = preg_replace('/\D/', '', $rawPhone);
         
-        // Find existing client by phone number
-        $client = AppClient::where('phone', $request->phone)->first();
-        
-        $alreadyActive = false;
-        if ($client) {
-            $oldSessionId = $client->session_id;
-            $alreadyActive = (bool)$client->is_active;
-            
-            // If session ID has changed, update it and migrate historical data
-            if ($oldSessionId !== $sessionId) {
-                $client->session_id = $sessionId;
-                $client->first_name = $request->first_name;
-                $client->last_name = $request->last_name;
-                
-                \App\Models\Message::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
-                \App\Models\Note::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
-                \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
-                \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+        // 1. Find existing client by phone number or session ID
+        $client = AppClient::where(function ($q) use ($rawPhone, $cleanPhone) {
+            $q->where('phone', $rawPhone);
+            if (!empty($cleanPhone)) {
+                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
             }
-        } else {
-            // Find existing client by session ID, or create new
+        })->orderBy('is_active', 'desc')->first();
+        
+        if (!$client) {
             $client = AppClient::where('session_id', $sessionId)->first();
             if (!$client) {
                 $client = new AppClient();
                 $client->session_id = $sessionId;
+                $client->stars = rand(3, 5);
+                $client->progress = rand(30, 80);
             }
-            $client->first_name = $request->first_name;
-            $client->last_name = $request->last_name;
-            $client->phone = $request->phone;
-            $client->is_active = false; // Requires admin activation
-            $client->stars = rand(3, 5); // Default stars
-            $client->progress = rand(30, 80); // Default progress
         }
         
+        $oldSessionId = $client->session_id;
+
+        // Check if this client already has an active, unexpired license
+        $hasActiveLicense = false;
+        if ($client->is_active && $client->expires_at && $client->expires_at->isFuture()) {
+            $hasActiveLicense = true;
+        }
+        
+        // Update customer fields in AppClient
+        $client->first_name = $firstName;
+        $client->last_name  = $lastName;
+        $client->phone      = $rawPhone;
+        $client->session_id = $sessionId;
+        $client->is_active  = $hasActiveLicense;
+        if (!$hasActiveLicense) {
+            $client->expires_at = null;
+        }
         $client->save();
+
+        if ($oldSessionId && $oldSessionId !== $sessionId) {
+            \App\Models\Message::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+            \App\Models\Note::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+            \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+            \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
+        }
+
+        // 2. Sync or create User table record
+        $userObj = \App\Models\User::where(function ($q) use ($rawPhone, $cleanPhone) {
+            $q->where('phone', $rawPhone);
+            if (!empty($cleanPhone)) {
+                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+            }
+        })->first();
+
+        if (!$userObj) {
+            $userObj = \App\Models\User::create([
+                'uuid'       => (string) \Illuminate\Support\Str::uuid(),
+                'name'       => $firstName . ' ' . $lastName,
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+                'phone'      => $rawPhone,
+                'email'      => 'user_' . \Illuminate\Support\Str::random(8) . '@mbanglapatenteb.com',
+                'password'   => bcrypt(\Illuminate\Support\Str::random(16)),
+                'role'       => 'user',
+            ]);
+        } else {
+            $userObj->update([
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+                'name'       => $firstName . ' ' . $lastName,
+                'phone'      => $rawPhone,
+            ]);
+        }
+
+        // Check existing user license or keep inactive by default
+        $existingLicense = \App\Models\License::where('user_id', $userObj->uuid)->latest()->first();
+        if (!$existingLicense) {
+            \App\Models\License::create([
+                'user_id'     => $userObj->uuid,
+                'license_key' => (string) rand(100000, 999999),
+                'status'      => 'inactive',
+                'activated_at'=> null,
+                'expires_at'  => null,
+            ]);
+        } elseif ($existingLicense->status === 'active' && $existingLicense->expires_at && $existingLicense->expires_at->isPast()) {
+            $existingLicense->update(['status' => 'expired']);
+        }
+
         session(['app_client_phone' => $client->phone]);
+
+        // Ensure an initial welcome message exists for this session
+        $existingMsg = \App\Models\Message::where('session_id', $sessionId)->exists();
+        if (!$existingMsg) {
+            \App\Models\Message::create([
+                'session_id'  => $sessionId,
+                'sender'      => 'admin',
+                'sender_name' => 'Support Admin',
+                'message'     => "🎉 ধন্যবাদ {$client->first_name}! আপনার নিবন্ধিত তথ্য জমা হয়েছে। আমাদের প্রতিনিধি দ্রুত আপনার সাথে যোগাযোগ করবে।",
+            ]);
+        }
+
+        $alreadyActive = (bool) $client->is_active;
 
         $response = response()->json([
             'success' => true,
             'already_active' => $alreadyActive,
             'is_active' => (bool)$client->is_active,
-            'client' => $client
+            'client' => $client,
+            'user' => $userObj,
+            'message' => 'Client verified successfully.'
         ]);
 
         return $response->cookie('app_client_phone', $client->phone, 525600);
@@ -714,6 +903,26 @@ class DynamicContentController extends Controller
     public function getClients(Request $request)
     {
         $this->checkPermission('sliders');
+
+        // Sync any User records that aren't yet in AppClient
+        $users = \App\Models\User::whereNotNull('phone')->get();
+        foreach ($users as $u) {
+            $exists = AppClient::where('phone', $u->phone)->exists();
+            if (!$exists && !empty($u->phone)) {
+                $license = \App\Models\License::where('user_id', $u->uuid)->where('status', 'active')->first();
+                AppClient::create([
+                    'session_id' => $u->uuid,
+                    'first_name' => $u->first_name ?: $u->name,
+                    'last_name'  => $u->last_name ?: '',
+                    'phone'      => $u->phone,
+                    'is_active'  => $license ? true : false,
+                    'expires_at' => $license ? $license->expires_at : now()->addDays(365),
+                    'stars'      => 5,
+                    'progress'   => 50,
+                ]);
+            }
+        }
+
         $query = AppClient::orderBy('updated_at', 'desc');
 
         if ($request->filled('search')) {

@@ -37,18 +37,29 @@ class FileManagerController extends Controller
 
         $file = $request->file('file');
         $originalName = $file->getClientOriginalName();
-        $mimeType = $file->getMimeType();
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        $mimeType = 'application/octet-stream';
+        try {
+            if (extension_loaded('fileinfo') || function_exists('finfo_open')) {
+                $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+            }
+        } catch (\Throwable $e) {}
+
         $fileSize = $file->getSize();
 
         // Determine general file type category
         $fileType = 'other';
-        if (Str::startsWith($mimeType, 'image/')) {
+        $imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'jfif', 'pjp', 'pjpeg', 'tif', 'tiff', 'ico', 'avif'];
+        $audioExts = ['mp3', 'wav', 'ogg', 'aac', 'm4a'];
+        $videoExts = ['mp4', 'webm', 'mov', 'avi', 'qt'];
+
+        if (in_array($ext, $imgExts) || Str::startsWith($mimeType, 'image/')) {
             $fileType = 'image';
-        } elseif ($mimeType === 'application/pdf') {
+        } elseif ($ext === 'pdf' || $mimeType === 'application/pdf') {
             $fileType = 'pdf';
-        } elseif (Str::startsWith($mimeType, 'audio/')) {
+        } elseif (in_array($ext, $audioExts) || Str::startsWith($mimeType, 'audio/')) {
             $fileType = 'audio';
-        } elseif (Str::startsWith($mimeType, 'video/')) {
+        } elseif (in_array($ext, $videoExts) || Str::startsWith($mimeType, 'video/')) {
             $fileType = 'video';
         }
 

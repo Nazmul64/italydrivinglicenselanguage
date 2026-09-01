@@ -72,6 +72,15 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label" for="form-image-position">IMAGE POSITION / ইমেজের অবস্থান</label>
+                    <select class="form-control" id="form-image-position">
+                        <option value="left">Left Side (বাম পাশে)</option>
+                        <option value="top">Top Center (উপরে)</option>
+                        <option value="both">Both Positions (উভয় স্থানে)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" for="form-question-audio-file">Audio Voiceover</label>
                     <input type="file" class="form-control" id="form-question-audio-file" accept="audio/*" onchange="previewQuestionAudio(this)">
                     <div id="question-audio-preview-container" style="margin-top: 10px; display: none;">
@@ -580,7 +589,7 @@
                 <input type="hidden" id="form-page-crud-id">
                 <div class="form-group">
                     <label class="form-label" for="form-page-chapter-id">Selected Chapter</label>
-                    <select class="form-control" id="form-page-chapter-id" style="font-weight: bold; border-radius: 8px; background: var(--bg-page); border: 1px solid var(--border-card); height: 38px;">
+                    <select class="form-control" id="form-page-chapter-id" style="font-weight: bold; border-radius: 8px; background: var(--bg-page); border: 1px solid var(--border-card); min-height: 44px; padding: 8px 12px; font-size: 13.5px; line-height: 1.4;">
                         <!-- Chapters list dynamically populated -->
                     </select>
                     <input type="hidden" id="form-page-chapter-name-display">
@@ -603,7 +612,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="form-page-image">Page Picture / Image</label>
-                    <input type="file" class="form-control" id="form-page-image" name="image" accept="image/*,image/gif,image/webp" onchange="previewArgomentiPageImage(this)">
+                    <input type="file" class="form-control" id="form-page-image" name="image" accept="image/*" onchange="previewArgomentiPageImage(this)">
                     <div id="form-page-image-preview-container" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
                         <img id="form-page-image-preview" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                     </div>
@@ -788,7 +797,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="cch-cover-file">CHAPTER COVER IMAGE</label>
-                    <input type="file" class="form-control" id="cch-cover-file" name="image" accept="image/*,image/gif" onchange="previewCartelloChapterImage(this)">
+                    <input type="file" class="form-control" id="cch-cover-file" name="image" accept="image/*" onchange="previewCartelloChapterImage(this)">
                     <div id="cch-image-preview" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
                         <img id="cch-preview-img" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                     </div>
@@ -831,7 +840,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="cpage-image">PAGE IMAGE</label>
-                    <input type="file" class="form-control" id="cpage-image" name="image" accept="image/*,image/gif" onchange="previewCartelloPageImage(this)">
+                    <input type="file" class="form-control" id="cpage-image" name="image" accept="image/*" onchange="previewCartelloPageImage(this)">
                     <div id="cpage-image-preview" style="margin-top: 12px; display: none; text-align: center; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px dashed var(--border-color);">
                         <img id="cpage-preview-img" src="" alt="Preview" style="max-height: 140px; max-width: 100%; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                     </div>
@@ -906,8 +915,17 @@
 
                 <div class="form-group">
                     <label class="form-label" for="cmcq-image">QUESTION IMAGE</label>
-                    <input type="file" class="form-control" id="cmcq-image" name="image" accept="image/*,image/gif" onchange="previewCartelloMcqQuestionImage(this)">
+                    <input type="file" class="form-control" id="cmcq-image" name="image" accept="image/*" onchange="previewCartelloMcqQuestionImage(this)">
                     <div id="cmcq-image-preview" style="margin-top:6px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cmcq-image-position">IMAGE POSITION / ইমেজের অবস্থান</label>
+                    <select class="form-control" id="cmcq-image-position" name="image_position">
+                        <option value="left">Left Side (বাম পাশে)</option>
+                        <option value="top">Top Center (উপরে)</option>
+                        <option value="both">Both Positions (উভয় স্থানে)</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -1056,6 +1074,7 @@
                 </table>
             </div>
         </div>
+    </div>
     <!-- Admin Edit Profile & Password Modal -->
     <div class="modal-overlay" id="admin-edit-profile-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999999;">
         <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 480px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 90vh; overflow-y: auto;">
@@ -1091,6 +1110,7 @@
                 </div>
             </form>
         </div>
+    </div>
     <!-- Assign License Duration Modal -->
     <div class="modal-overlay" id="assign-license-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999999;">
         <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 450px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 90vh; overflow-y: auto;">

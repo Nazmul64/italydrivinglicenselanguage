@@ -142,9 +142,13 @@ function updateArgomentiPillStates() {
         selectPill.style.display = isSchedeSelectMode ? 'none' : 'inline-block';
     }
 
+    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('.scheda-item-card');
+    const totalCount = cards.length;
+
     if (!isSchedeSelectMode && selectedSheets.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
-    } else if (activeChapterPages.length > 0 && selectedSheets.length === activeChapterPages.length) {
+    } else if (totalCount > 0 && selectedSheets.length >= totalCount) {
         if (selectAllPill) selectAllPill.classList.add('active');
     } else if (isSchedeSelectMode) {
         if (selectPill) selectPill.classList.add('active');
@@ -154,16 +158,28 @@ function updateArgomentiPillStates() {
 function unselectAllSheets() {
     selectedSheets = [];
     isSchedeSelectMode = false;
-    renderSheetsList();
+    document.querySelectorAll('.scheda-item-card').forEach(card => {
+        card.classList.remove('selected-sheet-card');
+    });
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllSheets() {
-    selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
+    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
+    
+    selectedSheets = [];
+    cards.forEach(card => {
+        const pageId = parseInt(card.getAttribute('data-page-id'));
+        if (!isNaN(pageId)) {
+            selectedSheets.push(pageId);
+            card.classList.add('selected-sheet-card');
+        }
+    });
+
     isSchedeSelectMode = true;
-    renderSheetsList();
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
@@ -171,102 +187,155 @@ function selectAllSheets() {
 
 function toggleSelectSheets() {
     isSchedeSelectMode = true;
-    if (selectedSheets.length === 0 && activeChapterPages.length > 0) {
-        selectedSheets = [0];
+    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
+    
+    if (selectedSheets.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-page-id'));
+        if (!isNaN(firstId)) {
+            selectedSheets = [firstId];
+            cards[0].classList.add('selected-sheet-card');
+        }
     }
-    renderSheetsList();
+    updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
+}
+
+function toggleSheetSelectionById(pageId) {
+    pageId = parseInt(pageId);
+    const idx = selectedSheets.indexOf(pageId);
+    if (idx > -1) {
+        selectedSheets.splice(idx, 1);
+    } else {
+        selectedSheets.push(pageId);
+    }
+    isSchedeSelectMode = selectedSheets.length > 0;
+
+    const card = document.querySelector(`.scheda-item-card[data-page-id="${pageId}"]`);
+    if (card) {
+        if (selectedSheets.includes(pageId)) {
+            card.classList.add('selected-sheet-card');
+        } else {
+            card.classList.remove('selected-sheet-card');
+        }
+    }
+
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
 }
 
 function toggleSheetSelection(sheetIndex) {
-    const idx = selectedSheets.indexOf(sheetIndex);
-    if (idx > -1) {
-        selectedSheets.splice(idx, 1);
-    } else {
-        selectedSheets.push(sheetIndex);
-    }
-    if (selectedSheets.length > 0) {
-        isSchedeSelectMode = true;
-    } else {
-        isSchedeSelectMode = false;
-    }
-    renderSheetsList();
-    updateSheetsQuizButtonVisibility();
-    updateArgomentiPillStates();
+    toggleSheetSelectionById(sheetIndex);
 }
 
 function updateSheetsQuizButtonVisibility() {
     const btn = document.getElementById('sheets-quiz-btn');
-    if (!btn) return;
-    if (selectedSheets.length > 0) {
-        btn.style.display = 'flex';
-    } else {
-        btn.style.display = 'none';
-    }
+    if (btn) btn.style.display = 'flex';
 }
 
 function startCustomSheetsQuiz() {
-    if (selectedSheets.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি পৃষ্ঠা সিলেক্ট করুন');
+    let targetSheets = [...selectedSheets];
+    if (targetSheets.length === 0) {
+        const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+        const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card[data-page-id]') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card[data-page-id]');
+        cards.forEach(card => {
+            const pageId = parseInt(card.getAttribute('data-page-id'));
+            if (!isNaN(pageId)) targetSheets.push(pageId);
+        });
+    }
+
+    if (targetSheets.length === 0) {
+        showToast('কোনো পৃষ্ঠা পাওয়া যায়নি');
         return;
     }
 
-    let pool = [];
-    selectedSheets.forEach(sheetIndex => {
-        const chunk = activeChapterQuestions.slice(sheetIndex * 10, (sheetIndex + 1) * 10);
-        pool = pool.concat(chunk);
-    });
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
-    if (pool.length === 0) {
-        showToast('সিলেক্ট করা পৃষ্ঠাসমূহে কোনো প্রশ্ন পাওয়া যায়নি');
-        return;
-    }
+    Promise.all(targetSheets.map(pageId =>
+        fetch(`/api/questions/page/${pageId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
+            .catch(() => [])
+    ))
+        .then(results => {
+            let pool = [];
+            results.forEach(list => {
+                list.forEach(q => {
+                    pool.push({
+                        id: q.id,
+                        chapter: q.chapter,
+                        page_id: q.page_id,
+                        italian: q.italian,
+                        bangla: q.bangla,
+                        is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                        image: q.image,
+                        audio: q.audio,
+                        video: q.video,
+                        vocabulary: q.vocabulary || []
+                    });
+                });
+            });
 
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+            if (pool.length === 0) {
+                showToast('সিলেক্ট করা পৃষ্ঠাসমূহে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
+                return;
+            }
 
-    const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
-    showTestOptionsDialog(() => {
-        testQuestions = shuffledPool.slice(0, Math.min(30, shuffledPool.length));
-        currentTestIndex = 0;
-        testAnswers = Array(testQuestions.length).fill(null);
-        practiceMode = 'exam';
+            const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+            const quizQuestions = shuffledPool.slice(0, Math.min(30, shuffledPool.length));
 
-        const timerPill = document.getElementById('test-timer');
-        if (timerPill) {
-            timerPill.innerText = `SHEETS QUIZ`;
-            timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-            timerPill.style.borderColor = 'var(--accent-green)';
-            timerPill.style.color = 'var(--accent-green)';
-        }
-        const timerLabel = document.querySelector('.test-timer-label');
-        if (timerLabel) {
-            timerLabel.innerText = `${selectedSheets.length} Selected Sheets`;
-        }
+            showTestOptionsDialog(() => {
+                testQuestions = quizQuestions;
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
+                practiceMode = 'exam';
 
-        openScreen('test', 'Sheets Exam');
-        switchTestQuestionTab(1);
-        showTestQuestion();
-        startTestTimer();
-    });
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill) {
+                    timerPill.innerText = `SHEETS QUIZ`;
+                    timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                    timerPill.style.borderColor = 'var(--accent-green)';
+                    timerPill.style.color = 'var(--accent-green)';
+                }
+                const timerLabel = document.querySelector('.test-timer-label');
+                if (timerLabel) {
+                    timerLabel.innerText = `${targetSheets.length} Selected Sheets`;
+                }
+
+                openScreen('test', 'Sheets Exam');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            });
+        })
+        .catch(err => {
+            console.error('Error fetching sheets quiz:', err);
+            showToast('কুইজ লোড করতে সমস্যা হয়েছে');
+        });
 }
 
 let allArgomentiChapters = [];
 let isArgomentiSelectMode = false;
 
 function toggleChapterSelection(id) {
+    id = parseInt(id);
     const idx = selectedChapters.indexOf(id);
     if (idx > -1) {
         selectedChapters.splice(idx, 1);
     } else {
         selectedChapters.push(id);
     }
-    if (selectedChapters.length > 0) {
-        isArgomentiSelectMode = true;
-    } else {
-        isArgomentiSelectMode = false;
+    isArgomentiSelectMode = selectedChapters.length > 0;
+
+    const card = document.querySelector(`.chapter-image-card[data-chapter-id="${id}"]`);
+    if (card) {
+        if (selectedChapters.includes(id)) {
+            card.classList.add('selected-chapter-card');
+        } else {
+            card.classList.remove('selected-chapter-card');
+        }
     }
-    renderArgomentiList();
+
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
 }
@@ -274,16 +343,33 @@ function toggleChapterSelection(id) {
 function unselectAllArgomentiChapters() {
     selectedChapters = [];
     isArgomentiSelectMode = false;
-    renderArgomentiList();
+    document.querySelectorAll('.chapter-image-card').forEach(card => {
+        card.classList.remove('selected-chapter-card');
+    });
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
     showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllArgomentiChapters() {
-    selectedChapters = allArgomentiChapters.map(c => c.id);
+    if ((!allArgomentiChapters || allArgomentiChapters.length === 0) && window.allArgomentiChapters && window.allArgomentiChapters.length > 0) {
+        allArgomentiChapters = window.allArgomentiChapters;
+    }
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    selectedChapters = [];
+    cards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-chapter-id'));
+        if (!isNaN(id)) {
+            selectedChapters.push(id);
+            card.classList.add('selected-chapter-card');
+        }
+    });
+
+    if (selectedChapters.length === 0 && allArgomentiChapters.length > 0) {
+        selectedChapters = allArgomentiChapters.map(c => c.id);
+    }
+
     isArgomentiSelectMode = true;
-    renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
     showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
@@ -291,18 +377,21 @@ function selectAllArgomentiChapters() {
 
 function toggleSelectArgomentiChapters() {
     isArgomentiSelectMode = true;
-    if (selectedChapters.length === 0 && allArgomentiChapters.length > 0) {
-        selectedChapters = [allArgomentiChapters[0].id];
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    if (selectedChapters.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-chapter-id'));
+        if (!isNaN(firstId)) {
+            selectedChapters = [firstId];
+            cards[0].classList.add('selected-chapter-card');
+        }
     }
-    renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
 }
 
 function updateCategoryQuizButtonVisibility() {
     const btn = document.getElementById('argomenti-category-quiz-btn');
-    if (!btn) return;
-    btn.style.display = selectedChapters.length > 0 ? 'block' : 'none';
+    if (btn) btn.style.display = 'flex';
 }
 
 function updateArgomentiChapterPillStates() {
@@ -318,9 +407,12 @@ function updateArgomentiChapterPillStates() {
         selectPill.style.display = isArgomentiSelectMode ? 'none' : 'inline-block';
     }
 
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    const totalCount = cards.length;
+
     if (!isArgomentiSelectMode && selectedChapters.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
-    } else if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
+    } else if (totalCount > 0 && selectedChapters.length >= totalCount) {
         if (selectAllPill) selectAllPill.classList.add('active');
     } else if (isArgomentiSelectMode) {
         if (selectPill) selectPill.classList.add('active');
@@ -328,49 +420,85 @@ function updateArgomentiChapterPillStates() {
 }
 
 function startArgomentiCategoryQuiz() {
-    if (selectedChapters.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি অধ্যায় সিলেক্ট করুন');
+    let targetChapters = [...selectedChapters];
+    if (targetChapters.length === 0) {
+        if ((!allArgomentiChapters || allArgomentiChapters.length === 0) && window.allArgomentiChapters) {
+            allArgomentiChapters = window.allArgomentiChapters;
+        }
+        if (allArgomentiChapters && allArgomentiChapters.length > 0) {
+            targetChapters = allArgomentiChapters.map(c => c.id);
+        } else {
+            const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+            cards.forEach(card => {
+                const id = parseInt(card.getAttribute('data-chapter-id'));
+                if (!isNaN(id)) targetChapters.push(id);
+            });
+        }
+    }
+
+    if (targetChapters.length === 0) {
+        showToast('কোনো অধ্যায় পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
-    Promise.all(selectedChapters.map(chapId =>
-        fetch(`/api/questions/chapter/${chapId}`).then(res => res.json())
+    Promise.all(targetChapters.map(chapId =>
+        fetch(`/api/questions/chapter/${chapId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
+            .catch(() => [])
     ))
         .then(results => {
             let allMcqs = [];
             results.forEach(list => {
                 if (Array.isArray(list)) {
-                    list.forEach(q => allMcqs.push(q));
+                    list.forEach(q => {
+                        allMcqs.push({
+                            id: q.id,
+                            chapter: q.chapter,
+                            page_id: q.page_id,
+                            italian: q.italian,
+                            bangla: q.bangla,
+                            is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                            image: q.image,
+                            audio: q.audio,
+                            video: q.video,
+                            vocabulary: q.vocabulary || []
+                        });
+                    });
                 }
             });
 
             if (allMcqs.length === 0) {
-                showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+                showToast('সিলেক্ট করা অধ্যায়ের অধীনে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
                 return;
             }
 
-            testQuestions = allMcqs.sort(() => Math.random() - 0.5).slice(0, Math.min(30, allMcqs.length));
-            currentTestIndex = 0;
-            testAnswers = Array(testQuestions.length).fill(null);
-            practiceMode = 'exam';
+            const quizQuestions = allMcqs.sort(() => Math.random() - 0.5).slice(0, Math.min(30, allMcqs.length));
 
-            const timerPill = document.getElementById('test-timer');
-            if (timerPill) {
-                timerPill.innerText = `CHAPTER QUIZ`;
-                timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-                timerPill.style.borderColor = 'var(--accent-green)';
-                timerPill.style.color = 'var(--accent-green)';
-            }
-            const timerLabel = document.querySelector('.test-timer-label');
-            if (timerLabel) {
-                timerLabel.innerText = `${selectedChapters.length} Selected Chapters`;
-            }
+            showTestOptionsDialog(() => {
+                testQuestions = quizQuestions;
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
+                practiceMode = 'exam';
 
-            openScreen('test', 'Argomenti Exam');
-            switchTestQuestionTab(1);
-            showTestQuestion();
-            startTestTimer();
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill) {
+                    timerPill.innerText = `CHAPTER QUIZ`;
+                    timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                    timerPill.style.borderColor = 'var(--accent-green)';
+                    timerPill.style.color = 'var(--accent-green)';
+                }
+                const timerLabel = document.querySelector('.test-timer-label');
+                if (timerLabel) {
+                    timerLabel.innerText = `${targetChapters.length} Selected Chapters`;
+                }
+
+                openScreen('test', 'Argomenti Exam');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            });
         })
         .catch(err => {
             console.error("Error creating category quiz: ", err);
@@ -381,6 +509,22 @@ function startArgomentiCategoryQuiz() {
 function renderArgomentiList() {
     const container = document.getElementById('argomenti-list');
     if (!container) return;
+
+    const cards = container.querySelectorAll('.chapter-image-card');
+    if (cards.length > 0) {
+        cards.forEach(card => {
+            const id = parseInt(card.getAttribute('data-chapter-id'));
+            if (selectedChapters.includes(id)) {
+                card.classList.add('selected-chapter-card');
+            } else {
+                card.classList.remove('selected-chapter-card');
+            }
+        });
+        updateCategoryQuizButtonVisibility();
+        updateArgomentiChapterPillStates();
+        return;
+    }
+
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
 
     const userStats = getUserQuestionStats();
@@ -424,6 +568,7 @@ function renderArgomentiList() {
 
                 const card = document.createElement('div');
                 card.className = `chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}`;
+                card.setAttribute('data-chapter-id', ch.id);
                 card.onclick = () => {
                     if (isArgomentiSelectMode) {
                         toggleChapterSelection(ch.id);
@@ -439,11 +584,8 @@ function renderArgomentiList() {
                         <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
-                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="max-height: 140px; max-width: 90%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
-                        </div>
-                        <div style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
-                            Progresso
+                        <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
                         </div>
                     </div>
                 `;
@@ -543,14 +685,17 @@ function renderSheetsList() {
         });
 
         const total = pageQuestions.length || (page.questions_count || 10);
+        const safeTotal = total > 0 ? total : 1;
         const unanswered = Math.max(0, total - correct - wrong);
-        const isSelected = selectedSheets.includes(index);
+        const isSelected = selectedSheets.includes(page.id);
 
         const pageTitleText = page.title || page.bn_title || getSheetName(activeChapterId, index);
         const displaySheetTitle = pageTitleText.startsWith(`${index + 1}`) ? pageTitleText : `${index + 1}) ${pageTitleText}`;
 
         const card = document.createElement('div');
-        card.className = `content-card ${isSelected ? 'selected-sheet-card' : ''}`;
+        card.className = `content-card scheda-item-card ${isSelected ? 'selected-sheet-card' : ''}`;
+        card.setAttribute('data-page-id', page.id);
+        card.setAttribute('data-chapter-id', activeChapterId);
         card.style.cursor = 'pointer';
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
@@ -558,13 +703,21 @@ function renderSheetsList() {
         card.style.padding = '16px';
         card.onclick = () => {
             if (isSchedeSelectMode) {
-                toggleSheetSelection(index);
+                toggleSheetSelectionById(page.id);
             } else {
                 openPageDetailsScreen(page.id);
             }
         };
 
-        const safeTotal = total || 1;
+        let pageImgHTML = '';
+        if (page.image) {
+            const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
+            pageImgHTML = `
+                <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
+                    <img src="${imgSrc}" class="schede-page-img" alt="${displaySheetTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                </div>
+            `;
+        }
 
         card.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -574,6 +727,8 @@ function renderSheetsList() {
                 </span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
             </div>
+
+            ${pageImgHTML}
 
             <div class="schede-card-footer" style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-secondary);">
                 <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
@@ -920,9 +1075,18 @@ function navigateBack() {
 
 function clickBottomNav(screenId) {
     let title = 'mbanglapatenteb';
-    if (screenId === 'scheda-esame') title = 'Scheda Esame';
-    else if (screenId === 'dizionario') title = 'Dizionario';
+    if (screenId === 'test') title = 'Practice Quiz';
+    else if (screenId === 'argomenti') title = 'Argomenti';
+    else if (screenId === 'cartelli') title = 'Cartelli';
     else if (screenId === 'profilo') title = 'Profilo';
+    else if (screenId === 'scheda-esame') title = 'Scheda Esame';
+    else if (screenId === 'dizionario') title = 'Dizionario';
+
+    if (screenId === 'argomenti' && typeof renderArgomentiList === 'function') {
+        renderArgomentiList();
+    } else if (screenId === 'cartelli' && typeof renderCartelliChaptersGrid === 'function') {
+        renderCartelliChaptersGrid();
+    }
 
     openScreen(screenId, title);
 }
@@ -932,19 +1096,19 @@ function syncBottomNav(screenId) {
     navItems.forEach(item => item.classList.remove('active'));
 
     const navHome = document.getElementById('nav-home');
-    const navQuiz = document.getElementById('nav-quiz');
-    const navScanner = document.getElementById('nav-scanner');
-    const navDictionary = document.getElementById('nav-dictionary');
+    const navTest = document.getElementById('nav-test') || document.getElementById('nav-quiz');
+    const navArgomenti = document.getElementById('nav-argomenti') || document.getElementById('nav-scanner');
+    const navCartelli = document.getElementById('nav-cartelli') || document.getElementById('nav-dictionary');
     const navProfile = document.getElementById('nav-profile');
 
     if (screenId === 'home' && navHome) {
         navHome.classList.add('active');
-    } else if (screenId === 'scheda-esame' && navQuiz) {
-        navQuiz.classList.add('active');
-    } else if (screenId === 'qr-scanner' && navScanner) {
-        navScanner.classList.add('active');
-    } else if (screenId === 'dizionario' && navDictionary) {
-        navDictionary.classList.add('active');
+    } else if ((screenId === 'test' || screenId === 'scheda-esame') && navTest) {
+        navTest.classList.add('active');
+    } else if ((screenId === 'argomenti' || screenId === 'argomenti-schede' || screenId === 'page-details') && navArgomenti) {
+        navArgomenti.classList.add('active');
+    } else if ((screenId === 'cartelli' || screenId === 'cartelli-schede' || screenId === 'cartelli-page') && navCartelli) {
+        navCartelli.classList.add('active');
     } else if (screenId === 'profilo' && navProfile) {
         navProfile.classList.add('active');
     }
@@ -1028,3 +1192,46 @@ window.restoreScreenFromUrl = restoreScreenFromUrl;
 document.addEventListener('DOMContentLoaded', function () {
     restoreScreenFromUrl();
 });
+
+window.openArgomentiSchedeScreen = function(chId) {
+    if (typeof openChapterSheetsScreen === 'function') {
+        openChapterSheetsScreen(chId);
+    }
+};
+
+window.handleArgomentiChapterCardClick = function(chId) {
+    chId = parseInt(chId);
+    if (typeof isArgomentiSelectMode !== 'undefined' && isArgomentiSelectMode) {
+        toggleChapterSelection(chId);
+    } else {
+        openChapterSheetsScreen(chId);
+    }
+};
+
+window.handleArgomentiSchedaClick = function(chId, pageId) {
+    pageId = parseInt(pageId);
+    if (typeof isSchedeSelectMode !== 'undefined' && isSchedeSelectMode) {
+        toggleSheetSelectionById(pageId);
+    } else {
+        openPageDetailsScreen(pageId);
+    }
+};
+
+window.handleCartelliChapterCardClick = function(chId) {
+    chId = parseInt(chId);
+    if (typeof isCartelliChapterSelectMode !== 'undefined' && isCartelliChapterSelectMode) {
+        if (typeof toggleCartelliChapterSelection === 'function') toggleCartelliChapterSelection(chId);
+    } else {
+        if (typeof openCartelliSchedeScreen === 'function') openCartelliSchedeScreen(chId);
+    }
+};
+
+window.handleCartelliSchedaCardClick = function(chId, pageId) {
+    pageId = parseInt(pageId);
+    if (typeof isCartelliSchedeSelectMode !== 'undefined' && isCartelliSchedeSelectMode) {
+        if (typeof toggleCartelliSchedaSelection === 'function') toggleCartelliSchedaSelection(pageId);
+    } else {
+        if (typeof openCartelliPageScreen === 'function') openCartelliPageScreen(pageId);
+    }
+};
+

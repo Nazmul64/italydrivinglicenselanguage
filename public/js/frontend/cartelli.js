@@ -19,74 +19,43 @@ let isCartelliPlayAllActive = false;
 function renderCartelliChaptersGrid() {
     const container = document.getElementById('cartelli-chapters-grid');
     if (!container) return;
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
 
-    fetch('/api/cartelli/chapters')
-        .then(res => res.json())
-        .then(resData => {
-            const chapters = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
-            cartelliAllChapters = chapters;
-            container.innerHTML = '';
-
-            const badge = document.getElementById('cartelli-chapters-count-badge');
-            if (badge) badge.innerText = `${chapters ? chapters.length : 0} Capitoli`;
-
-            if (!chapters || chapters.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;">Nessun capitolo trovato.</div>`;
-                return;
+    // If server rendered cards exist, update selection state without wiping HTML
+    const cards = container.querySelectorAll('.chapter-image-card');
+    if (cards.length > 0) {
+        cards.forEach(card => {
+            const id = parseInt(card.getAttribute('data-cartelli-chapter-id'));
+            if (selectedCartelliChapters.includes(id)) {
+                card.classList.add('selected-chapter-card');
+            } else {
+                card.classList.remove('selected-chapter-card');
             }
-
-            chapters.forEach(ch => {
-                const isSelected = selectedCartelliChapters.includes(ch.id);
-                const card = document.createElement('div');
-                card.className = `chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}`;
-                card.onclick = () => {
-                    if (isCartelliChapterSelectMode) {
-                        toggleCartelliChapterSelection(ch.id);
-                    } else {
-                        openCartelliSchedeScreen(ch.id);
-                    }
-                };
-
-                const coverImage = ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
-
-                card.innerHTML = `
-                    <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
-                        <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
-                            ${ch.chapter_number || ch.id}) ${ch.name}
-                        </div>
-                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="object-fit: contain; border-radius: 8px;">
-                        </div>
-                        <div style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
-                            Progresso
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-            updateCartelliCategoryQuizButtonVisibility();
-            updateCartelliChapterPillStates();
-        })
-        .catch(err => {
-            console.error("Error fetching cartelli chapters: ", err);
-            container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px; grid-column: 1 / -1;">Si è verificato un errore nel caricamento.</div>`;
         });
+        updateCartelliCategoryQuizButtonVisibility();
+        updateCartelliChapterPillStates();
+        return;
+    }
 }
 
-function toggleCartelliChapterSelection(id) {
-    const idx = selectedCartelliChapters.indexOf(id);
+function toggleCartelliChapterSelection(chId) {
+    chId = parseInt(chId);
+    const idx = selectedCartelliChapters.indexOf(chId);
     if (idx > -1) {
         selectedCartelliChapters.splice(idx, 1);
     } else {
-        selectedCartelliChapters.push(id);
+        selectedCartelliChapters.push(chId);
     }
-    if (selectedCartelliChapters.length > 0) {
-        isCartelliChapterSelectMode = true;
-    } else {
-        isCartelliChapterSelectMode = false;
+    isCartelliChapterSelectMode = selectedCartelliChapters.length > 0;
+
+    const card = document.querySelector(`.chapter-image-card[data-cartelli-chapter-id="${chId}"]`);
+    if (card) {
+        if (selectedCartelliChapters.includes(chId)) {
+            card.classList.add('selected-chapter-card');
+        } else {
+            card.classList.remove('selected-chapter-card');
+        }
     }
-    renderCartelliChaptersGrid();
+
     updateCartelliCategoryQuizButtonVisibility();
     updateCartelliChapterPillStates();
 }
@@ -94,75 +63,130 @@ function toggleCartelliChapterSelection(id) {
 function unselectAllCartelliChapters() {
     selectedCartelliChapters = [];
     isCartelliChapterSelectMode = false;
-    renderCartelliChaptersGrid();
+    document.querySelectorAll('.chapter-image-card[data-cartelli-chapter-id]').forEach(card => {
+        card.classList.remove('selected-chapter-card');
+    });
     updateCartelliCategoryQuizButtonVisibility();
     updateCartelliChapterPillStates();
+    showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllCartelliChapters() {
-    selectedCartelliChapters = cartelliAllChapters.map(c => c.id);
+    const cards = document.querySelectorAll('.chapter-image-card[data-cartelli-chapter-id]');
+    selectedCartelliChapters = [];
+    cards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-cartelli-chapter-id'));
+        if (!isNaN(id)) {
+            selectedCartelliChapters.push(id);
+            card.classList.add('selected-chapter-card');
+        }
+    });
+
+    if (selectedCartelliChapters.length === 0 && cartelliAllChapters.length > 0) {
+        selectedCartelliChapters = cartelliAllChapters.map(c => c.id);
+    }
+
     isCartelliChapterSelectMode = true;
-    renderCartelliChaptersGrid();
     updateCartelliCategoryQuizButtonVisibility();
     updateCartelliChapterPillStates();
+    showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
 }
 
 function toggleSelectCartelliChapters() {
     isCartelliChapterSelectMode = true;
-    if (selectedCartelliChapters.length === 0 && cartelliAllChapters.length > 0) {
-        selectedCartelliChapters = [cartelliAllChapters[0].id];
+    const cards = document.querySelectorAll('.chapter-image-card[data-cartelli-chapter-id]');
+    if (selectedCartelliChapters.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-cartelli-chapter-id'));
+        if (!isNaN(firstId)) {
+            selectedCartelliChapters = [firstId];
+            cards[0].classList.add('selected-chapter-card');
+        }
     }
-    renderCartelliChaptersGrid();
     updateCartelliCategoryQuizButtonVisibility();
     updateCartelliChapterPillStates();
 }
 
 function updateCartelliChapterPillStates() {
+    const unselectPill = document.getElementById('cartelli-chap-btn-unselect');
     const selectPill = document.getElementById('cartelli-chap-btn-select');
+    const selectAllPill = document.getElementById('cartelli-chap-btn-select-all');
+
+    if (unselectPill) unselectPill.classList.remove('active');
+    if (selectPill) selectPill.classList.remove('active');
+    if (selectAllPill) selectAllPill.classList.remove('active');
+
     if (selectPill) {
         selectPill.style.display = isCartelliChapterSelectMode ? 'none' : 'inline-block';
+    }
+
+    const cards = document.querySelectorAll('.chapter-image-card[data-cartelli-chapter-id]');
+    const totalCount = cards.length;
+
+    if (!isCartelliChapterSelectMode && selectedCartelliChapters.length === 0) {
+        if (unselectPill) unselectPill.classList.add('active');
+    } else if (totalCount > 0 && selectedCartelliChapters.length >= totalCount) {
+        if (selectAllPill) selectAllPill.classList.add('active');
+    } else if (isCartelliChapterSelectMode) {
+        if (selectPill) selectPill.classList.add('active');
     }
 }
 
 function updateCartelliCategoryQuizButtonVisibility() {
     const btn = document.getElementById('cartelli-category-quiz-btn');
-    if (!btn) return;
-    btn.style.display = selectedCartelliChapters.length > 0 ? 'block' : 'none';
+    if (btn) btn.style.display = 'flex';
 }
 
 function startCartelliCategoryQuiz() {
-    if (selectedCartelliChapters.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি অধ্যায় সিলেক্ট করুন');
+    let targetChapters = [...selectedCartelliChapters];
+    if (targetChapters.length === 0) {
+        if ((!cartelliAllChapters || cartelliAllChapters.length === 0) && window.cartelliAllChapters) {
+            cartelliAllChapters = window.cartelliAllChapters;
+        }
+        if (cartelliAllChapters && cartelliAllChapters.length > 0) {
+            targetChapters = cartelliAllChapters.map(c => c.id);
+        } else {
+            const cards = document.querySelectorAll('.chapter-image-card[data-cartelli-chapter-id]');
+            cards.forEach(card => {
+                const id = parseInt(card.getAttribute('data-cartelli-chapter-id'));
+                if (!isNaN(id)) targetChapters.push(id);
+            });
+        }
+    }
+
+    if (targetChapters.length === 0) {
+        showToast('কোনো অধ্যায় পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
-    Promise.all(selectedCartelliChapters.map(chapId =>
-        fetch(`/api/cartelli/pages/${chapId}`).then(res => res.json())
+    Promise.all(targetChapters.map(chapId =>
+        fetch(`/api/cartelli/questions/chapter/${chapId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : (data && Array.isArray(data.mcqs) ? data.mcqs : [])))
+            .catch(() => [])
     ))
         .then(results => {
             let allMcqs = [];
-            results.forEach(pagesList => {
-                pagesList.forEach(p => {
-                    if (p.mcqs && Array.isArray(p.mcqs)) {
-                        p.mcqs.forEach(q => {
-                            allMcqs.push({
-                                id: q.id,
-                                italian: q.question,
-                                bangla: q.bn_question,
-                                is_vero: q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
-                                image: q.image,
-                                audio: q.voice,
-                                video: q.video,
-                                vocabulary: q.vocabulary || []
-                            });
+            results.forEach(list => {
+                if (Array.isArray(list)) {
+                    list.forEach(q => {
+                        allMcqs.push({
+                            id: q.id,
+                            chapter: q.chapter_id,
+                            italian: q.italian || q.question,
+                            bangla: q.bangla || q.bn_question,
+                            is_vero: String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1 || q.is_vero === true || q.is_vero === 1 || q.is_vero === '1',
+                            image: q.image,
+                            audio: q.audio || q.voice,
+                            video: q.video,
+                            vocabulary: q.vocabulary || []
                         });
-                    }
-                });
+                    });
+                }
             });
 
             if (allMcqs.length === 0) {
-                showToast('কোনো প্রশ্ন পাওয়া যায়নি');
+                showToast('সিলেক্ট করা অধ্যায়ের অধীনে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
                 return;
             }
 
@@ -184,7 +208,7 @@ function startCartelliCategoryQuiz() {
                 }
                 const timerLabel = document.querySelector('.test-timer-label');
                 if (timerLabel) {
-                    timerLabel.innerText = `${selectedCartelliChapters.length} Chapters`;
+                    timerLabel.innerText = `${targetChapters.length} Chapters`;
                 }
 
                 openScreen('test', 'Cartelli Quiz');
@@ -200,6 +224,7 @@ function startCartelliCategoryQuiz() {
 }
 
 function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
+    chapterId = parseInt(chapterId);
     if (cartelliActiveChapterId !== chapterId || !preserveSelection) {
         selectedCartelliSchede = [];
         isCartelliSchedeSelectMode = false;
@@ -209,7 +234,25 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
     const labelEl = document.getElementById('cartelli-schede-chapter-label');
     if (labelEl) labelEl.innerText = `Caricamento...`;
 
-    populateCartelliSchedeChapterDropdown();
+    const updateLabel = () => {
+        const ch = cartelliAllChapters.find(c => c.id === chapterId);
+        if (ch && labelEl) {
+            labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
+        }
+        populateCartelliSchedeChapterDropdown();
+    };
+
+    if (!cartelliAllChapters || cartelliAllChapters.length === 0) {
+        fetch('/api/cartelli/chapters')
+            .then(res => res.json())
+            .then(data => {
+                cartelliAllChapters = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+                updateLabel();
+            })
+            .catch(() => {});
+    } else {
+        updateLabel();
+    }
 
     const container = document.getElementById('cartelli-schede-list');
     if (container) {
@@ -220,7 +263,8 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
     fetch(`/api/cartelli/pages/${chapterId}`)
         .then(res => res.json())
-        .then(pages => {
+        .then(resData => {
+            const pages = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
             cartelliPagesList = pages;
             if (!preserveSelection) {
                 selectedCartelliSchede = [];
@@ -228,11 +272,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
             }
             updateCartelliSchedeQuizButtonVisibility();
             updateCartelliSchedePillStates();
-
-            const ch = cartelliAllChapters.find(c => c.id === chapterId);
-            if (ch && labelEl) {
-                labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
-            }
+            updateLabel();
 
             if (pages.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna scheda trovata per questo capitolo.</div>`;
@@ -248,7 +288,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
                 if (page.mcqs && Array.isArray(page.mcqs)) {
                     page.mcqs.forEach(q => {
-                        let record = userStats[q.id];
+                        let record = userStats[`cartelli_${q.id}`];
                         let stState = (typeof record === 'object') ? record.state : record;
                         if (stState === 'correct') correct++;
                         else if (stState === 'wrong') wrong++;
@@ -256,20 +296,20 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 }
 
                 const unanswered = Math.max(0, total - correct - wrong);
-                const isSelected = selectedCartelliSchede.includes(index);
+                const isSelected = selectedCartelliSchede.includes(page.id);
 
                 const card = document.createElement('div');
-                card.className = `content-card ${isSelected ? 'selected-sheet-card' : ''}`;
+                card.className = `content-card scheda-item-card ${isSelected ? 'selected-sheet-card' : ''}`;
+                card.setAttribute('data-cartelli-page-id', page.id);
+                card.setAttribute('data-chapter-id', chapterId);
                 card.style.cursor = 'pointer';
                 card.style.display = 'flex';
                 card.style.flexDirection = 'column';
                 card.style.gap = '10px';
                 card.style.padding = '16px';
-                card.style.position = 'relative';
-                card.style.height = '100%';
                 card.onclick = () => {
                     if (isCartelliSchedeSelectMode) {
-                        toggleCartelliSchedeSelection(index);
+                        toggleCartelliSchedaSelection(page.id);
                     } else {
                         openCartelliPageScreen(page.id);
                     }
@@ -286,8 +326,8 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 if (page.image) {
                     const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
                     pageImgHTML = `
-                        <div class="page-image-frame" style="width: 100%; display: flex; justify-content: center; align-items: center; margin: 8px 0; background: #eef2f7; border-radius: 14px; padding: 12px; box-shadow: inset 3px 3px 6px #d1d9e6, inset -3px -3px 6px #ffffff;">
-                            <img src="${imgSrc}" class="schede-page-img" alt="${rawTitle}" style="object-fit: contain; border-radius: 8px;">
+                        <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
+                            <img src="${imgSrc}" class="schede-page-img" alt="${rawTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
                         </div>
                     `;
                 }
@@ -351,39 +391,73 @@ function toggleCartelliSchedeChapterDropdown() {
     if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
-function toggleCartelliSchedeSelection(index) {
-    const idx = selectedCartelliSchede.indexOf(index);
+function toggleCartelliSchedaSelection(pageId) {
+    pageId = parseInt(pageId);
+    const idx = selectedCartelliSchede.indexOf(pageId);
     if (idx > -1) {
         selectedCartelliSchede.splice(idx, 1);
     } else {
-        selectedCartelliSchede.push(index);
+        selectedCartelliSchede.push(pageId);
     }
-    if (selectedCartelliSchede.length > 0) {
-        isCartelliSchedeSelectMode = true;
-    } else {
-        isCartelliSchedeSelectMode = false;
+    isCartelliSchedeSelectMode = selectedCartelliSchede.length > 0;
+
+    const card = document.querySelector(`.scheda-item-card[data-cartelli-page-id="${pageId}"]`);
+    if (card) {
+        if (selectedCartelliSchede.includes(pageId)) {
+            card.classList.add('selected-sheet-card');
+        } else {
+            card.classList.remove('selected-sheet-card');
+        }
     }
-    openCartelliSchedeScreen(cartelliActiveChapterId, true);
+
+    updateCartelliSchedeQuizButtonVisibility();
+    updateCartelliSchedePillStates();
 }
 
 function unselectAllCartelliSchede() {
     selectedCartelliSchede = [];
     isCartelliSchedeSelectMode = false;
-    openCartelliSchedeScreen(cartelliActiveChapterId, true);
+    document.querySelectorAll('.scheda-item-card[data-cartelli-page-id]').forEach(card => {
+        card.classList.remove('selected-sheet-card');
+    });
+    updateCartelliSchedeQuizButtonVisibility();
+    updateCartelliSchedePillStates();
+    showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllCartelliSchede() {
-    selectedCartelliSchede = Array.from({ length: cartelliPagesList.length }, (_, idx) => idx);
+    const currentBox = currentCartelliChapId ? document.getElementById(`cartelli-chapter-schede-${currentCartelliChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card[data-cartelli-page-id]') : document.querySelectorAll('#screen-cartelli-schede .scheda-item-card[data-cartelli-page-id]');
+    
+    selectedCartelliSchede = [];
+    cards.forEach(card => {
+        const pageId = parseInt(card.getAttribute('data-cartelli-page-id'));
+        if (!isNaN(pageId)) {
+            selectedCartelliSchede.push(pageId);
+            card.classList.add('selected-sheet-card');
+        }
+    });
+
     isCartelliSchedeSelectMode = true;
-    openCartelliSchedeScreen(cartelliActiveChapterId, true);
+    updateCartelliSchedeQuizButtonVisibility();
+    updateCartelliSchedePillStates();
+    showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
 }
 
 function toggleSelectCartelliSchede() {
     isCartelliSchedeSelectMode = true;
-    if (selectedCartelliSchede.length === 0 && cartelliPagesList.length > 0) {
-        selectedCartelliSchede = [0];
+    const currentBox = currentCartelliChapId ? document.getElementById(`cartelli-chapter-schede-${currentCartelliChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card[data-cartelli-page-id]') : document.querySelectorAll('#screen-cartelli-schede .scheda-item-card[data-cartelli-page-id]');
+    
+    if (selectedCartelliSchede.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-cartelli-page-id'));
+        if (!isNaN(firstId)) {
+            selectedCartelliSchede = [firstId];
+            cards[0].classList.add('selected-sheet-card');
+        }
     }
-    openCartelliSchedeScreen(cartelliActiveChapterId, true);
+    updateCartelliSchedeQuizButtonVisibility();
+    updateCartelliSchedePillStates();
 }
 
 function updateCartelliSchedePillStates() {
@@ -399,9 +473,13 @@ function updateCartelliSchedePillStates() {
         btnSelect.style.display = isCartelliSchedeSelectMode ? 'none' : 'inline-block';
     }
 
+    const currentBox = currentCartelliChapId ? document.getElementById(`cartelli-chapter-schede-${currentCartelliChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card[data-cartelli-page-id]') : document.querySelectorAll('#screen-cartelli-schede .scheda-item-card[data-cartelli-page-id]');
+    const totalCount = cards.length;
+
     if (!isCartelliSchedeSelectMode && selectedCartelliSchede.length === 0) {
         if (btnUnselect) btnUnselect.classList.add('active');
-    } else if (cartelliPagesList.length > 0 && selectedCartelliSchede.length === cartelliPagesList.length) {
+    } else if (totalCount > 0 && selectedCartelliSchede.length >= totalCount) {
         if (btnSelectAll) btnSelectAll.classList.add('active');
     } else if (isCartelliSchedeSelectMode) {
         if (btnSelect) btnSelect.classList.add('active');
@@ -410,62 +488,88 @@ function updateCartelliSchedePillStates() {
 
 function updateCartelliSchedeQuizButtonVisibility() {
     const btn = document.getElementById('cartelli-schede-quiz-btn');
-    if (btn) btn.style.display = selectedCartelliSchede.length > 0 ? 'block' : 'none';
+    if (btn) btn.style.display = 'flex';
 }
 
 function startCartelliSchedeQuiz() {
-    if (selectedCartelliSchede.length === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি পেজ সিলেক্ট করুন');
+    let targetPages = [...selectedCartelliSchede];
+    if (targetPages.length === 0) {
+        const currentBox = currentCartelliChapId ? document.getElementById(`cartelli-chapter-schede-${currentCartelliChapId}`) : null;
+        const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card[data-cartelli-page-id]') : document.querySelectorAll('#screen-cartelli-schede .scheda-item-card[data-cartelli-page-id]');
+        cards.forEach(card => {
+            const pageId = parseInt(card.getAttribute('data-cartelli-page-id'));
+            if (!isNaN(pageId)) targetPages.push(pageId);
+        });
+    }
+
+    if (targetPages.length === 0) {
+        showToast('কোনো পেজ পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
-    let allMcqs = [];
-    selectedCartelliSchede.forEach(idx => {
-        const p = cartelliPagesList[idx];
-        if (p && p.mcqs && Array.isArray(p.mcqs)) {
-            p.mcqs.forEach(q => {
-                allMcqs.push({
-                    id: q.id,
-                    italian: q.question,
-                    bangla: q.bn_question,
-                    is_vero: q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
-                    image: q.image,
-                    audio: q.voice,
-                    video: q.video,
-                    vocabulary: q.vocabulary || []
-                });
+    Promise.all(targetPages.map(pageId =>
+        fetch(`/api/cartelli/page-mcqs/${pageId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : (data && Array.isArray(data.mcqs) ? data.mcqs : [])))
+            .catch(() => [])
+    ))
+        .then(results => {
+            let allMcqs = [];
+            results.forEach(list => {
+                if (Array.isArray(list)) {
+                    list.forEach(q => {
+                        allMcqs.push({
+                            id: q.id,
+                            chapter: q.chapter_id,
+                            italian: q.italian || q.question,
+                            bangla: q.bangla || q.bn_question,
+                            is_vero: String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1 || q.is_vero === true || q.is_vero === 1 || q.is_vero === '1',
+                            image: q.image,
+                            audio: q.audio || q.voice,
+                            video: q.video,
+                            vocabulary: q.vocabulary || []
+                        });
+                    });
+                }
             });
-        }
-    });
 
-    if (allMcqs.length === 0) {
-        showToast('কোনো প্রশ্ন পাওয়া যায়নি');
-        return;
-    }
+            if (allMcqs.length === 0) {
+                showToast('সিলেক্ট করা পেজের অধীনে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
+                return;
+            }
 
-    showTestOptionsDialog(() => {
-        practiceMode = 'sheet';
-        testQuestions = allMcqs;
-        currentTestIndex = 0;
-        testAnswers = Array(testQuestions.length).fill(null);
+            allMcqs.sort(() => 0.5 - Math.random());
+            const quizMcqs = allMcqs.slice(0, 30);
 
-        const timerPill = document.getElementById('test-timer');
-        if (timerPill) {
-            timerPill.innerText = `SCHEDE QUIZ`;
-            timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-            timerPill.style.borderColor = 'var(--accent-green)';
-            timerPill.style.color = 'var(--accent-green)';
-        }
-        const timerLabel = document.querySelector('.test-timer-label');
-        if (timerLabel) {
-            timerLabel.innerText = `${selectedCartelliSchede.length} Selected Sheets`;
-        }
+            showTestOptionsDialog(() => {
+                practiceMode = 'sheet';
+                testQuestions = quizMcqs;
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
 
-        openScreen('test', 'Sheets Quiz');
-        switchTestQuestionTab(1);
-        showTestQuestion();
-    });
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill) {
+                    timerPill.innerText = `SCHEDE QUIZ`;
+                    timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                    timerPill.style.borderColor = 'var(--accent-green)';
+                    timerPill.style.color = 'var(--accent-green)';
+                }
+                const timerLabel = document.querySelector('.test-timer-label');
+                if (timerLabel) {
+                    timerLabel.innerText = `${selectedCartelliSchede.length} Selected Sheets`;
+                }
+
+                openScreen('test', 'Cartelli Quiz');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            });
+        })
+        .catch(err => {
+            console.error("Error generating cartelli schede quiz: ", err);
+            showToast('প্রশ্ন লোড করতে সমস্যা হয়েছে');
+        });
 }
 
 function openCartelliPageScreen(pageId) {
@@ -580,7 +684,7 @@ function renderCartelliPageMcqs(mcqs) {
         const bookmarkIconClass = cartelliIsBookmarked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         const bookmarkIconColor = cartelliIsBookmarked ? 'color: var(--accent-green);' : '';
 
-        const record = userStats[q.id];
+        const record = userStats[`cartelli_${q.id}`];
         let correctCount = 0;
         let wrongCount = 0;
         let isAnswered = false;
@@ -605,9 +709,29 @@ function renderCartelliPageMcqs(mcqs) {
 
         const card = document.createElement('div');
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (record && record.state === 'correct' ? 'correct' : 'incorrect')}`;
+        card.setAttribute('data-qid', q.id);
         card.style.position = 'relative';
+        card.style.cursor = 'pointer';
 
-        if (q.image || q.img) {
+        card.onclick = (e) => {
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) {
+                return;
+            }
+            if (typeof isCartelliSelectionMode !== 'undefined' && !isCartelliSelectionMode) {
+                return; // Selection mode inactive: do not select on card click
+            }
+            card.classList.toggle('selected-q-card');
+            if (typeof updateCartelliSelectionPills === 'function') {
+                updateCartelliSelectionPills();
+            }
+        };
+
+        const hasImage = !!(q.image || q.img);
+        const imgPos = q.image_position || 'left';
+        const showTopImg = hasImage && (imgPos === 'top' || imgPos === 'both');
+        const showLeftImg = hasImage && (imgPos === 'left' || imgPos === 'both');
+
+        if (showTopImg) {
             const topImgCard = document.createElement('div');
             topImgCard.className = 'detail-q-top-image-card';
             topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
@@ -628,7 +752,7 @@ function renderCartelliPageMcqs(mcqs) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                ${showLeftImg ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || []) : (q.question || '')}</div>
                     <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
@@ -699,11 +823,19 @@ function toggleCartelliQuestionAnswer(qId) {
 }
 
 function startCartelliPageQuiz() {
+    const selectedCards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card.selected-q-card');
     let currentMcqs = [];
     const page = cartelliPagesList.find(p => p.id === cartelliActivePageId);
+    const allPageMcqs = (page && page.mcqs) ? page.mcqs : [];
 
-    if (page && page.mcqs && page.mcqs.length > 0) {
-        currentMcqs = page.mcqs;
+    if (selectedCards.length > 0) {
+        selectedCards.forEach(cardEl => {
+            const qId = parseInt(cardEl.getAttribute('data-qid'));
+            const found = allPageMcqs.find(m => m.id === qId);
+            if (found) currentMcqs.push(found);
+        });
+    } else if (allPageMcqs.length > 0) {
+        currentMcqs = allPageMcqs;
     } else if (cartelliPagesList && cartelliPagesList.length > 0) {
         cartelliPagesList.forEach(p => {
             if (p.mcqs && Array.isArray(p.mcqs)) {
@@ -719,6 +851,7 @@ function startCartelliPageQuiz() {
 
     const mappedMcqs = currentMcqs.map(q => ({
         id: q.id,
+        type: 'cartelli',
         italian: q.question || q.italian || '',
         bangla: q.bn_question || q.bangla || '',
         is_vero: q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1 || q.is_vero === 1 || q.is_vero === true || q.is_vero === '1',
@@ -773,7 +906,7 @@ function toggleCartelliPageTranslation(qId) {
     const q = page.mcqs.find(item => item.id === qId);
     if (!q) return;
     if (typeof openQuestionTranslationModal === 'function') {
-        openQuestionTranslationModal(q.question || q.italian || '', q.bn_question || q.bangla || '', q.vocabulary || []);
+        openQuestionTranslationModal(q.question || q.italian || '', q.bn_question || q.bangla || '', q.vocabulary || [], q.image || q.img || '');
     }
 }
 
@@ -943,22 +1076,57 @@ function toggleCartelliPageDropdown() {
     if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
-function toggleCartelliPageSelection() {
+window.isCartelliSelectionMode = window.isCartelliSelectionMode || false;
+
+function updateCartelliSelectionPills() {
     const cards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card');
-    cards.forEach(c => c.classList.toggle('selected-q-card'));
-    showToast('পৃষ্ঠা সিলেকশন সম্পূর্ণ');
+    const selectedCards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card.selected-q-card');
+    const selectBtn = document.getElementById('cartelli-select-toggle-btn');
+    const selectAllBtn = document.getElementById('cartelli-select-all-btn');
+    const unselectAllBtn = document.getElementById('cartelli-unselect-all-btn');
+
+    if (selectAllBtn) selectAllBtn.classList.remove('active');
+    if (unselectAllBtn) unselectAllBtn.classList.remove('active');
+    if (selectBtn) selectBtn.classList.remove('active');
+
+    if (window.isCartelliSelectionMode) {
+        if (selectBtn) selectBtn.style.display = 'none';
+        if (cards.length > 0 && selectedCards.length === cards.length) {
+            if (selectAllBtn) selectAllBtn.classList.add('active');
+        }
+    } else {
+        if (selectBtn) selectBtn.style.display = 'inline-block';
+        if (selectedCards.length === 0) {
+            if (unselectAllBtn) unselectAllBtn.classList.add('active');
+        }
+    }
+}
+
+function toggleCartelliPageSelection() {
+    window.isCartelliSelectionMode = true;
+    const cards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card');
+    const selectedCount = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card.selected-q-card').length;
+    if (selectedCount === 0 && cards.length > 0) {
+        cards[0].classList.add('selected-q-card');
+    }
+    updateCartelliSelectionPills();
+    showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
 }
 
 function selectAllCartelliPages() {
+    window.isCartelliSelectionMode = true;
     const cards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card');
     cards.forEach(c => c.classList.add('selected-q-card'));
-    showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
+    updateCartelliSelectionPills();
+    showToast('সব প্রশ্ন সিলেক্ট করা হয়েছে');
 }
 
 function unselectAllCartelliPages() {
+    window.isCartelliSelectionMode = false;
     const cards = document.querySelectorAll('#cartelli-page-mcq-list .detail-q-card');
     cards.forEach(c => c.classList.remove('selected-q-card'));
-    showToast('সব পৃষ্ঠা সিলেকশন বাতিল');
+    updateCartelliSelectionPills();
+    showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
 
 function togglePlayAllCartelliMcqs() {
@@ -1001,13 +1169,17 @@ function playCartelliSpeechSequentially(index) {
 
 function toggleCartelliBookmark(qId, btn) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
     fetch('/api/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token
+            'X-CSRF-TOKEN': token,
+            'X-Client-Phone': userPhone
         },
-        body: JSON.stringify({ question_id: qId, type: 'cartelli' })
+        body: JSON.stringify({ question_id: qId, type: 'cartelli', phone: userPhone, session_id: userSessionId })
     })
         .then(res => res.json())
         .then(data => {

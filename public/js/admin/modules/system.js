@@ -1053,6 +1053,8 @@ function fetchGeneralSettings() {
                 'settings-app-name': settings.app_name,
                 'settings-exam-time': settings.exam_time_minutes,
                 'settings-license-message': settings.license_message,
+                'settings-privacy-policy': settings.privacy_policy,
+                'settings-terms-conditions': settings.terms_conditions,
                 'settings-home-desktop-columns': settings.home_desktop_columns,
                 'settings-home-tablet-columns': settings.home_tablet_columns,
                 'settings-home-mobile-columns': settings.home_mobile_columns,
@@ -1096,13 +1098,19 @@ function fetchGeneralSettings() {
                 'settings-argomenti-question-image-size-desktop': settings.argomenti_question_image_size_desktop,
                 'settings-argomenti-question-image-size-mobile': settings.argomenti_question_image_size_mobile,
                 'settings-qr-target-mode': settings.qr_target_mode || 'live',
-                'settings-qr-live-url': settings.qr_live_url || 'http://mbanglapatenteb.com',
+                'settings-qr-live-url': settings.qr_live_url || 'https://mbanglapatenteb.com',
                 'settings-qr-local-url': settings.qr_local_url || 'http://127.0.0.1:8000',
             };
 
+            const isProtected = settings.qr_protection_enabled == 1 || settings.qr_protection_enabled === true || settings.qr_protection_enabled === '1';
             const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
             if (qrCheckbox) {
-                qrCheckbox.checked = settings.qr_protection_enabled == 1 || settings.qr_protection_enabled === true || settings.qr_protection_enabled === '1';
+                qrCheckbox.checked = isProtected;
+            }
+            const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
+            if (freeAccessCheckbox) {
+                freeAccessCheckbox.checked = !isProtected;
+                toggleLicenseModeUI();
             }
 
             for (const [elemId, val] of Object.entries(fieldsMap)) {
@@ -1303,7 +1311,7 @@ function fetchServerModeSettings() {
         .then(safeParseAdminJson)
         .then(data => {
             const targetMode = data.qr_target_mode || data.server_mode || 'local';
-            const liveUrl = data.qr_live_url || data.live_server_url || 'http://mbanglapatenteb.com';
+            const liveUrl = data.qr_live_url || data.live_server_url || 'https://mbanglapatenteb.com';
             const localUrl = data.qr_local_url || data.local_server_url || 'http://10.0.2.2:8000';
             const activeUrl = data.active_base_url || (targetMode === 'live' ? liveUrl : localUrl);
 
@@ -1313,7 +1321,7 @@ function fetchServerModeSettings() {
             if (inputLive) inputLive.value = liveUrl;
             if (inputLocal) inputLocal.value = localUrl;
 
-            // Update Radio selection and active mode visuals
+            // Update Radio selection, Switcher UI and active mode visuals
             selectServerModeRadio(targetMode, activeUrl);
         })
         .catch(err => {
@@ -1324,12 +1332,27 @@ function fetchServerModeSettings() {
 function selectServerModeRadio(mode, activeUrl) {
     const radioLocal = document.getElementById('server-mode-radio-local');
     const radioLive = document.getElementById('server-mode-radio-live');
+    const hiddenMode = document.getElementById('hidden-qr-target-mode');
     const cardLocal = document.getElementById('card-option-local');
     const cardLive = document.getElementById('card-option-live');
+    const badgeLocal = document.getElementById('badge-local-active');
+    const badgeLive = document.getElementById('badge-live-active');
+
+    // Switch Pills
+    const switchLocal = document.getElementById('switch-btn-local');
+    const switchLive = document.getElementById('switch-btn-live');
+
+    // Slide Switch
+    const track = document.getElementById('main-toggle-switch-track');
+    const icon = document.getElementById('main-toggle-switch-icon');
+    const label = document.getElementById('toggle-switch-label');
+
+    if (hiddenMode) hiddenMode.value = mode;
 
     if (mode === 'live') {
         if (radioLive) radioLive.checked = true;
         if (radioLocal) radioLocal.checked = false;
+
         if (cardLive) {
             cardLive.style.borderColor = '#22c55e';
             cardLive.style.background = 'rgba(34, 197, 94, 0.05)';
@@ -1338,9 +1361,30 @@ function selectServerModeRadio(mode, activeUrl) {
             cardLocal.style.borderColor = 'var(--border-color, #cbd5e1)';
             cardLocal.style.background = 'var(--bg-card, #ffffff)';
         }
+        if (badgeLive) badgeLive.style.display = 'inline-block';
+        if (badgeLocal) badgeLocal.style.display = 'none';
+
+        if (switchLive) {
+            switchLive.classList.add('active-live');
+            switchLive.classList.remove('active-local');
+        }
+        if (switchLocal) {
+            switchLocal.classList.remove('active-local', 'active-live');
+        }
+
+        if (track) {
+            track.className = 'toggle-switch-track active-live';
+        }
+        if (icon) {
+            icon.className = 'fa-solid fa-globe';
+        }
+        if (label) {
+            label.textContent = 'Live Mode Active';
+        }
     } else {
         if (radioLocal) radioLocal.checked = true;
         if (radioLive) radioLive.checked = false;
+
         if (cardLocal) {
             cardLocal.style.borderColor = '#3b82f6';
             cardLocal.style.background = 'rgba(59, 130, 246, 0.05)';
@@ -1349,9 +1393,35 @@ function selectServerModeRadio(mode, activeUrl) {
             cardLive.style.borderColor = 'var(--border-color, #cbd5e1)';
             cardLive.style.background = 'var(--bg-card, #ffffff)';
         }
+        if (badgeLocal) badgeLocal.style.display = 'inline-block';
+        if (badgeLive) badgeLive.style.display = 'none';
+
+        if (switchLocal) {
+            switchLocal.classList.add('active-local');
+            switchLocal.classList.remove('active-live');
+        }
+        if (switchLive) {
+            switchLive.classList.remove('active-local', 'active-live');
+        }
+
+        if (track) {
+            track.className = 'toggle-switch-track active-local';
+        }
+        if (icon) {
+            icon.className = 'fa-solid fa-laptop-code';
+        }
+        if (label) {
+            label.textContent = 'Local Mode Active';
+        }
     }
 
     updateActiveServerModeBanner(mode, activeUrl);
+}
+
+function toggleServerModeSwitch() {
+    const currentMode = document.getElementById('hidden-qr-target-mode')?.value || 'local';
+    const newMode = (currentMode === 'live') ? 'local' : 'live';
+    quickSwitchServerMode(newMode);
 }
 
 function updateActiveServerModeBanner(mode, activeUrl) {
@@ -1400,11 +1470,14 @@ function updateActiveServerModeBanner(mode, activeUrl) {
 function quickSwitchServerMode(targetMode) {
     selectServerModeRadio(targetMode);
 
-    const form = document.getElementById('server-mode-config-form');
-    if (!form) return;
-    const formData = new FormData(form);
+    const formData = new FormData();
     formData.set('qr_target_mode', targetMode);
     formData.set('app_name', 'mbanglapatenteb');
+
+    const liveUrlVal = document.getElementById('server-config-live-url')?.value;
+    const localUrlVal = document.getElementById('server-config-local-url')?.value;
+    if (liveUrlVal) formData.set('qr_live_url', liveUrlVal);
+    if (localUrlVal) formData.set('qr_local_url', localUrlVal);
 
     fetch('/admin/api/settings/update', {
         method: 'POST',
@@ -1416,10 +1489,14 @@ function quickSwitchServerMode(targetMode) {
         .then(safeParseAdminJson)
         .then(data => {
             if (data.success) {
-                showToast('\u2705 \u09b8\u09ab\u09b2! ' + (targetMode === 'live' ? '\ud83c\udf10 LIVE PRODUCTION SERVER' : '\ud83d\udda5\ufe0f LOCAL SERVER') + ' \u09ae\u09cb\u09a1\u09c7 \u09b8\u09c1\u0987\u099a \u09b9\u09af\u09bc\u09c7\u099b\u09c7!');
+                if (typeof showToast === 'function') {
+                    showToast('✅ সফল! ' + (targetMode === 'live' ? '🌐 LIVE PRODUCTION SERVER' : '💻 LOCAL SERVER') + ' মোডে সুইচ হয়েছে!');
+                }
                 fetchServerModeSettings();
             } else {
-                showToast('\u274c ' + (data.message || '\u09b8\u09be\u09b0\u09cd\u09ad\u09be\u09b0 \u09ae\u09cb\u09a1 \u09aa\u09b0\u09bf\u09ac\u09b0\u09cd\u09a4\u09a8 \u09b8\u09ae\u09b8\u09cd\u09af\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7'));
+                if (typeof showToast === 'function') {
+                    showToast('❌ ' + (data.message || 'সার্ভার মোড পরিবর্তন সমস্যা হয়েছে'));
+                }
             }
         })
         .catch(err => {
@@ -1439,7 +1516,9 @@ function saveServerModeSettingsForm(e) {
     const formData = new FormData(form);
     formData.set('app_name', 'mbanglapatenteb');
 
-    const selectedMode = document.querySelector('input[name="qr_target_mode"]:checked')?.value || 'local';
+    const selectedMode = document.getElementById('hidden-qr-target-mode')?.value || 
+                         document.querySelector('input[name="qr_target_mode_radio"]:checked')?.value || 
+                         'local';
     formData.set('qr_target_mode', selectedMode);
 
     fetch('/admin/api/settings/update', {
@@ -1453,20 +1532,95 @@ function saveServerModeSettingsForm(e) {
         .then(data => {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Save Server Settings';
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Server Settings';
             }
             if (data.success) {
-                showToast('✅ সার্ভার সেটিংস সফলভাবে সংরক্ষিত হয়েছে! মোবাইল অ্যাপ রিস্টার্ট করলেই নতুন সেটিং কার্যকর হবে।');
+                if (typeof showToast === 'function') {
+                    showToast('✅ সার্ভার সেটিংস সফলভাবে সংরক্ষিত হয়েছে! মোবাইল অ্যাপ রিস্টার্ট করলেই নতুন সেটিং কার্যকর হবে।');
+                }
                 fetchServerModeSettings();
             } else {
-                showToast('❌ ' + (data.message || 'সেটিংস সংরক্ষণ করা যায়নি'));
+                if (typeof showToast === 'function') {
+                    showToast('❌ ' + (data.message || 'সেটিংস সংরক্ষণ করা যায়নি'));
+                }
             }
         })
         .catch(err => {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Save Server Settings';
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Server Settings';
             }
             console.error('Error saving server settings:', err);
         });
 }
+
+function toggleLicenseModeUI() {
+    const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
+    const statusOn = document.getElementById('license-mode-status-on');
+    const statusOff = document.getElementById('license-mode-status-off');
+
+    if (freeAccessCheckbox && statusOn && statusOff) {
+        if (freeAccessCheckbox.checked) {
+            statusOn.style.display = 'flex';
+            statusOff.style.display = 'none';
+        } else {
+            statusOn.style.display = 'none';
+            statusOff.style.display = 'flex';
+        }
+    }
+}
+
+function saveLicenseProtectionForm(e) {
+    if (e) e.preventDefault();
+    const btn = document.getElementById('save-license-settings-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    }
+
+    const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
+    const isFreeAccess = freeAccessCheckbox ? freeAccessCheckbox.checked : true;
+    const qrProtectionValue = isFreeAccess ? '0' : '1';
+
+    const formData = new FormData();
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) formData.append('_token', csrfToken);
+
+    formData.append('qr_protection_enabled', qrProtectionValue);
+
+    fetch('/admin/api/settings/update', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken || ''
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            if (typeof showToast === 'function') {
+                showToast("✅ Free access settings updated successfully!", "success");
+            }
+            if (typeof fetchGeneralSettings === 'function') {
+                fetchGeneralSettings();
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(data.message || "Failed to update settings", "error");
+            }
+        }
+    })
+    .catch(err => {
+        console.error("Error saving license protection settings:", err);
+        if (typeof showToast === 'function') {
+            showToast("Error updating settings", "error");
+        }
+    })
+    .finally(() => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save Free Access Settings';
+        }
+    });
+}
+

@@ -325,13 +325,30 @@ function highlightDictionaryTerms(text, questionVocabulary) {
     if (!text) return '';
     let resultText = text;
 
-    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
-    resultText = resultText.replace(/<u>(.*?)<\/u>/gi, (match, innerWord) => {
-        const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
-        return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${cleanWord.toLowerCase()}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
-    });
+    // Cache question vocabulary for popup lookup
+    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
+        questionVocabulary.forEach(item => {
+            const word = item.italian || item.word || item.italian_word || '';
+            if (word) {
+                vocabCache[word.toLowerCase()] = item;
+            }
+        });
+    }
 
-    // 2. Highlight per-question vocabulary words
+    const hasExplicitUnderlines = /<u>[\s\S]*?<\/u>/i.test(resultText);
+
+    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
+    if (hasExplicitUnderlines) {
+        resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
+            const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
+            const lowerClean = cleanWord.toLowerCase();
+            return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
+        });
+        // If the author explicitly specified <u> tags, do NOT auto-highlight any additional occurrences outside the tags!
+        return resultText;
+    }
+
+    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words (match whole word, first occurrence per item)
     if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
         const sortedVocab = [...questionVocabulary].sort((a, b) =>
             (b.italian || '').length - (a.italian || '').length
@@ -341,24 +358,22 @@ function highlightDictionaryTerms(text, questionVocabulary) {
             if (!word) return;
             vocabCache[word.toLowerCase()] = item;
             const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('(' + escapedWord + ')', 'gi');
+            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                if (resultText.includes(`openVocabModal('${word.replace(/'/g, "\\'")}')`)) return match;
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">${match}</span>`;
             });
         });
     }
 
-    // 3. Highlight global dictionary words from database
+    // 3. Highlight global dictionary words from database (whole word, single match)
     if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
         const sortedTerms = [...dictionaryData].sort((a, b) => (b.word || '').length - (a.word || '').length);
         sortedTerms.forEach(term => {
             if (!term.word) return;
             const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'gi');
+            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                if (resultText.includes(`openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')`) || resultText.includes(`openVocabModal('${term.word.replace(/'/g, "\\'")}')`)) return match;
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">${match}</span>`;
             });
         });
     }

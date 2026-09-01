@@ -17,6 +17,7 @@ class CartelloMcq extends Model
         'explanation',
         'bn_explanation',
         'image',
+        'image_position',
         'voice',
         'video',
         'vocabulary',

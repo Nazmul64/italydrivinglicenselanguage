@@ -44,9 +44,9 @@ let isSchedeSelectMode = false;
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
-let currentClientActive = localStorage.getItem('app_client_active') !== 'false';
-let currentClientPhone = null;
-let currentClientSessionId = null;
+let currentClientActive = sessionStorage.getItem('tab_qr_unlocked') === 'true' || window.location.search.includes('qr_unlocked=1') || localStorage.getItem('app_client_active') === 'true';
+let currentClientPhone = localStorage.getItem('app_client_phone') || null;
+let currentClientSessionId = localStorage.getItem('app_client_session_id') || null;
 
 function getUserStatsStorageKey() {
     if (currentClientPhone) {
@@ -85,11 +85,14 @@ function saveUserQuestionStats(stats) {
 }
 
 function syncUserQuestionStatsFromBackend() {
-    if (typeof currentClientActive !== 'undefined' && !currentClientActive && localStorage.getItem('app_client_active') !== 'true') {
-        return Promise.resolve();
-    }
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
-    return fetch('/api/user-mcq-results?per_page=5000')
+    let url = '/api/user-mcq-results?per_page=5000';
+    if (savedPhone) url += `&phone=${encodeURIComponent(savedPhone)}`;
+    if (savedSessionId) url += `&session_id=${encodeURIComponent(savedSessionId)}`;
+
+    return fetch(url)
         .then(res => {
             if (!res.ok) return null;
             return res.json();
@@ -98,15 +101,15 @@ function syncUserQuestionStatsFromBackend() {
             if (!data) return;
             const items = data.data || (Array.isArray(data) ? data : []);
 
-            if (!items || !Array.isArray(items)) return;
+            if (!Array.isArray(items)) return;
 
-            const stats = getUserQuestionStats();
+            const stats = {};
             items.forEach(item => {
                 const qId = item.question_id;
                 if (!qId) return;
                 const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
 
-                if (!stats[qId] || new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
+                if (!stats[qId]) {
                     stats[qId] = {
                         state: isCorrect ? 'correct' : 'wrong',
                         correct: isCorrect ? 1 : 0,
@@ -114,6 +117,13 @@ function syncUserQuestionStatsFromBackend() {
                         chapter: item.chapter_id || null,
                         updated_at: item.updated_at
                     };
+                } else {
+                    if (isCorrect) stats[qId].correct = (stats[qId].correct || 0) + 1;
+                    else stats[qId].wrong = (stats[qId].wrong || 0) + 1;
+                    if (new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
+                        stats[qId].state = isCorrect ? 'correct' : 'wrong';
+                        stats[qId].updated_at = item.updated_at;
+                    }
                 }
             });
             saveUserQuestionStats(stats);

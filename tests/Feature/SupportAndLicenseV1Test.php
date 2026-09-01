@@ -221,4 +221,63 @@ class SupportAndLicenseV1Test extends TestCase
                 'message' => 'Unauthorized: This QR code is assigned to another user account.',
             ]);
     }
+
+    /** @test */
+    public function admin_can_execute_preset_to_send_license_card_and_activate_customer()
+    {
+        // 1. Customer registers via support
+        $regResponse = $this->postJson('/api/v1/support/register', [
+            'first_name' => 'Kalam',
+            'last_name'  => 'Hossain',
+            'phone'      => '+393450000001',
+        ]);
+        $regResponse->assertStatus(200);
+        $userUuid = $regResponse->json('user.id');
+
+        // 2. Create Super Admin
+        $admin = User::create([
+            'name'     => 'admin',
+            'email'    => 'admin@gmail.com',
+            'password' => bcrypt('password'),
+            'role'     => 'super_admin',
+        ]);
+
+        // 3. Admin fetches conversations - ensure admin is not listed, only customer is listed with valid session_id
+        $this->actingAs($admin);
+        $convos = $this->getJson('/admin/api/chat/conversations');
+        $convos->assertStatus(200);
+        $this->assertCount(1, $convos->json());
+        $this->assertEquals($userUuid, $convos->json('0.session_id'));
+        $this->assertEquals('Kalam', $convos->json('0.client.first_name'));
+
+        // 4. Create ChatPreset
+        $preset = \App\Models\ChatPreset::create([
+            'title'       => 'Lezioni Video',
+            'type'        => 'license',
+            'days'        => 365,
+            'bg_color'    => '#3b82f6',
+            'text_color'  => '#ffffff',
+            'order_index' => 1,
+            'status'      => 1,
+        ]);
+
+        // 5. Admin executes preset
+        $presetExec = $this->postJson('/admin/api/chat/preset-execute', [
+            'session_id' => $userUuid,
+            'preset_id'  => $preset->id,
+        ]);
+        $presetExec->assertStatus(200)->assertJson(['success' => true]);
+
+        // 6. Verify License is active
+        $license = License::where('user_id', $userUuid)->first();
+        $this->assertNotNull($license);
+        $this->assertEquals('active', $license->status);
+
+        // 7. Verify messages contain the license card
+        $messages = $this->getJson('/api/chat/messages?session_id=' . $userUuid);
+        $messages->assertStatus(200);
+        $this->assertTrue(collect($messages->json())->contains(function($msg) {
+            return str_contains($msg['message'], '[LICENSE_CARD:days=365');
+        }));
+    }
 }

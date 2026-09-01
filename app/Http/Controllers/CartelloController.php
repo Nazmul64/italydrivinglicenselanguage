@@ -125,7 +125,7 @@ class CartelloController extends Controller
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
             'sort_order'     => 'nullable|integer',
-            'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
+            'image'          => 'nullable|max:20480',
         ]);
 
         $categoryId = $request->category_id;
@@ -173,7 +173,7 @@ class CartelloController extends Controller
             'bn_name'        => 'required|string|max:255',
             'chapter_number' => 'required|integer',
             'sort_order'     => 'nullable|integer',
-            'image'          => 'nullable|file|mimes:jpeg,jpg,png,gif,svg,webp|max:10240',
+            'image'          => 'nullable|max:20480',
         ]);
 
         $categoryId = $request->category_id ?: $chapter->category_id;
@@ -261,9 +261,9 @@ class CartelloController extends Controller
             'bn_title'       => 'required|string|max:255',
             'description'    => 'nullable|string',
             'bn_description' => 'nullable|string',
-            'image'          => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
-            'video'          => 'nullable|file|mimes:mp4,mov,avi,qt,webm|max:25600', // max 25MB video
-            'voice'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240', // max 10MB voice
+            'image'          => 'nullable|max:20480',
+            'video'          => 'nullable|max:51200',
+            'voice'          => 'nullable|max:25600',
             'translation'    => 'nullable|string',
             'is_vero'        => 'nullable|boolean',
             'sort_order'     => 'nullable|integer',
@@ -323,9 +323,9 @@ class CartelloController extends Controller
             'bn_title'       => 'required|string|max:255',
             'description'    => 'nullable|string',
             'bn_description' => 'nullable|string',
-            'image'          => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
-            'video'          => 'nullable|file|mimes:mp4,mov,avi,qt,webm|max:25600',
-            'voice'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
+            'image'          => 'nullable|max:20480',
+            'video'          => 'nullable|max:51200',
+            'voice'          => 'nullable|max:25600',
             'translation'    => 'nullable|string',
             'is_vero'        => 'nullable|boolean',
             'sort_order'     => 'nullable|integer',
@@ -575,9 +575,9 @@ class CartelloController extends Controller
             'correct_answer' => 'nullable|string',
             'explanation'    => 'nullable|string',
             'bn_explanation' => 'nullable|string',
-            'image'          => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
-            'voice'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
-            'video'          => 'nullable|file|mimes:mp4,mov,avi,qt,webm|max:51200',
+            'image'          => 'nullable|max:20480',
+            'voice'          => 'nullable|max:25600',
+            'video'          => 'nullable|max:51200',
         ]);
 
         $imagePath = null;
@@ -640,6 +640,7 @@ class CartelloController extends Controller
             'explanation'    => $request->explanation,
             'bn_explanation' => $request->bn_explanation,
             'image'          => $imagePath,
+            'image_position' => $request->image_position ?? 'left',
             'voice'          => $voicePath,
             'video'          => $videoPath,
             'vocabulary'     => $vocabData,
@@ -660,10 +661,10 @@ class CartelloController extends Controller
             'correct_answer' => 'nullable|string',
             'explanation'    => 'nullable|string',
             'bn_explanation' => 'nullable|string',
-            'image'          => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
-            'voice'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
-            'audio'          => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac|max:10240',
-            'video'          => 'nullable|file|mimes:mp4,mov,avi,qt,webm|max:51200',
+            'image'          => 'nullable|max:20480',
+            'voice'          => 'nullable|max:25600',
+            'audio'          => 'nullable|max:25600',
+            'video'          => 'nullable|max:51200',
         ]);
 
         $imagePath = $mcq->image;
@@ -737,6 +738,7 @@ class CartelloController extends Controller
             'explanation'    => $request->has('explanation') ? $request->explanation : $mcq->explanation,
             'bn_explanation' => $request->has('bn_explanation') ? $request->bn_explanation : $mcq->bn_explanation,
             'image'          => $imagePath,
+            'image_position' => $request->image_position ?? $mcq->image_position ?? 'left',
             'voice'          => $voicePath,
             'video'          => $videoPath,
             'vocabulary'     => $vocabData,

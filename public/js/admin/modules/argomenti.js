@@ -336,6 +336,9 @@ function openEditQuestionModal(q) {
 
     const isVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
     document.getElementById('form-is-vero').value = isVero ? '1' : '0';
+    if (document.getElementById('form-image-position')) {
+        document.getElementById('form-image-position').value = q.image_position || 'left';
+    }
 
     fetchPagesForChapterSelect(q.chapter, q.page_id);
 
@@ -405,6 +408,8 @@ function saveQuestion(e) {
     formData.append('italian', italian);
     formData.append('bangla', bangla);
     formData.append('is_vero', is_vero ? '1' : '0');
+    const image_position = document.getElementById('form-image-position') ? document.getElementById('form-image-position').value : 'left';
+    formData.append('image_position', image_position);
     formData.append('vocabulary', JSON.stringify(vocabulary));
 
     if (imgFile) formData.append('image', imgFile);
@@ -478,28 +483,49 @@ function fetchChaptersAdmin(page = 1) {
         tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:18px; margin-bottom:8px;"></i><br>Loading chapters...</td></tr>`;
     }
 
+    const processChapterData = (data) => {
+        let normalized = data;
+        if (Array.isArray(data)) {
+            normalized = {
+                data: data,
+                total: data.length,
+                from: 1,
+                to: data.length,
+                current_page: 1,
+                last_page: 1
+            };
+        }
+        if (typeof selectAllAcrossPagesFlag !== 'undefined') {
+            selectAllAcrossPagesFlag['chapters'] = false;
+        }
+        if (typeof chaptersTotalCount !== 'undefined') {
+            chaptersTotalCount = normalized.total || 0;
+        }
+        chapterAdminLastPage = normalized.last_page || 1;
+
+        renderChaptersTable(normalized.data || [], normalized.from || 1);
+        updateChapterPaginationControls(normalized);
+    };
+
     let url = `/admin/api/chapters/list?page=${page}&per_page=${perPage}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (typeof selectAllAcrossPagesFlag !== 'undefined') {
-                selectAllAcrossPagesFlag['chapters'] = false;
-            }
-            if (typeof chaptersTotalCount !== 'undefined') {
-                chaptersTotalCount = data.total || 0;
-            }
-            chapterAdminLastPage = data.last_page || 1;
+    const fetchPromise = window.safeFetchJson ? safeFetchJson(url) : fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(res => res.json());
 
-            renderChaptersTable(data.data || [], data.from || 1);
-            updateChapterPaginationControls(data);
-        })
+    fetchPromise
+        .then(processChapterData)
         .catch(err => {
-            console.error("Error loading chapters:", err);
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--accent-red); padding: 30px;">অধ্যায় তালিকা লোড করতে সমস্যা হয়েছে</td></tr>`;
-            }
+            // Fallback to legacy endpoint /admin/api/chapters
+            let fallbackUrl = `/admin/api/chapters?page=${page}&per_page=${perPage}`;
+            if (search) fallbackUrl += `&search=${encodeURIComponent(search)}`;
+            (window.safeFetchJson ? safeFetchJson(fallbackUrl) : fetch(fallbackUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(res => res.json()))
+                .then(processChapterData)
+                .catch(fallbackErr => {
+                    console.error("Error loading chapters:", fallbackErr);
+                    if (tbody) {
+                        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--accent-red); padding: 30px;">অধ্যায় তালিকা লোড করতে সমস্যা হয়েছে</td></tr>`;
+                    }
+                });
         });
 }
 
@@ -662,19 +688,11 @@ function saveChapter(e) {
 
     if (coverFile) {
         formData.append('cover_image', coverFile);
-        formData.append('image', coverFile);
     }
 
     const url = id ? `/admin/api/chapters/update/${id}` : '/admin/api/chapters/store';
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: formData
-    })
-        .then(res => res.json())
+    (window.safeFetchJson ? safeFetchJson(url, { method: 'POST', body: formData }) : fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }, body: formData }).then(res => res.json()))
         .then(data => {
             closeChapterModal();
             showToast(id ? 'অধ্যায় সফলভাবে আপডেট করা হয়েছে' : 'নতুন অধ্যায় সফলভাবে যোগ করা হয়েছে');

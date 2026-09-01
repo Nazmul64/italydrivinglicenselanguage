@@ -47,7 +47,7 @@ function toggleGuestChat(show) {
         unreadChatMessageCount = 0;
         updateChatHeaderUnreadBadge();
         const savedPhone = localStorage.getItem('app_client_phone');
-        if (savedPhone || currentClientVerified) {
+        if (savedPhone && currentClientVerified) {
             setChatWidgetView('normal');
         } else {
             setChatWidgetView('verify');
@@ -64,7 +64,12 @@ function fetchGuestChatMessages() {
         url += '?session_id=' + encodeURIComponent(savedSessionId);
     }
 
-    fetch(url)
+    fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
         .then(res => res.json())
         .then(messages => {
             if (Array.isArray(messages)) {
@@ -107,10 +112,9 @@ function renderGuestChatMessages(messages) {
 
     container.innerHTML = '';
     if (messages.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 11px; margin-top: 20px;">আপনার বার্তা লিখে চ্যাট শুরু করুন। খুব শীঘ্রই উত্তর দেওয়া হবে!</div>`;
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); font-size: 11px; margin-top: 20px;">আপনার বার্তা লিখে চ্যাট শুরু করুন। রহমান স্যার খুব শীঘ্রই উত্তর দেবেন!</div>`;
         return;
     }
-
 
     messages.forEach(msg => {
         const bubble = document.createElement('div');
@@ -118,25 +122,26 @@ function renderGuestChatMessages(messages) {
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
             const matchDays = msg.message.match(/days=(\d+)/);
             const matchKey = msg.message.match(/key=(\d+)/);
-            const days = matchDays ? matchDays[1] : 365;
+            const days = matchDays ? parseInt(matchDays[1], 10) : 365;
             const key = matchKey ? matchKey[1] : '';
 
+            let durationStr = `${days} Days`;
+            if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
+            else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
+            else if (days === 180) durationStr = '6 Months (৬ মাস)';
+            else if (days === 90) durationStr = '3 Months (৩ মাস)';
+            else if (days === 30) durationStr = '1 Month (১ মাস)';
+
             bubble.className = `license-card-bubble`;
-            let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza</button>`;
+            let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza (এক্টিভ করুন)</button>`;
             if (currentClientActive) {
-                buttonHTML = '';
+                buttonHTML = `<div style="text-align:center; padding: 6px; background:#dcfce7; color:#15803d; border-radius:8px; font-weight:bold; font-size:12px;">Licenza Attivata ✓ (এক্টিভ করা হয়েছে)</div>`;
             }
 
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-features">
-                    <div>Traduzione Testi</div>
-                    <div>Audio</div>
-                    <div>Lezioni Video</div>
-                    <div>Live class video registarti</div>
-                    <div>Web App</div>
-                    <div>SUPPORTO</div>
-                    <div>Giorni ${days}</div>
+                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
+                    <i class="fa-solid fa-clock"></i> মেয়াদ: ${durationStr}
                 </div>
                 ${buttonHTML}
             `;
@@ -175,13 +180,20 @@ function renderGuestChatMessages(messages) {
 function activateLicenseFromCard(days) {
     showToast('লাইসেন্স সক্রিয় করা হচ্ছে...');
 
+    const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+    const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
+
     fetch('/api/client/activate', {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': getCsrfToken(),
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ days: days })
+        body: JSON.stringify({
+            days: days,
+            phone: savedPhone,
+            session_id: savedSessionId
+        })
     })
         .then(res => res.json())
         .then(data => {
@@ -202,15 +214,14 @@ function activateLicenseFromCard(days) {
                 checkClientActivation();
                 fetchGuestChatMessages();
             } else {
-                showToast('সক্রিয় করতে সমস্যা হয়েছে');
+                showToast('লাইসেন্স সক্রিয় করতে সমস্যা হয়েছে');
             }
         })
         .catch(err => {
             console.error("Error activating license: ", err);
-            showToast('সক্রিয় করতে সমস্যা হয়েছে');
+            showToast('লাইসেন্স সক্রিয় করতে সমস্যা হয়েছে');
         });
 }
-
 
 function triggerChatAttachment() {
     const fileInput = document.getElementById('guest-chat-file');
@@ -222,7 +233,7 @@ function uploadChatAttachment(input) {
 
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
     if (!savedPhone && !currentClientVerified) {
-        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        showToast('লাইভ সাপোর্ট পেতে আপনার নাম ও মোবাইল নাম্বার দিন');
         setChatWidgetView('verify');
         input.value = '';
         return;
@@ -251,18 +262,18 @@ function uploadChatAttachment(input) {
         .then(msg => {
             input.value = '';
             fetchGuestChatMessages();
-            showToast('ফাইল পাঠানো হয়েছে');
+            showToast('ফাইল সফলভাবে পাঠানো হয়েছে');
         })
         .catch(err => {
             console.error("Error uploading attachment: ", err);
-            showToast('ফাইল আপলোড করতে সমস্যা হয়েছে');
+            showToast('ফাইল পাঠাতে সমস্যা হয়েছে');
         });
 }
 
 function sendGuestChatMessage() {
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
     if (!savedPhone && !currentClientVerified) {
-        showToast('চ্যাট শুরু করতে আপনার নাম ও মোবাইল নম্বর দিয়ে ভেরিফাই করুন।');
+        showToast('লাইভ সাপোর্ট পেতে আপনার নাম ও মোবাইল নাম্বার দিন');
         setChatWidgetView('verify');
         return;
     }
@@ -299,4 +310,3 @@ setInterval(fetchGuestChatMessages, 3000);
 window.openTeacherHelpModal = function() {
     toggleGuestChat(true);
 };
-

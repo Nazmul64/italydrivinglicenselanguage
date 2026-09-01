@@ -160,24 +160,44 @@
         </div>
 
         <!-- Question Translation Details Modal Overlay -->
-        <div class="activation-lock-overlay" id="q-translation-modal" style="display: none; z-index: 99999;">
-            <div class="lock-card" style="padding: 24px; max-width: 440px; width: 90%; max-height: 85vh; overflow-y: auto; border-radius: 24px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.15); background-color: var(--bg-card); display: flex; flex-direction: column; gap: 16px; align-items: stretch; border: 1px solid var(--border-card);">
-                <div id="q-translation-it" style="font-size: 16px; font-weight: 700; color: var(--text-primary); line-height: 1.4; margin-top: 4px;">
+        <div class="activation-lock-overlay" id="q-translation-modal" style="display: none; z-index: 99999; overflow-y: auto; padding: 20px 12px; -webkit-overflow-scrolling: touch;" onclick="if(event.target===this) closeTranslationModal()">
+            <div class="lock-card q-translation-card" style="padding: 20px; max-width: 480px; width: 100%; max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 20px; text-align: left; box-shadow: 0 16px 40px rgba(0,0,0,0.3); background-color: var(--bg-card); display: flex; flex-direction: column; gap: 12px; align-items: stretch; border: 1px solid var(--border-card); margin: auto; box-sizing: border-box; position: relative;">
+                
+                <!-- Top header bar -->
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-card); padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--text-primary);">
+                        <i class="fa-solid fa-language" style="color: #2563eb; font-size: 16px;"></i>
+                        <span>অনুবাদ ও ব্যাখ্যা (Translation)</span>
+                    </div>
+                    <button type="button" onclick="closeTranslationModal()" style="background: none; border: none; font-size: 18px; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 8px; line-height: 1;" title="বন্ধ করুন">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Italian Question Text (Top) -->
+                <div id="q-translation-it" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5; background: rgba(37, 99, 235, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(37, 99, 235, 0.15); word-break: break-word;">
                     La carreggiata non comprende le piste ciclabili
                 </div>
-                <div id="q-translation-bn" style="font-size: 14px; color: var(--text-secondary); line-height: 1.4; border-top: 1px solid var(--border-card); padding-top: 12px; font-weight: 600;">
+
+                <!-- Sign / Question Image (Middle) -->
+                <div id="q-translation-img-container" style="display: none; text-align: center; margin: 6px 0; flex-shrink: 0;">
+                    <img id="q-translation-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 12px; border: 1.5px solid var(--border-card); cursor: pointer; background: #ffffff;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)">
+                </div>
+
+                <!-- Bengali Translation (Bottom) -->
+                <div id="q-translation-bn" style="font-size: 13.5px; color: var(--text-primary); line-height: 1.6; border-top: 1px dashed var(--border-card); padding-top: 10px; font-weight: 500; word-break: break-word;">
                     ক্যারেজ্জাতায় বাইসাইকেল চলাচলের লেন যুক্ত থাকেনা
                 </div>
                 
                 <!-- Bottom controls row -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border-card);">
                     <!-- Speaker icon button -->
-                    <button type="button" onclick="readTranslationModalText()" style="width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid var(--border-card); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-primary); outline: none;">
+                    <button type="button" onclick="readTranslationModalText()" style="width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--border-card); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #2563eb; outline: none; transition: all 0.2s;" title="উচ্চারণ শুনুন">
                         <i class="fa-solid fa-volume-high" style="font-size: 18px;"></i>
                     </button>
                     
                     <!-- OK button -->
-                    <button type="button" onclick="closeTranslationModal()" style="padding: 8px 24px; border-radius: 20px; border: 1.5px solid #2563eb; background-color: white; color: #2563eb; font-weight: bold; font-size: 14px; cursor: pointer; outline: none; transition: all 0.2s;">
+                    <button type="button" onclick="closeTranslationModal()" style="padding: 8px 28px; border-radius: 20px; border: 1.5px solid #2563eb; background-color: #2563eb; color: #ffffff; font-weight: bold; font-size: 14px; cursor: pointer; outline: none; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
                         OK
                     </button>
                 </div>
@@ -190,17 +210,17 @@
                 <i class="fa-solid fa-house"></i>
                 <span>Home</span>
             </div>
-            <div class="nav-item" id="nav-quiz" onclick="clickBottomNav('scheda-esame')">
-                <i class="fa-solid fa-paste"></i>
-                <span>Quiz</span>
+            <div class="nav-item" id="nav-test" onclick="clickBottomNav('test')">
+                <i class="fa-solid fa-file-pen"></i>
+                <span>Test</span>
             </div>
-            <div class="nav-item" id="nav-scanner" onclick="openQrScanner()">
-                <i class="fa-solid fa-qrcode"></i>
-                <span>Scanner</span>
+            <div class="nav-item" id="nav-argomenti" onclick="clickBottomNav('argomenti')">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>Argomenti</span>
             </div>
-            <div class="nav-item" id="nav-dictionary" onclick="clickBottomNav('dizionario')">
-                <i class="fa-solid fa-book"></i>
-                <span>Dizionario</span>
+            <div class="nav-item" id="nav-cartelli" onclick="clickBottomNav('cartelli')">
+                <i class="fa-solid fa-signs-post"></i>
+                <span>Cartelli</span>
             </div>
             <div class="nav-item" id="nav-profile" onclick="clickBottomNav('profilo')">
                 <i class="fa-solid fa-user-gear"></i>
@@ -261,12 +281,12 @@
                 
                 <!-- Illustration Image -->
                 <div id="dict-modal-image-container" style="width: 100%; height: 170px; border-radius: 8px; overflow: hidden; display: none; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.04);">
-                    <img id="dict-modal-image" src="" style="width: 100%; height: 100%; object-fit: contain;" alt="Diagram" onerror="this.parentElement.style.display='none';">
+                    <img id="dict-modal-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="width: 100%; height: 100%; object-fit: contain;" alt="Diagram" onerror="this.parentElement.style.display='none';">
                 </div>
 
                 <!-- Illustration Video -->
                 <div id="dict-modal-video-container" style="display: none; width: 100%; height: 170px; border-radius: 8px; overflow: hidden; background-color: #000; align-items: center; justify-content: center;">
-                    <video id="dict-modal-video" src="" style="width: 100%; height: 100%; object-fit: contain;" controls></video>
+                    <video id="dict-modal-video" style="width: 100%; height: 100%; object-fit: contain;" controls></video>
                 </div>
 
                 <!-- Explanation Text (Paragraph format, no table) -->
@@ -466,7 +486,7 @@
         <div class="modal-overlay" id="vocab-image-zoom-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 11000; padding: 16px;" onclick="closeVocabImageZoom()">
             <div style="position: relative; max-width: 90%; max-height: 90%; display: flex; justify-content: center; align-items: center;">
                 <i class="fa-solid fa-xmark" style="position: absolute; right: -15px; top: -35px; font-size: 24px; cursor: pointer; color: white;"></i>
-                <img id="vocab-zoom-img" src="" style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                <img id="vocab-zoom-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
             </div>
         </div>
 
@@ -530,10 +550,44 @@
     </div>
 
     <!-- External JavaScript Separated Asset -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script defer src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <script>
         window.APP_SETTINGS = @json($setting ?? null);
+        window.openDictTermModal = function(word, bn, desc_it, image, audio, video) {
+            if (typeof displayDictTermModal === 'function') {
+                displayDictTermModal({
+                    word: word,
+                    bn: bn,
+                    desc_it: desc_it || word,
+                    desc_bn: bn,
+                    image: image,
+                    audio: audio,
+                    video: video
+                });
+            } else {
+                const modal = document.getElementById('dict-term-modal');
+                if (modal) {
+                    const titleEl = document.getElementById('dict-modal-title');
+                    if (titleEl) titleEl.innerText = (word || '').toUpperCase();
+                    const textItEl = document.getElementById('dict-modal-text-it');
+                    if (textItEl) textItEl.innerText = desc_it || word || '';
+                    const textBnEl = document.getElementById('dict-modal-text-bn');
+                    if (textBnEl) textBnEl.innerText = bn || '';
+                    const imgContainer = document.getElementById('dict-modal-image-container');
+                    const imgEl = document.getElementById('dict-modal-image');
+                    if (imgEl && imgContainer) {
+                        if (image) {
+                            imgEl.src = image;
+                            imgContainer.style.display = 'flex';
+                        } else {
+                            imgContainer.style.display = 'none';
+                        }
+                    }
+                    modal.style.display = 'flex';
+                }
+            }
+        };
     </script>
     <!-- Modularized App Core Scripts (10 Parts) -->
     <script src="{{ asset('js/frontend/app_parts/01_core_config.js') }}?v={{ time() }}"></script>

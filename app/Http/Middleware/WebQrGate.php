@@ -21,6 +21,7 @@ class WebQrGate
             $request->is('api/*') ||
             $request->is('qr-unlock') ||
             $request->is('qr-check-session') ||
+            $request->is('qr-logout-session') ||
             $request->is('sitemap*') ||
             $request->is('robots.txt') ||
             $request->is('feeds/*') ||
@@ -30,31 +31,45 @@ class WebQrGate
             return $next($request);
         }
 
-        $setting = Setting::first();
+        try {
+            $setting = Setting::first();
+        } catch (\Throwable $e) {
+            $setting = null;
+        }
         $isProtectionEnabled = $setting ? (bool)$setting->qr_protection_enabled : false;
 
         $sessionId  = session()->getId();
-        $isUnlocked = session('qr_unlocked', false)
-            || Cache::get('qr_unlocked_' . $sessionId, false)
-            || Cache::get('qr_unlocked_global', false);
+
+        $isUnlocked = session('qr_unlocked') === true
+            || Cache::get('qr_unlocked_' . $sessionId) === true
+            || $request->query('qr_unlocked') === '1';
 
         if ($isUnlocked) {
             session(['qr_unlocked' => true]);
+            session()->save();
         }
 
         if ($isProtectionEnabled && !$isUnlocked) {
-            // QR unlock URL ALWAYS points to live server
-            // Server mode only affects app data API, never QR unlock
-            $liveBase = 'http://mbanglapatenteb.com';
-            if ($setting && !empty($setting->qr_live_url)) {
-                $liveBase = rtrim($setting->qr_live_url, '/');
+            $currentHost = $request->getSchemeAndHttpHost();
+
+            // When hosted on a live domain (not localhost/127.0.0.1), always use current website domain
+            if (!str_contains($currentHost, '127.0.0.1') && !str_contains($currentHost, 'localhost')) {
+                $baseUrl = $currentHost;
+            } elseif ($setting && $setting->qr_target_mode === 'live' && !empty($setting->qr_live_url)) {
+                $baseUrl = rtrim($setting->qr_live_url, '/');
+            } elseif ($setting && !empty($setting->qr_local_url) && !str_contains($setting->qr_local_url, '10.0.2.2') && !str_contains($setting->qr_local_url, '127.0.0.1') && !str_contains($setting->qr_local_url, 'localhost')) {
+                $baseUrl = rtrim($setting->qr_local_url, '/');
+            } else {
+                $lanIp = @gethostbyname(gethostname());
+                if (!$lanIp || $lanIp === '127.0.0.1' || $lanIp === 'localhost') {
+                    $lanIp = '192.168.0.100';
+                }
+                $baseUrl = str_replace(['127.0.0.1', 'localhost'], $lanIp, $currentHost);
             }
 
-            // Global unlock token — no session_id needed
-            // Any app scan unlocks ALL browser windows showing the gate
-            $globalToken = 'mbp_' . date('YmdH'); // rotates every hour
+            $globalToken = 'mbp_' . date('YmdH');
 
-            $qrUnlockUrl = $liveBase . '/qr-unlock?token=' . $globalToken;
+            $qrUnlockUrl = $baseUrl . '/qr-unlock?session_id=' . $sessionId . '&token=' . $globalToken;
 
             return response()->view('frontend.qr_gate', [
                 'qrUnlockUrl' => $qrUnlockUrl,

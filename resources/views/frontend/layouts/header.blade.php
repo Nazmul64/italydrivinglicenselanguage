@@ -4,6 +4,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            @php
+                $settingObj = \App\Models\Setting::first();
+                $isQrEnabled = $settingObj ? (bool)$settingObj->qr_protection_enabled : false;
+            @endphp
+            if (@json($isQrEnabled)) {
+                if (sessionStorage.getItem('tab_qr_unlocked') !== 'true') {
+                    window.location.href = '/qr-logout-session';
+                }
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -167,10 +180,10 @@
 
             --argomenti-chap-title-desk: {{ ($gSettings->argomenti_chapter_title_font_desktop ?? 16) . 'px' }};
             --argomenti-chap-title-mob: {{ ($gSettings->argomenti_chapter_title_font_mobile ?? 14) . 'px' }};
-            --argomenti-chap-img-desk: {{ ($gSettings->argomenti_chapter_image_size_desktop ?? 120) . 'px' }};
-            --argomenti-chap-img-mob: {{ ($gSettings->argomenti_chapter_image_size_mobile ?? 80) . 'px' }};
-            --argomenti-chap-img-w-desk: {{ !empty($gSettings->argomenti_chapter_image_width_desktop) ? (is_numeric($gSettings->argomenti_chapter_image_width_desktop) ? $gSettings->argomenti_chapter_image_width_desktop . 'px' : $gSettings->argomenti_chapter_image_width_desktop) : 'auto' }};
-            --argomenti-chap-img-w-mob: {{ !empty($gSettings->argomenti_chapter_image_width_mobile) ? (is_numeric($gSettings->argomenti_chapter_image_width_mobile) ? $gSettings->argomenti_chapter_image_width_mobile . 'px' : $gSettings->argomenti_chapter_image_width_mobile) : 'auto' }};
+            --argomenti-chap-img-desk: {{ ($gSettings->argomenti_chapter_image_size_desktop ?? 280) . 'px' }};
+            --argomenti-chap-img-mob: {{ ($gSettings->argomenti_chapter_image_size_mobile ?? 200) . 'px' }};
+            --argomenti-chap-img-w-desk: {{ !empty($gSettings->argomenti_chapter_image_width_desktop) ? (is_numeric($gSettings->argomenti_chapter_image_width_desktop) ? $gSettings->argomenti_chapter_image_width_desktop . 'px' : $gSettings->argomenti_chapter_image_width_desktop) : '100%' }};
+            --argomenti-chap-img-w-mob: {{ !empty($gSettings->argomenti_chapter_image_width_mobile) ? (is_numeric($gSettings->argomenti_chapter_image_width_mobile) ? $gSettings->argomenti_chapter_image_width_mobile . 'px' : $gSettings->argomenti_chapter_image_width_mobile) : '100%' }};
 
             --argomenti-page-title-desk: {{ ($gSettings->argomenti_page_title_font_desktop ?? 15) . 'px' }};
             --argomenti-page-title-mob: {{ ($gSettings->argomenti_page_title_font_mobile ?? 13) . 'px' }};
@@ -243,20 +256,71 @@
             font-size: var(--cartelli-page-title-desk) !important;
         }
 
+        #screen-cartelli {
+            max-width: 1360px !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        #screen-cartelli .chapter-card-img-wrapper {
+            width: 100% !important;
+            height: 250px !important;
+            min-height: 220px !important;
+            max-height: 280px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 10px 0 !important;
+            background: transparent !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border-radius: 14px !important;
+        }
+
         #screen-cartelli .chapter-image-card img,
         #screen-cartelli .chapter-card-img {
-            max-height: var(--cartelli-chap-img-desk) !important;
-            height: var(--cartelli-chap-img-desk) !important;
-            width: var(--cartelli-chap-img-w-desk) !important;
+            max-height: 250px !important;
+            height: 100% !important;
+            width: 100% !important;
+            max-width: 92% !important;
             object-fit: contain !important;
+            border-radius: 14px !important;
+            display: block !important;
+            background: transparent !important;
+        }
+
+        #screen-cartelli-schede .page-image-frame,
+        #screen-argomenti-schede .page-image-frame {
+            width: 100% !important;
+            min-width: 100% !important;
+            align-self: stretch !important;
+            height: auto !important;
+            min-height: unset !important;
+            max-height: unset !important;
+            display: block !important;
+            margin: 10px 0 !important;
+            background: transparent !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border-radius: 14px !important;
+            box-shadow: none !important;
         }
 
         #screen-cartelli-schede .content-card img,
-        #screen-cartelli-schede .schede-page-img {
-            max-height: var(--cartelli-page-img-desk) !important;
-            height: var(--cartelli-page-img-desk) !important;
-            width: var(--cartelli-page-img-w-desk) !important;
-            object-fit: contain !important;
+        #screen-cartelli-schede .schede-page-img,
+        #screen-argomenti-schede .content-card img,
+        #screen-argomenti-schede .schede-page-img {
+            max-height: none !important;
+            min-height: unset !important;
+            height: auto !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            object-fit: cover !important;
+            border-radius: 14px !important;
+            display: block !important;
+            background: transparent !important;
         }
 
         #screen-argomenti .chapter-image-card h3,
@@ -268,12 +332,38 @@
             font-size: var(--argomenti-chap-title-desk) !important;
         }
 
+        #screen-argomenti {
+            max-width: 1360px !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        #screen-argomenti .chapter-card-img-wrapper {
+            width: 100% !important;
+            height: 250px !important;
+            min-height: 220px !important;
+            max-height: 280px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 10px 0 !important;
+            background: transparent !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border-radius: 14px !important;
+        }
+
         #screen-argomenti .chapter-image-card img,
         #screen-argomenti .chapter-card-img {
-            max-height: var(--argomenti-chap-img-desk) !important;
-            height: var(--argomenti-chap-img-desk) !important;
-            width: var(--argomenti-chap-img-w-desk) !important;
+            max-height: 250px !important;
+            height: 100% !important;
+            width: 100% !important;
+            max-width: 92% !important;
             object-fit: contain !important;
+            border-radius: 14px !important;
+            display: block !important;
+            background: transparent !important;
         }
 
         #screen-argomenti-schede .content-card h4,
@@ -281,14 +371,6 @@
         #screen-page-details #page-details-page-label,
         #page-details-page-label {
             font-size: var(--argomenti-page-title-desk) !important;
-        }
-
-        #screen-argomenti-schede .content-card img,
-        #screen-argomenti-schede .schede-page-img {
-            max-height: var(--argomenti-page-img-desk) !important;
-            height: var(--argomenti-page-img-desk) !important;
-            width: var(--argomenti-page-img-w-desk) !important;
-            object-fit: contain !important;
         }
 
         #screen-argomenti-questions .question-text-box,
@@ -331,7 +413,19 @@
             box-sizing: border-box !important;
         }
 
-        .argomenti-grid,
+        .argomenti-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 24px !important;
+            width: 100% !important;
+        }
+
+        .chapter-image-card {
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
         .argomenti-schede-grid {
             display: grid !important;
             grid-template-columns: repeat(var(--schede-desk-cols), 1fr) !important;
@@ -396,9 +490,15 @@
 
             #screen-cartelli-schede .content-card img,
             #screen-cartelli-schede .schede-page-img {
-                max-height: var(--cartelli-page-img-mob) !important;
-                height: var(--cartelli-page-img-mob) !important;
-                width: var(--cartelli-page-img-w-mob) !important;
+                max-height: none !important;
+                min-height: unset !important;
+                height: auto !important;
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                object-fit: cover !important;
+                border-radius: 14px !important;
+                display: block !important;
             }
 
             #screen-argomenti .chapter-image-card h3,
@@ -410,11 +510,31 @@
                 font-size: var(--argomenti-chap-title-mob) !important;
             }
 
+            #screen-argomenti .chapter-card-img-wrapper {
+                width: 100% !important;
+                height: 200px !important;
+                min-height: 180px !important;
+                max-height: 240px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 8px 0 !important;
+                background: transparent !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                border-radius: 12px !important;
+            }
+
             #screen-argomenti .chapter-image-card img,
             #screen-argomenti .chapter-card-img {
-                max-height: var(--argomenti-chap-img-mob) !important;
-                height: var(--argomenti-chap-img-mob) !important;
-                width: var(--argomenti-chap-img-w-mob) !important;
+                max-height: 200px !important;
+                height: 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                object-fit: contain !important;
+                border-radius: 12px !important;
+                display: block !important;
+                background: transparent !important;
             }
 
             #screen-argomenti-schede .content-card h4,
@@ -426,9 +546,15 @@
 
             #screen-argomenti-schede .content-card img,
             #screen-argomenti-schede .schede-page-img {
-                max-height: var(--argomenti-page-img-mob) !important;
-                height: var(--argomenti-page-img-mob) !important;
-                width: var(--argomenti-page-img-w-mob) !important;
+                max-height: none !important;
+                min-height: unset !important;
+                height: auto !important;
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                object-fit: cover !important;
+                border-radius: 14px !important;
+                display: block !important;
             }
 
             #screen-argomenti-questions .question-text-box,

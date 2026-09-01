@@ -7,7 +7,7 @@ use App\Models\Setting;
 
 class SettingsController extends Controller
 {
-    public function getSettings()
+    public function getSettings(Request $request)
     {
         $setting = Setting::first();
         if (!$setting) {
@@ -15,7 +15,7 @@ class SettingsController extends Controller
                 'app_name' => 'mbanglapatenteb',
                 'exam_time_minutes' => 20,
                 'qr_target_mode' => 'local',
-                'qr_live_url' => 'http://mbanglapatenteb.com',
+                'qr_live_url' => 'https://mbanglapatenteb.com',
                 'qr_local_url' => 'http://10.0.2.2:8000',
             ]);
         }
@@ -23,7 +23,7 @@ class SettingsController extends Controller
             $setting->exam_time_minutes = 20;
         }
         if (empty($setting->qr_live_url)) {
-            $setting->qr_live_url = 'http://mbanglapatenteb.com';
+            $setting->qr_live_url = 'https://mbanglapatenteb.com';
         }
         if (empty($setting->qr_local_url)) {
             $setting->qr_local_url = 'http://10.0.2.2:8000';
@@ -31,16 +31,37 @@ class SettingsController extends Controller
         if (empty($setting->qr_target_mode)) {
             $setting->qr_target_mode = 'local';
         }
+        if (empty($setting->privacy_policy)) {
+            $setting->privacy_policy = "Privacy Policy for M Bangla Patente B\n\nYour privacy is important to us. We collect minimal information necessary to deliver Italian driving license preparation content, track quiz progress, and manage device activations.\n\n1. Information Collection: We store account details, study progress, and activation keys.\n2. Data Security: All communication between the app and server is encrypted.\n3. Changes: We may update this policy periodically.";
+        }
+        if (empty($setting->terms_conditions)) {
+            $setting->terms_conditions = "Terms & Conditions for M Bangla Patente B\n\nWelcome to M Bangla Patente B. By using our application, you agree to comply with the following terms:\n\n1. License: App access is granted per activated device key.\n2. Usage: Content is for personal study purposes only.\n3. Content Ownership: Material presented remains proprietary to M Bangla Patente B.";
+        }
+
+        $requestHost = $request ? $request->getSchemeAndHttpHost() : null;
+        $localServerUrl = $setting->qr_local_url;
+        
+        if (empty($localServerUrl) || str_contains($localServerUrl, '127.0.0.1') || str_contains($localServerUrl, 'localhost')) {
+            if ($requestHost && !str_contains($requestHost, '127.0.0.1') && !str_contains($requestHost, 'localhost')) {
+                $localServerUrl = $requestHost;
+            } else {
+                $port = parse_url($localServerUrl, PHP_URL_PORT) ?: '8000';
+                $scheme = parse_url($localServerUrl, PHP_URL_SCHEME) ?: 'http';
+                $localServerUrl = "{$scheme}://10.0.2.2:{$port}";
+            }
+        }
 
         $activeBaseUrl = ($setting->qr_target_mode === 'live')
             ? rtrim($setting->qr_live_url, '/')
-            : rtrim($setting->qr_local_url, '/');
+            : rtrim($localServerUrl, '/');
 
         $data = array_merge($setting->toArray(), [
             'server_mode' => $setting->qr_target_mode,
             'active_base_url' => $activeBaseUrl,
             'live_server_url' => $setting->qr_live_url,
-            'local_server_url' => $setting->qr_local_url,
+            'local_server_url' => $localServerUrl,
+            'privacy_policy' => $setting->privacy_policy,
+            'terms_conditions' => $setting->terms_conditions,
         ]);
 
         return response()->json($data);
@@ -54,14 +75,18 @@ class SettingsController extends Controller
         }
 
         $request->validate([
-            'app_name' => 'required|string|max:255',
+            'app_name' => 'nullable|string|max:255',
             'exam_time_minutes' => 'nullable|integer|min:1|max:300',
-            'app_logo' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp',
-            'favicon'  => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,ico,webp',
+            'app_logo' => 'nullable|max:20480',
+            'favicon'  => 'nullable|max:20480',
         ]);
 
-        $setting->app_name = $request->app_name;
-        $setting->exam_time_minutes = (int) $request->input('exam_time_minutes', 20);
+        if ($request->has('app_name') && !empty($request->app_name)) {
+            $setting->app_name = $request->app_name;
+        } elseif (empty($setting->app_name)) {
+            $setting->app_name = 'mbanglapatenteb';
+        }
+        $setting->exam_time_minutes = (int) $request->input('exam_time_minutes', $setting->exam_time_minutes ?: 20);
 
         if ($request->has('home_desktop_columns')) $setting->home_desktop_columns = (int) $request->input('home_desktop_columns', 4);
         if ($request->has('home_tablet_columns')) $setting->home_tablet_columns = (int) $request->input('home_tablet_columns', 3);
@@ -153,6 +178,12 @@ class SettingsController extends Controller
         }
         if ($request->has('qr_local_url')) {
             $setting->qr_local_url = $request->input('qr_local_url');
+        }
+        if ($request->has('privacy_policy')) {
+            $setting->privacy_policy = $request->input('privacy_policy');
+        }
+        if ($request->has('terms_conditions')) {
+            $setting->terms_conditions = $request->input('terms_conditions');
         }
 
         if ($request->hasFile('app_logo')) {

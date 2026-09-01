@@ -7,8 +7,8 @@
 
     <!-- Select / Unselect Action Pills -->
     <div class="pill-btn-group" style="margin-bottom: 16px;">
-        <button class="pill-btn" id="saved-select-toggle-btn" onclick="toggleSavedMcqsSelectMode()">Select</button>
         <button class="pill-btn" id="saved-select-all-btn" onclick="selectAllSavedMcqs()">Select All</button>
+        <button class="pill-btn" id="saved-select-toggle-btn" onclick="toggleSavedMcqsSelectMode()">Select</button>
         <button class="pill-btn active" id="saved-unselect-all-btn" onclick="unselectAllSavedMcqs()">Unselect All</button>
     </div>
 

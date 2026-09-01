@@ -62,4 +62,17 @@ class CartelliApiController extends Controller
             'data' => $mcqs
         ]);
     }
+
+    /**
+     * Get MCQs for an entire Cartelli chapter.
+     */
+    public function getChapterMcqs($chapterId)
+    {
+        $pageIds = CartelloPage::where('chapter_id', $chapterId)->where('status', true)->pluck('id');
+        $mcqs = CartelloMcq::whereIn('page_id', $pageIds)->where('status', true)->orderBy('sort_order', 'asc')->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $mcqs
+        ]);
+    }
 }

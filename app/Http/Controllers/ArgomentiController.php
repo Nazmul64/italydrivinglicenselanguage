@@ -96,19 +96,47 @@ class ArgomentiController extends Controller
     {
         $user = auth()->user();
         $userId = $request->query('user_id') ?: ($user ? $user->id : null);
+        $phone = $request->query('phone') ?? $request->input('phone') ?? $request->header('X-Client-Phone') ?? $request->cookie('app_client_phone') ?? session('app_client_phone');
         $sessionId = $request->query('session_id') ?: session()->getId();
+
+        $sessionIds = array_filter([$sessionId]);
+        if ($phone) {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $clientSessions = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->pluck('session_id')->filter()->toArray();
+
+            $userSessions = \App\Models\User::where(function($q) use ($phone, $cleanPhone) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->pluck('uuid')->filter()->toArray();
+            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
+            if (!$userId) {
+                $userObj = \App\Models\User::where('phone', $phone)->first();
+                if ($userObj) $userId = $userObj->id;
+            }
+        }
 
         $query = SavedMcq::with(['question.page.chapter', 'cartelloQuestion.page.chapter']);
 
-        if ($userId) {
-            $query->where(function ($q) use ($userId, $sessionId) {
-                $q->where('user_id', $userId);
-                if ($sessionId) {
-                    $q->orWhere('session_id', $sessionId);
+        if ($userId || !empty($sessionIds)) {
+            $query->where(function ($q) use ($userId, $sessionIds) {
+                if ($userId) {
+                    $q->where('user_id', $userId);
+                }
+                if (!empty($sessionIds)) {
+                    if ($userId) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
                 }
             });
-        } else {
-            $query->where('session_id', $sessionId);
         }
 
         $savedList = $query->orderBy('created_at', 'desc')->get();
@@ -133,31 +161,27 @@ class ArgomentiController extends Controller
                         'page'           => $page ? [
                             'id'         => $page->id,
                             'title'      => $page->title,
-                            'sort_order' => $page->sort_order,
+                            'chapter_id' => $page->chapter_id,
                             'chapter'    => $chapter ? [
                                 'id'             => $chapter->id,
-                                'name'           => $chapter->name,
-                                'chapter_number' => $chapter->chapter_number
+                                'chapter_number' => $chapter->chapter_number,
+                                'title'          => $chapter->title,
                             ] : null
                         ] : null
                     ];
 
-                    $itemArray = $item->toArray();
-                    $itemArray['question'] = $questionData;
-                    return $itemArray;
+                    return [
+                        'id'          => $item->id,
+                        'type'        => 'cartelli',
+                        'question_id' => $item->question_id,
+                        'created_at'  => $item->created_at,
+                        'question'    => $questionData
+                    ];
                 }
             }
 
-            if ($item->question) {
-                $itemArray = $item->toArray();
-                $itemArray['question']['type'] = 'argomenti';
-                return $itemArray;
-            }
-
-            return $item->toArray();
-        })->filter(function ($item) {
-            return !empty($item['question']);
-        })->values();
+            return $item;
+        });
 
         return response()->json($result);
     }
@@ -174,7 +198,8 @@ class ArgomentiController extends Controller
 
             $user = auth()->user();
             $userId = $user ? $user->id : $request->input('user_id');
-            $sessionId = session()->getId();
+            $phone = $request->input('phone') ?? $request->header('X-Client-Phone');
+            $sessionId = $request->input('session_id') ?: session()->getId();
             $questionId = $request->input('question_id');
             $type = $request->input('type', 'argomenti');
 
@@ -184,15 +209,32 @@ class ArgomentiController extends Controller
                 }
             }
 
+            $sessionIds = array_filter([$sessionId]);
+            if ($phone) {
+                $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
+                $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
+                $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
+                if (!$userId) {
+                    $userObj = \App\Models\User::where('phone', $phone)->first();
+                    if ($userObj) $userId = $userObj->id;
+                }
+            }
+
             // Check if already saved
             $query = SavedMcq::where('question_id', $questionId)->where('type', $type);
-            if ($userId) {
-                $query->where(function ($q) use ($userId, $sessionId) {
-                    $q->where('user_id', $userId)
-                        ->orWhere('session_id', $sessionId);
+            if ($userId || !empty($sessionIds)) {
+                $query->where(function ($q) use ($userId, $sessionIds) {
+                    if ($userId) {
+                        $q->where('user_id', $userId);
+                    }
+                    if (!empty($sessionIds)) {
+                        if ($userId) {
+                            $q->orWhereIn('session_id', $sessionIds);
+                        } else {
+                            $q->whereIn('session_id', $sessionIds);
+                        }
+                    }
                 });
-            } else {
-                $query->where('session_id', $sessionId);
             }
 
             $existing = $query->first();
@@ -202,7 +244,7 @@ class ArgomentiController extends Controller
                 return response()->json(['saved' => false, 'message' => 'Question removed from bookmarks.']);
             } else {
                 SavedMcq::create([
-                    'session_id'  => $userId ? null : $sessionId,
+                    'session_id'  => $sessionId,
                     'user_id'     => $userId,
                     'question_id' => $questionId,
                     'type'        => $type
@@ -351,42 +393,59 @@ class ArgomentiController extends Controller
             'category_id'       => 'nullable',
             'name'              => 'required|string|max:255',
             'bn_name'           => 'nullable|string|max:255',
-            'chapter_number'    => 'nullable|integer',
+            'chapter_number'    => 'nullable',
             'description'       => 'nullable|string',
             'video_url'         => 'nullable|string|max:1000',
             'video_status'      => 'nullable',
-            'estimated_minutes' => 'nullable|integer',
-            'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'cover_image'       => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'estimated_minutes' => 'nullable',
+            'sort_order'        => 'nullable',
+            'image'             => 'nullable|max:20480',
+            'cover_image'       => 'nullable|max:20480',
         ]);
 
-        $categoryId = $request->category_id ? (\App\Models\Category::where('id', $request->category_id)->exists() ? $request->category_id : null) : null;
+        $catIdInput = $request->input('category_id');
+        $categoryId = (is_numeric($catIdInput) && \App\Models\Category::where('id', (int)$catIdInput)->exists()) ? (int)$catIdInput : null;
+        if (!$categoryId) {
+            $firstCat = \App\Models\Category::first();
+            if (!$firstCat) {
+                $firstCat = \App\Models\Category::create([
+                    'name' => 'Patente B',
+                    'description' => 'Patente di Guida Categoria B'
+                ]);
+            }
+            $categoryId = $firstCat->id;
+        }
+
+        $chapterNum = is_numeric($request->input('chapter_number')) ? (int)$request->input('chapter_number') : 0;
+        $estMinutes = is_numeric($request->input('estimated_minutes')) ? (int)$request->input('estimated_minutes') : 30;
+        $sortOrder  = is_numeric($request->input('sort_order')) ? (int)$request->input('sort_order') : 0;
 
         $data = [
             'category_id'       => $categoryId,
             'name'              => $request->name,
             'bn_name'           => $request->bn_name,
-            'chapter_number'    => $request->chapter_number ?? 0,
+            'chapter_number'    => $chapterNum,
             'description'       => $request->description,
             'video_url'         => $request->video_url,
             'video_status'      => $request->has('video_status') ? filter_var($request->video_status, FILTER_VALIDATE_BOOLEAN) : true,
-            'estimated_minutes' => $request->estimated_minutes ?? 30,
-            'sort_order'        => $request->sort_order ?? 0,
-            'status'            => $request->status ?? true,
+            'estimated_minutes' => $estMinutes,
+            'sort_order'        => $sortOrder,
+            'status'            => $request->has('status') ? filter_var($request->status, FILTER_VALIDATE_BOOLEAN) : true,
         ];
 
-        if ($request->hasFile('image')) {
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/chapters', 'chapter_thumb', 600, 80);
-            $data['image'] = $uploadedPath ?: '';
-        }
+        $uploadedCover = null;
+        $uploadedThumb = null;
 
         if ($request->hasFile('cover_image')) {
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('cover_image'), 'uploads/chapters', 'chapter_cover', 1200, 80);
-            $data['cover_image'] = $uploadedPath ?: '';
-            if (empty($data['image'])) {
-                $data['image'] = $uploadedPath ?: '';
-            }
+            $uploadedCover = ImageHelper::uploadAndOptimize($request->file('cover_image'), 'uploads/chapters', 'chapter_cover', 1200, 80);
+            $data['cover_image'] = $uploadedCover ?: '';
+        }
+
+        if ($request->hasFile('image') && $request->file('image') !== $request->file('cover_image')) {
+            $uploadedThumb = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/chapters', 'chapter_thumb', 600, 80);
+            $data['image'] = $uploadedThumb ?: '';
+        } elseif ($uploadedCover) {
+            $data['image'] = $uploadedCover;
         }
 
         $chapter = Chapter::create($data);
@@ -405,47 +464,67 @@ class ArgomentiController extends Controller
             'category_id'       => 'nullable',
             'name'              => 'required|string|max:255',
             'bn_name'           => 'nullable|string|max:255',
-            'chapter_number'    => 'nullable|integer',
+            'chapter_number'    => 'nullable',
             'description'       => 'nullable|string',
             'video_url'         => 'nullable|string|max:1000',
             'video_status'      => 'nullable',
-            'estimated_minutes' => 'nullable|integer',
-            'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'cover_image'       => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'estimated_minutes' => 'nullable',
+            'sort_order'        => 'nullable',
+            'image'             => 'nullable|max:20480',
+            'cover_image'       => 'nullable|max:20480',
         ]);
 
-        $categoryId = $request->category_id ? (\App\Models\Category::where('id', $request->category_id)->exists() ? $request->category_id : null) : $chapter->category_id;
+        $catIdInput = $request->input('category_id');
+        if (is_numeric($catIdInput) && \App\Models\Category::where('id', (int)$catIdInput)->exists()) {
+            $categoryId = (int)$catIdInput;
+        } elseif ($chapter->category_id && \App\Models\Category::where('id', $chapter->category_id)->exists()) {
+            $categoryId = $chapter->category_id;
+        } else {
+            $firstCat = \App\Models\Category::first();
+            if (!$firstCat) {
+                $firstCat = \App\Models\Category::create([
+                    'name' => 'Patente B',
+                    'description' => 'Patente di Guida Categoria B'
+                ]);
+            }
+            $categoryId = $firstCat->id;
+        }
+
+        $chapterNum = is_numeric($request->input('chapter_number')) ? (int)$request->input('chapter_number') : $chapter->chapter_number;
+        $estMinutes = is_numeric($request->input('estimated_minutes')) ? (int)$request->input('estimated_minutes') : $chapter->estimated_minutes;
+        $sortOrder  = is_numeric($request->input('sort_order')) ? (int)$request->input('sort_order') : $chapter->sort_order;
 
         $updateData = [
             'category_id'       => $categoryId,
             'name'              => $request->name,
             'bn_name'           => $request->bn_name,
-            'chapter_number'    => $request->chapter_number ?? $chapter->chapter_number,
+            'chapter_number'    => $chapterNum,
             'description'       => $request->has('description') ? $request->description : $chapter->description,
             'video_url'         => $request->has('video_url') ? $request->video_url : $chapter->video_url,
             'video_status'      => $request->has('video_status') ? filter_var($request->video_status, FILTER_VALIDATE_BOOLEAN) : $chapter->video_status,
-            'estimated_minutes' => $request->estimated_minutes ?? $chapter->estimated_minutes,
-            'sort_order'        => $request->sort_order ?? $chapter->sort_order,
+            'estimated_minutes' => $estMinutes,
+            'sort_order'        => $sortOrder,
         ];
 
-        if ($request->hasFile('image')) {
-            if ($chapter->image && file_exists(public_path($chapter->image))) {
-                @unlink(public_path($chapter->image));
-            }
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/chapters', 'chapter_thumb', 600, 80);
-            $updateData['image'] = $uploadedPath ?: '';
-        }
+        $uploadedCover = null;
+        $uploadedThumb = null;
 
         if ($request->hasFile('cover_image')) {
             if ($chapter->cover_image && file_exists(public_path($chapter->cover_image))) {
                 @unlink(public_path($chapter->cover_image));
             }
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('cover_image'), 'uploads/chapters', 'chapter_cover', 1200, 80);
-            $updateData['cover_image'] = $uploadedPath ?: '';
-            if (!$request->hasFile('image') && (empty($chapter->image) || !file_exists(public_path($chapter->image)))) {
-                $updateData['image'] = $uploadedPath ?: '';
+            $uploadedCover = ImageHelper::uploadAndOptimize($request->file('cover_image'), 'uploads/chapters', 'chapter_cover', 1200, 80);
+            $updateData['cover_image'] = $uploadedCover ?: '';
+        }
+
+        if ($request->hasFile('image') && $request->file('image') !== $request->file('cover_image')) {
+            if ($chapter->image && file_exists(public_path($chapter->image))) {
+                @unlink(public_path($chapter->image));
             }
+            $uploadedThumb = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/chapters', 'chapter_thumb', 600, 80);
+            $updateData['image'] = $uploadedThumb ?: '';
+        } elseif ($uploadedCover && empty($chapter->image)) {
+            $updateData['image'] = $uploadedCover;
         }
 
         $chapter->update($updateData);
@@ -521,10 +600,10 @@ class ArgomentiController extends Controller
             'video_status'      => 'nullable',
             'estimated_minutes' => 'nullable|integer',
             'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
-            'audio'             => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'image'             => 'nullable|max:20480',
+            'audio'             => 'nullable|max:25600',
             'video'             => 'nullable',
-            'pdf_file'          => 'nullable|file|mimes:pdf|max:10240',
+            'pdf_file'          => 'nullable|max:20480',
             'vocabulary'        => 'nullable|string',
             'mcqs'              => 'nullable|string',
         ]);
@@ -692,10 +771,10 @@ class ArgomentiController extends Controller
             'video_status'      => 'nullable',
             'estimated_minutes' => 'nullable|integer',
             'sort_order'        => 'nullable|integer',
-            'image'             => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
-            'audio'             => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'image'             => 'nullable|max:20480',
+            'audio'             => 'nullable|max:25600',
             'video'             => 'nullable',
-            'pdf_file'          => 'nullable|file|mimes:pdf|max:10240',
+            'pdf_file'          => 'nullable|max:20480',
             'vocabulary'        => 'nullable|string',
             'mcqs'              => 'nullable|string',
         ]);
@@ -1055,38 +1134,71 @@ class ArgomentiController extends Controller
             'results.*.is_correct' => 'required|boolean'
         ]);
 
+        $user = auth()->user() ?: $request->user();
         $sessionId = $request->input('session_id') ?: session()->getId();
-        $userId = $request->input('user_id');
+        $userId = $user ? $user->id : $request->input('user_id');
+        $phone = $request->input('phone') ?? $request->header('X-Client-Phone') ?? ($user ? $user->phone : session('app_client_phone'));
+
+        $sessionIds = array_filter([$sessionId]);
+        if ($phone) {
+            $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
+            $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
+            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
+            if (!$userId) {
+                $userObj = \App\Models\User::where('phone', $phone)->first();
+                if ($userObj) $userId = $userObj->id;
+            }
+        }
 
         $logged = [];
         foreach ($request->input('results') as $res) {
-            $question = Question::find($res['question_id']);
-            if (!$question) continue;
-
-            $pageId = $question->page_id;
-            $chapterId = $question->chapter;
-            
+            $qIdNum = (int)$res['question_id'];
+            $question = Question::find($qIdNum);
+            $pageId = null;
+            $chapterId = null;
             $categoryId = null;
-            if ($chapterId) {
-                $chapter = Chapter::find($chapterId);
-                if ($chapter) {
-                    $categoryId = $chapter->category_id;
+
+            if ($question) {
+                $pageId = $question->page_id;
+                $chapterId = $question->chapter;
+                if ($chapterId) {
+                    $chapter = Chapter::find($chapterId);
+                    if ($chapter) {
+                        $categoryId = $chapter->category_id;
+                    }
+                }
+            } else {
+                $cartelloQ = \App\Models\CartelloMcq::find($qIdNum);
+                if ($cartelloQ) {
+                    $pageId = $cartelloQ->page_id;
+                    $chapterId = $cartelloQ->page ? $cartelloQ->page->chapter_id : null;
+                } else {
+                    continue;
                 }
             }
 
-            $query = UserMcqResult::where('question_id', $question->id);
-            if ($userId) {
-                $query->where('user_id', $userId);
-            } else {
-                $query->where('session_id', $sessionId);
+            $query = UserMcqResult::where('question_id', $qIdNum);
+            if ($userId || !empty($sessionIds)) {
+                $query->where(function($q) use ($userId, $sessionIds) {
+                    if ($userId) {
+                        $q->where('user_id', $userId);
+                    }
+                    if (!empty($sessionIds)) {
+                        if ($userId) {
+                            $q->orWhereIn('session_id', $sessionIds);
+                        } else {
+                            $q->whereIn('session_id', $sessionIds);
+                        }
+                    }
+                });
             }
             $existing = $query->first();
 
             $data = [
-                'session_id' => $userId ? null : $sessionId,
+                'session_id' => $sessionId,
                 'user_id' => $userId,
-                'question_id' => $question->id,
-                'user_answer' => $res['user_answer'],
+                'question_id' => $qIdNum,
+                'user_answer' => $res['user_answer'] ?? null,
                 'is_correct' => $res['is_correct'],
                 'category_id' => $categoryId,
                 'chapter_id' => $chapterId,
@@ -1111,6 +1223,7 @@ class ArgomentiController extends Controller
     {
         $sessionId = $request->query('session_id') ?: session()->getId();
         $userId = $request->query('user_id') ?: auth()->id();
+        $phone = $request->query('phone') ?? $request->header('X-Client-Phone');
         $isCorrect = $request->query('is_correct');
         $categoryId = $request->query('category_id');
         $chapterId = $request->query('chapter_id') ?: $request->query('chapter');
@@ -1118,12 +1231,25 @@ class ArgomentiController extends Controller
         $date = $request->query('date');
         $search = $request->query('search');
 
+        $sessionIds = array_filter([$sessionId]);
+        if ($phone) {
+            $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
+            $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
+            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
+            if (!$userId) {
+                $userObj = \App\Models\User::where('phone', $phone)->first();
+                if ($userObj) $userId = $userObj->id;
+            }
+        }
+
         $query = UserMcqResult::with([
-            'question.savedMcqs' => function($q) use ($sessionId, $userId) {
+            'question.savedMcqs' => function($q) use ($sessionIds, $userId) {
                 if ($userId) {
                     $q->where('user_id', $userId);
-                } else {
-                    $q->where('session_id', $sessionId);
+                }
+                if (!empty($sessionIds)) {
+                    if ($userId) $q->orWhereIn('session_id', $sessionIds);
+                    else $q->whereIn('session_id', $sessionIds);
                 }
             },
             'question.page.chapter.category',
@@ -1132,15 +1258,19 @@ class ArgomentiController extends Controller
             'category'
         ]);
 
-        if ($userId) {
-            $query->where(function($q) use ($userId, $sessionId) {
-                $q->where('user_id', $userId);
-                if ($sessionId) {
-                    $q->orWhere('session_id', $sessionId);
+        if ($userId || !empty($sessionIds)) {
+            $query->where(function($q) use ($userId, $sessionIds) {
+                if ($userId) {
+                    $q->where('user_id', $userId);
+                }
+                if (!empty($sessionIds)) {
+                    if ($userId) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
                 }
             });
-        } else {
-            $query->where('session_id', $sessionId);
         }
 
         if ($isCorrect !== null && $isCorrect !== '') {

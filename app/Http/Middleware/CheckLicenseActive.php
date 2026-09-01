@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\License;
-
+use App\Models\AppClient;
 
 class CheckLicenseActive
 {
@@ -17,6 +17,13 @@ class CheckLicenseActive
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $setting = \App\Models\Setting::first();
+        $isProtectionEnabled = $setting ? (bool)$setting->qr_protection_enabled : false;
+
+        if (!$isProtectionEnabled) {
+            return $next($request);
+        }
+
         $user = $request->user();
 
         if (!$user) {
@@ -26,15 +33,33 @@ class CheckLicenseActive
             ], 401);
         }
 
-        // Fetch active license for this user UUID
-        $license = License::where('user_id', $user->uuid)
+        // Fetch active license for this user UUID (including lifetime license where expires_at is null)
+        $hasActiveLicense = License::where('user_id', $user->uuid)
             ->where('status', 'active')
-            ->first();
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->exists();
 
-        if (!$license) {
+        if (!$hasActiveLicense && $user->phone) {
+            $cleanPhone = preg_replace('/\D/', '', $user->phone);
+            $hasActiveLicense = AppClient::where(function ($q) use ($user, $cleanPhone) {
+                $q->where('phone', $user->phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+        }
+
+        if (!$hasActiveLicense) {
             return response()->json([
                 'success' => false,
-                'message' => 'Active license required.'
+                'message' => 'Active license required.',
             ], 403);
         }
 

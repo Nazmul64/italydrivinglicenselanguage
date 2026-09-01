@@ -50,7 +50,8 @@ function renderConversationsList(conversations) {
         item.onclick = () => selectConversation(convo.session_id);
 
         let avatarHTML = '<div class="conversation-avatar">GU</div>';
-        let nameHTML = `<div class="conversation-name">Guest #${convo.session_id.substring(0, 8)}</div>`;
+        let safeSessionId = String(convo.session_id || '');
+        let nameHTML = `<div class="conversation-name">Guest #${safeSessionId.substring(0, 8)}</div>`;
         let progressHTML = '';
         const isActive = convo.client ? (!!convo.client.is_active) : false;
 
@@ -110,7 +111,7 @@ function toggleClientActivation(identifier) {
     fetch(`/admin/api/clients/toggle-active/${safeIdentifier}`, {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrfToken,
+            'X-CSRF-TOKEN': getAdminCsrfToken(),
             'Accept': 'application/json'
         }
     })
@@ -144,7 +145,8 @@ function selectConversation(sessionId) {
         if (activeName) activeName.innerText = `${client.first_name} ${client.last_name} (${client.phone})`;
         if (activeAvatar) activeAvatar.innerText = `${client.first_name[0] || 'U'}${client.last_name[0] || 'S'}`.toUpperCase();
     } else {
-        if (activeName) activeName.innerText = `Guest User #${sessionId.substring(0, 8)}`;
+        let safeSId = String(sessionId || '');
+        if (activeName) activeName.innerText = `Guest User #${safeSId.substring(0, 8)}`;
         if (activeAvatar) activeAvatar.innerText = `GU`;
     }
 
@@ -160,17 +162,23 @@ function selectConversation(sessionId) {
 }
 
 function fetchConversationMessages(sessionId, forceScroll = false) {
-    fetch(`/admin/api/chat/messages/${sessionId}`)
-        .then(res => res.json())
+    if (!sessionId) return;
+    fetch(`/admin/api/chat/messages/${encodeURIComponent(sessionId)}`)
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        })
         .then(messages => {
-            renderConversationMessages(messages, forceScroll);
+            if (Array.isArray(messages)) {
+                renderConversationMessages(messages, forceScroll);
+            }
         })
         .catch(err => console.error("Error loading messages: ", err));
 }
 
 function renderConversationMessages(messages, forceScroll) {
     const container = document.getElementById('admin-chat-messages');
-    if (!container) return;
+    if (!container || !Array.isArray(messages)) return;
     const scrollAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
 
     container.innerHTML = '';
@@ -180,21 +188,22 @@ function renderConversationMessages(messages, forceScroll) {
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
             const matchDays = msg.message.match(/days=(\d+)/);
             const matchKey = msg.message.match(/key=(\d+)/);
-            const days = matchDays ? matchDays[1] : 365;
+            const days = matchDays ? parseInt(matchDays[1], 10) : 365;
             const key = matchKey ? matchKey[1] : '';
+
+            let durationStr = `${days} Days`;
+            if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
+            else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
+            else if (days === 180) durationStr = '6 Months (৬ মাস)';
+            else if (days === 90) durationStr = '3 Months (৩ মাস)';
+            else if (days === 30) durationStr = '1 Month (১ মাস)';
 
             bubble.className = `license-card-bubble`;
             bubble.style.alignSelf = 'flex-end';
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-features">
-                    <div>Traduzione Testi</div>
-                    <div>Audio</div>
-                    <div>Lezioni Video</div>
-                    <div>Live class video registarti</div>
-                    <div>Web App</div>
-                    <div>SUPPORTO</div>
-                    <div>Giorni ${days}</div>
+                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
+                    <i class="fa-solid fa-clock"></i> মেয়াদ: ${durationStr}
                 </div>
                 <button class="license-card-btn" disabled style="opacity: 0.7; cursor: not-allowed;">Attiva Licenza (Inviata)</button>
             `;
@@ -262,7 +271,7 @@ function sendAdminChatMessage() {
     fetch('/admin/api/chat/messages', {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': getAdminCsrfToken()
         },
         body: formData
     })
@@ -274,20 +283,37 @@ function sendAdminChatMessage() {
 }
 
 
+function getAdminCsrfToken() {
+    return (typeof csrfToken !== 'undefined' && csrfToken) 
+        ? csrfToken 
+        : (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
+}
+
 let allChatPresetsList = [];
 
 function openAdminChatSettings() {
     if (!activeChatSessionId) {
-        if (typeof openChatPresetManagerModal === 'function') {
-            openChatPresetManagerModal();
+        if (allConversationsList && allConversationsList.length > 0) {
+            selectConversation(allConversationsList[0].session_id);
         } else {
             showToast('দয়া করে প্রথমে একটি চ্যাট নির্বাচন করুন');
+            return;
         }
-        return;
     }
     const modal = document.getElementById('admin-chat-settings-modal');
-
     const container = document.getElementById('admin-macro-buttons-container');
+    const targetEl = document.getElementById('chat-settings-target-user');
+
+    const convo = allConversationsList.find(c => c.session_id === activeChatSessionId);
+    if (targetEl) {
+        if (convo && convo.client) {
+            targetEl.textContent = `${convo.client.first_name || ''} ${convo.client.last_name || ''} (${convo.client.phone || 'N/A'})`.trim();
+        } else {
+            let safeSId = String(activeChatSessionId || '');
+            targetEl.textContent = `Guest #${safeSId.substring(0, 8)}`;
+        }
+    }
+
     if (modal) modal.style.display = 'flex';
 
     if (container) {
@@ -299,22 +325,45 @@ function openAdminChatSettings() {
                 allChatPresetsList = Array.isArray(presets) ? presets : [];
                 container.innerHTML = '';
                 if (allChatPresetsList.length === 0) {
-                    container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No preset buttons found.</div>';
+                    container.innerHTML = `
+                        <div style="text-align: center; color: var(--text-secondary); padding: 15px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                            <div style="font-size: 12px; margin-bottom: 8px;">কোনো কাস্টম প্রিসেট বাটন নেই</div>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="closeAdminChatSettings(); openAddChatPresetModal();" style="font-size: 11px;">
+                                <i class="fa-solid fa-plus"></i> নতুন বাটন তৈরি করুন
+                            </button>
+                        </div>
+                    `;
                     return;
                 }
 
                 allChatPresetsList.forEach(p => {
-                    if (!p.status) return;
+                    if (!p.status && p.status !== undefined && p.status !== 1 && p.status !== true) return;
                     const btn = document.createElement('button');
                     btn.className = 'btn btn-block text-start';
                     btn.style.textAlign = 'left';
-                    btn.style.padding = '10px 16px';
-                    btn.style.backgroundColor = p.bg_color || '#64748b';
+                    btn.style.padding = '10px 14px';
+                    btn.style.backgroundColor = p.bg_color || '#3b82f6';
                     btn.style.color = p.text_color || '#ffffff';
                     btn.style.border = 'none';
                     btn.style.borderRadius = '10px';
                     btn.style.fontWeight = 'bold';
-                    btn.textContent = p.title;
+                    btn.style.display = 'flex';
+                    btn.style.alignItems = 'center';
+                    btn.style.justifyContent = 'space-between';
+                    btn.style.cursor = 'pointer';
+                    btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+
+                    const typeBadge = p.type === 'license'
+                        ? `<span style="font-size: 10px; background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 4px; margin-left: 6px;"><i class="fa-solid fa-key"></i> ${p.days ? p.days + ' Days' : 'License'}</span>`
+                        : `<span style="font-size: 10px; background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 4px; margin-left: 6px;"><i class="fa-solid fa-message"></i> Text</span>`;
+
+                    btn.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-paper-plane" style="font-size: 12px; opacity: 0.8;"></i>
+                            <span>${p.title}</span>
+                        </div>
+                        ${typeBadge}
+                    `;
                     btn.onclick = () => executeChatPreset(p.id);
                     container.appendChild(btn);
                 });
@@ -331,8 +380,63 @@ function closeAdminChatSettings() {
     if (modal) modal.style.display = 'none';
 }
 
+function sendDirectChatLicense(days) {
+    days = parseInt(days, 10);
+    if (!activeChatSessionId) {
+        if (allConversationsList && allConversationsList.length > 0) {
+            activeChatSessionId = allConversationsList[0].session_id;
+        } else {
+            showToast('দয়া করে প্রথমে একটি চ্যাট নির্বাচন করুন');
+            return;
+        }
+    }
+    if (!days || days < 1) {
+        showToast('দয়া করে সঠিক দিন সংখ্যা লিখুন');
+        return;
+    }
+
+    closeAdminChatSettings();
+    showToast(`${days} দিনের লাইসেন্স কি তৈরি করা হচ্ছে...`);
+
+    fetch('/admin/api/chat/send-license', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getAdminCsrfToken()
+        },
+        body: JSON.stringify({
+            session_id: activeChatSessionId,
+            days: days
+        })
+    })
+        .then(async res => {
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Failed to send license');
+            }
+            return res.json();
+        })
+        .then(data => {
+            showToast('লাইসেন্স কি সফলভাবে চ্যাটে পাঠানো হয়েছে!');
+            fetchConversationMessages(activeChatSessionId, true);
+            fetchConversations();
+        })
+        .catch(err => {
+            console.error("Error sending license: ", err);
+            showToast(err.message || 'লাইসেন্স পাঠাতে সমস্যা হয়েছে');
+        });
+}
+
 function executeChatPreset(presetId) {
-    if (!activeChatSessionId) return;
+    if (!activeChatSessionId) {
+        if (allConversationsList && allConversationsList.length > 0) {
+            activeChatSessionId = allConversationsList[0].session_id;
+        } else {
+            showToast('দয়া করে প্রথমে একটি চ্যাট নির্বাচন করুন');
+            return;
+        }
+    }
 
     closeAdminChatSettings();
     showToast('অনুরোধ পাঠানো হচ্ছে...');
@@ -341,15 +445,19 @@ function executeChatPreset(presetId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getAdminCsrfToken()
         },
         body: JSON.stringify({
             session_id: activeChatSessionId,
             preset_id: presetId
         })
     })
-        .then(res => {
-            if (!res.ok) throw new Error('Preset execution failed');
+        .then(async res => {
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Preset execution failed');
+            }
             return res.json();
         })
         .then(msg => {
@@ -359,7 +467,7 @@ function executeChatPreset(presetId) {
         })
         .catch(err => {
             console.error("Error executing chat preset: ", err);
-            showToast('অ্যাকশন সম্পন্ন করতে সমস্যা হয়েছে');
+            showToast(err.message || 'অ্যাকশন সম্পন্ন করতে সমস্যা হয়েছে');
         });
 }
 
@@ -397,6 +505,10 @@ function fetchChatPresetsManagerList() {
                     ? '<span class="badge" style="background-color: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">License</span>'
                     : '<span class="badge" style="background-color: rgba(99, 102, 241, 0.1); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.2);">Text</span>';
 
+                const sendBtn = activeChatSessionId
+                    ? `<button class="btn btn-sm" onclick="executeChatPreset(${p.id}); closeChatPresetManagerModal();" style="padding: 3px 8px; font-size: 11px; background-color: #10b981; color: white; border: none; font-weight: bold; border-radius: 4px; margin-right: 4px;" title="Send this button directly into active chat"><i class="fa-solid fa-paper-plane"></i> Send</button>`
+                    : '';
+
                 tr.innerHTML = `
                     <td style="text-align: center; font-weight: bold;">${p.order_index}</td>
                     <td>
@@ -406,7 +518,8 @@ function fetchChatPresetsManagerList() {
                         ${p.days ? `<small style="color: var(--text-secondary); margin-left: 6px;">(${p.days} days)</small>` : ''}
                     </td>
                     <td style="text-align: center;">${badgeType}</td>
-                    <td style="text-align: right;">
+                    <td style="text-align: right; white-space: nowrap;">
+                        ${sendBtn}
                         <button class="btn btn-secondary btn-sm" onclick="openEditChatPresetModal(${JSON.stringify(p).replace(/"/g, '&quot;')})" style="padding: 3px 6px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteChatPreset(${p.id})" style="padding: 3px 6px; font-size: 11px;"><i class="fa-solid fa-trash"></i></button>
                     </td>
@@ -492,7 +605,7 @@ function saveChatPreset(e) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': getAdminCsrfToken()
         },
         body: JSON.stringify({
             title: title,
@@ -522,7 +635,7 @@ function deleteChatPreset(presetId) {
     fetch(`/admin/api/chat-presets/delete/${presetId}`, {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': getAdminCsrfToken()
         }
     })
         .then(res => res.json())

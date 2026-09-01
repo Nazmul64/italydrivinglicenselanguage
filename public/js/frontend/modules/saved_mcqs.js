@@ -13,6 +13,8 @@ function loadSavedMcqsModule() {
 
 function toggleSaveMcqApi(questionId) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
     return fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
@@ -22,7 +24,9 @@ function toggleSaveMcqApi(questionId) {
             'X-CSRF-TOKEN': csrfToken
         },
         body: JSON.stringify({
-            question_id: questionId
+            question_id: questionId,
+            phone: savedPhone,
+            session_id: savedSessionId
         })
     })
     .then(res => res.json())
@@ -64,14 +68,17 @@ function renderSavedMcqsList(savedItems) {
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero');
         const safeItalian = (q.italian || q.question || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
         const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+        const imgPos = q.image_position || 'left';
+        const showTopImg = qImage && (imgPos === 'top' || imgPos === 'both');
+        const showLeftImg = qImage && (imgPos === 'left' || imgPos === 'both');
 
-        const topImageCardHtml = qImage ? `
+        const topImageCardHtml = showTopImg ? `
             <div style="width: 100%; text-align: center; padding: 12px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03); box-sizing: border-box;">
                 <img src="${qImage}" style="max-height: 200px; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
             </div>
         ` : '';
 
-        const leftThumbHtml = qImage ? `
+        const leftThumbHtml = showLeftImg ? `
             <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
                 <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
             </div>

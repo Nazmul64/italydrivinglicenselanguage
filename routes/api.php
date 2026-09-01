@@ -56,14 +56,33 @@ Route::prefix('v1')->group(function () {
     Route::get('/cartelli/chapters/{categoryId?}', [CartelliApiController::class, 'getChapters']);
     Route::get('/cartelli/pages/{chapterId}', [CartelliApiController::class, 'getPages']);
     Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
+    Route::get('/cartelli/chapter-mcqs/{chapterId}', [CartelliApiController::class, 'getChapterMcqs']);
 
     Route::get('/dizionario', [DizionarioApiController::class, 'getTerms']);
     Route::get('/patente-social/cards', [PatenteSocialApiController::class, 'getCards']);
     Route::get('/patente-social/banners', [PatenteSocialApiController::class, 'getBanners']);
     Route::get('/patente-social/settings', [PatenteSocialApiController::class, 'getSettings']);
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+    Route::get('/server-mode', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+    Route::get('/server-config', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+    Route::get('/leaderboard', [LeaderboardApiController::class, 'index']);
 
     // 🔒 2. AUTHENTICATED USER ROUTES (Sanctum)
+    
+    // 📌 4. SAVED, CORRECT & WRONG MCQS & LOGGING API (Sanctum Token or Phone / Session ID)
+    Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
+    Route::get('/v1/saved-mcqs', [SavedMcqsApiController::class, 'index']);
+    Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
+    Route::post('/v1/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
+    Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
+    Route::get('/v1/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
+    Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
+    Route::get('/v1/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
+    Route::post('/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+    Route::post('/v1/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+    Route::get('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+    Route::get('/v1/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+
     Route::middleware('auth:sanctum')->group(function () {
         // User Profile & Status
         Route::get('/user', [SupportRegistrationApiController::class, 'getUser']);
@@ -97,49 +116,15 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
 
-            Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
-            Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
-
-            Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
-            Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
-            Route::get('/notes', [ArgomentiController::class, 'getNotes']);
-            Route::post('/notes', [ArgomentiController::class, 'saveNote']);
-            Route::delete('/notes/{id}', [ArgomentiController::class, 'deleteNote']);
-
             Route::get('/manuale/chapters', [ManualeApiController::class, 'getChapters']);
             Route::get('/manuale/pages/{chapterId}', [ManualeApiController::class, 'getPages']);
             Route::get('/manuale/page/{id}', [ManualeApiController::class, 'getPageContent']);
-
-            Route::get('/leaderboard', [LeaderboardApiController::class, 'index']);
         });
     });
 
-    // Unprotected / Legacy Fallbacks
-    Route::post('/qr-unlock', function (Illuminate\Http\Request $request) {
-        $code = $request->input('session_id') ?: $request->input('qr_code') ?: $request->input('code') ?: $request->input('qrData');
-        if (empty($code)) {
-            return response()->json(['status' => 'error', 'message' => 'QR payload parameter missing'], 422);
-        }
-
-        $sessionId = $code;
-        if (str_contains($code, 'session_id=')) {
-            $queryString = parse_url($code, PHP_URL_QUERY);
-            if ($queryString) {
-                parse_str($queryString, $query);
-                if (!empty($query['session_id'])) {
-                    $sessionId = $query['session_id'];
-                }
-            }
-        }
-
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Web session unlocked successfully!',
-            'session_id' => $sessionId
-        ]);
-    });
+    Route::post('/qr-unlock', [QrVerificationApiController::class, 'verify']);
+    Route::post('/qr-verification/verify', [QrVerificationApiController::class, 'verify']);
+    Route::post('/qr/verify', [QrVerificationApiController::class, 'verify']);
 
     Route::get('/translation', [TranslationApiController::class, 'getQuestionTranslation']);
     Route::get('/client/status', [DynamicContentController::class, 'getClientStatus']);

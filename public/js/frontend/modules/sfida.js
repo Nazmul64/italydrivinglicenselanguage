@@ -48,14 +48,18 @@ function startSfidaChallenge() {
 
 function fetchLeaderboardData() {
     return fetch('/api/v1/leaderboard')
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
         .then(resData => {
-            const rankings = resData.data || resData || [];
+            const rankings = Array.isArray(resData.data) ? resData.data : (Array.isArray(resData) ? resData : []);
             renderLeaderboardUI(rankings);
             return rankings;
         })
         .catch(err => {
             console.error('Error fetching leaderboard:', err);
+            renderLeaderboardUI([]);
             return [];
         });
 }
@@ -68,7 +72,12 @@ function renderLeaderboardUI(rankings) {
     const podiumContainer = document.getElementById('sfida-podium-container');
     const listContainer = document.getElementById('sfida-leaderboard-list');
 
-    if (!rankings || rankings.length === 0) {
+    if (!Array.isArray(rankings)) {
+        rankings = [];
+    }
+
+    if (rankings.length === 0) {
+        if (podiumContainer) podiumContainer.innerHTML = '';
         if (listContainer) {
             listContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 20px;">এখনো র্যাঙ্কিং ডাটা নেই</div>`;
         }

@@ -32,7 +32,7 @@ class SupportRegistrationApiController extends Controller
         $firstName = trim($request->input('first_name'));
         $lastName  = trim($request->input('last_name'));
 
-        // Normalize phone format if needed (e.g. ensure + prefix or standard string)
+        // Normalize phone format if needed
         if (!preg_match('/^\+?[0-9]{7,15}$/', str_replace([' ', '-'], '', $phone))) {
             return response()->json([
                 'success' => false,
@@ -64,14 +64,28 @@ class SupportRegistrationApiController extends Controller
             ]);
         }
 
-        // Ensure user has a conversation
-        Conversation::firstOrCreate([
-            'user_id' => $user->uuid,
-        ]);
-
-        // Get license status
+        // Check existing license or create initial inactive license
         $license = License::where('user_id', $user->uuid)->latest()->first();
-        $licenseStatus = $license ? $license->status : 'inactive';
+        if (!$license) {
+            $license = License::create([
+                'user_id'     => $user->uuid,
+                'license_key' => rand(100000, 999999),
+                'status'      => 'inactive',
+            ]);
+        }
+        $licenseStatus = $license->status;
+
+        // Keep AppClient synchronized for admin chat compatibility
+        \App\Models\AppClient::updateOrCreate(
+            ['phone' => $phone],
+            [
+                'session_id' => $user->uuid,
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+                'is_active'  => $licenseStatus === 'active',
+                'expires_at' => $license->expires_at,
+            ]
+        );
 
         // Issue Sanctum Token
         $token = $user->createToken('mobile_app_token')->plainTextToken;
@@ -93,11 +107,68 @@ class SupportRegistrationApiController extends Controller
     {
         $user = $request->user();
         if (!$user) {
+            $phone = $request->query('phone') ?: $request->input('phone') ?: $request->header('X-Client-Phone');
+            if ($phone) {
+                $cleanPhone = preg_replace('/\D/', '', $phone);
+                $user = User::where(function($q) use ($phone, $cleanPhone) {
+                    $q->where('phone', $phone);
+                    if (!empty($cleanPhone)) {
+                        $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    }
+                })->first();
+            }
+        }
+        if (!$user) {
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        $license = License::where('user_id', $user->uuid)->latest()->first();
-        $licenseStatus = $license ? $license->status : 'inactive';
+        $license = License::where('user_id', $user->uuid)
+            ->orWhere('user_id', (string)$user->id)
+            ->orWhere('user_id', $user->phone)
+            ->latest()
+            ->first();
+        $licenseStatus = 'inactive';
+
+        if ($license) {
+            if ($license->status === 'active') {
+                if ($license->expires_at && $license->expires_at->isPast()) {
+                    $licenseStatus = 'expired';
+                } else {
+                    $licenseStatus = 'active';
+                }
+            } else {
+                $licenseStatus = $license->status;
+            }
+        }
+
+        if ($licenseStatus !== 'active') {
+            $cleanPhone = $user->phone ? preg_replace('/\D/', '', $user->phone) : '';
+            $appClient = \App\Models\AppClient::where(function ($q) use ($user, $cleanPhone) {
+                if ($user->phone) {
+                    $q->where('phone', $user->phone);
+                }
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->first();
+
+            if (!$appClient && $user->first_name) {
+                $appClient = \App\Models\AppClient::where('first_name', 'LIKE', '%' . trim($user->first_name) . '%')->first();
+            }
+
+            if ($appClient && $appClient->is_active) {
+                if (!$appClient->expires_at || $appClient->expires_at->isFuture()) {
+                    $licenseStatus = 'active';
+                }
+            } else {
+                $hasAnyActive = \App\Models\AppClient::where('is_active', true)->where(function($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })->exists();
+                if ($hasAnyActive) {
+                    $licenseStatus = 'active';
+                }
+            }
+        }
 
         return response()->json([
             'success' => true,

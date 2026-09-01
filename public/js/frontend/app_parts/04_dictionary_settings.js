@@ -1,7 +1,14 @@
 // --- 10. Dictionary Logic ---
-let dictionaryData = [];
+if (!window.dictionaryData) {
+    window.dictionaryData = [];
+}
+let dictionaryData = window.dictionaryData;
 
 function fetchDictionaryData() {
+    if (window.dictionaryData && window.dictionaryData.length > 0) {
+        dictionaryData = window.dictionaryData;
+        return;
+    }
     fetch('/api/v1/dizionario')
         .then(r => r.json())
         .then(data => {
@@ -15,14 +22,20 @@ function fetchDictionaryData() {
                 audio: dbItem.audio || null,
                 video: dbItem.video || null,
             })).filter(item => item.word !== '');
+            window.dictionaryData = dictionaryData;
         })
         .catch(() => { });
 }
-fetchDictionaryData();
+if (!window.dictionaryData || window.dictionaryData.length === 0) {
+    fetchDictionaryData();
+}
 
 function initDictionary() {
     const listContainer = document.getElementById('dictionary-list');
     if (!listContainer) return;
+    const existing = listContainer.querySelectorAll('.dictionary-item');
+    if (existing.length > 0) return; // Keep server-rendered items!
+
     listContainer.innerHTML = '';
 
     dictionaryData.forEach(item => {

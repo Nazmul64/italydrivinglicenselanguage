@@ -138,4 +138,51 @@ class LicenseValidationTest extends TestCase
             ->getJson('/api/user-mcq-results?per_page=5000');
         $response->assertStatus(200);
     }
+
+    public function test_qr_unlock_requires_admin_activated_client_in_db(): void
+    {
+        $unregisteredSession = 'unregistered_sess_100';
+
+        // 1. Scanning with no registered user or phone -> 403 Rejected
+        $response = $this->postJson('/api/qr-unlock', [
+            'session_id' => $unregisteredSession,
+            'phone' => '01799999999',
+        ]);
+        $response->assertStatus(403);
+        $response->assertJson([
+            'success' => false,
+            'license_status' => 'inactive',
+        ]);
+
+        // 2. Client submits registration (first_name, last_name, phone) but is NOT activated by Admin yet
+        $client = AppClient::create([
+            'session_id' => 'registered_unactive_sess_200',
+            'first_name' => 'Kalam',
+            'last_name' => 'Uddin',
+            'phone' => '01788888888',
+            'is_active' => false,
+        ]);
+
+        // Scanning QR code before Admin activation -> 403 Rejected
+        $response = $this->postJson('/api/qr-unlock', [
+            'session_id' => $client->session_id,
+            'phone' => $client->phone,
+        ]);
+        $response->assertStatus(403);
+
+        // 3. Admin activates the client
+        $client->is_active = true;
+        $client->save();
+
+        // Scanning QR code after Admin activation -> 200 Success Unlocked
+        $response = $this->postJson('/api/qr-unlock', [
+            'session_id' => $client->session_id,
+            'phone' => $client->phone,
+        ]);
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'license_status' => 'active',
+        ]);
+    }
 }

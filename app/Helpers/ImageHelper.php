@@ -18,11 +18,36 @@ class ImageHelper
      */
     public static function uploadAndOptimize(UploadedFile $file, $destinationPath, $prefix = 'img', $maxWidth = 1200, $quality = 80)
     {
-        $extension = strtolower($file->getClientOriginalExtension());
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+        $extension = '';
+        try {
+            $extension = strtolower($file->getClientOriginalExtension() ?: '');
+        } catch (\Throwable $e) {}
+
+        if (empty($extension)) {
+            try {
+                if (extension_loaded('fileinfo') || function_exists('finfo_open')) {
+                    $extension = strtolower($file->guessExtension() ?: '');
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        if (empty($extension)) {
+            $extension = 'jpg';
+        }
+
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'jfif', 'pjp', 'pjpeg', 'tif', 'tiff', 'bmp', 'avif', 'ico'];
         
         if (!in_array($extension, $allowedExtensions)) {
-            return null;
+            // Safely check if mime type is an image
+            try {
+                if (extension_loaded('fileinfo') || function_exists('finfo_open')) {
+                    $mime = $file->getMimeType();
+                    if (!$mime || !str_starts_with($mime, 'image/')) {
+                        return null;
+                    }
+                }
+            } catch (\Throwable $e) {}
+            $extension = 'jpg';
         }
 
         // Generate dynamic name
@@ -35,8 +60,8 @@ class ImageHelper
 
         $destFilePath = $fullDestDir . '/' . $fileName;
 
-        // If SVG or GIF, just move it directly so animated GIFs and SVGs are perfectly preserved
-        if ($extension === 'svg' || $extension === 'gif') {
+        // If SVG, GIF, TIF, TIFF, ICO, AVIF or direct formats, move directly
+        if (in_array($extension, ['svg', 'gif', 'tif', 'tiff', 'ico', 'avif'])) {
             $rawFileName = $prefix . '_' . time() . '_' . rand(100, 999) . '.' . $extension;
             $file->move($fullDestDir, $rawFileName);
             return '/' . rtrim($destinationPath, '/') . '/' . $rawFileName;

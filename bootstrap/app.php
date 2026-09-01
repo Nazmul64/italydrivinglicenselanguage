@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'admin/api/*',
             'api/*',
+            'qr-unlock',
+            'qr-unlock/*',
         ]);
         $middleware->append(\App\Http\Middleware\MonitorPerformanceAndApi::class);
         $middleware->append(\App\Http\Middleware\SeoRedirectMiddleware::class);
@@ -53,7 +55,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
             if ($request->expectsJson() || $request->is('api/*') || $request->is('admin/api/*')) {
                 return response()->json([
-                    'message' => 'Oops! Something went wrong.',
+                    'message' => $e->getMessage() ?: 'Oops! Something went wrong.',
+                    'error' => $e->getMessage(),
                     'reference_id' => $refId
                 ], \App\Exceptions\DiagnosticsLogger::getStatusCode($e));
             }

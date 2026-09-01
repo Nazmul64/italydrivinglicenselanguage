@@ -357,32 +357,36 @@
         </div>
     </div>
 
-    <!-- Chat settings modal (macros) -->
+    <!-- Chat settings modal (License & Macros) -->
     <div class="modal-overlay" id="admin-chat-settings-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999;">
-        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 380px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                <h4 style="font-size: 14px; font-weight: 800; margin: 0; color: var(--text-primary);">Utente: IMPOSTAZIONI</h4>
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 440px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <div>
+                    <h4 style="font-size: 15px; font-weight: 800; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-key" style="color: #10b981;"></i> লাইসেন্স কি ও রেসপন্স পাঠান
+                    </h4>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">
+                        গ্রাহক: <strong id="chat-settings-target-user" style="color: var(--text-primary);">User</strong>
+                    </div>
+                </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
-                    <button type="button" class="btn btn-sm btn-primary" onclick="openChatPresetManagerModal()" style="font-size: 11px; padding: 3px 8px; font-weight: bold;"><i class="fa-solid fa-gear"></i> Manage</button>
-                    <button onclick="closeAdminChatSettings()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);"><i class="fa-solid fa-xmark"></i></button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="openChatPresetManagerModal()" title="Manage Response Buttons" style="font-size: 11px; padding: 4px 8px; font-weight: bold;">
+                        <i class="fa-solid fa-sliders"></i> বাটন সেটিংস
+                    </button>
+                    <button onclick="closeAdminChatSettings()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
             </div>
             
-            <div style="display: flex; flex-direction: column; gap: 8px;" id="admin-macro-buttons-container">
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('tutti_messaggi')" style="text-align: left; padding: 10px 16px;">Tutti i messaggi</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('progresso')" style="text-align: left; padding: 10px 16px;">Progresso</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('invia_licenza')" style="text-align: left; padding: 10px 16px;">Invia licenza</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('ottieni_licenze')" style="text-align: left; padding: 10px 16px;">Ottieni licenze</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('invia_licenza_trail')" style="text-align: left; padding: 10px 16px;">Invia licenza Trail</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('send_31')" style="text-align: left; padding: 10px 16px; background-color: #f59e0b; color: white; border: none;">Send 31 days</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('send_92')" style="text-align: left; padding: 10px 16px;">Send 92 days</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('send_184')" style="text-align: left; padding: 10px 16px;">Send 184 days</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('send_365')" style="text-align: left; padding: 10px 16px; background-color: #10b981; color: white; border: none;">Send 365 days</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('valuta_nostra_app')" style="text-align: left; padding: 10px 16px;">Valuta nostra app</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('whatsapp')" style="text-align: left; padding: 10px 16px;">Whatsapp</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('audio')" style="text-align: left; padding: 10px 16px;">Audio</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('user_passed')" style="text-align: left; padding: 10px 16px;">User Passed</button>
-                <button class="btn btn-secondary btn-block text-start" onclick="executeChatMacro('lezioni_video')" style="text-align: left; padding: 10px 16px;">Lezioni Video</button>
+            <!-- Custom Presets & Macros Section -->
+            <div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fa-solid fa-list-check"></i> কাস্টম রেসপন্স বাটনসমূহ:</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;" id="admin-macro-buttons-container">
+                    <!-- Loaded dynamically -->
+                </div>
             </div>
         </div>
     </div>
@@ -1465,6 +1469,18 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);"><i class="fa-solid fa-shield-halved" style="color: #3b82f6; margin-right: 6px;"></i> Privacy & Policy (প্রাইভেসি পলিসি)</label>
+                    <textarea id="settings-privacy-policy" name="privacy_policy" class="form-control" style="width: 100%; min-height: 120px; resize: vertical;" placeholder="প্রাইভেসি পলিসি টেক্সট এখানে লিখুন..."></textarea>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">মোবাইল অ্যাপের নেভিগেশন ড্রয়ার থেকে প্রাইভেসি পলিসি অপশনে ক্লিক করলে এই টেক্সট প্রদর্শিত হবে।</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);"><i class="fa-solid fa-file-contract" style="color: #8b5cf6; margin-right: 6px;"></i> Terms & Conditions (টার্মস এন্ড কন্ডিশন)</label>
+                    <textarea id="settings-terms-conditions" name="terms_conditions" class="form-control" style="width: 100%; min-height: 120px; resize: vertical;" placeholder="টার্মস এন্ড কন্ডিশন টেক্সট এখানে লিখুন..."></textarea>
+                    <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">মোবাইল অ্যাপের নেভিগেশন ড্রয়ার থেকে টার্মস এন্ড কন্ডিশন অপশনে ক্লিক করলে এই টেক্সট প্রদর্শিত হবে।</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Application Logo</label>
                     <div style="display: flex; align-items: center; gap: 16px;">
                         <div id="settings-logo-preview-container" style="width: 80px; height: 80px; border-radius: 12px; border: 1.5px solid var(--border-card); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
@@ -2073,47 +2089,79 @@
                     <div class="form-group">
                         <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Microsoft Clarity Project ID</label>
                         <input type="text" id="settings-clarity-id" name="clarity_project_id" class="form-control" placeholder="xxxxxxxxxx">
+                    </div>
                 </div>
 
                 <hr style="margin: 24px 0; border-color: var(--border-color);">
 
-                <h4 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-qrcode" style="color: #10b981;"></i>
-                    <span>Web QR Code Protection & Security Gate (ওয়েবসাইট কিউআর কোড সিকিউরিটি সেটিং)</span>
+                <h4 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
+                    <span>License Key & QR Code Security Protection (লাইসেন্স কি ও কিউআর প্রোটেকশন অন/অফ)</span>
                 </h4>
 
-                <div style="background: rgba(16, 185, 129, 0.05); border: 1.5px solid rgba(16, 185, 129, 0.2); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
-                    <div class="form-group" style="margin-bottom: 16px;">
-                        <label style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text-primary); cursor: pointer;">
-                            <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" style="width: 18px; height: 18px; accent-color: #10b981;">
-                            <span>Enable Web QR Code Security Gate (ওয়েবসাইটে প্রবেশের সময় কিউআর কোড লকার অন করুন)</span>
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1.5px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 15px; color: var(--text-primary); cursor: pointer;">
+                            <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" style="width: 22px; height: 22px; accent-color: #10b981; cursor: pointer;">
+                            <span>Enable License Key & QR Code Security Locket (লাইসেন্স কি এবং কিউআর লকার সিস্টেম চালু করুন)</span>
                         </label>
-                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: block; margin-left: 28px;">
-                            অন করা থাকলে ওয়েবসাইটে প্রবেশের সময় স্ক্রিনশটের মতো ফুল-স্ক্রিন কিউআর কোড শো করবে। মোবাইল অ্যাপের কিউআর স্ক্যানার দিয়ে স্ক্যান করা ছাড়া ওয়েবসাইটে ঢুকতে পারবে না।
-                        </span>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">QR Target Mode (মোড নির্ধারণ করুন)</label>
-                            <select id="settings-qr-target-mode" name="qr_target_mode" class="form-control">
-                                <option value="live">Live Website (http://mbanglapatenteb.com)</option>
-                                <option value="local">Local Website (http://127.0.0.1:8000)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Live Website URL</label>
-                            <input type="text" id="settings-qr-live-url" name="qr_live_url" class="form-control" placeholder="http://mbanglapatenteb.com" value="http://mbanglapatenteb.com">
-                        </div>
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; display: block;">Local Website URL</label>
-                            <input type="text" id="settings-qr-local-url" name="qr_local_url" class="form-control" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; margin-left: 34px; line-height: 1.6;">
+                            <strong style="color: #10b981;">🟢 টিক চিহ্ন (ON) থাকলে:</strong> ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। লাইসেন্স কি এবং পিসি মনিটরের কিউআর কোড স্ক্যান করা ছাড়া ওয়েবসাইট ও মোবাইল অ্যাপে ফুল অ্যাক্সেস পাওয়া যাবে না।<br>
+                            <strong style="color: #ef4444;">🔴 টিক উঠিয়ে দিলে (OFF):</strong> লাইসেন্স কি, ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা কিউআর কোড স্ক্যান করা ছাড়াই ইউজাররা সরাসরি ওয়েবসাইট এবং অ্যাপে সম্পূর্ণ ফ্রিলি ফুল অ্যাক্সেস করতে পারবে।
                         </div>
                     </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="save-settings-btn">
                     <i class="fa-solid fa-save"></i> Save Settings
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PANEL: Free Access & License Key Settings -->
+    <div id="panel-license-settings" class="crud-panel">
+        <div class="welcome-header" style="margin-bottom: 24px;">
+            <h2 class="welcome-title" style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
+                Free Access & License Protection Settings (ফ্রি অ্যাক্সেস সেটিং)
+            </h2>
+            <p class="welcome-subtitle">
+                কন্ট্রোল করুন ইউজারদের ওয়েবসাইট ও মোবাইল অ্যাপ ব্যবহারের জন্য রেজিস্ট্রেশন (ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর) এবং লাইসেন্স কি লাগবে নাকি সরাসরি ফ্রিলি ঢুকতে পারবে।
+            </p>
+        </div>
+
+        <div class="card" style="padding: 24px; max-width: 900px; width: 100%;">
+            <form id="license-protection-form" onsubmit="saveLicenseProtectionForm(event)">
+                @csrf
+                <div style="background: rgba(16, 185, 129, 0.06); border: 2px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: flex-start; gap: 16px;">
+                        <input type="checkbox" id="settings-free-access-mode" name="free_access_mode" value="1" onchange="toggleLicenseModeUI()" style="width: 24px; height: 24px; accent-color: #10b981; cursor: pointer; margin-top: 2px;">
+                        <div style="flex: 1;">
+                            <label for="settings-free-access-mode" style="font-weight: 800; font-size: 16px; color: var(--text-primary); cursor: pointer; display: block; margin-bottom: 8px;">
+                                Enable Free Access Mode without Registration & License Key (রেজিস্ট্রেশন ও লাইসেন্স কি ছাড়া ফ্রি অ্যাক্সেস মোড চালু করুন)
+                            </label>
+
+                            <div id="license-mode-status-on" style="background: #10b981; color: #ffffff; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>
+                                <span>🟢 ফ্রি অ্যাক্সেস মোড চালু (ON): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা লাইসেন্স কি লাগবে না। ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি ফ্রিলি সম্পূর্ণ অ্যাক্সেস পাওয়া যাবে।</span>
+                            </div>
+
+                            <div id="license-mode-status-off" style="background: #ef4444; color: #ffffff; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 12px; display: none; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-shield-halved" style="font-size: 16px;"></i>
+                                <span>🔴 প্রোটেকশন চালু (OFF): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। লাইসেন্স কি ও কিউআর স্ক্যান ছাড়া কোনো অ্যাক্সেস পাওয়া যাবে না।</span>
+                            </div>
+
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 14px; line-height: 1.6;">
+                                • <strong>টিক দেওয়া থাকলে (ON):</strong> কাস্টমার অনায়াসে রেজিস্ট্রেশন ছাড়াই ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি ছাড়াই ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি পড়তে এবং এমসিকিউ প্র্যাকটিস করতে পারবে।<br>
+                                • <strong>টিক উঠিয়ে দিলে (OFF):</strong> ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। কিউআর স্ক্যান ছাড়া ব্লক থাকবে।
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="save-license-settings-btn" style="padding: 12px 24px; font-weight: 700;">
+                    <i class="fa-solid fa-save"></i> Save Free Access Settings
                 </button>
             </form>
         </div>
@@ -2217,9 +2265,9 @@
                                     <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary, #64748b); display: block; margin-bottom: 4px;">
                                         Live Production Server URL:
                                     </label>
-                                    <input type="text" id="server-config-live-url" name="qr_live_url" class="form-control" value="http://mbanglapatenteb.com" placeholder="http://mbanglapatenteb.com" style="background: var(--bg-main, #f8fafc); border: 1px solid var(--border-color, #cbd5e1); font-family: monospace;">
+                                    <input type="text" id="server-config-live-url" name="qr_live_url" class="form-control" value="https://mbanglapatenteb.com" placeholder="https://mbanglapatenteb.com" style="background: var(--bg-main, #f8fafc); border: 1px solid var(--border-color, #cbd5e1); font-family: monospace;">
                                     <span style="font-size: 11px; color: #ef4444; margin-top: 4px; display: block;">
-                                        Example: <code style="color: #ef4444;">http://mbanglapatenteb.com</code>
+                                        Example: <code style="color: #ef4444;">https://mbanglapatenteb.com</code>
                                     </span>
                                 </div>
                             </div>

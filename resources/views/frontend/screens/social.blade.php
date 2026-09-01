@@ -17,7 +17,7 @@
 
         <!-- Photo Upload Preview -->
         <div id="social-photo-preview-box" style="display: none; position: relative; margin-bottom: 12px; border-radius: 12px; overflow: hidden; max-height: 220px; background: #000;">
-            <img id="social-photo-preview" src="" style="width: 100%; max-height: 220px; object-fit: contain; display: block;">
+            <img id="social-photo-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="width: 100%; max-height: 220px; object-fit: contain; display: block;">
             <button type="button" onclick="clearSocialPhotoSelection()" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
@@ -53,7 +53,7 @@
         <textarea id="social-edit-content" rows="4" style="width: 100%; border-radius: 12px; border: 1px solid var(--border-card); background: var(--bg-page); color: var(--text-primary); padding: 10px; font-size: 14px; resize: none; box-sizing: border-box; margin-bottom: 12px;"></textarea>
 
         <div id="social-edit-photo-container" style="margin-bottom: 12px; display: none;">
-            <img id="social-edit-photo-preview" src="" style="width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px;">
+            <img id="social-edit-photo-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" style="width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px;">
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: flex-end;">

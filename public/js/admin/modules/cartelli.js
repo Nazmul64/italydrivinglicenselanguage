@@ -868,6 +868,7 @@ function openAddCartelloMcqModal() {
     editingCartelloMcqId = null;
     document.getElementById('cartello-mcq-modal-title').textContent = 'Add New Question';
     document.getElementById('cartello-mcq-form').reset();
+    if (document.getElementById('cmcq-image-position')) document.getElementById('cmcq-image-position').value = 'left';
     const vocabTbody = document.getElementById('cartello-mcq-vocab-tbody');
     if (vocabTbody) vocabTbody.innerHTML = '';
 
@@ -909,6 +910,7 @@ function openEditCartelloMcqModal(id) {
     document.getElementById('cmcq-question').value = q.question;
     document.getElementById('cmcq-bn-question').value = q.bn_question;
     document.getElementById('cmcq-correct-answer').value = q.correct_answer;
+    if (document.getElementById('cmcq-image-position')) document.getElementById('cmcq-image-position').value = q.image_position || 'left';
     if (document.getElementById('cmcq-explanation')) document.getElementById('cmcq-explanation').value = q.explanation || '';
     if (document.getElementById('cmcq-bn-explanation')) document.getElementById('cmcq-bn-explanation').value = q.bn_explanation || '';
     document.getElementById('cartello-mcq-modal').style.display = 'flex';

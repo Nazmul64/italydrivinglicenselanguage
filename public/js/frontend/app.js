@@ -44,7 +44,7 @@ let isSchedeSelectMode = false;
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
-let currentClientActive = localStorage.getItem('app_client_active') !== 'false';
+let currentClientActive = localStorage.getItem('app_client_active') === 'true';
 let currentClientPhone = null;
 let currentClientSessionId = null;
 
@@ -85,11 +85,14 @@ function saveUserQuestionStats(stats) {
 }
 
 function syncUserQuestionStatsFromBackend() {
-    if (typeof currentClientActive !== 'undefined' && !currentClientActive && localStorage.getItem('app_client_active') !== 'true') {
-        return Promise.resolve();
-    }
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
-    return fetch('/api/user-mcq-results?per_page=5000')
+    let url = '/api/user-mcq-results?per_page=5000';
+    if (savedPhone) url += `&phone=${encodeURIComponent(savedPhone)}`;
+    if (savedSessionId) url += `&session_id=${encodeURIComponent(savedSessionId)}`;
+
+    return fetch(url)
         .then(res => {
             if (!res.ok) return null;
             return res.json();
@@ -98,15 +101,15 @@ function syncUserQuestionStatsFromBackend() {
             if (!data) return;
             const items = data.data || (Array.isArray(data) ? data : []);
 
-            if (!items || !Array.isArray(items)) return;
+            if (!Array.isArray(items)) return;
 
-            const stats = getUserQuestionStats();
+            const stats = {};
             items.forEach(item => {
                 const qId = item.question_id;
                 if (!qId) return;
                 const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
 
-                if (!stats[qId] || new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
+                if (!stats[qId]) {
                     stats[qId] = {
                         state: isCorrect ? 'correct' : 'wrong',
                         correct: isCorrect ? 1 : 0,
@@ -114,6 +117,13 @@ function syncUserQuestionStatsFromBackend() {
                         chapter: item.chapter_id || null,
                         updated_at: item.updated_at
                     };
+                } else {
+                    if (isCorrect) stats[qId].correct = (stats[qId].correct || 0) + 1;
+                    else stats[qId].wrong = (stats[qId].wrong || 0) + 1;
+                    if (new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
+                        stats[qId].state = isCorrect ? 'correct' : 'wrong';
+                        stats[qId].updated_at = item.updated_at;
+                    }
                 }
             });
             saveUserQuestionStats(stats);
@@ -404,16 +414,28 @@ function updateArgomentiPillStates() {
 function unselectAllSheets() {
     selectedSheets = [];
     isSchedeSelectMode = false;
-    renderSheetsList();
+    document.querySelectorAll('.scheda-item-card').forEach(card => {
+        card.classList.remove('selected-sheet-card');
+    });
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllSheets() {
-    selectedSheets = Array.from({ length: activeChapterPages.length }, (_, i) => i);
+    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
+    
+    selectedSheets = [];
+    cards.forEach(card => {
+        const pageId = parseInt(card.getAttribute('data-page-id'));
+        if (!isNaN(pageId)) {
+            selectedSheets.push(pageId);
+            card.classList.add('selected-sheet-card');
+        }
+    });
+
     isSchedeSelectMode = true;
-    renderSheetsList();
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
     showToast('সব পৃষ্ঠা সিলেক্ট করা হয়েছে');
@@ -421,29 +443,45 @@ function selectAllSheets() {
 
 function toggleSelectSheets() {
     isSchedeSelectMode = true;
-    if (selectedSheets.length === 0 && activeChapterPages.length > 0) {
-        selectedSheets = [0];
+    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
+    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
+    
+    if (selectedSheets.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-page-id'));
+        if (!isNaN(firstId)) {
+            selectedSheets = [firstId];
+            cards[0].classList.add('selected-sheet-card');
+        }
     }
-    renderSheetsList();
+    updateSheetsQuizButtonVisibility();
+    updateArgomentiPillStates();
+}
+
+function toggleSheetSelectionById(pageId) {
+    pageId = parseInt(pageId);
+    const idx = selectedSheets.indexOf(pageId);
+    if (idx > -1) {
+        selectedSheets.splice(idx, 1);
+    } else {
+        selectedSheets.push(pageId);
+    }
+    isSchedeSelectMode = selectedSheets.length > 0;
+
+    const card = document.querySelector(`.scheda-item-card[data-page-id="${pageId}"]`);
+    if (card) {
+        if (selectedSheets.includes(pageId)) {
+            card.classList.add('selected-sheet-card');
+        } else {
+            card.classList.remove('selected-sheet-card');
+        }
+    }
+
     updateSheetsQuizButtonVisibility();
     updateArgomentiPillStates();
 }
 
 function toggleSheetSelection(sheetIndex) {
-    const idx = selectedSheets.indexOf(sheetIndex);
-    if (idx > -1) {
-        selectedSheets.splice(idx, 1);
-    } else {
-        selectedSheets.push(sheetIndex);
-    }
-    if (selectedSheets.length > 0) {
-        isSchedeSelectMode = true;
-    } else {
-        isSchedeSelectMode = false;
-    }
-    renderSheetsList();
-    updateSheetsQuizButtonVisibility();
-    updateArgomentiPillStates();
+    toggleSheetSelectionById(sheetIndex);
 }
 
 function updateSheetsQuizButtonVisibility() {
@@ -462,61 +500,93 @@ function startCustomSheetsQuiz() {
         return;
     }
 
-    let pool = [];
-    selectedSheets.forEach(sheetIndex => {
-        const chunk = activeChapterQuestions.slice(sheetIndex * 10, (sheetIndex + 1) * 10);
-        pool = pool.concat(chunk);
-    });
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
-    if (pool.length === 0) {
-        showToast('সিলেক্ট করা পৃষ্ঠাসমূহে কোনো প্রশ্ন পাওয়া যায়নি');
-        return;
-    }
+    Promise.all(selectedSheets.map(pageId =>
+        fetch(`/api/questions/page/${pageId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
+            .catch(() => [])
+    ))
+        .then(results => {
+            let pool = [];
+            results.forEach(list => {
+                list.forEach(q => {
+                    pool.push({
+                        id: q.id,
+                        chapter: q.chapter,
+                        page_id: q.page_id,
+                        italian: q.italian,
+                        bangla: q.bangla,
+                        is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                        image: q.image,
+                        audio: q.audio,
+                        video: q.video,
+                        vocabulary: q.vocabulary || []
+                    });
+                });
+            });
 
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+            if (pool.length === 0) {
+                showToast('সিলেক্ট করা পৃষ্ঠাসমূহে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
+                return;
+            }
 
-    const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
-    showTestOptionsDialog(() => {
-        testQuestions = shuffledPool.slice(0, Math.min(30, shuffledPool.length));
-        currentTestIndex = 0;
-        testAnswers = Array(testQuestions.length).fill(null);
-        practiceMode = 'exam';
+            const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+            const quizQuestions = shuffledPool.slice(0, Math.min(30, shuffledPool.length));
 
-        const timerPill = document.getElementById('test-timer');
-        if (timerPill) {
-            timerPill.innerText = `SHEETS QUIZ`;
-            timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-            timerPill.style.borderColor = 'var(--accent-green)';
-            timerPill.style.color = 'var(--accent-green)';
-        }
-        const timerLabel = document.querySelector('.test-timer-label');
-        if (timerLabel) {
-            timerLabel.innerText = `${selectedSheets.length} Selected Sheets`;
-        }
+            showTestOptionsDialog(() => {
+                testQuestions = quizQuestions;
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
+                practiceMode = 'exam';
 
-        openScreen('test', 'Sheets Exam');
-        switchTestQuestionTab(1);
-        showTestQuestion();
-        startTestTimer();
-    });
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill) {
+                    timerPill.innerText = `SHEETS QUIZ`;
+                    timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                    timerPill.style.borderColor = 'var(--accent-green)';
+                    timerPill.style.color = 'var(--accent-green)';
+                }
+                const timerLabel = document.querySelector('.test-timer-label');
+                if (timerLabel) {
+                    timerLabel.innerText = `${targetSheets ? targetSheets.length : selectedSheets.length} Selected Sheets`;
+                }
+
+                openScreen('test', 'Sheets Exam');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            });
+        })
+        .catch(err => {
+            console.error('Error fetching sheets quiz:', err);
+            showToast('কুইজ লোড করতে সমস্যা হয়েছে');
+        });
 }
 
 let allArgomentiChapters = [];
 let isArgomentiSelectMode = false;
 
 function toggleChapterSelection(id) {
+    id = parseInt(id);
     const idx = selectedChapters.indexOf(id);
     if (idx > -1) {
         selectedChapters.splice(idx, 1);
     } else {
         selectedChapters.push(id);
     }
-    if (selectedChapters.length > 0) {
-        isArgomentiSelectMode = true;
-    } else {
-        isArgomentiSelectMode = false;
+    isArgomentiSelectMode = selectedChapters.length > 0;
+
+    const card = document.querySelector(`.chapter-image-card[data-chapter-id="${id}"]`);
+    if (card) {
+        if (selectedChapters.includes(id)) {
+            card.classList.add('selected-chapter-card');
+        } else {
+            card.classList.remove('selected-chapter-card');
+        }
     }
-    renderArgomentiList();
+
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
 }
@@ -524,16 +594,33 @@ function toggleChapterSelection(id) {
 function unselectAllArgomentiChapters() {
     selectedChapters = [];
     isArgomentiSelectMode = false;
-    renderArgomentiList();
+    document.querySelectorAll('.chapter-image-card').forEach(card => {
+        card.classList.remove('selected-chapter-card');
+    });
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
     showToast('সব অধ্যায় আন-সিলেক্ট করা হয়েছে');
 }
 
 function selectAllArgomentiChapters() {
-    selectedChapters = allArgomentiChapters.map(c => c.id);
+    if ((!allArgomentiChapters || allArgomentiChapters.length === 0) && window.allArgomentiChapters && window.allArgomentiChapters.length > 0) {
+        allArgomentiChapters = window.allArgomentiChapters;
+    }
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    selectedChapters = [];
+    cards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-chapter-id'));
+        if (!isNaN(id)) {
+            selectedChapters.push(id);
+            card.classList.add('selected-chapter-card');
+        }
+    });
+
+    if (selectedChapters.length === 0 && allArgomentiChapters.length > 0) {
+        selectedChapters = allArgomentiChapters.map(c => c.id);
+    }
+
     isArgomentiSelectMode = true;
-    renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
     showToast('সব অধ্যায় সিলেক্ট করা হয়েছে');
@@ -541,10 +628,14 @@ function selectAllArgomentiChapters() {
 
 function toggleSelectArgomentiChapters() {
     isArgomentiSelectMode = true;
-    if (selectedChapters.length === 0 && allArgomentiChapters.length > 0) {
-        selectedChapters = [allArgomentiChapters[0].id];
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    if (selectedChapters.length === 0 && cards.length > 0) {
+        const firstId = parseInt(cards[0].getAttribute('data-chapter-id'));
+        if (!isNaN(firstId)) {
+            selectedChapters = [firstId];
+            cards[0].classList.add('selected-chapter-card');
+        }
     }
-    renderArgomentiList();
     updateCategoryQuizButtonVisibility();
     updateArgomentiChapterPillStates();
 }
@@ -552,7 +643,7 @@ function toggleSelectArgomentiChapters() {
 function updateCategoryQuizButtonVisibility() {
     const btn = document.getElementById('argomenti-category-quiz-btn');
     if (!btn) return;
-    btn.style.display = selectedChapters.length > 0 ? 'block' : 'none';
+    btn.style.display = selectedChapters.length > 0 ? 'flex' : 'none';
 }
 
 function updateArgomentiChapterPillStates() {
@@ -568,9 +659,12 @@ function updateArgomentiChapterPillStates() {
         selectPill.style.display = isArgomentiSelectMode ? 'none' : 'inline-block';
     }
 
+    const cards = document.querySelectorAll('#argomenti-list .chapter-image-card');
+    const totalCount = cards.length;
+
     if (!isArgomentiSelectMode && selectedChapters.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
-    } else if (allArgomentiChapters.length > 0 && selectedChapters.length === allArgomentiChapters.length) {
+    } else if (totalCount > 0 && selectedChapters.length >= totalCount) {
         if (selectAllPill) selectAllPill.classList.add('active');
     } else if (isArgomentiSelectMode) {
         if (selectPill) selectPill.classList.add('active');
@@ -582,45 +676,65 @@ function startArgomentiCategoryQuiz() {
         showToast('অনুগ্রহ করে অন্তত একটি অধ্যায় সিলেক্ট করুন');
         return;
     }
-    showToast('কুইজ প্রশ্ন তৈরি হচ্ছে...');
+    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
     Promise.all(selectedChapters.map(chapId =>
-        fetch(`/api/questions/chapter/${chapId}`).then(res => res.json())
+        fetch(`/api/questions/chapter/${chapId}`)
+            .then(res => res.json())
+            .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
+            .catch(() => [])
     ))
         .then(results => {
             let allMcqs = [];
             results.forEach(list => {
                 if (Array.isArray(list)) {
-                    list.forEach(q => allMcqs.push(q));
+                    list.forEach(q => {
+                        allMcqs.push({
+                            id: q.id,
+                            chapter: q.chapter,
+                            page_id: q.page_id,
+                            italian: q.italian,
+                            bangla: q.bangla,
+                            is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || String(q.correct_answer || '').toLowerCase() === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
+                            image: q.image,
+                            audio: q.audio,
+                            video: q.video,
+                            vocabulary: q.vocabulary || []
+                        });
+                    });
                 }
             });
 
             if (allMcqs.length === 0) {
-                showToast('কোনো কুইজ প্রশ্ন পাওয়া যায়নি');
+                showToast('সিলেক্ট করা অধ্যায়ের অধীনে কোনো এমসিকিউ প্রশ্ন পাওয়া যায়নি');
                 return;
             }
 
-            testQuestions = allMcqs.sort(() => Math.random() - 0.5).slice(0, Math.min(30, allMcqs.length));
-            currentTestIndex = 0;
-            testAnswers = Array(testQuestions.length).fill(null);
-            practiceMode = 'exam';
+            const quizQuestions = allMcqs.sort(() => Math.random() - 0.5).slice(0, Math.min(30, allMcqs.length));
 
-            const timerPill = document.getElementById('test-timer');
-            if (timerPill) {
-                timerPill.innerText = `CHAPTER QUIZ`;
-                timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
-                timerPill.style.borderColor = 'var(--accent-green)';
-                timerPill.style.color = 'var(--accent-green)';
-            }
-            const timerLabel = document.querySelector('.test-timer-label');
-            if (timerLabel) {
-                timerLabel.innerText = `${selectedChapters.length} Selected Chapters`;
-            }
+            showTestOptionsDialog(() => {
+                testQuestions = quizQuestions;
+                currentTestIndex = 0;
+                testAnswers = Array(testQuestions.length).fill(null);
+                practiceMode = 'exam';
 
-            openScreen('test', 'Argomenti Exam');
-            switchTestQuestionTab(1);
-            showTestQuestion();
-            startTestTimer();
+                const timerPill = document.getElementById('test-timer');
+                if (timerPill) {
+                    timerPill.innerText = `CHAPTER QUIZ`;
+                    timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+                    timerPill.style.borderColor = 'var(--accent-green)';
+                    timerPill.style.color = 'var(--accent-green)';
+                }
+                const timerLabel = document.querySelector('.test-timer-label');
+                if (timerLabel) {
+                    timerLabel.innerText = `${targetChapters ? targetChapters.length : selectedChapters.length} Selected Chapters`;
+                }
+
+                openScreen('test', 'Argomenti Exam');
+                switchTestQuestionTab(1);
+                showTestQuestion();
+                startTestTimer();
+            });
         })
         .catch(err => {
             console.error("Error creating category quiz: ", err);
@@ -680,11 +794,8 @@ function renderArgomentiList() {
                         <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
-                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="max-height: 140px; max-width: 90%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
-                        </div>
-                        <div style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-secondary); margin-top: auto; padding-top: 10px;">
-                            Progresso
+                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="height: 100%; width: 100%; max-height: 320px; min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px;; max-width: 96%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
                         </div>
                     </div>
                 `;
@@ -780,6 +891,7 @@ function renderSheetsList() {
         });
 
         const total = pageQuestions.length || (page.questions_count || 10);
+        const safeTotal = total > 0 ? total : 1;
         const unanswered = Math.max(0, total - correct - wrong);
         const isSelected = selectedSheets.includes(index);
 
@@ -801,7 +913,15 @@ function renderSheetsList() {
             }
         };
 
-        const safeTotal = total || 1;
+        let pageImgHTML = '';
+        if (page.image) {
+            const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
+            pageImgHTML = `
+                <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
+                    <img src="${imgSrc}" class="schede-page-img" alt="${displaySheetTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                </div>
+            `;
+        }
 
         card.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -1113,9 +1233,18 @@ function navigateBack() {
 
 function clickBottomNav(screenId) {
     let title = 'mbanglapatenteb';
-    if (screenId === 'scheda-esame') title = 'Scheda Esame';
-    else if (screenId === 'dizionario') title = 'Dizionario';
+    if (screenId === 'test') title = 'Practice Quiz';
+    else if (screenId === 'argomenti') title = 'Argomenti';
+    else if (screenId === 'cartelli') title = 'Cartelli';
     else if (screenId === 'profilo') title = 'Profilo';
+    else if (screenId === 'scheda-esame') title = 'Scheda Esame';
+    else if (screenId === 'dizionario') title = 'Dizionario';
+
+    if (screenId === 'argomenti' && typeof renderArgomentiList === 'function') {
+        renderArgomentiList();
+    } else if (screenId === 'cartelli' && typeof renderCartelliChaptersGrid === 'function') {
+        renderCartelliChaptersGrid();
+    }
 
     openScreen(screenId, title);
 }
@@ -1125,19 +1254,19 @@ function syncBottomNav(screenId) {
     navItems.forEach(item => item.classList.remove('active'));
 
     const navHome = document.getElementById('nav-home');
-    const navQuiz = document.getElementById('nav-quiz');
-    const navScanner = document.getElementById('nav-scanner');
-    const navDictionary = document.getElementById('nav-dictionary');
+    const navTest = document.getElementById('nav-test') || document.getElementById('nav-quiz');
+    const navArgomenti = document.getElementById('nav-argomenti') || document.getElementById('nav-scanner');
+    const navCartelli = document.getElementById('nav-cartelli') || document.getElementById('nav-dictionary');
     const navProfile = document.getElementById('nav-profile');
 
     if (screenId === 'home' && navHome) {
         navHome.classList.add('active');
-    } else if (screenId === 'scheda-esame' && navQuiz) {
-        navQuiz.classList.add('active');
-    } else if (screenId === 'qr-scanner' && navScanner) {
-        navScanner.classList.add('active');
-    } else if (screenId === 'dizionario' && navDictionary) {
-        navDictionary.classList.add('active');
+    } else if ((screenId === 'test' || screenId === 'scheda-esame') && navTest) {
+        navTest.classList.add('active');
+    } else if ((screenId === 'argomenti' || screenId === 'argomenti-schede' || screenId === 'page-details') && navArgomenti) {
+        navArgomenti.classList.add('active');
+    } else if ((screenId === 'cartelli' || screenId === 'cartelli-schede' || screenId === 'cartelli-page') && navCartelli) {
+        navCartelli.classList.add('active');
     } else if (screenId === 'profilo' && navProfile) {
         navProfile.classList.add('active');
     }
@@ -1630,7 +1759,7 @@ function toggleGuestChat(show) {
         unreadChatMessageCount = 0;
         updateChatHeaderUnreadBadge();
         const savedPhone = localStorage.getItem('app_client_phone');
-        if (savedPhone || currentClientVerified) {
+        if (savedPhone && currentClientVerified) {
             setChatWidgetView('normal');
         } else {
             setChatWidgetView('verify');
@@ -1701,8 +1830,15 @@ function renderGuestChatMessages(messages) {
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
             const matchDays = msg.message.match(/days=(\d+)/);
             const matchKey = msg.message.match(/key=(\d+)/);
-            const days = matchDays ? matchDays[1] : 365;
+            const days = matchDays ? parseInt(matchDays[1], 10) : 365;
             const key = matchKey ? matchKey[1] : '';
+
+            let durationStr = `${days} Days`;
+            if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
+            else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
+            else if (days === 180) durationStr = '6 Months (৬ মাস)';
+            else if (days === 90) durationStr = '3 Months (৩ মাস)';
+            else if (days === 30) durationStr = '1 Month (১ মাস)';
 
             bubble.className = `license-card-bubble`;
             let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza</button>`;
@@ -1712,14 +1848,8 @@ function renderGuestChatMessages(messages) {
 
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-features">
-                    <div>Traduzione Testi</div>
-                    <div>Audio</div>
-                    <div>Lezioni Video</div>
-                    <div>Live class video registarti</div>
-                    <div>Web App</div>
-                    <div>SUPPORTO</div>
-                    <div>Giorni ${days}</div>
+                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
+                    <i class="fa-solid fa-clock"></i> মেয়াদ: ${durationStr}
                 </div>
                 ${buttonHTML}
             `;
@@ -2360,7 +2490,8 @@ function toggleTestTranslation() {
         const itText = q.italian || q.question || '';
         const bnText = q.bangla || q.bn_question || '';
         const vocab = q.vocabulary || [];
-        openQuestionTranslationModal(itText, bnText, vocab);
+        const qImg = q.image || q.img || '';
+        openQuestionTranslationModal(itText, bnText, vocab, qImg);
     } else {
         showToast('অনুবাদ লোড করা সম্ভব হয়নি');
     }
@@ -2922,7 +3053,7 @@ function renderDetailResultsList() {
 
                     <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="background: #ecfdf5; border: 1px solid #10b981; color: #10b981;" title="Bookmark">
                         <i class="fa-regular fa-bookmark" style="font-size: 12px;"></i>
-                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">শীট</span>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">সেভ</span>
                     </button>
 
                     <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;" title="Add Note">
@@ -2955,7 +3086,7 @@ function renderDetailResultsList() {
                         <i class="fa-solid fa-gauge-high" style="font-size: 11px; color: #4CAF50;"></i>
                         <span id="detail-speed-lbl-${i}">${getDetailQuestionSpeed(i)}x</span>
                     </button>
-                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none; position: absolute; bottom: 34px; right: 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px; z-index: 100; min-width: 90px; max-height: 220px; overflow-y: auto;">
+                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none;">
                     </div>
                 </div>
             </div>
@@ -3004,7 +3135,7 @@ function renderSpeedPopoverItems(index) {
     popover.innerHTML = options.map(rate => {
         const isSelected = rate === currentSpeed;
         return `
-            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : '#1e293b'}; background: ${isSelected ? '#f0fdf4' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isSelected ? '#f0fdf4' : 'transparent'}'">
+            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : 'var(--text-primary, #1e293b)'}; background: ${isSelected ? 'rgba(34, 197, 94, 0.12)' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='var(--border-card, #f1f5f9)'" onmouseout="this.style.background='${isSelected ? 'rgba(34, 197, 94, 0.12)' : 'transparent'}'">
                 <span style="width: 12px; font-weight: 900; color: #16a34a;">${isSelected ? '✓' : ''}</span>
                 <span>${rate}</span>
             </div>
@@ -3038,7 +3169,7 @@ window.addEventListener('click', () => {
 function toggleDetailTranslation(index) {
     if (!testQuestions || !testQuestions[index]) return;
     const q = testQuestions[index];
-    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '');
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], q.image || q.img || '');
 }
 
 // 🎤 Speaker Microphone Button - Pronunciation TTS Only
@@ -3356,8 +3487,10 @@ function openPageDetailsScreen(pageId) {
                 fetch(`/api/notes?page_id=${page.id}`).then(r => r.json())
             ])
                 .then(([savedList, notesList]) => {
-                    const savedIds = savedList.map(s => s.question_id);
-                    renderPageQuestionsList(page.questions, savedIds, notesList);
+                    const savedArr = Array.isArray(savedList) ? savedList : (savedList && Array.isArray(savedList.data) ? savedList.data : []);
+                    const savedIds = savedArr.map(s => s.question_id || s.id);
+                    const notesArr = Array.isArray(notesList) ? notesList : (notesList && Array.isArray(notesList.data) ? notesList.data : []);
+                    renderPageQuestionsList(page.questions, savedIds, notesArr);
                 })
                 .catch(err => {
                     console.error("Error fetching bookmarks or notes: ", err);
@@ -3413,7 +3546,8 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
-        const qImage = q.image || q.img || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
+        const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
+        const qImage = q.image || q.img || vocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
 
         const topHeaderImageHtml = qImage ? `
             <div class="detail-q-top-image-wrap">
@@ -3427,7 +3561,12 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '';
 
-        if (q.image || q.img) {
+        const hasImage = !!(q.image || q.img);
+        const imgPos = q.image_position || 'left';
+        const showTopImg = hasImage && (imgPos === 'top' || imgPos === 'both');
+        const showLeftImg = hasImage && (imgPos === 'left' || imgPos === 'both');
+
+        if (showTopImg) {
             const topImgCard = document.createElement('div');
             topImgCard.className = 'detail-q-top-image-card';
             topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
@@ -3448,7 +3587,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                ${showLeftImg ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
@@ -3664,13 +3803,17 @@ function showQuestionSpeedPopover(btn, isCartelli = false) {
     popover.style.display = 'flex';
     popover.style.flexDirection = 'column';
     popover.style.background = 'var(--bg-card)';
-    popover.style.border = '1px solid var(--border-card)';
-    popover.style.borderRadius = '8px';
-    popover.style.boxShadow = '0 10px 25px rgba(0,0,0,0.1)';
-    popover.style.minWidth = '85px';
+    popover.style.border = '1.5px solid var(--border-card)';
+    popover.style.borderRadius = '12px';
+    popover.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+    popover.style.minWidth = '90px';
+    popover.style.padding = '4px 0';
+    popover.style.maxHeight = 'none';
+    popover.style.height = 'auto';
+    popover.style.overflow = 'hidden';
 
-    const popoverHeight = popover.offsetHeight || 220;
-    const popoverWidth = popover.offsetWidth || 85;
+    const popoverHeight = popover.getBoundingClientRect().height || popover.offsetHeight || 300;
+    const popoverWidth = popover.getBoundingClientRect().width || popover.offsetWidth || 90;
 
     let left = rect.left + scrollLeft + (rect.width / 2) - (popoverWidth / 2);
     let top = rect.top + scrollTop - popoverHeight - 8;
@@ -3735,7 +3878,7 @@ function togglePageTranslation(qId) {
     const q = activePageDetails.questions.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian, q.bangla);
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], q.image || q.img || '');
 }
 
 function startPageQuiz() {
@@ -3904,44 +4047,59 @@ function togglePageDetailsPageDropdown() {
     }
 }
 
-function toggleCurrentPageSelection() {
-    const btn = document.getElementById('page-details-select-toggle-btn');
-    if (!btn) return;
-    const isSelected = btn.classList.contains('active');
+window.isArgomentiSelectionMode = window.isArgomentiSelectionMode || false;
+
+function updateArgomentiSelectionPills() {
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
-    if (isSelected) {
-        btn.classList.remove('active');
-        btn.innerText = 'Select Page';
-        cards.forEach(c => c.classList.remove('selected-q-card'));
-        showToast('পেজ সিলেক্ট মুক্ত করা হয়েছে');
+    const selectedCards = document.querySelectorAll('#page-questions-list-container .detail-q-card.selected-q-card');
+    const selectBtn = document.getElementById('page-details-select-toggle-btn');
+    const selectAllBtn = document.getElementById('page-details-select-all-btn');
+    const unselectAllBtn = document.getElementById('page-details-unselect-all-btn');
+
+    if (selectAllBtn) selectAllBtn.classList.remove('active');
+    if (unselectAllBtn) unselectAllBtn.classList.remove('active');
+    if (selectBtn) selectBtn.classList.remove('active');
+
+    if (window.isArgomentiSelectionMode) {
+        if (selectBtn) selectBtn.style.display = 'none';
+        if (cards.length > 0 && selectedCards.length === cards.length) {
+            if (selectAllBtn) selectAllBtn.classList.add('active');
+        }
     } else {
-        btn.classList.add('active');
-        btn.innerText = 'Selected Page';
-        cards.forEach(c => c.classList.add('selected-q-card'));
-        showToast('পেজ সিলেক্ট করা হয়েছে');
+        if (selectBtn) selectBtn.style.display = 'inline-block';
+        if (selectedCards.length === 0) {
+            if (unselectAllBtn) unselectAllBtn.classList.add('active');
+        }
     }
 }
 
+function toggleCurrentPageSelection() {
+    window.isArgomentiSelectionMode = true;
+    const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
+    const selectedCount = document.querySelectorAll('#page-questions-list-container .detail-q-card.selected-q-card').length;
+    if (selectedCount === 0 && cards.length > 0) {
+        cards[0].classList.add('selected-q-card');
+    }
+    updateArgomentiSelectionPills();
+    showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
+}
+
 function selectAllPagesInDetails() {
-    const btnAll = document.getElementById('page-details-select-all-btn');
-    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
-    if (btnAll) btnAll.classList.add('active');
-    if (btnUnselect) btnUnselect.classList.remove('active');
+    window.isArgomentiSelectionMode = true;
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
     cards.forEach(c => c.classList.add('selected-q-card'));
-    showToast('সব পেজ সিলেক্ট করা হয়েছে');
+    updateArgomentiSelectionPills();
+    showToast('সব প্রশ্ন সিলেক্ট করা হয়েছে');
 }
 
 function unselectAllPagesInDetails() {
-    const btnAll = document.getElementById('page-details-select-all-btn');
-    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
-    if (btnAll) btnAll.classList.remove('active');
-    if (btnUnselect) btnUnselect.classList.add('active');
+    window.isArgomentiSelectionMode = false;
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
     cards.forEach(c => c.classList.remove('selected-q-card'));
-    showToast('সব পেজ আনসিলেক্ট করা হয়েছে');
+    updateArgomentiSelectionPills();
+    showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
-
+window.updateArgomentiSelectionPills = updateArgomentiSelectionPills;
 window.toggleCurrentPageSelection = toggleCurrentPageSelection;
 window.selectAllPagesInDetails = selectAllPagesInDetails;
 window.unselectAllPagesInDetails = unselectAllPagesInDetails;
@@ -3997,24 +4155,20 @@ function loadSavedMcqsScreen() {
                 const pageNum = page ? (page.sort_order || page.id) : '';
 
                 let locationBadgeHtml = '';
-                if (chapNum || pageTitle) {
-                    locationBadgeHtml = `
-                        <div style="font-size: 11px; font-weight: 700; color: var(--accent-green); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; background-color: rgba(76, 175, 80, 0.08); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(76, 175, 80, 0.18); width: fit-content;">
-                            <i class="fa-solid fa-folder-open" style="font-size: 10px;"></i>
-                            <span>${chapNum ? `Capitolo ${chapNum}` : ''}${chapName ? `: ${chapName}` : ''}${pageTitle ? ` · Pagina ${pageNum}: ${pageTitle}` : ''}</span>
-                        </div>
-                    `;
-                }
 
-                const qImage = q.image || q.img || (page && page.image ? page.image : null);
+                const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
+                const qImage = q.image || q.img || vocabImg || (page && page.image ? page.image : null);
+                const imgPos = q.image_position || 'left';
+                const showTopImg = qImage && (imgPos === 'top' || imgPos === 'both');
+                const showLeftImg = qImage && (imgPos === 'left' || imgPos === 'both');
 
-                const topImageCardHtml = qImage ? `
+                const topImageCardHtml = showTopImg ? `
                     <div style="text-align: center; padding: 20px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
                         <img src="${qImage}" style="max-height: 150px; width: auto; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
-                const leftThumbHtml = qImage ? `
+                const leftThumbHtml = showLeftImg ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
                         <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
@@ -4309,18 +4463,28 @@ function toggleSavedTranslation(qId) {
     const q = activeSavedMcqs.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || []);
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], q.image || q.img || '');
 }
 
-function toggleSavedMcq(questionId, btnElement) {
+function toggleSavedMcq(questionId, btnElement, type) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
+    const payload = { 
+        question_id: questionId,
+        phone: savedPhone,
+        session_id: savedSessionId
+    };
+    if (type) payload.type = type;
+
     fetch('/api/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': token
         },
-        body: JSON.stringify({ question_id: questionId })
+        body: JSON.stringify(payload)
     })
         .then(res => res.json())
         .then(data => {
@@ -4457,11 +4621,15 @@ function deleteUserNote() {
     }
 }
 
-function saveQuestionAnswerStat(questionId, chapterId, state) {
+function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'argomenti') {
     if (!questionId) return;
     const qIdNum = parseInt(questionId);
+    const key = (questionType === 'cartelli' || String(questionId).startsWith('cartelli_'))
+        ? `cartelli_${qIdNum}`
+        : qIdNum;
+
     const stats = getUserQuestionStats();
-    const existing = stats[qIdNum] || { correct: 0, wrong: 0 };
+    const existing = stats[key] || { correct: 0, wrong: 0 };
 
     let correctCount = typeof existing.correct === 'number' ? existing.correct : 0;
     let wrongCount = typeof existing.wrong === 'number' ? existing.wrong : 0;
@@ -4480,7 +4648,7 @@ function saveQuestionAnswerStat(questionId, chapterId, state) {
         wrongCount += 1;
     }
 
-    stats[qIdNum] = {
+    stats[key] = {
         state: isCorrect ? 'correct' : 'wrong',
         correct: correctCount,
         wrong: wrongCount,
@@ -4834,7 +5002,30 @@ function highlightDictionaryTerms(text, questionVocabulary) {
     if (!text) return '';
     let resultText = text;
 
-    // 1. Highlight per-question vocabulary words (admin-added underlines)
+    // Cache question vocabulary for popup lookup
+    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
+        questionVocabulary.forEach(item => {
+            const word = item.italian || item.word || item.italian_word || '';
+            if (word) {
+                vocabCache[word.toLowerCase()] = item;
+            }
+        });
+    }
+
+    const hasExplicitUnderlines = /<u>[\s\S]*?<\/u>/i.test(resultText);
+
+    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
+    if (hasExplicitUnderlines) {
+        resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
+            const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
+            const lowerClean = cleanWord.toLowerCase();
+            return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}'); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}'); }">${innerWord}</span>`;
+        });
+        // If the author explicitly specified <u> tags, do NOT auto-highlight any additional occurrences outside the tags!
+        return resultText;
+    }
+
+    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words (match whole word, first occurrence per item)
     if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
         const sortedVocab = [...questionVocabulary].sort((a, b) =>
             (b.italian || '').length - (a.italian || '').length
@@ -4842,26 +5033,27 @@ function highlightDictionaryTerms(text, questionVocabulary) {
         sortedVocab.forEach(item => {
             const word = item.italian || '';
             if (!word) return;
-            // Cache for modal lookup
             vocabCache[word.toLowerCase()] = item;
             const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('(' + escapedWord + ')', 'gi');
+            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}')">${match}</span>`;
             });
         });
     }
 
-    // 2. Highlight global dictionary words from database
-    const sortedTerms = [...dictionaryData].sort((a, b) => b.word.length - a.word.length);
-    sortedTerms.forEach(term => {
-        const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'gi');
-        resultText = resultText.replace(regex, (match) => {
-            // Don't double-wrap already-highlighted spans
-            return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">` + match + `</span>`;
+    // 3. Highlight global dictionary words from database
+    if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
+        const sortedTerms = [...dictionaryData].sort((a, b) => b.word.length - a.word.length);
+        sortedTerms.forEach(term => {
+            if (!term.word) return;
+            const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
+            resultText = resultText.replace(regex, (match) => {
+                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}')">${match}</span>`;
+            });
         });
-    });
+    }
 
     return resultText;
 }
@@ -5179,6 +5371,7 @@ function showSchedaExamResultModal(correct, wrong, unanswered, total) {
 
 // --- 16. Client Verification & Activation Lock System ---
 function checkClientActivation() {
+    const isTabUnlocked = sessionStorage.getItem('tab_qr_unlocked') === 'true' || window.location.search.includes('qr_unlocked=1') || localStorage.getItem('app_client_active') === 'true';
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
     const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
 
@@ -5186,16 +5379,21 @@ function checkClientActivation() {
     const params = new URLSearchParams();
     if (savedPhone) params.append('phone', savedPhone);
     if (savedSessionId) params.append('session_id', savedSessionId);
+    if (isTabUnlocked) params.append('qr_unlocked', '1');
     if (params.toString()) url += '?' + params.toString();
 
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            currentClientVerified = data.verified;
+            const isUnlockedNow = Boolean(data.is_active || (data.qr_unlocked && isTabUnlocked) || (isTabUnlocked && data.free_access_mode === false));
+            currentClientVerified = Boolean(data.verified || isUnlockedNow || savedPhone);
 
             const wasActive = currentClientActive;
-            currentClientActive = data.is_active;
-            localStorage.setItem('app_client_active', data.is_active ? 'true' : 'false');
+            currentClientActive = isUnlockedNow;
+            if (currentClientActive) {
+                sessionStorage.setItem('tab_qr_unlocked', 'true');
+                localStorage.setItem('app_client_active', 'true');
+            }
 
             if (data.phone) {
                 currentClientPhone = data.phone;
@@ -5205,16 +5403,18 @@ function checkClientActivation() {
                 currentClientSessionId = data.session_id;
                 localStorage.setItem('app_client_session_id', data.session_id);
             }
+            if (data.first_name) {
+                localStorage.setItem('app_client_first_name', data.first_name);
+            }
 
             if (currentClientActive) {
                 syncUserQuestionStatsFromBackend();
             }
 
-
             const lockEl = document.getElementById('app-activation-lock');
 
             // Set chat widget view strictly based on client verification state
-            if (!currentClientVerified && !savedPhone) {
+            if (!currentClientVerified && !savedPhone && !currentClientActive) {
                 setChatWidgetView('verify');
             } else {
                 setChatWidgetView('normal');
@@ -5495,23 +5695,54 @@ function confirmTestOptions(wantsImmediateCorrection) {
 // --- 20. Question Translation Popover Modal System ---
 let currentTranslationTextToRead = '';
 
-function openQuestionTranslationModal(itText, bnText, vocabularyList) {
+function formatBanglaMarkdown(text) {
+    if (!text) return '';
+    let formatted = String(text)
+        .replace(/###\s*(.*)/g, '<div style="font-weight: 700; color: #2563eb; margin: 8px 0 4px 0; font-size: 14px;">$1</div>')
+        .replace(/##\s*(.*)/g, '<div style="font-weight: 700; color: #2563eb; margin: 10px 0 6px 0; font-size: 15px;">$1</div>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<strong style="color: #0284c7;">$1</strong>')
+        .replace(/\n/g, '<br>');
+    return formatted;
+}
+
+function openQuestionTranslationModal(itText, bnText, vocabularyList, imageUrl) {
     currentTranslationTextToRead = (itText || '').replace(/<[^>]*>/g, '');
     const itEl = document.getElementById('q-translation-it');
     const bnEl = document.getElementById('q-translation-bn');
+    const imgContainer = document.getElementById('q-translation-img-container');
+    const imgEl = document.getElementById('q-translation-img');
 
     if (itEl) {
         itEl.innerHTML = typeof highlightDictionaryTerms === 'function'
             ? highlightDictionaryTerms(itText || '', vocabularyList || [])
             : (itText || '');
     }
+    // Determine image: main question image or fallback to vocabulary image if present
+    let targetImg = imageUrl || '';
+    if (!targetImg && Array.isArray(vocabularyList) && vocabularyList.length > 0) {
+        const vocabWithImg = vocabularyList.find(v => v && (v.image || v.img));
+        if (vocabWithImg) {
+            targetImg = vocabWithImg.image || vocabWithImg.img;
+        }
+    }
+
+    if (targetImg && imgContainer && imgEl) {
+        imgEl.src = targetImg;
+        imgContainer.style.display = 'block';
+    } else if (imgContainer) {
+        imgContainer.style.display = 'none';
+    }
     if (bnEl) {
-        let formattedBn = (bnText || '').replace(/\n/g, '<br>');
-        bnEl.innerHTML = formattedBn;
+        bnEl.innerHTML = formatBanglaMarkdown(bnText);
     }
 
     const modal = document.getElementById('q-translation-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        const card = modal.querySelector('.lock-card');
+        if (card) card.scrollTop = 0;
+    }
 }
 
 function closeTranslationModal() {
@@ -5816,7 +6047,8 @@ function openCachedQuestionTranslation(qId) {
         const itText = q.italian || q.question || '';
         const bnText = q.bangla || q.bn_question || '';
         const vocab = q.vocabulary || [];
-        openQuestionTranslationModal(itText, bnText, vocab);
+        const qImg = q.image || q.img || '';
+        openQuestionTranslationModal(itText, bnText, vocab, qImg);
     } else {
         showToast('অনুবাদ লোড করা সম্ভব হয়নি');
     }
@@ -6277,7 +6509,7 @@ function renderLeaderboardUI(list) {
         const cardHtml = `
             <div style="background: var(--bg-card); border: 2px solid ${styleInfo.border}; border-radius: 16px; padding: 14px 8px; text-align: center; box-shadow: var(--shadow-card); position: relative; display: flex; flex-direction: column; align-items: center;">
                 <span style="position: absolute; top: -10px; font-size: 18px;">${styleInfo.badge}</span>
-                <img src="${user.avatar}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; margin-top: 6px; margin-bottom: 6px; border: 2px solid ${styleInfo.border};" alt="${user.name}">
+                <img src="${user.avatar}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: contain; margin-top: 6px; margin-bottom: 6px; border: 2px solid ${styleInfo.border};" alt="${user.name}">
                 <div style="font-size: 12px; font-weight: 800; color: var(--text-primary); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.name}</div>
                 <div style="font-size: 11px; font-weight: 900; color: #6366F1; margin-top: 4px;">${user.points} pts</div>
                 <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px; display: flex; gap: 4px; align-items: center;">
@@ -6297,7 +6529,7 @@ function renderLeaderboardUI(list) {
                     <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-page); border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text-primary); flex-shrink: 0;">
                         #${rankNum}
                     </div>
-                    <img src="${user.avatar}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" alt="${user.name}">
+                    <img src="${user.avatar}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: contain; flex-shrink: 0;" alt="${user.name}">
                     <div style="min-width: 0;">
                         <div style="font-size: 13px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.name}</div>
                         <div style="font-size: 10px; color: var(--text-secondary); display: flex; gap: 8px; margin-top: 2px;">
@@ -6493,7 +6725,7 @@ function renderManualeTopics(topics) {
                             const vImg = v.image || '';
                             return `
                                 <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
-                                    ${vImg ? `<img src="${vImg}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-card);">` : ''}
+                                    ${vImg ? `<img src="${vImg}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: contain; border: 1px solid var(--border-card);">` : ''}
                                     <div>
                                         <div style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${word}</div>
                                         <div style="font-size: 12px; color: var(--accent-green); font-weight: 600; margin-top: 2px;">${meaning}</div>
@@ -6555,6 +6787,49 @@ function filterManualeTopics() {
 
     renderManualeTopics(filtered);
 }
+
+window.openArgomentiSchedeScreen = function(chId) {
+    if (typeof openChapterSheetsScreen === 'function') {
+        openChapterSheetsScreen(chId);
+    }
+};
+
+window.handleArgomentiChapterCardClick = function(chId) {
+    chId = parseInt(chId);
+    if (typeof isArgomentiSelectMode !== 'undefined' && isArgomentiSelectMode) {
+        toggleChapterSelection(chId);
+    } else {
+        openChapterSheetsScreen(chId);
+    }
+};
+
+window.handleArgomentiSchedaClick = function(chId, pageId) {
+    pageId = parseInt(pageId);
+    if (typeof isSchedeSelectMode !== 'undefined' && isSchedeSelectMode) {
+        toggleSheetSelectionById(pageId);
+    } else {
+        openPageDetailsScreen(pageId);
+    }
+};
+
+window.handleCartelliChapterCardClick = function(chId) {
+    chId = parseInt(chId);
+    if (typeof isCartelliChapterSelectMode !== 'undefined' && isCartelliChapterSelectMode) {
+        if (typeof toggleCartelliChapterSelection === 'function') toggleCartelliChapterSelection(chId);
+    } else {
+        if (typeof openCartelliSchedeScreen === 'function') openCartelliSchedeScreen(chId);
+    }
+};
+
+window.handleCartelliSchedaCardClick = function(chId, pageId) {
+    pageId = parseInt(pageId);
+    if (typeof isCartelliSchedeSelectMode !== 'undefined' && isCartelliSchedeSelectMode) {
+        if (typeof toggleCartelliSchedaSelection === 'function') toggleCartelliSchedaSelection(pageId);
+    } else {
+        if (typeof openCartelliPageScreen === 'function') openCartelliPageScreen(pageId);
+    }
+};
+
 
 
 

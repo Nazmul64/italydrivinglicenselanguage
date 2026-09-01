@@ -32,18 +32,20 @@ class MonitorPerformanceAndApi
         $response->headers->set('X-Memory-Usage-Bytes', $memoryUsed);
         $response->headers->set('X-Query-Count', count($queries));
 
-        // API Monitor: log request if it targets API endpoints
-        if ($request->is('api/*') || $request->is('admin/api/*')) {
+        // API Monitor: log request if it targets API endpoints (skip repetitive polling 200 OK endpoints like settings or server-mode)
+        if (($request->is('api/*') || $request->is('admin/api/*')) && 
+            !($response->getStatusCode() === 200 && ($request->is('*settings*') || $request->is('*server-mode*')))) {
             try {
                 // Prepare safe request data
                 $requestData = $request->except(['password', 'password_confirmation', 'token']);
                 
-                // Get clean response content
+                // Get clean response content truncated to max 300 chars to save space safely with UTF-8
                 $responseContent = '';
                 if ($response instanceof \Illuminate\Http\JsonResponse) {
-                    $responseContent = json_encode($response->getData(), JSON_UNESCAPED_UNICODE);
+                    $jsonStr = json_encode($response->getData(), JSON_UNESCAPED_UNICODE);
+                    $responseContent = mb_substr($jsonStr ?: '', 0, 300, 'UTF-8');
                 } else {
-                    $responseContent = substr($response->getContent(), 0, 2000); // Truncate html if large
+                    $responseContent = mb_substr($response->getContent() ?: '', 0, 300, 'UTF-8');
                 }
 
                 ApiLog::create([
@@ -55,12 +57,10 @@ class MonitorPerformanceAndApi
                     'execution_time_ms' => round($executionTimeMs, 2),
                 ]);
 
-                // Periodically trim api_logs (1% chance) to prevent DB size inflation
-                if (rand(1, 100) === 1) {
-                    $maxId = ApiLog::max('id');
-                    if ($maxId && $maxId > 500) {
-                        ApiLog::where('id', '<=', $maxId - 500)->delete();
-                    }
+                // Keep max 30 logs to enforce database size limit (2-3 MB)
+                $maxId = ApiLog::max('id');
+                if ($maxId && $maxId > 30) {
+                    ApiLog::where('id', '<=', $maxId - 30)->delete();
                 }
             } catch (\Throwable $e) {
                 // Log failed middleware writing quietly

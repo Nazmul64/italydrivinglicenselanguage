@@ -1,5 +1,6 @@
 // --- 16. Client Verification & Activation Lock System ---
 function checkClientActivation() {
+    const isTabUnlocked = sessionStorage.getItem('tab_qr_unlocked') === 'true' || window.location.search.includes('qr_unlocked=1') || localStorage.getItem('app_client_active') === 'true';
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
     const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
 
@@ -7,16 +8,23 @@ function checkClientActivation() {
     const params = new URLSearchParams();
     if (savedPhone) params.append('phone', savedPhone);
     if (savedSessionId) params.append('session_id', savedSessionId);
+    if (isTabUnlocked) params.append('qr_unlocked', '1');
     if (params.toString()) url += '?' + params.toString();
 
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            currentClientVerified = data.verified;
+            const isUnlockedNow = Boolean(data.is_active || (data.qr_unlocked && isTabUnlocked) || (isTabUnlocked && data.free_access_mode === false));
+            currentClientVerified = Boolean(data.verified || isUnlockedNow || savedPhone);
 
             const wasActive = currentClientActive;
-            currentClientActive = data.is_active;
-            localStorage.setItem('app_client_active', data.is_active ? 'true' : 'false');
+
+            currentClientActive = isUnlockedNow;
+
+            if (currentClientActive) {
+                sessionStorage.setItem('tab_qr_unlocked', 'true');
+                localStorage.setItem('app_client_active', 'true');
+            }
 
             if (data.phone) {
                 currentClientPhone = data.phone;
@@ -26,16 +34,18 @@ function checkClientActivation() {
                 currentClientSessionId = data.session_id;
                 localStorage.setItem('app_client_session_id', data.session_id);
             }
+            if (data.first_name) {
+                localStorage.setItem('app_client_first_name', data.first_name);
+            }
 
             if (currentClientActive) {
                 syncUserQuestionStatsFromBackend();
             }
 
-
             const lockEl = document.getElementById('app-activation-lock');
 
             // Set chat widget view strictly based on client verification state
-            if (!currentClientVerified && !savedPhone) {
+            if (!currentClientVerified && !savedPhone && !currentClientActive) {
                 setChatWidgetView('verify');
             } else {
                 setChatWidgetView('normal');
@@ -145,10 +155,9 @@ function submitClientVerification() {
                 setChatWidgetView('normal');
 
                 if (data.is_active || data.already_active) {
-                    showToast('আপনার অ্যাকাউন্টটি ইতোমধ্যে সক্রিয় রয়েছে! ধন্যবাদ।');
-                    closeActivationLock();
+                    showToast('আপনার অ্যাকাউন্টটি অনলাইনে সক্রিয় করা আছে। এবার QR স্ক্যান করুন।');
                 } else {
-                    showToast('তথ্য পাঠানো হয়েছে। আপনি লাইভ চ্যাট করতে পারেন।');
+                    showToast('তথ্য পাঠানো হয়েছে। আপনার লাইসেন্স কি নেওয়ার জন্য মেসেজ দিন।');
                 }
 
                 syncUserQuestionStatsFromBackend().then(() => {
@@ -178,31 +187,67 @@ checkClientActivation();
 let html5QrScanner = null;
 
 function openQrScanner() {
-    if (!currentClientActive) {
-        const lockEl = document.getElementById('app-activation-lock');
-        if (lockEl) lockEl.style.display = 'flex';
-        return;
-    }
-
     const modal = document.getElementById('qr-scanner-modal');
     if (modal) modal.style.display = 'flex';
 
+    if (typeof Html5Qrcode === 'undefined') {
+        showToast('QR Scanner লাইব্রেরি লোড হতে পারেনি। পেজ রিফ্রেশ করুন।');
+        return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('আপনার ব্রাউজারে ক্যামেরা অ্যাক্সেস সাপোর্ট করছে না অথবা HTTP এ ব্লক করা হয়েছে।');
+    }
+
     if (!html5QrScanner) {
-        html5QrScanner = new Html5Qrcode("qr-reader");
+        try {
+            html5QrScanner = new Html5Qrcode("qr-reader");
+        } catch (e) {
+            console.error("Html5Qrcode initialization error:", e);
+            showToast('QR Scanner চালু করতে ব্যর্থ হয়েছে!');
+            return;
+        }
     }
 
     const qrSuccessCallback = (decodedText, decodedResult) => {
         console.log(`Scan result: ${decodedText}`);
+        const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
+        const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
 
-        const match = decodedText.match(/pages?\/(\d+)/) || decodedText.match(/page_details?\/(\d+)/) || decodedText.match(/^(\d+)$/);
-        if (match) {
-            const pageId = parseInt(match[1]);
-            showToast('স্ক্যান সফল হয়েছে! কুইজ ওপেন হচ্ছে...');
-            closeQrScanner();
-            openPageDetailsScreen(pageId);
-        } else {
-            showToast('বৈধ QR কোড নয়!');
-        }
+        fetch('/api/qr-unlock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken()
+            },
+            body: JSON.stringify({
+                qr_code: decodedText,
+                phone: savedPhone,
+                session_id: savedSessionId
+            })
+        })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.success) {
+                    sessionStorage.setItem('tab_qr_unlocked', 'true');
+                    currentClientActive = true;
+                    showToast(resData.message || 'সফলভাবে আনলক করা হয়েছে!');
+                    closeQrScanner();
+                    closeActivationLock();
+                    checkClientActivation();
+
+                    const match = decodedText.match(/pages?\/(\d+)/) || decodedText.match(/page_details?\/(\d+)/);
+                    if (match && typeof openPageDetailsScreen === 'function') {
+                        openPageDetailsScreen(parseInt(match[1]));
+                    }
+                } else {
+                    showToast(resData.message || 'আপনার লাইসেন্স টি এখনও অ্যাক্টিভ করা হয়নি!');
+                }
+            })
+            .catch(err => {
+                console.error("QR Unlock API error:", err);
+                showToast('QR ভেরিফিকেশনে নেটওয়ার্ক সমস্যা ঘটেছে!');
+            });
     };
 
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -316,23 +361,54 @@ function confirmTestOptions(wantsImmediateCorrection) {
 // --- 20. Question Translation Popover Modal System ---
 let currentTranslationTextToRead = '';
 
-function openQuestionTranslationModal(itText, bnText, vocabularyList) {
+function formatBanglaMarkdown(text) {
+    if (!text) return '';
+    let formatted = String(text)
+        .replace(/###\s*(.*)/g, '<div style="font-weight: 700; color: #2563eb; margin: 8px 0 4px 0; font-size: 14px;">$1</div>')
+        .replace(/##\s*(.*)/g, '<div style="font-weight: 700; color: #2563eb; margin: 10px 0 6px 0; font-size: 15px;">$1</div>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<strong style="color: #0284c7;">$1</strong>')
+        .replace(/\n/g, '<br>');
+    return formatted;
+}
+
+function openQuestionTranslationModal(itText, bnText, vocabularyList, imageUrl) {
     currentTranslationTextToRead = (itText || '').replace(/<[^>]*>/g, '');
     const itEl = document.getElementById('q-translation-it');
     const bnEl = document.getElementById('q-translation-bn');
+    const imgContainer = document.getElementById('q-translation-img-container');
+    const imgEl = document.getElementById('q-translation-img');
 
     if (itEl) {
         itEl.innerHTML = typeof highlightDictionaryTerms === 'function'
             ? highlightDictionaryTerms(itText || '', vocabularyList || [])
             : (itText || '');
     }
+    // Determine image: main question image or fallback to vocabulary image if present
+    let targetImg = imageUrl || '';
+    if (!targetImg && Array.isArray(vocabularyList) && vocabularyList.length > 0) {
+        const vocabWithImg = vocabularyList.find(v => v && (v.image || v.img));
+        if (vocabWithImg) {
+            targetImg = vocabWithImg.image || vocabWithImg.img;
+        }
+    }
+
+    if (targetImg && imgContainer && imgEl) {
+        imgEl.src = targetImg;
+        imgContainer.style.display = 'block';
+    } else if (imgContainer) {
+        imgContainer.style.display = 'none';
+    }
     if (bnEl) {
-        let formattedBn = (bnText || '').replace(/\n/g, '<br>');
-        bnEl.innerHTML = formattedBn;
+        bnEl.innerHTML = formatBanglaMarkdown(bnText);
     }
 
     const modal = document.getElementById('q-translation-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        const card = modal.querySelector('.lock-card');
+        if (card) card.scrollTop = 0;
+    }
 }
 
 function closeTranslationModal() {
@@ -446,8 +522,9 @@ function populateFilterPages(prefix) {
 
     fetch(url)
         .then(res => res.json())
-        .then(pages => {
-            pageSelect.innerHTML = '<option value="">All Pages</option>';
+        .then(resData => {
+            const pages = Array.isArray(resData) ? resData : (resData.data || []);
+            pageSelect.innerHTML = '<option value="">All Pages (সব পেইজ)</option>';
             pages.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
@@ -466,8 +543,9 @@ function populateFilterChapters(prefix) {
 
     fetch('/api/chapters')
         .then(res => res.json())
-        .then(chapters => {
-            chapSelect.innerHTML = '<option value="">All Chapters</option>';
+        .then(resData => {
+            const chapters = Array.isArray(resData) ? resData : (resData.data || []);
+            chapSelect.innerHTML = '<option value="">All Chapters (সব অধ্যায়)</option>';
             chapters.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.id;
@@ -479,120 +557,74 @@ function populateFilterChapters(prefix) {
         .catch(err => console.error("Error populating chapters: ", err));
 }
 
-function onCorrectCategoryChange() {
-    loadCorrectMcqsList();
-}
-
 function onCorrectChapterChange() {
     populateFilterPages('correct');
     loadCorrectMcqsList();
 }
-
-function onWrongCategoryChange() {
-    loadWrongMcqsList();
-}
+window.onCorrectChapterChange = onCorrectChapterChange;
 
 function onWrongChapterChange() {
     populateFilterPages('wrong');
     loadWrongMcqsList();
 }
+window.onWrongChapterChange = onWrongChapterChange;
 
-window.selectedCorrectMcqIds = window.selectedCorrectMcqIds || new Set();
-window.currentCorrectQuestions = window.currentCorrectQuestions || [];
-
-function toggleCorrectMcqSelection(qId, forceState) {
-    if (!window.selectedCorrectMcqIds) window.selectedCorrectMcqIds = new Set();
-    const id = parseInt(qId);
-    if (typeof forceState === 'boolean') {
-        if (forceState) {
-            window.selectedCorrectMcqIds.add(id);
-        } else {
-            window.selectedCorrectMcqIds.delete(id);
-        }
-    } else {
-        if (window.selectedCorrectMcqIds.has(id)) {
-            window.selectedCorrectMcqIds.delete(id);
-        } else {
-            window.selectedCorrectMcqIds.add(id);
-        }
+function toggleCorrectMcqsSelectMode() {
+    const selectBtn = document.getElementById('correct-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'none';
+    const cards = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card');
+    const selectedCount = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card.selected-q-card').length;
+    if (selectedCount === 0 && cards.length > 0) {
+        cards[0].classList.add('selected-q-card');
     }
-
-    const checkbox = document.getElementById(`correct-mcq-check-${id}`);
-    if (checkbox) {
-        checkbox.checked = window.selectedCorrectMcqIds.has(id);
-    }
-    updateCorrectMcqSelectionUI();
+    showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
 }
-window.toggleCorrectMcqSelection = toggleCorrectMcqSelection;
+window.toggleCorrectMcqsSelectMode = toggleCorrectMcqsSelectMode;
 
 function selectAllCorrectMcqs() {
-    if (!window.selectedCorrectMcqIds) window.selectedCorrectMcqIds = new Set();
-    if (window.currentCorrectQuestions && window.currentCorrectQuestions.length > 0) {
-        window.currentCorrectQuestions.forEach(q => {
-            window.selectedCorrectMcqIds.add(q.id);
-            const checkbox = document.getElementById(`correct-mcq-check-${q.id}`);
-            if (checkbox) checkbox.checked = true;
-        });
-    }
-    updateCorrectMcqSelectionUI();
+    const selectBtn = document.getElementById('correct-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'none';
+    const cards = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card');
+    cards.forEach(c => c.classList.add('selected-q-card'));
+    showToast('সব প্রশ্ন সিলেক্ট করা হয়েছে');
 }
 window.selectAllCorrectMcqs = selectAllCorrectMcqs;
 
 function unselectAllCorrectMcqs() {
-    if (!window.selectedCorrectMcqIds) window.selectedCorrectMcqIds = new Set();
-    window.selectedCorrectMcqIds.clear();
-    if (window.currentCorrectQuestions && window.currentCorrectQuestions.length > 0) {
-        window.currentCorrectQuestions.forEach(q => {
-            const checkbox = document.getElementById(`correct-mcq-check-${q.id}`);
-            if (checkbox) checkbox.checked = false;
-        });
-    }
-    updateCorrectMcqSelectionUI();
+    const selectBtn = document.getElementById('correct-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'inline-block';
+    const cards = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card');
+    cards.forEach(c => c.classList.remove('selected-q-card'));
+    showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
 window.unselectAllCorrectMcqs = unselectAllCorrectMcqs;
 
-function updateCorrectMcqSelectionUI() {
-    const count = window.selectedCorrectMcqIds ? window.selectedCorrectMcqIds.size : 0;
-    const badge = document.getElementById('correct-selected-count-badge');
-    const quizCount = document.getElementById('correct-quiz-btn-count');
-    const quizBtn = document.getElementById('correct-start-quiz-btn');
-    const floatingBtnContainer = document.getElementById('correct-mcqs-quiz-btn-container');
-    const floatingCount = document.getElementById('correct-floating-quiz-count');
-
-    if (badge) badge.innerText = `Selected: ${count}`;
-    if (quizCount) quizCount.innerText = count;
-    if (floatingCount) floatingCount.innerText = count;
-
-    if (quizBtn) {
-        if (count > 0) {
-            quizBtn.style.opacity = '1';
-            quizBtn.style.cursor = 'pointer';
-        } else {
-            quizBtn.style.opacity = '0.8';
-        }
-    }
-
-    if (floatingBtnContainer) {
-        floatingBtnContainer.style.display = count > 0 ? 'block' : 'none';
+function toggleCorrectMcqCardSelection(qId, card) {
+    card.classList.toggle('selected-q-card');
+    const selectedCount = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card.selected-q-card').length;
+    const selectBtn = document.getElementById('correct-select-toggle-btn');
+    if (selectedCount > 0 && selectBtn) {
+        selectBtn.style.display = 'none';
     }
 }
-window.updateCorrectMcqSelectionUI = updateCorrectMcqSelectionUI;
+window.toggleCorrectMcqCardSelection = toggleCorrectMcqCardSelection;
 
 function startSelectedCorrectMcqsQuiz() {
-    if (!window.selectedCorrectMcqIds || window.selectedCorrectMcqIds.size === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি প্রশ্ন সিলেক্ট করুন');
-        return;
+    const selectedCards = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card.selected-q-card');
+    let selectedQuestions = [];
+    if (selectedCards.length > 0) {
+        selectedCards.forEach(c => {
+            const id = parseInt(c.getAttribute('data-qid'));
+            const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
+                (window.currentCorrectQuestions && window.currentCorrectQuestions.find(item => item.id === id));
+            if (q) selectedQuestions.push(q);
+        });
+    } else if (window.currentCorrectQuestions && window.currentCorrectQuestions.length > 0) {
+        selectedQuestions = window.currentCorrectQuestions;
     }
 
-    const selectedQuestions = [];
-    window.selectedCorrectMcqIds.forEach(id => {
-        const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
-            (window.currentCorrectQuestions && window.currentCorrectQuestions.find(item => item.id === id));
-        if (q) selectedQuestions.push(q);
-    });
-
     if (selectedQuestions.length === 0) {
-        showToast('সিলেক্ট করা কোনো প্রশ্ন পাওয়া যায়নি');
+        showToast('কোনো প্রশ্ন পাওয়া যায়নি');
         return;
     }
 
@@ -646,30 +678,47 @@ function loadCorrectMcqsList() {
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande corrette...</div>`;
 
-    const userStats = getUserQuestionStats();
-    const correctIds = [];
+    const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
-    Object.keys(userStats).forEach(idStr => {
-        const item = userStats[idStr];
-        if (item && typeof item === 'object') {
-            const cCount = typeof item.correct === 'number' ? item.correct : (item.state === 'correct' ? 1 : 0);
-            const wCount = typeof item.wrong === 'number' ? item.wrong : 0;
-            if (cCount > wCount || item.state === 'correct') {
-                correctIds.push(parseInt(idStr));
-            }
-        }
+    const correctQueryParams = new URLSearchParams({
+        chapter_id: selectedChapter || '',
+        page_id: selectedPage || '',
+        search: searchQuery || '',
+        phone: userPhone,
+        session_id: userSessionId
     });
 
-    if (correctIds.length === 0) {
-        if (countEl) countEl.innerText = '0 Domande';
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনি এখনও কোনো প্রশ্নের সঠিক উত্তর দেননি। টেস্ট/কুইজ প্র্যাকটিস করুন!</div>`;
-        return;
-    }
-
-    fetch(`/api/questions/by-ids?ids=${correctIds.join(',')}`)
+    fetch(`/api/v1/correct-mcqs?${correctQueryParams.toString()}`, {
+        headers: { 'X-Client-Phone': userPhone }
+    })
         .then(res => res.json())
+        .then(resData => {
+            let questions = resData.data || resData || [];
+            if (!Array.isArray(questions)) questions = [];
+
+            if (questions.length === 0 && !selectedChapter && !selectedPage && !searchQuery) {
+                const userStats = getUserQuestionStats();
+                const correctIds = [];
+                Object.keys(userStats).forEach(idStr => {
+                    const item = userStats[idStr];
+                    if (item && typeof item === 'object') {
+                        const cCount = typeof item.correct === 'number' ? item.correct : (item.state === 'correct' ? 1 : 0);
+                        const wCount = typeof item.wrong === 'number' ? item.wrong : 0;
+                        if (cCount > wCount || item.state === 'correct') {
+                            correctIds.push(parseInt(idStr));
+                        }
+                    }
+                });
+
+                if (correctIds.length > 0) {
+                    return fetch(`/api/questions/by-ids?ids=${correctIds.join(',')}`).then(r => r.json());
+                }
+            }
+            return questions;
+        })
         .then(questions => {
-            let filtered = questions;
+            let filtered = Array.isArray(questions) ? questions : (questions.data || []);
             if (selectedChapter) {
                 filtered = filtered.filter(q => String(q.chapter) === String(selectedChapter) || String(q.chapter_id) === String(selectedChapter));
             }
@@ -693,18 +742,18 @@ function loadCorrectMcqsList() {
                 window.cachedQuestionsMap[q.id] = q;
                 const card = document.createElement('div');
                 card.className = `detail-q-card correct`;
+                card.setAttribute('data-qid', q.id);
                 card.style.position = 'relative';
+                card.style.cursor = 'pointer';
+
+                card.onclick = (e) => {
+                    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) return;
+                    toggleCorrectMcqCardSelection(q.id, card);
+                };
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-                const isChecked = window.selectedCorrectMcqIds && window.selectedCorrectMcqIds.has(q.id);
                 const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
-
-                const topImageCardHtml = qImage ? `
-                    <div style="width: 100%; text-align: center; padding: 12px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03); box-sizing: border-box;">
-                        <img src="${qImage}" style="max-height: 200px; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
-                    </div>
-                ` : '';
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
@@ -712,23 +761,9 @@ function loadCorrectMcqsList() {
                     </div>
                 ` : '';
 
-                const itemWrapper = document.createElement('div');
-                itemWrapper.className = 'correct-mcq-item-wrapper';
-                itemWrapper.style.marginBottom = '12px';
-                itemWrapper.style.flex = '1';
-                itemWrapper.style.minWidth = '0';
-                itemWrapper.style.maxWidth = '100%';
-                itemWrapper.style.boxSizing = 'border-box';
-                if (topImageCardHtml) {
-                    itemWrapper.innerHTML = topImageCardHtml;
-                }
-
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; flex-wrap: wrap; gap: 6px; box-sizing: border-box;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="correct-mcq-check-${q.id}" onchange="toggleCorrectMcqSelection(${q.id}, this.checked)" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-green);">
-                            <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
-                        </div>
+                        <div class="detail-q-num" style="margin-bottom: 0; font-size: 15px; font-weight: 800; color: var(--text-primary);">${index + 1}</div>
                         <div style="display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap;">
                             <div id="q-correct-badge-${q.id}" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
                                 <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Risposta Corretta:</span>
@@ -785,7 +820,7 @@ function loadCorrectMcqsList() {
 
                 const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
                 const record = userStatsMap[q.id] || {};
-                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 1);
+                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
                 const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
@@ -801,10 +836,8 @@ function loadCorrectMcqsList() {
                     card.appendChild(statsDiv);
                 }
 
-                itemWrapper.appendChild(card);
-                container.appendChild(itemWrapper);
+                container.appendChild(card);
             });
-            updateCorrectMcqSelectionUI();
         })
         .catch(err => {
             console.error("Error loading correct MCQs: ", err);
@@ -818,102 +851,84 @@ function openCachedQuestionTranslation(qId) {
         const itText = q.italian || q.question || '';
         const bnText = q.bangla || q.bn_question || '';
         const vocab = q.vocabulary || [];
-        openQuestionTranslationModal(itText, bnText, vocab);
+        const img = q.image || q.img || (q.page && q.page.image ? q.page.image : '');
+        openQuestionTranslationModal(itText, bnText, vocab, img);
     } else {
         showToast('অনুবাদ লোড করা সম্ভব হয়নি');
     }
 }
 window.openCachedQuestionTranslation = openCachedQuestionTranslation;
 
-window.selectedWrongMcqIds = window.selectedWrongMcqIds || new Set();
-window.currentWrongQuestions = window.currentWrongQuestions || [];
-
-function toggleWrongMcqSelection(qId, forceState) {
-    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
-    const id = parseInt(qId);
-    if (typeof forceState === 'boolean') {
-        if (forceState) {
-            window.selectedWrongMcqIds.add(id);
-        } else {
-            window.selectedWrongMcqIds.delete(id);
-        }
-    } else {
-        if (window.selectedWrongMcqIds.has(id)) {
-            window.selectedWrongMcqIds.delete(id);
-        } else {
-            window.selectedWrongMcqIds.add(id);
-        }
+function toggleWrongMcqsSelectMode() {
+    const selectBtn = document.getElementById('wrong-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'none';
+    const cards = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card');
+    const selectedCount = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card.selected-q-card').length;
+    if (selectedCount === 0 && cards.length > 0) {
+        cards[0].classList.add('selected-q-card');
     }
-
-    const checkbox = document.getElementById(`wrong-mcq-check-${id}`);
-    if (checkbox) {
-        checkbox.checked = window.selectedWrongMcqIds.has(id);
-    }
-    updateWrongMcqSelectionUI();
+    showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
 }
-window.toggleWrongMcqSelection = toggleWrongMcqSelection;
+window.toggleWrongMcqsSelectMode = toggleWrongMcqsSelectMode;
 
 function selectAllWrongMcqs() {
-    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
-    if (window.currentWrongQuestions && window.currentWrongQuestions.length > 0) {
-        window.currentWrongQuestions.forEach(q => {
-            window.selectedWrongMcqIds.add(q.id);
-            const checkbox = document.getElementById(`wrong-mcq-check-${q.id}`);
-            if (checkbox) checkbox.checked = true;
-        });
-    }
-    updateWrongMcqSelectionUI();
+    const selectBtn = document.getElementById('wrong-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'none';
+    const cards = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card');
+    cards.forEach(c => c.classList.add('selected-q-card'));
+    showToast('সব প্রশ্ন সিলেক্ট করা হয়েছে');
 }
 window.selectAllWrongMcqs = selectAllWrongMcqs;
 
 function unselectAllWrongMcqs() {
-    if (!window.selectedWrongMcqIds) window.selectedWrongMcqIds = new Set();
-    window.selectedWrongMcqIds.clear();
-    if (window.currentWrongQuestions && window.currentWrongQuestions.length > 0) {
-        window.currentWrongQuestions.forEach(q => {
-            const checkbox = document.getElementById(`wrong-mcq-check-${q.id}`);
-            if (checkbox) checkbox.checked = false;
-        });
-    }
-    updateWrongMcqSelectionUI();
+    const selectBtn = document.getElementById('wrong-select-toggle-btn');
+    if (selectBtn) selectBtn.style.display = 'inline-block';
+    const cards = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card');
+    cards.forEach(c => c.classList.remove('selected-q-card'));
+    showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
 window.unselectAllWrongMcqs = unselectAllWrongMcqs;
 
+function toggleWrongMcqCardSelection(qId, card) {
+    card.classList.toggle('selected-q-card');
+    updateWrongMcqSelectionUI();
+}
+window.toggleWrongMcqCardSelection = toggleWrongMcqCardSelection;
+
 function updateWrongMcqSelectionUI() {
-    const count = window.selectedWrongMcqIds ? window.selectedWrongMcqIds.size : 0;
-    const badge = document.getElementById('wrong-selected-count-badge');
-    const quizCount = document.getElementById('wrong-quiz-btn-count');
-    const quizBtn = document.getElementById('wrong-start-quiz-btn');
-
-    if (badge) badge.innerText = `Selected: ${count}`;
-    if (quizCount) quizCount.innerText = count;
-
-    if (quizBtn) {
-        if (count > 0) {
-            quizBtn.style.opacity = '1';
-            quizBtn.style.cursor = 'pointer';
-        } else {
-            quizBtn.style.opacity = '0.8';
-        }
+    const selectedCount = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card.selected-q-card').length;
+    const selectBtn = document.getElementById('wrong-select-toggle-btn');
+    if (selectBtn) {
+        selectBtn.style.display = (selectedCount > 0) ? 'none' : 'inline-block';
     }
 }
 window.updateWrongMcqSelectionUI = updateWrongMcqSelectionUI;
 
+function updateCorrectMcqSelectionUI() {
+    const selectedCount = document.querySelectorAll('#correct-mcqs-list-container .detail-q-card.selected-q-card').length;
+    const selectBtn = document.getElementById('correct-select-toggle-btn');
+    if (selectBtn) {
+        selectBtn.style.display = (selectedCount > 0) ? 'none' : 'inline-block';
+    }
+}
+window.updateCorrectMcqSelectionUI = updateCorrectMcqSelectionUI;
+
 function startSelectedWrongMcqsQuiz() {
-    if (!window.selectedWrongMcqIds || window.selectedWrongMcqIds.size === 0) {
-        showToast('অনুগ্রহ করে অন্তত একটি প্রশ্ন সিলেক্ট করুন');
-        return;
+    const selectedCards = document.querySelectorAll('#wrong-mcqs-list-container .detail-q-card.selected-q-card');
+    let selectedQuestions = [];
+    if (selectedCards.length > 0) {
+        selectedCards.forEach(c => {
+            const id = parseInt(c.getAttribute('data-qid'));
+            const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
+                (window.currentWrongQuestions && window.currentWrongQuestions.find(item => item.id === id));
+            if (q) selectedQuestions.push(q);
+        });
+    } else if (window.currentWrongQuestions && window.currentWrongQuestions.length > 0) {
+        selectedQuestions = window.currentWrongQuestions;
     }
 
-    const selectedQuestions = [];
-    window.selectedWrongMcqIds.forEach(id => {
-        const q = (window.cachedQuestionsMap && window.cachedQuestionsMap[id]) ||
-            (window.currentWrongQuestions && window.currentWrongQuestions.find(item => item.id === id));
-        if (q) selectedQuestions.push(q);
-    });
-
     if (selectedQuestions.length === 0) {
-        showToast('সিলেক্ট করা কোনো প্রশ্ন পাওয়া যায়নি');
+        showToast('কোনো প্রশ্ন পাওয়া যায়নি');
         return;
     }
 
@@ -968,20 +983,26 @@ function loadWrongMcqsList() {
 
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
 
+    const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
     const queryParams = new URLSearchParams({
         chapter_id: selectedChapter,
         page_id: selectedPage,
         date: selectedDate,
-        search: searchQuery
+        search: searchQuery,
+        phone: userPhone,
+        session_id: userSessionId
     });
 
-    fetch(`/api/v1/wrong-mcqs?${queryParams.toString()}`)
+    fetch(`/api/v1/wrong-mcqs?${queryParams.toString()}`, {
+        headers: { 'X-Client-Phone': userPhone }
+    })
         .then(res => res.json())
         .then(resData => {
             let questions = resData.data || resData || [];
             if (!Array.isArray(questions)) questions = [];
 
-            // Fallback: Check local user stats if backend array is empty (e.g. offline mode)
             if (questions.length === 0 && !selectedChapter && !selectedPage && !selectedDate && !searchQuery) {
                 const userStats = getUserQuestionStats();
                 const wrongIds = [];
@@ -1011,80 +1032,36 @@ function loadWrongMcqsList() {
             if (!filtered || filtered.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px;">আপনার কোনো ভুল উত্তরের রেকর্ড নেই!</div>`;
                 window.currentWrongQuestions = [];
-                updateWrongMcqSelectionUI();
                 return;
             }
 
             window.cachedQuestionsMap = window.cachedQuestionsMap || {};
             window.currentWrongQuestions = filtered;
-            window.selectedWrongMcqIds = window.selectedWrongMcqIds || new Set();
 
             container.innerHTML = '';
             filtered.forEach((q, index) => {
                 window.cachedQuestionsMap[q.id] = q;
-                const isSelected = window.selectedWrongMcqIds.has(q.id);
-
-                const row = document.createElement('div');
-                row.className = 'wrong-mcq-item-row';
-                row.style.display = 'flex';
-                row.style.alignItems = 'stretch';
-                row.style.gap = '10px';
-
-                const checkboxCol = document.createElement('div');
-                checkboxCol.style.display = 'flex';
-                checkboxCol.style.alignItems = 'center';
-                checkboxCol.style.justifyContent = 'center';
-                checkboxCol.style.padding = '0 6px 0 2px';
-                checkboxCol.style.cursor = 'pointer';
-                checkboxCol.onclick = (e) => {
-                    if (e.target.tagName !== 'INPUT') {
-                        toggleWrongMcqSelection(q.id);
-                    }
-                };
-
-                const checkboxInput = document.createElement('input');
-                checkboxInput.type = 'checkbox';
-                checkboxInput.id = `wrong-mcq-check-${q.id}`;
-                checkboxInput.className = 'wrong-mcq-select-checkbox';
-                checkboxInput.checked = isSelected;
-                checkboxInput.style.width = '20px';
-                checkboxInput.style.height = '20px';
-                checkboxInput.style.accentColor = 'var(--accent-red)';
-                checkboxInput.style.cursor = 'pointer';
-                checkboxInput.onchange = (e) => toggleWrongMcqSelection(q.id, e.target.checked);
-
-                checkboxCol.appendChild(checkboxInput);
 
                 const card = document.createElement('div');
                 card.className = `detail-q-card incorrect`;
-                card.style.flex = '1';
+                card.setAttribute('data-qid', q.id);
                 card.style.position = 'relative';
+                card.style.cursor = 'pointer';
+
+                card.onclick = (e) => {
+                    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) return;
+                    toggleWrongMcqCardSelection(q.id, card);
+                };
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
                 const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
-
-                const topImageCardHtml = qImage ? `
-                    <div style="width: 100%; text-align: center; padding: 12px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03); box-sizing: border-box;">
-                        <img src="${qImage}" style="max-height: 200px; width: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer; display: block; margin: 0 auto;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
-                    </div>
-                ` : '';
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
                         <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
-
-                const itemWrapper = document.createElement('div');
-                itemWrapper.className = 'wrong-mcq-item-wrapper';
-                itemWrapper.style.flex = '1';
-                itemWrapper.style.minWidth = '0';
-                itemWrapper.style.maxWidth = '100%';
-                itemWrapper.style.boxSizing = 'border-box';
-                if (topImageCardHtml) {
-                    itemWrapper.innerHTML = topImageCardHtml;
-                }
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; flex-wrap: wrap; gap: 6px; box-sizing: border-box;">
@@ -1097,7 +1074,7 @@ function loadWrongMcqsList() {
                                         <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> VERO
                                     </span>
                                 ` : `
-                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;">
+                                    <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; background-color: rgba(239, 68, 68, 0.15); color: #dc2626; border: 1.5px solid #ef4444;">
                                         <i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> FALSO
                                     </span>
                                 `}
@@ -1161,10 +1138,7 @@ function loadWrongMcqsList() {
                     card.appendChild(statsDiv);
                 }
 
-                itemWrapper.appendChild(card);
-                row.appendChild(checkboxCol);
-                row.appendChild(itemWrapper);
-                container.appendChild(row);
+                container.appendChild(card);
             });
             updateWrongMcqSelectionUI();
         })
@@ -1507,7 +1481,7 @@ function renderManualeTopics(topics) {
 
         let vocabs = item.vocabulary || [];
         if (typeof vocabs === 'string') {
-            try { vocabs = JSON.parse(vocabs); } catch(e) { vocabs = []; }
+            try { vocabs = JSON.parse(vocabs); } catch (e) { vocabs = []; }
         }
 
         let vocabHtml = '';
@@ -1519,10 +1493,10 @@ function renderManualeTopics(topics) {
                     </h4>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
                         ${vocabs.map(v => {
-                            const word = v.italian || v.word || '';
-                            const meaning = v.bangla || v.meaning || '';
-                            const vImg = v.image || '';
-                            return `
+                const word = v.italian || v.word || '';
+                const meaning = v.bangla || v.meaning || '';
+                const vImg = v.image || '';
+                return `
                                 <div style="background: var(--bg-primary); border: 1px solid var(--border-card); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
                                     ${vImg ? `<img src="${vImg}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-card);">` : ''}
                                     <div>
@@ -1531,7 +1505,7 @@ function renderManualeTopics(topics) {
                                     </div>
                                 </div>
                             `;
-                        }).join('')}
+            }).join('')}
                     </div>
                 </div>
             `;

@@ -70,7 +70,7 @@
         <div style="background: #ffffff; border-radius: 18px; padding: 18px; border: 1px solid #cbd5e1; box-shadow: 0 4px 14px rgba(0,0,0,0.04); margin-bottom: 20px;">
             <!-- Question Image if present -->
             <div id="scheda-quiz-img-container" style="display: none; text-align: center; margin-bottom: 14px;">
-                <img id="scheda-quiz-img" src="" alt="Sign" style="max-width: 100%; max-height: 180px; border-radius: 12px; object-fit: contain;">
+                <img id="scheda-quiz-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Sign" style="max-width: 100%; max-height: 180px; border-radius: 12px; object-fit: contain;">
             </div>
 
             <!-- Question Italian Text with Underlined Words -->

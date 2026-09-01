@@ -22,6 +22,7 @@ class Question extends Model
         'correct_answer',
         'explanation',
         'image',
+        'image_position',
         'audio',
         'video',
         'vocabulary',

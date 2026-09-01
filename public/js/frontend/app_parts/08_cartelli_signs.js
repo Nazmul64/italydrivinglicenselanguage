@@ -10,7 +10,12 @@ function loadSavedMcqsScreen() {
     if (!container) return;
     container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande salvate...</div>`;
 
-    fetch('/api/saved-mcqs')
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
+    fetch(`/api/v1/saved-mcqs?phone=${encodeURIComponent(savedPhone)}&session_id=${encodeURIComponent(savedSessionId)}`, {
+        headers: { 'X-Client-Phone': savedPhone }
+    })
         .then(res => res.json())
         .then(resData => {
             const savedArr = Array.isArray(resData) ? resData : (resData.data || []);
@@ -41,22 +46,9 @@ function loadSavedMcqsScreen() {
                 const pageNum = page ? (page.sort_order || page.id) : '';
 
                 let locationBadgeHtml = '';
-                if (chapNum || pageTitle || typeBadge) {
-                    locationBadgeHtml = `
-                        <div style="font-size: 11px; font-weight: 700; color: var(--accent-green); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; background-color: rgba(76, 175, 80, 0.08); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(76, 175, 80, 0.18); width: fit-content;">
-                            <i class="fa-solid fa-folder-open" style="font-size: 10px;"></i>
-                            <span>[${typeBadge}] ${chapNum ? `Capitolo ${chapNum}` : ''}${chapName ? `: ${chapName}` : ''}${pageTitle ? ` · Pagina ${pageNum}: ${pageTitle}` : ''}</span>
-                        </div>
-                    `;
-                }
 
-                const qImage = q.image || q.img || (page && page.image ? page.image : null);
-
-                const topImageCardHtml = qImage ? `
-                    <div style="text-align: center; padding: 20px; margin-bottom: 12px; background: var(--bg-card, #fff); border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
-                        <img src="${qImage}" style="max-height: 150px; width: auto; max-width: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
-                    </div>
-                ` : '';
+                const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
+                const qImage = q.image || q.img || vocabImg || (page && page.image ? page.image : null);
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
@@ -65,13 +57,6 @@ function loadSavedMcqsScreen() {
                 ` : '';
 
                 const isSelected = selectedSavedMcqIds.includes(q.id);
-
-                const itemWrapper = document.createElement('div');
-                itemWrapper.className = 'saved-mcq-item-wrapper';
-                itemWrapper.style.marginBottom = '16px';
-                if (topImageCardHtml) {
-                    itemWrapper.innerHTML = topImageCardHtml;
-                }
 
                 const card = document.createElement('div');
                 card.className = `detail-q-card unanswered ${isSelected ? 'selected-q-card' : ''}`;
@@ -162,8 +147,7 @@ function loadSavedMcqsScreen() {
                     card.appendChild(statsDiv);
                 }
 
-                itemWrapper.appendChild(card);
-                container.appendChild(itemWrapper);
+                container.appendChild(card);
             });
             updateSavedMcqsPillStates();
             updateSavedMcqsQuizButtonVisibility();
@@ -375,12 +359,19 @@ function toggleSavedTranslation(qId) {
     const q = activeSavedMcqs.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || []);
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], q.image || q.img || '');
 }
 
 function toggleSavedMcq(questionId, btnElement, type) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const payload = { question_id: questionId };
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
+    const payload = { 
+        question_id: questionId,
+        phone: savedPhone,
+        session_id: savedSessionId
+    };
     if (type) payload.type = type;
 
     fetch('/api/saved-mcqs/toggle', {
@@ -560,11 +551,15 @@ function deleteUserNote() {
         });
 }
 
-function saveQuestionAnswerStat(questionId, chapterId, state) {
+function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'argomenti') {
     if (!questionId) return;
     const qIdNum = parseInt(questionId);
+    const key = (questionType === 'cartelli' || String(questionId).startsWith('cartelli_'))
+        ? `cartelli_${qIdNum}`
+        : qIdNum;
+
     const stats = getUserQuestionStats();
-    const existing = stats[qIdNum] || { correct: 0, wrong: 0 };
+    const existing = stats[key] || { correct: 0, wrong: 0 };
 
     let correctCount = typeof existing.correct === 'number' ? existing.correct : 0;
     let wrongCount = typeof existing.wrong === 'number' ? existing.wrong : 0;
@@ -583,7 +578,7 @@ function saveQuestionAnswerStat(questionId, chapterId, state) {
         wrongCount += 1;
     }
 
-    stats[qIdNum] = {
+    stats[key] = {
         state: isCorrect ? 'correct' : 'wrong',
         correct: correctCount,
         wrong: wrongCount,
@@ -593,14 +588,20 @@ function saveQuestionAnswerStat(questionId, chapterId, state) {
     saveUserQuestionStats(stats);
 
     // Save/log to Database via API
+    const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
     fetch('/api/user-mcq-results/log', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            'X-Client-Phone': userPhone
         },
         body: JSON.stringify({
+            phone: userPhone,
+            session_id: userSessionId,
             results: [{
                 question_id: qIdNum,
                 user_answer: isCorrect ? 'correct' : 'wrong',

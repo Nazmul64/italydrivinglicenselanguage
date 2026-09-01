@@ -80,9 +80,9 @@ class DizionarioController extends Controller
             'bn'      => 'required|string|max:255',
             'desc_it' => 'nullable|string',
             'desc_bn' => 'nullable|string',
-            'image'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'audio'   => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
-            'video'   => 'nullable|file|mimes:mp4,webm,ogg,avi,mov|max:30720',
+            'image'   => 'nullable|max:20480',
+            'audio'   => 'nullable|max:15360',
+            'video'   => 'nullable|max:30720',
         ]);
 
         $data = [
@@ -117,6 +117,7 @@ class DizionarioController extends Controller
         }
 
         $term->save();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
 
         return response()->json($term);
     }
@@ -134,9 +135,9 @@ class DizionarioController extends Controller
             'bn'      => 'required|string|max:255',
             'desc_it' => 'nullable|string',
             'desc_bn' => 'nullable|string',
-            'image'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'audio'   => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
-            'video'   => 'nullable|file|mimes:mp4,webm,ogg,avi,mov|max:30720',
+            'image'   => 'nullable|max:20480',
+            'audio'   => 'nullable|max:15360',
+            'video'   => 'nullable|max:30720',
         ]);
 
         $term->word = $request->word;
@@ -176,6 +177,7 @@ class DizionarioController extends Controller
         }
 
         $term->save();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
 
         return response()->json($term);
     }
@@ -200,6 +202,7 @@ class DizionarioController extends Controller
         }
 
         $term->delete();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json(['success' => true]);
     }
 
@@ -234,6 +237,7 @@ class DizionarioController extends Controller
                 }
                 $term->delete();
             }
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
             return response()->json(['success' => true]);
         }
 
@@ -256,6 +260,7 @@ class DizionarioController extends Controller
             $term->delete();
         }
 
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json(['success' => true]);
     }
 }

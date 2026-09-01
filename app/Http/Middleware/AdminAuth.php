@@ -16,7 +16,8 @@ class AdminAuth
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!session('admin_logged_in')) {
+        $isAdminUser = \Illuminate\Support\Facades\Auth::check() && in_array(\Illuminate\Support\Facades\Auth::user()->role, ['admin', 'super_admin']);
+        if (!session('admin_logged_in') && !$isAdminUser) {
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Unauthenticated.'], 401);
             }

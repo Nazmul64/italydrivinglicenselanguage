@@ -2108,6 +2108,28 @@ body.dark-mode .detail-q-card:hover {
     border: 2px solid #f59e0b !important;
 }
 
+.detail-speed-popover-menu {
+    position: absolute;
+    bottom: 34px;
+    right: 0;
+    background: var(--bg-card, #ffffff);
+    border: 1px solid var(--border-card, #cbd5e1);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    padding: 4px;
+    z-index: 99999 !important;
+    min-width: 90px;
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+body.dark-mode .detail-speed-popover-menu {
+    background: var(--bg-card, #1e293b) !important;
+    border-color: var(--border-card, #334155) !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
 .detail-q-header-row {
     display: flex !important;
     align-items: center;
@@ -2142,19 +2164,19 @@ body.dark-mode .detail-q-card:hover {
 /* Audio Speed Control Button Dropdown Style */
 .speed-popover {
     position: absolute;
-    bottom: 60px;
-    right: 0;
     background-color: var(--bg-card);
-    border: 1px solid var(--border-card);
-    border-radius: 12px;
-    width: 120px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    padding: 6px;
+    border: 1.5px solid var(--border-card);
+    border-radius: 14px;
+    min-width: 95px;
+    width: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 999999;
+    padding: 6px 0;
     display: flex;
     flex-direction: column;
-    max-height: 200px;
-    overflow-y: auto;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
 }
 
 .speed-option-item {
@@ -2183,19 +2205,21 @@ body.dark-mode .detail-q-card:hover {
 .pill-btn {
     border: 1px solid var(--border-card);
     background-color: var(--bg-card);
-    color: var(--text-secondary);
-    padding: 6px 14px;
+    color: var(--text-primary);
+    padding: 7px 18px;
     border-radius: 30px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .pill-btn.active {
-    background-color: var(--accent-green);
-    color: white;
-    border-color: var(--accent-green);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-card);
+    font-weight: 800;
 }
 
 .chapter-selector-trigger {
@@ -2273,32 +2297,61 @@ body.dark-mode .detail-q-card:hover {
 
 /* Floating QUIZ Button */
 .floating-quiz-btn {
-    position: fixed;
-    bottom: 85px;
-    right: 20px;
-    z-index: 99;
-    background-color: var(--accent-green);
+    position: fixed !important;
+    bottom: 125px !important;
+    right: 20px !important;
+    z-index: 1001 !important;
+    background-color: var(--accent-green) !important;
     color: white !important;
-    font-weight: 800;
-    font-size: 15px;
-    padding: 12px 28px;
-    border-radius: 30px;
-    border: none;
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    font-weight: 800 !important;
+    font-size: 15px !important;
+    padding: 12px 28px !important;
+    border-radius: 30px !important;
+    border: none !important;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.45) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease-in-out !important;
 }
 
 .floating-quiz-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+    transform: scale(1.05) !important;
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.6) !important;
 }
 
 .floating-quiz-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.95) !important;
+}
+
+/* Schede & Page Card Image Responsive Sizing without empty space */
+.page-image-frame {
+    width: 100% !important;
+    min-width: 100% !important;
+    align-self: stretch !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: unset !important;
+    display: block !important;
+    margin: 10px 0 !important;
+    background: transparent !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+.schede-page-img,
+.page-image-frame img {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: unset !important;
+    border-radius: 14px !important;
+    display: block !important;
+    object-fit: cover !important;
 }
 
 .content-card {
@@ -2308,20 +2361,24 @@ body.dark-mode .detail-q-card:hover {
 
 .content-card.selected-chapter-card,
 .content-card.selected-sheet-card,
+.schede-card.selected-sheet-card,
+.scheda-item-card.selected-sheet-card,
 .chapter-image-card.selected-chapter-card,
 .chapter-card.selected-chapter-card,
 .detail-q-card.selected-q-card {
-    border: 2px solid var(--accent-green) !important;
+    border: 2.5px solid var(--accent-green) !important;
     background-color: rgba(76, 175, 80, 0.08) !important;
-    box-shadow: 0 4px 14px rgba(76, 175, 80, 0.2) !important;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.25) !important;
 }
 
 body.dark-mode .content-card.selected-chapter-card,
 body.dark-mode .content-card.selected-sheet-card,
+body.dark-mode .schede-card.selected-sheet-card,
+body.dark-mode .scheda-item-card.selected-sheet-card,
 body.dark-mode .chapter-image-card.selected-chapter-card,
 body.dark-mode .chapter-card.selected-chapter-card,
 body.dark-mode .detail-q-card.selected-q-card {
-    background-color: rgba(76, 175, 80, 0.16) !important;
+    background-color: rgba(76, 175, 80, 0.18) !important;
 }
 
 /* New Chapter Image Cards Styles */
@@ -2345,17 +2402,31 @@ body.dark-mode .detail-q-card.selected-q-card {
 
 .chapter-card-img-wrapper {
     width: 100%;
-    height: 150px;
+    height: 250px;
+    min-height: 220px;
+    max-height: 280px;
     overflow: hidden;
     position: relative;
-    background-color: #e2e8f0;
+    background-color: transparent !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
+    padding: 0;
+    border-radius: 14px;
+    box-sizing: border-box;
 }
 
 .chapter-card-img {
-    width: 100%;
+    max-height: 250px;
     height: 100%;
-    object-fit: cover;
+    width: 100%;
+    max-width: 92%;
+    object-fit: contain;
+    border-radius: 14px;
     transition: transform 0.3s ease;
+    background: transparent !important;
+    display: block;
 }
 
 .chapter-image-card:hover .chapter-card-img {
@@ -2472,17 +2543,7 @@ body.dark-mode .detail-q-card.selected-q-card {
     border-top: 1px dashed var(--border-card);
 }
 
-/* Audio Speed Control Button Dropdown Style */
-.speed-popover {
-    position: absolute;
-    bottom: 60px;
-    right: 0;
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-card);
-    border-radius: 12px;
-    width: 120px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
+
 
 /* Interactive Dictionary Underline Links */
 .dict-term-link {
@@ -2914,12 +2975,28 @@ input:checked+.slider-toggle::before {
     transform: translateX(20px);
 }
 
-/* 2-Column Side-by-Side Grid for Chapter & Schede Cards (5:50 PM state) */
-.argomenti-grid,
+#screen-argomenti,
+#screen-cartelli,
+#screen-argomenti-schede,
+#screen-cartelli-schede {
+    width: 100%;
+    max-width: 1360px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.argomenti-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 40px;
+    width: 100%;
+}
+
 .argomenti-schede-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 24px;
     margin-bottom: 40px;
 }
 
@@ -2957,8 +3034,10 @@ input:checked+.slider-toggle::before {
 }
 
 .chapter-image-card {
+    max-width: 360px;
     align-items: center;
-    min-height: 250px;
+    min-height: auto;
+    box-sizing: border-box;
 }
 
 .content-card:hover,
@@ -3047,28 +3126,30 @@ body.dark-mode .chapter-image-card:active {
 }
 
 .pill-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 6px 6px 14px #c5d0e3, -6px -6px 14px #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
 .pill-btn.active,
 .pill-btn:active {
-    background: #F4F7FA;
-    color: #4CAF50;
-    box-shadow: inset 3px 3px 6px #d1d9e6, inset -3px -3px 6px #ffffff;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-card);
+    font-weight: 800;
 }
 
 body.dark-mode .pill-btn {
-    background: #090D1A;
-    border-color: rgba(255, 255, 255, 0.04);
-    box-shadow: 4px 4px 10px #040710, -4px -4px 10px rgba(255, 255, 255, 0.03);
-    color: #94a3b8;
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
 }
 
 body.dark-mode .pill-btn.active,
 body.dark-mode .pill-btn:active {
-    color: #10b981;
-    box-shadow: inset 3px 3px 6px #040710, inset -3px -3px 6px rgba(255, 255, 255, 0.03);
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.2);
+    font-weight: 800;
 }
 
 /* ===== 3D Neumorphism Top Header ===== */
@@ -3194,6 +3275,37 @@ body.dark-mode .pill-btn:active {
     .test-slider {
         max-width: 80px !important;
     }
+
+    .floating-quiz-btn {
+        bottom: 125px !important;
+        right: 16px !important;
+        padding: 10px 22px !important;
+        font-size: 13.5px !important;
+        z-index: 1001 !important;
+    }
+
+    .page-image-frame {
+        width: 100% !important;
+        min-width: 100% !important;
+        align-self: stretch !important;
+        height: auto !important;
+        min-height: unset !important;
+        max-height: unset !important;
+        display: block !important;
+        margin: 10px 0 !important;
+    }
+
+    .schede-page-img,
+    .page-image-frame img {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: unset !important;
+        object-fit: cover !important;
+        display: block !important;
+    }
 }
 
 @media (max-width: 480px) {
@@ -3212,6 +3324,37 @@ body.dark-mode .pill-btn:active {
 
     .bottom-nav .nav-item i {
         font-size: 16px !important;
+    }
+
+    .floating-quiz-btn {
+        bottom: 120px !important;
+        right: 14px !important;
+        padding: 9px 20px !important;
+        font-size: 13px !important;
+        z-index: 1001 !important;
+    }
+
+    .page-image-frame {
+        width: 100% !important;
+        min-width: 100% !important;
+        align-self: stretch !important;
+        height: auto !important;
+        min-height: unset !important;
+        max-height: unset !important;
+        display: block !important;
+        margin: 10px 0 !important;
+    }
+
+    .schede-page-img,
+    .page-image-frame img {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: unset !important;
+        object-fit: cover !important;
+        display: block !important;
     }
 }
 
@@ -3319,7 +3462,7 @@ body.dark-mode .bottom-nav .nav-item.active {
         padding: 14px 12px !important;
         border-radius: 14px !important;
         box-sizing: border-box !important;
-        overflow: hidden !important;
+        overflow: visible !important;
     }
 
     .detail-q-actions-row {

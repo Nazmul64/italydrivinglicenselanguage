@@ -31,10 +31,13 @@ class DatabaseSeeder extends Seeder
         }
 
         // Default Application Setting
-        Setting::firstOrCreate(
+        $setting = Setting::firstOrCreate(
             ['id' => 1],
             ['app_name' => 'Italy Bangla Patente']
         );
+        $setting->update([
+            'license_message' => "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team"
+        ]);
 
         // ONLY Homepage Cards Seeder
         HomeCard::truncate();
@@ -141,7 +144,8 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'top-performers',
                 'icon_class' => 'fa-solid fa-ranking-star',
                 'icon_color' => '#F59E0B',
-                'order_index' => 13
+                'order_index' => 13,
+                'status' => 1
             ],
             [
                 'title' => 'Manuale',
@@ -149,7 +153,8 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'manuale',
                 'icon_class' => 'fa-solid fa-book-bookmark',
                 'icon_color' => '#2563EB',
-                'order_index' => 14
+                'order_index' => 14,
+                'status' => 1
             ],
             [
                 'title' => 'Patente Social',
@@ -157,7 +162,8 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'patente-social',
                 'icon_class' => 'fa-solid fa-users',
                 'icon_color' => '#8B5CF6',
-                'order_index' => 15
+                'order_index' => 15,
+                'status' => 1
             ],
             [
                 'title' => 'Translation',
@@ -165,11 +171,27 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'translation',
                 'icon_class' => 'fa-solid fa-language',
                 'icon_color' => '#0284C7',
-                'order_index' => 16
+                'order_index' => 16,
+                'status' => 1
             ]
         ];
         foreach ($cards as $c) {
+            $c['status'] = 1;
             HomeCard::create($c);
+        }
+
+        // Default Categories
+        if (\App\Models\Category::count() === 0) {
+            $categories = [
+                ['name' => 'Patente B', 'description' => 'Patente di Guida Categoria B'],
+                ['name' => 'Patente A', 'description' => 'Patente di Guida Categoria A'],
+                ['name' => 'Patente AM', 'description' => 'Patente di Guida Categoria AM'],
+                ['name' => 'Patente C', 'description' => 'Patente di Guida Categoria C'],
+                ['name' => 'Patente D', 'description' => 'Patente di Guida Categoria D'],
+            ];
+            foreach ($categories as $cat) {
+                \App\Models\Category::create($cat);
+            }
         }
     }
 }

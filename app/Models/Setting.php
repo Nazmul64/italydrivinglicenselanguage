@@ -67,5 +67,7 @@ class Setting extends Model
         'qr_target_mode',
         'qr_live_url',
         'qr_local_url',
+        'privacy_policy',
+        'terms_conditions',
     ];
 }

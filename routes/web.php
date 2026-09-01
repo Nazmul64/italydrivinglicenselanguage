@@ -4,114 +4,220 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
 Route::get('/qr-unlock', function (Request $request) {
-    $sessionId = $request->query('session_id') ?: session()->getId();
-    session(['qr_unlocked' => true]);
-    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400);
+    $targetSessionId = $request->query('session_id') ?: session()->getId();
+    $phone = $request->query('phone') ?: $request->cookie('app_client_phone') ?: session('app_client_phone');
+
+    $isDbActive = false;
+    if ($phone) {
+        $cleanPhone = preg_replace('/\D/', '', $phone);
+        $isDbActive = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
+            $q->where('phone', $phone);
+            if (!empty($cleanPhone)) {
+                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+            }
+        })->where('is_active', true)->where(function($q) {
+            $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+        })->exists();
+    }
+
+    if (!$isDbActive && $targetSessionId) {
+        $isDbActive = \App\Models\AppClient::where('session_id', $targetSessionId)
+            ->where('is_active', true)
+            ->where(function($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })->exists();
+    }
+
+    if (!$isDbActive && $targetSessionId) {
+        $userObj = \App\Models\User::where('uuid', $targetSessionId)->first();
+        if ($userObj) {
+            $isDbActive = \App\Models\License::where('user_id', $userObj->uuid)
+                ->where('status', 'active')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })->exists();
+        }
+    }
+
+    if ($isDbActive) {
+        session(['qr_unlocked' => true]);
+        if ($targetSessionId) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $targetSessionId, true, 86400 * 365);
+        }
+        if ($phone) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * 365);
+        }
+
+        return response('<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Unlock Successful</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; text-align: center; padding: 20px; }
+        .card { background: white; padding: 32px 24px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 380px; width: 100%; border: 1px solid #e2e8f0; }
+        .icon { font-size: 54px; margin-bottom: 12px; }
+        h2 { color: #16a34a; font-size: 20px; margin-bottom: 8px; }
+        p { font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+        .btn { display: inline-block; padding: 12px 24px; background: #22c55e; color: white; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🎉</div>
+        <h2>সফলভাবে আনলক হয়েছে!</h2>
+        <p>আপনার ডিভাইস এবং ওয়েবসাইটের সেশন সফলভাবে আনলক করা হয়েছে। কম্পিউটারের স্ক্রিনটি অটোমেটিক ওপেন হয়ে যাবে।</p>
+        <a href="/" class="btn">ব্রাউজ করুন</a>
+    </div>
+</body>
+</html>', 200)->header('Content-Type', 'text/html');
+    }
+
+    return response('<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Pending</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; text-align: center; padding: 20px; }
+        .card { background: white; padding: 32px 24px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 380px; width: 100%; border: 1px solid #e2e8f0; }
+        .icon { font-size: 54px; margin-bottom: 12px; }
+        h2 { color: #eab308; font-size: 20px; margin-bottom: 8px; }
+        p { font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+        .btn { display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">⚠️</div>
+        <h2>লাইসেন্স সক্রিয় নয়</h2>
+        <p>আপনার অ্যাকাউন্টের লাইসেন্স কি এখনও অ্যাক্টিভ করা হয়নি। লাইভ চ্যাটে আপনার নাম ও ফোন নম্বর লিখে এডমিনের সাথে যোগাযোগ করুন।</p>
+        <a href="/" class="btn">হোম পেজে যান</a>
+    </div>
+</body>
+</html>', 200)->header('Content-Type', 'text/html');
+});
+
+Route::get('/qr-logout-session', function (Request $request) {
+    $sessionId = session()->getId();
+    session()->forget('qr_unlocked');
+    session()->save();
+    \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $sessionId);
     return redirect('/');
 });
 
 Route::get('/qr-check-session', function (Request $request) {
     $sessionId = $request->query('session_id') ?: session()->getId();
-    $unlocked = session('qr_unlocked', false) 
-        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId, false)
-        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_demo', false)
-        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_global', false);
+
+    $unlocked = session('qr_unlocked') === true
+        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId) === true;
+
+    $phone = \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId) ?: session('app_client_phone');
+    $firstName = \Illuminate\Support\Facades\Cache::get('qr_first_name_' . $sessionId);
+    $lastName = \Illuminate\Support\Facades\Cache::get('qr_last_name_' . $sessionId);
 
     if ($unlocked) {
         session(['qr_unlocked' => true]);
-        \Illuminate\Support\Facades\Cache::forget('qr_unlocked_global');
-        \Illuminate\Support\Facades\Cache::forget('qr_unlocked_demo');
-    }
-    return response()->json(['unlocked' => (bool)$unlocked]);
-});
-
-$qrUnlockHandler = function (Request $request) {
-    // Accept: token (new), session_id (legacy), qr_code, code, qrData
-    // Also accept customer identity fields: phone, firstName, lastName
-    $token     = $request->input('token');
-    $code      = $request->input('session_id')
-               ?: $request->input('qr_code')
-               ?: $request->input('code')
-               ?: $request->input('qrData');
-
-    // If URL with ?token= or ?session_id= was scanned directly
-    if (empty($token) && !empty($code) && str_contains($code, 'token=')) {
-        parse_str(parse_url($code, PHP_URL_QUERY) ?? '', $q);
-        $token = $q['token'] ?? null;
-    }
-    if (empty($code) && !empty($token)) {
-        $code = $token;
-    }
-    if (empty($code) && empty($token)) {
-        // Still allow unlock via phone / name (customer already activated)
-        $phone = $request->input('phone') ?: $request->input('phoneNumber');
-        if (!empty($phone)) {
-            $code = 'customer_' . preg_replace('/\D/', '', $phone);
-        }
-    }
-
-    if (empty($code) && empty($token)) {
-        return response()->json(['status' => 'error', 'message' => 'QR payload missing'], 422);
-    }
-
-    // ---- GLOBAL UNLOCK: unlocks every browser window showing QR gate ----
-    \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 300); // 5 minutes
-
-    // Also unlock by token and code for precise matching
-    if (!empty($token)) {
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $token, true, 300);
-    }
-    if (!empty($code)) {
-        $sessionId = $code;
-        if (str_contains($code, 'session_id=')) {
-            parse_str(parse_url($code, PHP_URL_QUERY) ?? '', $q);
-            $sessionId = $q['session_id'] ?? $code;
-        }
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 300);
+        if ($phone) session(['app_client_phone' => $phone]);
+        session()->save();
     }
 
     return response()->json([
-        'status'  => 'success',
-        'message' => 'Website unlocked successfully!',
+        'unlocked'   => (bool)$unlocked,
+        'session_id' => $sessionId,
+        'phone'      => $phone,
+        'first_name' => $firstName,
+        'last_name'  => $lastName,
     ]);
-};
+});
 
+Route::post('/api/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::post('/api/v1/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::post('/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
 
-Route::post('/api/qr-unlock', $qrUnlockHandler);
-Route::post('/api/v1/qr-unlock', $qrUnlockHandler);
-Route::post('/qr-unlock', $qrUnlockHandler);
+if (!function_exists('getFrontendHomeCards')) {
+    function getFrontendHomeCards() {
+        $cards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
+        if ($cards->isEmpty()) {
+            $defaultCards = [
+                ['title' => 'Lezioni', 'subtitle' => 'ক্লাস ভিডিও', 'screen_key' => 'lezioni', 'icon_class' => 'fa-solid fa-video', 'icon_color' => '#3B82F6', 'order_index' => 1, 'status' => 1],
+                ['title' => 'Test', 'subtitle' => 'অনুশীলন টেস্ট', 'screen_key' => 'test', 'icon_class' => 'fa-solid fa-laptop-code', 'icon_color' => '#475569', 'order_index' => 2, 'status' => 1],
+                ['title' => 'ARGOMENTI', 'subtitle' => 'অধ্যায়সমূহ', 'screen_key' => 'argomenti', 'icon_class' => 'fa-solid fa-graduation-cap', 'icon_color' => '#8B5CF6', 'order_index' => 3, 'status' => 1],
+                ['title' => 'E-Class', 'subtitle' => 'অনলাইন ক্লাস', 'screen_key' => 'eclass', 'icon_class' => 'fa-solid fa-chalkboard-user', 'icon_color' => '#06B6D4', 'order_index' => 4, 'status' => 1],
+                ['title' => 'Sfida', 'subtitle' => 'চ্যালেঞ্জ', 'screen_key' => 'sfida', 'icon_class' => 'fa-solid fa-trophy', 'icon_color' => '#F59E0B', 'order_index' => 5, 'status' => 1],
+                ['title' => 'Scheda Esame', 'subtitle' => 'পরীক্ষার শিট', 'screen_key' => 'scheda-esame', 'icon_class' => 'fa-solid fa-file-signature', 'icon_color' => '#F43F5E', 'order_index' => 6, 'status' => 1],
+                ['title' => 'Dizionario', 'subtitle' => 'অভিধান', 'screen_key' => 'dizionario', 'icon_class' => 'fa-solid fa-book-open', 'icon_color' => '#10B981', 'order_index' => 7, 'status' => 1],
+                ['title' => 'Cartelli', 'subtitle' => 'ট্রাফিক সাইন', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'icon_color' => '#F97316', 'order_index' => 8, 'status' => 1],
+                ['title' => 'Saved MCQs', 'subtitle' => 'সেভ করা এমসিকিউ', 'screen_key' => 'saved-mcqs', 'icon_class' => 'fa-solid fa-bookmark', 'icon_color' => '#EF4444', 'order_index' => 9, 'status' => 1],
+                ['title' => 'Correct MCQs', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct-mcqs', 'icon_class' => 'fa-solid fa-circle-check', 'icon_color' => '#22C55E', 'order_index' => 10, 'status' => 1],
+                ['title' => 'Wrong MCQs', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong-mcqs', 'icon_class' => 'fa-solid fa-circle-xmark', 'icon_color' => '#EF4444', 'order_index' => 11, 'status' => 1],
+                ['title' => 'Support', 'subtitle' => 'লাইভ চ্যাট', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'icon_color' => '#0EA5E9', 'order_index' => 12, 'status' => 1],
+                ['title' => 'Top Performers', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top-performers', 'icon_class' => 'fa-solid fa-ranking-star', 'icon_color' => '#F59E0B', 'order_index' => 13, 'status' => 1],
+                ['title' => 'Manuale', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'icon_color' => '#2563EB', 'order_index' => 14, 'status' => 1],
+                ['title' => 'Patente Social', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente-social', 'icon_class' => 'fa-solid fa-users', 'icon_color' => '#8B5CF6', 'order_index' => 15, 'status' => 1],
+                ['title' => 'Translation', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'icon_color' => '#0284C7', 'order_index' => 16, 'status' => 1],
+            ];
+            foreach ($defaultCards as $dc) {
+                try {
+                    \App\Models\HomeCard::create($dc);
+                } catch (\Throwable $e) {}
+            }
+            $cards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
+        }
+        return $cards;
+    }
+}
+
+if (!function_exists('getFrontendViewData')) {
+    function getFrontendViewData() {
+        return \Illuminate\Support\Facades\Cache::remember('frontend_cached_view_data', 1800, function () {
+            $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
+            $homeCards = getFrontendHomeCards();
+            $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
+            $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
+            $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
+            $setting = \App\Models\Setting::first();
+            $dictionaryTerms = \App\Models\Dizionario::orderBy('word', 'asc')->get();
+            $argomentiChapters = \App\Models\Chapter::with(['pages.questions'])->orderBy('id', 'asc')->get();
+            $cartelliChapters = \App\Models\CartelloChapter::where('status', true)->with(['pages.mcqs'])->orderBy('sort_order', 'asc')->get();
+            $manualeChapters = \App\Models\Manuale::orderBy('order_index', 'asc')->get();
+            if ($manualeChapters->isEmpty()) {
+                $manualeChapters = \App\Models\Manuale::all();
+            }
+
+            return compact(
+                'sliders',
+                'homeCards',
+                'lectureClasses',
+                'liveClasses',
+                'popupPromo',
+                'setting',
+                'dictionaryTerms',
+                'argomentiChapters',
+                'cartelliChapters',
+                'manualeChapters'
+            );
+        });
+    }
+}
 
 Route::get('/', function () {
-    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
-    $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
-    $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
-    $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
-    $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
-    $setting = \App\Models\Setting::first();
-    return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
+    return view('frontend.home', getFrontendViewData());
 });
 
 Route::get('/{screen}', function ($screen) {
-    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
-    $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
-    $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
-    $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
-    $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
-    $setting = \App\Models\Setting::first();
-    return view('frontend.home', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
+    return view('frontend.home', getFrontendViewData());
 })->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|cartelli|cartelli-schede|cartelli-page|saved-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
 Route::get('/app', function () {
-    $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
-    $homeCards = \App\Models\HomeCard::orderBy('order_index', 'asc')->get();
-    $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
-    $liveClasses = \App\Models\LiveClass::orderBy('scheduled_at', 'asc')->get();
-    $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
-    $setting = \App\Models\Setting::first();
-    return view('frontend.mobile_app', compact('sliders', 'homeCards', 'lectureClasses', 'liveClasses', 'popupPromo', 'setting'));
+    return view('frontend.mobile_app', getFrontendViewData());
 });
 
 Route::get('/api/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+Route::get('/api/server-mode', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
+Route::get('/api/server-config', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
 
 // =========================================================================
 // Enterprise SEO, Sitemap, Robots.txt & Merchant XML Feed Routes
@@ -395,6 +501,34 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
         return response()->json($questions);
     });
 
+    Route::get('/api/questions/page/{page}', function ($page) {
+        $questions = \App\Models\Question::where('page_id', $page)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        return response()->json($questions);
+    });
+
+    Route::get('/api/cartelli/questions/chapter/{chapterId}', function ($chapterId) {
+        $pageIds = \App\Models\CartelloPage::where('chapter_id', $chapterId)->where('status', true)->pluck('id');
+        $questions = \App\Models\CartelloMcq::whereIn('page_id', $pageIds)->where('status', true)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get()->map(function($q) use ($chapterId) {
+            return [
+                'id' => $q->id,
+                'chapter_id' => $chapterId,
+                'page_id' => $q->page_id,
+                'question' => $q->question,
+                'bn_question' => $q->bn_question,
+                'italian' => $q->question,
+                'bangla' => $q->bn_question,
+                'correct_answer' => $q->correct_answer,
+                'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                'image' => $q->image,
+                'audio' => $q->voice,
+                'voice' => $q->voice,
+                'video' => $q->video,
+                'vocabulary' => $q->vocabulary ?? []
+            ];
+        });
+        return response()->json($questions);
+    });
+
     Route::get('/api/questions/custom-quiz', function (Request $request) {
         $chapters = $request->query('chapters');
         if (!$chapters) {
@@ -455,7 +589,19 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::post('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'saveNote']);
     Route::delete('/api/notes/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deleteNote']);
     Route::post('/api/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+    Route::post('/api/v1/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
     Route::get('/api/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+    Route::get('/api/v1/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+
+    // Saved, Correct, and Wrong MCQs Routes
+    Route::get('/api/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);
+    Route::get('/api/v1/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);
+    Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'toggle']);
+    Route::post('/api/v1/saved-mcqs/toggle', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'toggle']);
+    Route::get('/api/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
+    Route::get('/api/v1/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
+    Route::get('/api/wrong-mcqs', [\App\Http\Controllers\Api\WrongMcqsApiController::class, 'index']);
+    Route::get('/api/v1/wrong-mcqs', [\App\Http\Controllers\Api\WrongMcqsApiController::class, 'index']);
 
     // Exam Module Public Routes
     Route::get('/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
@@ -477,10 +623,15 @@ Route::get('/api/popup-promo', [\App\Http\Controllers\DynamicContentController::
 
 // Client Status & Verification Routes
 Route::get('/api/client/status', [\App\Http\Controllers\DynamicContentController::class, 'getClientStatus']);
+Route::get('/api/v1/client/status', [\App\Http\Controllers\DynamicContentController::class, 'getClientStatus']);
 Route::post('/api/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
+Route::post('/api/v1/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
 Route::post('/api/client/activate', function (\Illuminate\Http\Request $request) {
-    $sessionId = $request->input('session_id') ?: session()->getId();
-    $days = intval($request->input('days', 365));
+    $sessionId = $request->query('session_id') 
+              ?: $request->input('session_id') 
+              ?: $request->header('X-Client-Session-ID') 
+              ?: session()->getId();
+    $days = intval($request->input('days', $request->query('days', 365)));
     
     $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
     if (!$client) {
@@ -493,9 +644,10 @@ Route::post('/api/client/activate', function (\Illuminate\Http\Request $request)
         $client->progress = 55;
     }
     // Check if the client already has the welcome message in their chat history
-    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)
-        ->where('message', 'like', '%🎉 ধন্যবাদ!%')
-        ->exists();
+    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)->get()->contains(function ($msg) {
+        return str_contains($msg->message, '🎉 ধন্যবাদ!');
+    });
+    dump("sessionId: {$sessionId}", "hasWelcome: " . ($hasWelcome ? 'true' : 'false'));
 
     $client->is_active = true;
     $client->expires_at = now()->addDays($days);
@@ -537,46 +689,7 @@ Route::post('/api/client/activate', function (\Illuminate\Http\Request $request)
 });
 
 
-// Guest Chat API Endpoints
-Route::get('/api/chat/messages', function (Request $request) {
-    $sessionId = $request->query('session_id') ?: $request->input('session_id') ?: session()->getId();
-    $messages = \App\Models\Message::where('session_id', $sessionId)
-        ->orderBy('created_at', 'asc')
-        ->get();
-    return response()->json($messages);
-});
 
-Route::post('/api/chat/messages', function (Request $request) {
-    $request->validate([
-        'message' => 'nullable|string',
-        'file' => 'nullable|image|max:10240',
-    ]);
-    
-    $sessionId = $request->input('session_id') ?: session()->getId();
-    
-    $attachmentPath = null;
-    if ($request->hasFile('file')) {
-        $attachmentPath = \App\Helpers\ImageHelper::uploadAndOptimize(
-            $request->file('file'),
-            'uploads/attachments',
-            'attach'
-        );
-    }
-    
-    if (empty($request->message) && !$attachmentPath) {
-        return response()->json(['error' => 'Message or attachment required'], 422);
-    }
-    
-    $message = \App\Models\Message::create([
-        'session_id' => $sessionId,
-        'sender' => 'user',
-        'sender_name' => 'Guest User',
-        'message' => $request->message ?? '',
-        'attachment_path' => $attachmentPath
-    ]);
-    
-    return response()->json($message);
-});
 
 // Admin Authentication System Routes
 Route::get('/admin/login', function () {
@@ -617,7 +730,17 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
 
     // Server Mode Configuration - Dedicated Page
     Route::get('/admin/server-mode', function () {
-        return view('admin.server_mode');
+        $setting = \App\Models\Setting::first();
+        if (!$setting) {
+            $setting = \App\Models\Setting::create([
+                'app_name' => 'mbanglapatenteb',
+                'exam_time_minutes' => 20,
+                'qr_target_mode' => 'local',
+                'qr_live_url' => 'https://mbanglapatenteb.com',
+                'qr_local_url' => 'http://10.0.2.2:8000',
+            ]);
+        }
+        return view('admin.server_mode', compact('setting'));
     });
 
     // Admin Settings API Endpoints
@@ -644,7 +767,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:6',
-            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+            'avatar' => 'nullable|max:5120',
         ]);
 
         $user->name = $request->name;
@@ -686,7 +809,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         ]);
     });
 
-    Route::get('/admin/api/chapters', function () {
+    Route::get('/admin/api/chapters', function (Request $request) {
+        if ($request->has('page') || $request->has('per_page') || $request->has('search')) {
+            return app(\App\Http\Controllers\ArgomentiController::class)->getChaptersAdmin($request);
+        }
         $chapters = \App\Models\Chapter::orderBy('chapter_number', 'asc')->orderBy('id', 'asc')->get();
         foreach ($chapters as $ch) {
             $ch->question_count = \App\Models\Question::where('chapter', $ch->id)->count();
@@ -720,47 +846,6 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         return response()->json($questions);
     });
 
-    Route::post('/admin/api/questions/store', function (Request $request) {
-        $request->validate([
-            'chapter' => 'required|integer',
-            'chapter_name' => 'required|string',
-            'italian' => 'required|string',
-            'bangla' => 'required|string',
-            'is_vero' => 'required|boolean',
-        ]);
-        
-        $question = \App\Models\Question::create([
-            'chapter' => $request->chapter,
-            'chapter_name' => $request->chapter_name,
-            'italian' => $request->italian,
-            'bangla' => $request->bangla,
-            'is_vero' => $request->is_vero ? 1 : 0,
-        ]);
-        
-        return response()->json($question);
-    });
-
-    Route::post('/admin/api/questions/update/{id}', function (Request $request, $id) {
-        $request->validate([
-            'chapter' => 'required|integer',
-            'chapter_name' => 'required|string',
-            'italian' => 'required|string',
-            'bangla' => 'required|string',
-            'is_vero' => 'required|boolean',
-        ]);
-        
-        $question = \App\Models\Question::findOrFail($id);
-        $question->update([
-            'chapter' => $request->chapter,
-            'chapter_name' => $request->chapter_name,
-            'italian' => $request->italian,
-            'bangla' => $request->bangla,
-            'is_vero' => $request->is_vero ? 1 : 0,
-        ]);
-        
-        return response()->json($question);
-    });
-
     Route::post('/admin/api/questions/delete/{id}', function ($id) {
         $question = \App\Models\Question::findOrFail($id);
         $question->delete();
@@ -770,86 +855,377 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
 
     // Admin Chat Room API Endpoints
     Route::get('/admin/api/chat/conversations', function () {
-        $conversations = \App\Models\Message::select('session_id')
+        // 1. Collect all users (customers) - exclude admins and super_admins
+        $users = \App\Models\User::whereNotIn('role', ['admin', 'super_admin'])
+            ->where('email', '!=', 'admin@gmail.com')
+            ->get();
+        // 2. Collect all AppClients
+        $clients = \App\Models\AppClient::all();
+        // 3. Collect all session IDs from messages
+        $messageSessions = \App\Models\Message::select('session_id')
             ->whereNotNull('session_id')
             ->selectRaw('MAX(created_at) as last_activity')
             ->groupBy('session_id')
-            ->orderBy('last_activity', 'desc')
-            ->get()
-            ->map(function ($convo) {
-                $latest = \App\Models\Message::where('session_id', $convo->session_id)
-                    ->orderBy('created_at', 'desc')
-                    ->first();
+            ->get();
 
-                $client = \App\Models\AppClient::where('session_id', $convo->session_id)->first();
-                $user = \App\Models\User::where('uuid', $convo->session_id)->first();
+        $buckets = [];
 
-                $clientData = null;
-                if ($user) {
-                    $license = \App\Models\License::where('user_id', $user->uuid)->where('status', 'active')->first();
-                    $clientData = [
-                        'id' => $user->id,
-                        'first_name' => $user->first_name ?: $user->name,
-                        'last_name' => $user->last_name ?: '',
-                        'phone' => $user->phone ?: '',
-                        'is_active' => $license ? true : false,
-                        'stars' => 5,
-                        'progress' => 100
-                    ];
-                } elseif ($client) {
-                    $clientData = [
-                        'id' => $client->id,
-                        'first_name' => $client->first_name,
-                        'last_name' => $client->last_name,
-                        'phone' => $client->phone,
-                        'is_active' => $client->is_active,
-                        'stars' => $client->stars,
-                        'progress' => $client->progress
-                    ];
+        $normalizePhone = function($p) {
+            if (!$p || $p === 'N/A') return null;
+            $clean = preg_replace('/\D/', '', $p);
+            return (strlen($clean) >= 7) ? substr($clean, -10) : $clean;
+        };
+
+        // 1. Process Users
+        foreach ($users as $user) {
+            if (empty($user->uuid)) {
+                $user->uuid = (string) \Illuminate\Support\Str::uuid();
+                $user->save();
+            }
+            $normPhone = $normalizePhone($user->phone);
+            $key = $normPhone ? 'phone:' . $normPhone : 'user:' . $user->uuid;
+
+            if (!isset($buckets[$key])) {
+                $buckets[$key] = [
+                    'user'        => $user,
+                    'client'      => null,
+                    'phone'       => $user->phone,
+                    'session_ids' => collect([$user->uuid, (string)$user->id])->filter()->all(),
+                    'last_activity' => $user->updated_at,
+                ];
+            } else {
+                $buckets[$key]['user'] = $user;
+                $buckets[$key]['session_ids'] = array_values(array_unique(array_merge($buckets[$key]['session_ids'], [$user->uuid, (string)$user->id])));
+            }
+        }
+
+        // 2. Process Clients
+        foreach ($clients as $client) {
+            if (empty($client->session_id)) {
+                $client->session_id = (string) \Illuminate\Support\Str::uuid();
+                $client->save();
+            }
+            $normPhone = $normalizePhone($client->phone);
+            $key = $normPhone ? 'phone:' . $normPhone : 'session:' . $client->session_id;
+
+            if (isset($buckets[$key])) {
+                if (!$buckets[$key]['client']) {
+                    $buckets[$key]['client'] = $client;
+                }
+                if ($client->session_id) {
+                    $buckets[$key]['session_ids'][] = $client->session_id;
+                }
+                if ($client->updated_at && (!$buckets[$key]['last_activity'] || $client->updated_at > $buckets[$key]['last_activity'])) {
+                    $buckets[$key]['last_activity'] = $client->updated_at;
+                }
+            } else {
+                $foundKey = null;
+                foreach ($buckets as $bKey => $bData) {
+                    if (in_array($client->session_id, $bData['session_ids'])) {
+                        $foundKey = $bKey;
+                        break;
+                    }
+                }
+                if ($foundKey) {
+                    if (!$buckets[$foundKey]['client']) $buckets[$foundKey]['client'] = $client;
+                    if ($client->phone && !$buckets[$foundKey]['phone']) $buckets[$foundKey]['phone'] = $client->phone;
                 } else {
-                    $clientData = [
-                        'id' => 0,
-                        'first_name' => 'Support',
-                        'last_name' => 'User',
-                        'phone' => 'N/A',
-                        'is_active' => false,
-                        'stars' => 0,
-                        'progress' => 0
+                    $buckets[$key] = [
+                        'user'        => null,
+                        'client'      => $client,
+                        'phone'       => ($client->phone && $client->phone !== 'N/A') ? $client->phone : null,
+                        'session_ids' => $client->session_id ? [$client->session_id] : [],
+                        'last_activity' => $client->updated_at,
                     ];
                 }
+            }
+        }
 
-                return [
-                    'session_id' => $convo->session_id,
-                    'last_message' => $latest->message ?? '',
-                    'sender' => $latest->sender ?? '',
-                    'updated_at' => $convo->last_activity,
-                    'client' => $clientData
-                ];
-            });
+        // 3. Process Message Sessions
+        foreach ($messageSessions as $m) {
+            $sId = (string) $m->session_id;
+            if (!$sId) continue;
+
+            $foundKey = null;
+            foreach ($buckets as $bKey => $bData) {
+                if (in_array($sId, $bData['session_ids'])) {
+                    $foundKey = $bKey;
+                    if ($m->last_activity && (!$bData['last_activity'] || $m->last_activity > $bData['last_activity'])) {
+                        $buckets[$bKey]['last_activity'] = $m->last_activity;
+                    }
+                    break;
+                }
+            }
+
+            if (!$foundKey) {
+                $hasUserMsg = \App\Models\Message::where('session_id', $sId)->where('sender', 'user')->exists();
+                if ($hasUserMsg) {
+                    $key = 'session:' . $sId;
+                    $buckets[$key] = [
+                        'user'        => null,
+                        'client'      => null,
+                        'phone'       => null,
+                        'session_ids' => [$sId],
+                        'last_activity' => $m->last_activity,
+                    ];
+                }
+            }
+        }
+
+        $conversations = [];
+
+        foreach ($buckets as $key => $data) {
+            $sessionIds = array_values(array_unique(array_filter($data['session_ids'])));
+            if (empty($sessionIds)) continue;
+
+            $user = $data['user'];
+            $client = $data['client'];
+            $phone = $data['phone'] ?: ($client ? $client->phone : ($user ? $user->phone : null));
+            if ($phone === 'N/A') $phone = null;
+
+            $latestMsg = \App\Models\Message::whereIn('session_id', $sessionIds)->orderBy('id', 'desc')->first();
+
+            if (!$latestMsg && !$user && (!$client || empty($client->phone) || $client->phone === 'N/A')) {
+                continue;
+            }
+
+            $firstName = $user ? ($user->first_name ?: $user->name) : ($client ? $client->first_name : 'Customer');
+            $lastName  = $user ? $user->last_name : ($client ? $client->last_name : '');
+            if (empty($firstName) || $firstName === 'Customer' || $firstName === 'Guest') {
+                if ($client && $client->first_name && $client->first_name !== 'Guest') {
+                    $firstName = $client->first_name;
+                    $lastName = $client->last_name;
+                }
+            }
+
+            $hasActiveLicense = false;
+            if ($user && $user->uuid) {
+                $license = \App\Models\License::where('user_id', $user->uuid)->latest()->first();
+                if ($license && $license->status === 'active' && (!$license->expires_at || $license->expires_at->isFuture())) {
+                    $hasActiveLicense = true;
+                }
+            }
+            if (!$hasActiveLicense && $client && $client->is_active) {
+                if (!$client->expires_at || $client->expires_at->isFuture()) {
+                    $hasActiveLicense = true;
+                }
+            }
+
+            $primarySessionId = ($user && !empty($user->uuid)) ? (string)$user->uuid : (($client && !empty($client->session_id)) ? (string)$client->session_id : (!empty($sessionIds[0]) ? (string)$sessionIds[0] : ''));
+            if (empty($primarySessionId)) {
+                $primarySessionId = (string) \Illuminate\Support\Str::uuid();
+            }
+
+            $lastTime = $latestMsg && $latestMsg->created_at ? $latestMsg->created_at->diffForHumans() : '';
+            $lastActTime = $latestMsg ? $latestMsg->created_at : $data['last_activity'];
+
+            $conversations[] = [
+                'session_id'   => $primarySessionId,
+                'client'       => [
+                    'id'         => $client ? $client->id : ($user ? $user->id : 0),
+                    'first_name' => $firstName ?: 'Customer',
+                    'last_name'  => $lastName ?: '',
+                    'phone'      => $phone ?: 'N/A',
+                    'is_active'  => $hasActiveLicense,
+                    'stars'      => $client ? $client->stars : 5,
+                    'progress'   => $client ? $client->progress : 50,
+                ],
+                'last_message' => $latestMsg ? $latestMsg->message : '🎉 কাস্টমার নিবন্ধিত হয়েছে',
+                'last_time'    => $lastTime,
+                'sender'       => $latestMsg ? $latestMsg->sender : 'system',
+                'updated_at'   => $lastActTime ? $lastActTime->toIso8601String() : null,
+                '_sort_time'   => $lastActTime ? $lastActTime->timestamp : 0,
+            ];
+        }
+
+        usort($conversations, function($a, $b) {
+            return ($b['_sort_time'] ?? 0) <=> ($a['_sort_time'] ?? 0);
+        });
 
         return response()->json($conversations);
     });
 
 
-    Route::get('/admin/api/chat/unread-count', function () {
-        $conversations = \App\Models\Message::select('session_id')
-            ->selectRaw('MAX(id) as max_id')
-            ->groupBy('session_id')
-            ->get();
+    Route::post('/admin/api/user/activate', function (Request $request) {
+        $sessionId = $request->input('session_id');
+        $phone = $request->input('phone');
+        $days = intval($request->input('days', 365));
 
-        $unreadCount = 0;
-        foreach ($conversations as $c) {
-            $latest = \App\Models\Message::find($c->max_id);
-            if ($latest && $latest->sender !== 'admin') {
-                $unreadCount++;
+        $user = null;
+        if ($sessionId) {
+            $user = \App\Models\User::where('uuid', $sessionId)->first();
+        }
+        if (!$user && $phone) {
+            $user = \App\Models\User::where('phone', $phone)->first();
+        }
+
+        if ($user) {
+            \App\Models\License::updateOrCreate(
+                ['user_id' => $user->uuid],
+                [
+                    'license_key'  => (string) rand(100000, 999999),
+                    'status'       => 'active',
+                    'activated_at' => now(),
+                    'expires_at'   => now()->addDays($days),
+                ]
+            );
+        }
+
+        if ($phone) {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $query = \App\Models\AppClient::where('phone', $phone);
+            if (!empty($cleanPhone)) {
+                $query->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
             }
+            $query->update([
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+        }
+
+        if ($sessionId) {
+            \App\Models\AppClient::where('session_id', $sessionId)->update([
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
+        }
+
+        if ($phone) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * $days);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'কাস্টমার সফলভাবে আনলক ও অ্যাক্টিভ করা হয়েছে।'
+        ]);
+    });
+
+    Route::post('/admin/api/clients/toggle-active/{identifier}', function ($identifier) {
+        $client = \App\Models\AppClient::where('id', $identifier)
+            ->orWhere('session_id', $identifier)
+            ->first();
+
+        $user = \App\Models\User::where('uuid', $identifier)->first();
+
+        if (!$client && $user && $user->phone) {
+            $client = \App\Models\AppClient::where('phone', $user->phone)->first();
+        }
+
+        if (!$client && $user) {
+            $client = \App\Models\AppClient::create([
+                'session_id' => $user->uuid,
+                'first_name' => $user->first_name ?: $user->name,
+                'last_name'  => $user->last_name ?: '',
+                'phone'      => $user->phone ?: 'N/A',
+                'is_active'  => false,
+            ]);
+        }
+
+        if (!$client) {
+            $client = \App\Models\AppClient::create([
+                'session_id' => $identifier,
+                'first_name' => 'Guest',
+                'last_name'  => 'User',
+                'phone'      => 'N/A',
+                'is_active'  => false,
+            ]);
+        }
+
+        $newStatus = !$client->is_active;
+        $client->is_active = $newStatus;
+        $client->expires_at = $newStatus ? now()->addDays(365) : null;
+        $client->save();
+
+        if ($newStatus) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * 365);
+        } else {
+            \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->session_id);
+        }
+
+        if ($client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            \App\Models\AppClient::where(function($q) use ($client, $cleanPhone) {
+                $q->where('phone', $client->phone);
+                if ($cleanPhone) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->update([
+                'is_active'  => $newStatus,
+                'expires_at' => $newStatus ? now()->addDays(365) : null,
+            ]);
+            if ($newStatus) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * 365);
+            } else {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->phone);
+            }
+        }
+
+        $userObj = $user ?: ($client->phone ? \App\Models\User::where('phone', $client->phone)->first() : null);
+        if ($userObj) {
+            \App\Models\License::updateOrCreate(
+                ['user_id' => $userObj->uuid],
+                [
+                    'license_key'  => (string) rand(100000, 999999),
+                    'status'       => $newStatus ? 'active' : 'inactive',
+                    'activated_at' => $newStatus ? now() : null,
+                    'expires_at'   => $newStatus ? now()->addDays(365) : null,
+                ]
+            );
+        } elseif ($client->session_id) {
+            \App\Models\License::updateOrCreate(
+                ['user_id' => $client->session_id],
+                [
+                    'license_key'  => (string) rand(100000, 999999),
+                    'status'       => $newStatus ? 'active' : 'inactive',
+                    'activated_at' => $newStatus ? now() : null,
+                    'expires_at'   => $newStatus ? now()->addDays(365) : null,
+                ]
+            );
+        }
+
+        return response()->json([
+            'success'   => true,
+            'is_active' => $newStatus,
+            'client'    => $client
+        ]);
+    });
+
+    Route::get('/admin/api/chat/unread-count', function () {
+        $lastChecked = session('admin_last_chat_check', now()->subMinutes(10));
+        $unreadCount = \App\Models\Message::where('sender', 'user')
+            ->where('created_at', '>', $lastChecked)
+            ->count();
+        if ($unreadCount > 0) {
+            session(['admin_last_chat_check' => now()]);
         }
         return response()->json(['unread_count' => $unreadCount]);
     });
 
+    Route::get('/admin/api/chat/messages', function () {
+        return response()->json([]);
+    });
+
     Route::get('/admin/api/chat/messages/{session_id}', function ($session_id) {
-        $messages = \App\Models\Message::where('session_id', $session_id)
+        $sessionIds = collect([$session_id]);
+        $client = \App\Models\AppClient::where('session_id', $session_id)->first();
+        $user   = \App\Models\User::where('uuid', $session_id)->first();
+        $phone  = $client ? $client->phone : ($user ? $user->phone : null);
+
+        if ($phone && $phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            if (!empty($cleanPhone)) {
+                $cIds = \App\Models\AppClient::whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])->pluck('session_id');
+                $uIds = \App\Models\User::whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])->pluck('uuid');
+                $sessionIds = $sessionIds->concat($cIds)->concat($uIds);
+            }
+        }
+
+        $allSessionIds = $sessionIds->filter()->unique()->values()->all();
+
+        $messages = \App\Models\Message::whereIn('session_id', $allSessionIds)
             ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
         return response()->json($messages);
     });
@@ -858,7 +1234,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         $request->validate([
             'session_id' => 'required|string',
             'message'    => 'nullable|string',
-            'file'       => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
+            'file'       => 'nullable|max:20480',
         ]);
 
         $attachmentPath = $request->input('attachment_path');
@@ -873,7 +1249,13 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             return response()->json(['error' => 'Message or image required'], 422);
         }
 
-        $user = \App\Models\User::where('uuid', $request->session_id)->first();
+        $sessionId = $request->session_id;
+        $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+        $user = \App\Models\User::where('uuid', $sessionId)->first();
+        if (!$user && $client && $client->phone && $client->phone !== 'N/A') {
+            $user = \App\Models\User::where('phone', $client->phone)->first();
+        }
+
         $conversationId = null;
         if ($user) {
             $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
@@ -882,7 +1264,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
 
         $message = \App\Models\Message::create([
             'conversation_id' => $conversationId,
-            'session_id'      => $request->session_id,
+            'session_id'      => $sessionId,
             'sender'          => 'admin',
             'sender_type'     => 'admin',
             'sender_name'     => 'Admin',
@@ -914,31 +1296,54 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         // Auto-activate client if a license macro is selected
         if ($days !== null) {
             $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+            $user   = \App\Models\User::where('uuid', $sessionId)->first();
+            if (!$user && $client && $client->phone && $client->phone !== 'N/A') {
+                $user = \App\Models\User::where('phone', $client->phone)->first();
+            }
+            if (!$client && $user && $user->phone) {
+                $client = \App\Models\AppClient::where('phone', $user->phone)->first();
+            }
+
             if (!$client) {
                 $client = new \App\Models\AppClient();
                 $client->session_id = $sessionId;
-                $client->first_name = 'Guest';
-                $client->last_name = 'User';
-                $client->phone = 'N/A';
-                $client->stars = 4;
+                $client->first_name = $user ? ($user->first_name ?: $user->name) : 'Customer';
+                $client->last_name = $user ? $user->last_name : '';
+                $client->phone = $user ? $user->phone : 'N/A';
+                $client->stars = 5;
                 $client->progress = 50;
             }
             $client->save();
+
+            $keyNum = rand(100000, 999999);
+
+            if ($user) {
+                \App\Models\License::updateOrCreate(
+                    ['user_id' => $user->uuid],
+                    [
+                        'license_key' => (string) $keyNum,
+                        'status'      => 'inactive',
+                        'expires_at'  => now()->addDays($days),
+                    ]
+                );
+            }
             
-            // 1. Create License Card Message
-            $keyNum = rand(10000, 99999);
+            // 1. Create License Card Message (ONLY ONCE)
+            $cardMsg = "[LICENSE_CARD:days={$days},key={$keyNum}]";
             \App\Models\Message::create([
                 'session_id' => $sessionId,
                 'sender' => 'admin',
                 'sender_name' => 'Admin',
-                'message' => "[LICENSE_CARD:days={$days},key={$keyNum}]"
+                'message' => $cardMsg,
+                'is_license_card' => true,
             ]);
             
-            // 2. Create Text Instruction Message
+            // 2. Create Text Instruction Message (ONLY ONCE)
             $setting = \App\Models\Setting::first();
+            $defaultLicenseMsg = "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team";
             $messageText = ($setting && !empty($setting->license_message))
                 ? $setting->license_message
-                : "apnake license key daoa hoise,click kore active korun.thanks call 3663584525 for info\n\nPial - TMM PATENTE TEAM";
+                : $defaultLicenseMsg;
             $message = \App\Models\Message::create([
                 'session_id' => $sessionId,
                 'sender' => 'admin',
@@ -1053,60 +1458,267 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
 
     Route::post('/admin/api/chat/preset-execute', function (Request $request) {
         $request->validate([
-            'session_id' => 'required|string',
-            'preset_id' => 'required|integer'
+            'session_id' => 'required',
+            'preset_id'  => 'required|integer'
         ]);
 
         $preset = \App\Models\ChatPreset::findOrFail($request->preset_id);
-        $sessionId = $request->session_id;
+        $sessionId = (string) $request->session_id;
+
+        $client = \App\Models\AppClient::where('session_id', $sessionId)->orWhere('id', $sessionId)->first();
+        $user   = \App\Models\User::where('uuid', $sessionId)->orWhere('id', $sessionId)->first();
+
+        if (!$client && $user && $user->phone && $user->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $user->phone);
+            $client = \App\Models\AppClient::where('phone', $user->phone)
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                ->first();
+        }
+        if (!$user && $client && $client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            $user = \App\Models\User::where('phone', $client->phone)
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                ->first();
+        }
+
+        if ($user && empty($user->uuid)) {
+            $user->uuid = (string) \Illuminate\Support\Str::uuid();
+            $user->save();
+        }
+
+        $conversationId = null;
+        if ($user && $user->uuid) {
+            $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+            $conversationId = $convo->id;
+        }
 
         if ($preset->type === 'license' && $preset->days) {
-            $days = $preset->days;
-            $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+            $days = intval($preset->days);
+            $keyNum = rand(100000, 999999);
+
             if (!$client) {
                 $client = new \App\Models\AppClient();
-                $client->session_id = $sessionId;
-                $client->first_name = 'Guest';
-                $client->last_name = 'User';
-                $client->phone = 'N/A';
-                $client->stars = 4;
-                $client->progress = 50;
+                $client->session_id = $user ? $user->uuid : $sessionId;
+                $client->first_name = $user ? ($user->first_name ?: $user->name) : 'Customer';
+                $client->last_name  = $user ? $user->last_name : '';
+                $client->phone      = $user ? $user->phone : 'N/A';
+                $client->stars      = 5;
+                $client->progress   = 50;
+            }
+            $client->is_active = true;
+            $client->expires_at = now()->addDays($days);
+            if (empty($client->session_id)) {
+                $client->session_id = $user ? $user->uuid : $sessionId;
             }
             $client->save();
 
-            // 1. Create License Card Message
-            $keyNum = rand(10000, 99999);
+            if ($client->phone && $client->phone !== 'N/A') {
+                $cleanPhone = preg_replace('/\D/', '', $client->phone);
+                \App\Models\AppClient::where(function($q) use ($client, $cleanPhone) {
+                    $q->where('phone', $client->phone);
+                    if ($cleanPhone) {
+                        $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    }
+                })->update([
+                    'is_active'  => true,
+                    'expires_at' => now()->addDays($days),
+                ]);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * $days);
+                if ($cleanPhone) {
+                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, 86400 * $days);
+                }
+            }
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
+            if ($client->session_id && $client->session_id !== $sessionId) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * $days);
+            }
+            if ($user && $user->uuid && $user->uuid !== $sessionId) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $user->uuid, true, 86400 * $days);
+            }
+
+            $userId = $user ? $user->uuid : $client->session_id;
+            \App\Models\License::updateOrCreate(
+                ['user_id' => $userId],
+                [
+                    'license_key'  => (string) $keyNum,
+                    'status'       => 'active',
+                    'activated_at' => now(),
+                    'expires_at'   => now()->addDays($days),
+                ]
+            );
+
+            // 1. Create License Card Message (ONLY ONCE for the active session)
+            $cardMsg = "[LICENSE_CARD:days={$days},key={$keyNum}]";
             \App\Models\Message::create([
-                'session_id' => $sessionId,
-                'sender' => 'admin',
-                'sender_name' => 'Admin',
-                'message' => "[LICENSE_CARD:days={$days},key={$keyNum}]"
+                'conversation_id' => $conversationId,
+                'session_id'      => $sessionId,
+                'sender'          => 'admin',
+                'sender_type'     => 'admin',
+                'sender_name'     => 'Support Admin',
+                'message'         => $cardMsg,
+                'is_license_card' => true,
             ]);
 
-            // 2. Create Text Instruction Message
+            // 2. Create Text Instruction Message (ONLY ONCE for the active session)
             $setting = \App\Models\Setting::first();
+            $defaultLicenseMsg = "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team";
             $messageText = ($setting && !empty($setting->license_message))
                 ? $setting->license_message
-                : "apnake license key daoa hoise,click kore active korun.thanks call 3663584525 for info\n\nPial - TMM PATENTE TEAM";
-            $message = \App\Models\Message::create([
-                'session_id' => $sessionId,
-                'sender' => 'admin',
-                'sender_name' => 'Admin',
-                'message' => $messageText
+                : $defaultLicenseMsg;
+            
+            $lastMsg = \App\Models\Message::create([
+                'conversation_id' => $conversationId,
+                'session_id'      => $sessionId,
+                'sender'          => 'admin',
+                'sender_type'     => 'admin',
+                'sender_name'     => 'Support Admin',
+                'message'         => $messageText
             ]);
 
-            return response()->json($message);
+            return response()->json([
+                'success'   => true,
+                'is_active' => true,
+                'message'   => $lastMsg,
+                'client'    => $client
+            ]);
         } else {
             $messageText = $preset->message_text ?: $preset->title;
-            $message = \App\Models\Message::create([
-                'session_id' => $sessionId,
-                'sender' => 'admin',
-                'sender_name' => 'Admin',
-                'message' => $messageText
+
+            $lastMsg = \App\Models\Message::create([
+                'conversation_id' => $conversationId,
+                'session_id'      => $sessionId,
+                'sender'          => 'admin',
+                'sender_type'     => 'admin',
+                'sender_name'     => 'Support Admin',
+                'message'         => $messageText
             ]);
 
-            return response()->json($message);
+            return response()->json($lastMsg ?: ['success' => true]);
         }
+    });
+
+    Route::post('/admin/api/chat/send-license', function (Request $request) {
+        $request->validate([
+            'session_id' => 'required',
+            'days'       => 'required|integer|min:1'
+        ]);
+
+        $sessionId = (string) $request->session_id;
+        $days = intval($request->days);
+        $keyNum = rand(100000, 999999);
+
+        $client = \App\Models\AppClient::where('session_id', $sessionId)->orWhere('id', $sessionId)->first();
+        $user   = \App\Models\User::where('uuid', $sessionId)->orWhere('id', $sessionId)->first();
+
+        if (!$client && $user && $user->phone && $user->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $user->phone);
+            $client = \App\Models\AppClient::where('phone', $user->phone)
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                ->first();
+        }
+        if (!$user && $client && $client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            $user = \App\Models\User::where('phone', $client->phone)
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                ->first();
+        }
+
+        if ($user && empty($user->uuid)) {
+            $user->uuid = (string) \Illuminate\Support\Str::uuid();
+            $user->save();
+        }
+
+        if (!$client) {
+            $client = new \App\Models\AppClient();
+            $client->session_id = $user ? $user->uuid : $sessionId;
+            $client->first_name = $user ? ($user->first_name ?: $user->name) : 'Customer';
+            $client->last_name  = $user ? $user->last_name : '';
+            $client->phone      = $user ? $user->phone : 'N/A';
+            $client->stars      = 5;
+            $client->progress   = 50;
+        }
+        $client->is_active = true;
+        $client->expires_at = now()->addDays($days);
+        if (empty($client->session_id)) {
+            $client->session_id = $user ? $user->uuid : $sessionId;
+        }
+        $client->save();
+
+        if ($client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            \App\Models\AppClient::where(function($q) use ($client, $cleanPhone) {
+                $q->where('phone', $client->phone);
+                if ($cleanPhone) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->update([
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * $days);
+            if ($cleanPhone) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, 86400 * $days);
+            }
+        }
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
+        if ($client->session_id && $client->session_id !== $sessionId) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * $days);
+        }
+        if ($user && $user->uuid && $user->uuid !== $sessionId) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $user->uuid, true, 86400 * $days);
+        }
+
+        $userId = $user ? $user->uuid : $client->session_id;
+        \App\Models\License::updateOrCreate(
+            ['user_id' => $userId],
+            [
+                'license_key'  => (string) $keyNum,
+                'status'       => 'active',
+                'activated_at' => now(),
+                'expires_at'   => now()->addDays($days),
+            ]
+        );
+
+        $conversationId = null;
+        if ($user && $user->uuid) {
+            $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+            $conversationId = $convo->id;
+        }
+
+        // 1. Create License Card Message (ONLY ONCE for the active session)
+        $cardMsg = "[LICENSE_CARD:days={$days},key={$keyNum}]";
+        \App\Models\Message::create([
+            'conversation_id' => $conversationId,
+            'session_id'      => $sessionId,
+            'sender'          => 'admin',
+            'sender_type'     => 'admin',
+            'sender_name'     => 'Support Admin',
+            'message'         => $cardMsg,
+            'is_license_card' => true,
+        ]);
+
+        // 2. Create Text Instruction Message (ONLY ONCE for the active session)
+        $setting = \App\Models\Setting::first();
+        $defaultLicenseMsg = "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team";
+        $messageText = ($setting && !empty($setting->license_message))
+            ? $setting->license_message
+            : $defaultLicenseMsg;
+        
+        $lastMsg = \App\Models\Message::create([
+            'conversation_id' => $conversationId,
+            'session_id'      => $sessionId,
+            'sender'          => 'admin',
+            'sender_type'     => 'admin',
+            'sender_name'     => 'Support Admin',
+            'message'         => $messageText
+        ]);
+
+        return response()->json([
+            'success'   => true,
+            'is_active' => true,
+            'message'   => $lastMsg,
+            'client'    => $client
+        ]);
     });
 
     // Admin Category CRUD API Endpoints
@@ -1158,8 +1770,8 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'option_d'      => 'nullable|string',
             'correct_answer'=> 'nullable|string',
             'explanation'   => 'nullable|string',
-            'image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
-            'audio'         => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'image'         => 'nullable|max:20480',
+            'audio'         => 'nullable|max:25600',
             'video'         => 'nullable',
             'vocabulary'    => 'nullable|string',
         ]);
@@ -1175,6 +1787,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'italian'       => $request->italian,
             'bangla'        => $request->bangla,
             'is_vero'       => ($qType === 'vero_falso') ? ($request->is_vero ? 1 : 0) : 0,
+            'image_position'=> $request->image_position ?? 'left',
             'option_a'      => $request->option_a,
             'option_b'      => $request->option_b,
             'option_c'      => $request->option_c,
@@ -1254,8 +1867,8 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'option_d'      => 'nullable|string',
             'correct_answer'=> 'nullable|string',
             'explanation'   => 'nullable|string',
-            'image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
-            'audio'         => 'nullable|mimes:mp3,wav,ogg,aac,m4a|max:15360',
+            'image'         => 'nullable|max:20480',
+            'audio'         => 'nullable|max:25600',
             'video'         => 'nullable',
             'vocabulary'    => 'nullable|string',
         ]);
@@ -1271,6 +1884,9 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         $question->italian       = $request->italian;
         $question->bangla        = $request->bangla;
         $question->is_vero       = ($qType === 'vero_falso') ? ($request->is_vero ? 1 : 0) : 0;
+        if ($request->has('image_position')) {
+            $question->image_position = $request->image_position;
+        }
         $question->option_a      = $request->option_a;
         $question->option_b      = $request->option_b;
         $question->option_c      = $request->option_c;
@@ -1998,49 +2614,92 @@ Route::get('/admin/fix-storage-permissions', function () {
 // =========================================================================
 
 // 1. Client Verification endpoint (from website & app)
-Route::post('/api/client/verify', function (Request $request) {
-    $firstName = trim($request->input('first_name', ''));
-    $lastName  = trim($request->input('last_name', ''));
-    $phone     = trim($request->input('phone', ''));
-    $sessionId = $request->input('session_id') ?: session()->getId();
-
-    if (empty($firstName) || empty($lastName) || empty($phone)) {
-        return response()->json(['success' => false, 'message' => 'সকল প্রয়োজনীয় ফিল্ড পূরণ করুন'], 422);
-    }
-
-    $client = \App\Models\AppClient::updateOrCreate(
-        ['session_id' => $sessionId],
-        [
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'phone'      => $phone,
-        ]
-    );
-
-    session(['client_verified' => true, 'client_phone' => $phone, 'app_client_id' => $client->id]);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'ভেরিফিকেশন সফল হয়েছে',
-        'client'  => $client
-    ]);
-});
+Route::post('/api/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
 
 // 2. Fetch Chat Messages (for current client session)
 Route::get('/api/chat/messages', function (Request $request) {
-    $sessionId = $request->query('session_id') ?: session()->getId();
-    
-    $phone = $request->query('phone');
+    $sessionId = $request->query('session_id') ?: $request->input('session_id') ?: session()->getId();
+    $phone     = $request->query('phone') ?: $request->input('phone');
+
+    $identifiers = collect([$sessionId])->filter();
+    $cleanPhone = $phone ? preg_replace('/\D/', '', $phone) : null;
+    $last10 = ($cleanPhone && strlen($cleanPhone) >= 10) ? substr($cleanPhone, -10) : $cleanPhone;
+
+    $cQuery = \App\Models\AppClient::query();
+    if ($sessionId) {
+        $cQuery->where('session_id', $sessionId)->orWhere('id', $sessionId);
+    }
     if ($phone) {
-        $client = \App\Models\AppClient::where('phone', $phone)->first();
-        if ($client) {
-            $sessionId = $client->session_id;
+        $cQuery->orWhere('phone', $phone);
+        if (!empty($last10)) {
+            $cQuery->orWhere('phone', 'like', "%{$last10}%");
+        }
+    }
+    $clients = $cQuery->get();
+
+    $uQuery = \App\Models\User::query();
+    if ($sessionId) {
+        $uQuery->where('uuid', $sessionId)->orWhere('id', $sessionId);
+    }
+    if ($phone) {
+        $uQuery->orWhere('phone', $phone);
+        if (!empty($last10)) {
+            $uQuery->orWhere('phone', 'like', "%{$last10}%");
+        }
+    }
+    $users = $uQuery->get();
+
+    if (empty($phone)) {
+        foreach ($clients as $c) {
+            if ($c->phone && $c->phone !== 'N/A') { $phone = $c->phone; break; }
+        }
+        if (empty($phone)) {
+            foreach ($users as $u) {
+                if ($u->phone && $u->phone !== 'N/A') { $phone = $u->phone; break; }
+            }
+        }
+        if ($phone) {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $last10 = ($cleanPhone && strlen($cleanPhone) >= 10) ? substr($cleanPhone, -10) : $cleanPhone;
+            $extraClients = \App\Models\AppClient::where('phone', $phone);
+            if (!empty($last10)) {
+                $extraClients->orWhere('phone', 'like', "%{$last10}%");
+            }
+            $clients = $clients->concat($extraClients->get())->unique('id');
+
+            $extraUsers = \App\Models\User::where('phone', $phone);
+            if (!empty($last10)) {
+                $extraUsers->orWhere('phone', 'like', "%{$last10}%");
+            }
+            $users = $users->concat($extraUsers->get())->unique('id');
         }
     }
 
-    $messages = \App\Models\Message::where('session_id', $sessionId)
-        ->orderBy('id', 'asc')
-        ->get();
+    $allIdentifiers = $identifiers
+        ->concat($clients->pluck('session_id'))
+        ->concat($clients->pluck('id'))
+        ->concat($users->pluck('uuid'))
+        ->concat($users->pluck('id'))
+        ->filter()
+        ->map(function($v) { return (string)$v; })
+        ->unique()
+        ->values()
+        ->all();
+
+    $convos = \App\Models\Conversation::whereIn('user_id', $allIdentifiers)->pluck('id')->all();
+
+    $messages = \App\Models\Message::where(function($query) use ($allIdentifiers, $convos) {
+        $query->whereIn('session_id', $allIdentifiers)
+              ->orWhereIn('sender_id', $allIdentifiers);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'user_id')) {
+            $query->orWhereIn('user_id', $allIdentifiers);
+        }
+        if (!empty($convos)) {
+            $query->orWhereIn('conversation_id', $convos);
+        }
+    })
+    ->orderBy('id', 'asc')
+    ->get();
 
     return response()->json($messages);
 });
@@ -2048,8 +2707,10 @@ Route::get('/api/chat/messages', function (Request $request) {
 // 3. Send Chat Message (from client)
 Route::post('/api/chat/messages', function (Request $request) {
     $sessionId = $request->input('session_id') ?: session()->getId();
+    $phone     = $request->input('phone');
     $text      = trim($request->input('message', ''));
     $attachment = $request->input('attachment_path');
+
     if ($request->hasFile('file')) {
         $file = $request->file('file');
         $fileName = 'chat_client_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
@@ -2061,15 +2722,34 @@ Route::post('/api/chat/messages', function (Request $request) {
         return response()->json(['success' => false, 'message' => 'বার্তা বা ছবি প্রদান করুন'], 422);
     }
 
+    $client = null;
+    if ($phone) {
+        $cleanPhone = preg_replace('/\D/', '', $phone);
+        $clientQuery = \App\Models\AppClient::where('phone', $phone);
+        if (!empty($cleanPhone)) {
+            $clientQuery->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+        }
+        $client = $clientQuery->orderBy('is_active', 'desc')->first();
+    }
+    if (!$client) {
+        $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+    }
 
     $user = \App\Models\User::where('uuid', $sessionId)->first();
-    $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
+    if (!$user && $phone) {
+        $user = \App\Models\User::where('phone', $phone)->first();
+    }
+
+    if ($client && $client->session_id !== $sessionId) {
+        $client->session_id = $sessionId;
+        $client->save();
+    }
 
     $senderName = 'Guest User';
-    if ($user) {
-        $senderName = $user->first_name . ' ' . $user->last_name;
-    } elseif ($client) {
-        $senderName = $client->first_name . ' ' . $client->last_name;
+    if ($user && ($user->first_name || $user->name)) {
+        $senderName = trim(($user->first_name ?: $user->name) . ' ' . ($user->last_name ?: ''));
+    } elseif ($client && ($client->first_name || $client->last_name)) {
+        $senderName = trim($client->first_name . ' ' . $client->last_name);
     }
 
     $conversationId = null;
@@ -2092,15 +2772,20 @@ Route::post('/api/chat/messages', function (Request $request) {
     return response()->json($msg);
 });
 
-
 // 4. Activate License (when customer clicks "Attiva Licenza" on License Card)
 $activateLicenseHandler = function (Request $request) {
     $sessionId = $request->input('session_id') ?: session()->getId();
+    $phone     = $request->input('phone');
     $days      = (int)($request->input('days', 365));
 
     $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-    if (!$client && $request->input('phone')) {
-        $client = \App\Models\AppClient::where('phone', $request->input('phone'))->first();
+    if (!$client && $phone) {
+        $cleanPhone = preg_replace('/\D/', '', $phone);
+        $clientQuery = \App\Models\AppClient::where('phone', $phone);
+        if (!empty($cleanPhone)) {
+            $clientQuery->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+        }
+        $client = $clientQuery->first();
     }
 
     if ($client) {
@@ -2108,241 +2793,73 @@ $activateLicenseHandler = function (Request $request) {
             'is_active'  => true,
             'expires_at' => now()->addDays($days),
         ]);
+        if ($client->phone) {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            \App\Models\AppClient::where(function($q) use ($client, $cleanPhone) {
+                $q->where('phone', $client->phone);
+                if ($cleanPhone) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->update([
+                'is_active'  => true,
+                'expires_at' => now()->addDays($days),
+            ]);
+        }
         $sessionId = $client->session_id;
     }
 
-    // Mark session & global cache as unlocked
+    $user = \App\Models\User::where('uuid', $sessionId)->first();
+    if (!$user && $phone) {
+        $user = \App\Models\User::where('phone', $phone)->first();
+    }
+    if ($user) {
+        \App\Models\License::updateOrCreate(
+            ['user_id' => $user->uuid],
+            [
+                'license_key'  => (string) rand(100000, 999999),
+                'status'       => 'active',
+                'activated_at' => now(),
+                'expires_at'   => now()->addDays($days),
+            ]
+        );
+    }
+
+    // Mark session as unlocked
     session(['qr_unlocked' => true]);
-    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
-    \Illuminate\Support\Facades\Cache::put('qr_unlocked_global', true, 86400 * 365);
+    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
+    if ($phone) {
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * $days);
+    }
+
+    // Check if the client already has the welcome message in their chat history
+    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)->get()->contains(function ($msg) {
+        return str_contains($msg->message, 'ধন্যবাদ') || str_contains($msg->message, 'Package Activate');
+    });
+
+    if (!$hasWelcome) {
+        $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা。\n"
+                     . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন。\n"
+                     . "নিয়মিত পড়াশোনা করুন, মনোযোগ দিয়ে পরীক্ষা দিন。\n"
+                     . "আশা করি আপনার সফলতার যাত্রায় আমাদের এই Platform গুরুত্বপূর্ণ ভূমিকা রাখবে。\n"
+                     . "আপনার জন্য রইল অনেক শুভকামনা。";
+        
+        \App\Models\Message::create([
+            'session_id'  => $sessionId,
+            'sender'      => 'admin',
+            'sender_name' => 'Admin',
+            'message'     => $welcomeText
+        ]);
+    }
 
     return response()->json([
-        'success' => true,
-        'message' => 'Licenza Attivata ✓',
+        'success'   => true,
+        'is_active' => true,
+        'message'   => 'Licenza Attivata ✓',
     ]);
 };
 
 Route::post('/api/client/activate-license', $activateLicenseHandler);
 Route::post('/api/client/activate', $activateLicenseHandler);
-
-// 5. Admin: Fetch Chat Conversations List
-Route::get('/admin/api/chat/conversations', function () {
-    $sessions = \App\Models\Message::select('session_id')
-        ->distinct()
-        ->get()
-        ->pluck('session_id');
-
-    $clientSessions = \App\Models\AppClient::pluck('session_id');
-    $allSessions = $sessions->concat($clientSessions)->unique();
-
-    $conversations = [];
-    foreach ($allSessions as $sId) {
-        $client = \App\Models\AppClient::where('session_id', $sId)->first();
-        $lastMsgObj = \App\Models\Message::where('session_id', $sId)->orderBy('id', 'desc')->first();
-
-        $conversations[] = [
-            'session_id'   => $sId,
-            'client'       => $client,
-            'last_message' => $lastMsgObj ? $lastMsgObj->message : 'No messages yet',
-            'last_time'    => $lastMsgObj ? $lastMsgObj->created_at->diffForHumans() : '',
-        ];
-    }
-
-    return response()->json($conversations);
-});
-
-// 6. Admin: Fetch Messages for a Conversation Session
-Route::get('/admin/api/chat/messages/{sessionId}', function ($sessionId) {
-    $messages = \App\Models\Message::where('session_id', $sessionId)
-        ->orderBy('id', 'asc')
-        ->get();
-    return response()->json($messages);
-});
-
-// 7. Admin: Send Chat Message / License Card to Client
-Route::post('/admin/api/chat/messages', function (Request $request) {
-    $sessionId = $request->input('session_id');
-    $text      = trim($request->input('message', ''));
-
-    if (empty($sessionId) || empty($text)) {
-        return response()->json(['success' => false, 'message' => 'Missing session_id or message'], 422);
-    }
-
-    $msg = \App\Models\Message::create([
-        'session_id'  => $sessionId,
-        'sender'      => 'admin',
-        'sender_name' => 'Support Admin',
-        'message'     => $text,
-    ]);
-
-    return response()->json($msg);
-});
-
-// 8. Admin: Toggle Client Activation
-Route::post('/admin/api/clients/toggle-active/{identifier}', function ($identifier) {
-    $client = \App\Models\AppClient::where('id', $identifier)
-        ->orWhere('session_id', $identifier)
-        ->first();
-
-    $user = \App\Models\User::where('uuid', $identifier)->first();
-
-    if (!$client && $user && $user->phone) {
-        $client = \App\Models\AppClient::where('phone', $user->phone)->first();
-    }
-
-    if (!$client && $user) {
-        $client = \App\Models\AppClient::create([
-            'session_id' => $user->uuid,
-            'first_name' => $user->first_name ?: $user->name,
-            'last_name'  => $user->last_name ?: '',
-            'phone'      => $user->phone ?: 'N/A',
-            'is_active'  => false,
-        ]);
-    }
-
-    if (!$client) {
-        $client = \App\Models\AppClient::create([
-            'session_id' => $identifier,
-            'first_name' => 'Guest',
-            'last_name'  => 'User',
-            'phone'      => 'N/A',
-            'is_active'  => false,
-        ]);
-    }
-
-    $newStatus = !$client->is_active;
-    $client->is_active = $newStatus;
-    if ($newStatus) {
-        $client->expires_at = now()->addDays(365);
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * 365);
-    }
-    $client->save();
-
-    if ($client->phone && $client->phone !== 'N/A') {
-        \App\Models\AppClient::where('phone', $client->phone)->update([
-            'is_active'  => $newStatus,
-            'expires_at' => $newStatus ? now()->addDays(365) : null,
-        ]);
-    }
-
-    if ($user || $client->session_id) {
-        $userId = $user ? $user->uuid : $client->session_id;
-        \App\Models\License::updateOrCreate(
-            ['user_id' => $userId],
-            [
-                'license_key' => rand(100000, 999999),
-                'status'      => $newStatus ? 'active' : 'inactive',
-                'activated_at'=> $newStatus ? now() : null,
-                'expires_at'  => $newStatus ? now()->addDays(365) : null,
-            ]
-        );
-    }
-
-    return response()->json([
-        'success'   => true,
-        'is_active' => $newStatus,
-        'client'    => $client
-    ]);
-});
-
-// 9. Admin: Get Chat Presets
-Route::get('/admin/api/chat-presets', function () {
-    $presets = \App\Models\ChatPreset::orderBy('order_index', 'asc')->get();
-    if ($presets->isEmpty()) {
-        $default = \App\Models\ChatPreset::create([
-            'title'        => '🔑 Send 1 Year License',
-            'type'         => 'license',
-            'days'         => 365,
-            'bg_color'     => '#10b981',
-            'text_color'   => '#ffffff',
-            'order_index'  => 1,
-            'status'       => true,
-        ]);
-        $presets = collect([$default]);
-    }
-    return response()->json($presets);
-});
-
-// 10. Admin: Execute Chat Preset (Send License Card & Auto-Activate)
-Route::post('/admin/api/chat/preset-execute', function (Request $request) {
-    $sessionId = $request->input('session_id');
-    $presetId  = $request->input('preset_id');
-
-    $preset = \App\Models\ChatPreset::findOrFail($presetId);
-
-    if ($preset->type === 'license') {
-        $days = $preset->days ?: 365;
-        $key  = rand(100000, 999999);
-        $cardMsg = "[LICENSE_CARD:key={$key},days={$days}]";
-
-        // Auto-activate client & user when license card preset is sent by admin!
-        $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-        if (!$client) {
-            $user = \App\Models\User::where('uuid', $sessionId)->first();
-            if ($user && $user->phone) {
-                $client = \App\Models\AppClient::where('phone', $user->phone)->first();
-            }
-        }
-
-        if (!$client) {
-            $client = \App\Models\AppClient::create([
-                'session_id' => $sessionId,
-                'first_name' => 'Guest',
-                'last_name'  => 'User',
-                'phone'      => 'N/A',
-                'is_active'  => true,
-                'expires_at' => now()->addDays($days),
-            ]);
-        } else {
-            $client->is_active = true;
-            $client->expires_at = now()->addDays($days);
-            $client->save();
-        }
-
-        if ($client->phone && $client->phone !== 'N/A') {
-            \App\Models\AppClient::where('phone', $client->phone)->update([
-                'is_active'  => true,
-                'expires_at' => now()->addDays($days),
-            ]);
-        }
-
-        $user = \App\Models\User::where('uuid', $sessionId)->first();
-        if ($user) {
-            \App\Models\License::updateOrCreate(
-                ['user_id' => $user->uuid],
-                [
-                    'license_key'  => $key,
-                    'status'       => 'active',
-                    'activated_at' => now(),
-                    'expires_at'   => now()->addDays($days),
-                ]
-            );
-        }
-
-        $msg = \App\Models\Message::create([
-            'session_id'  => $sessionId,
-            'sender'      => 'admin',
-            'sender_name' => 'Support Admin',
-            'message'     => $cardMsg,
-        ]);
-
-        return response()->json([
-            'success'   => true,
-            'is_active' => true,
-            'message'   => $msg,
-            'client'    => $client
-        ]);
-    } else {
-        $msg = \App\Models\Message::create([
-            'session_id'  => $sessionId,
-            'sender'      => 'admin',
-            'sender_name' => 'Support Admin',
-            'message'     => $preset->message_text,
-        ]);
-        return response()->json($msg);
-    }
-});
-
 
 // Admin Customer & License Management Routes
 Route::get('/admin/customers', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'index'])->name('admin.customers.index');

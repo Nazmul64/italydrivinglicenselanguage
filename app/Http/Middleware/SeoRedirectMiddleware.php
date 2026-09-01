@@ -19,15 +19,19 @@ class SeoRedirectMiddleware
         $fullUri = '/' . ltrim($path, '/');
 
         // 1. Check for database 301/302 Redirect Rule
-        $redirect = Redirect::where('is_active', true)
-            ->where(function ($q) use ($path, $fullUri) {
-                $q->where('source_url', $path)
-                  ->orWhere('source_url', $fullUri);
-            })->first();
+        try {
+            $redirect = Redirect::where('is_active', true)
+                ->where(function ($q) use ($path, $fullUri) {
+                    $q->where('source_url', $path)
+                      ->orWhere('source_url', $fullUri);
+                })->first();
 
-        if ($redirect) {
-            $redirect->increment('hits');
-            return redirect($redirect->destination_url, $redirect->status_code);
+            if ($redirect) {
+                $redirect->increment('hits');
+                return redirect($redirect->destination_url, $redirect->status_code);
+            }
+        } catch (\Throwable $e) {
+            // Silently proceed if table or database connection is temporarily inaccessible
         }
 
         $response = $next($request);

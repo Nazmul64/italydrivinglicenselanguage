@@ -2,6 +2,40 @@
 // Set CSRF Token header for AJAX requests
 const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
 
+window.safeFetchJson = function(url, options = {}) {
+    options = options || {};
+    options.headers = options.headers || {};
+    if (!options.headers['Accept']) {
+        options.headers['Accept'] = 'application/json';
+    }
+    if (!options.headers['X-Requested-With']) {
+        options.headers['X-Requested-With'] = 'XMLHttpRequest';
+    }
+    if (typeof csrfToken !== 'undefined' && csrfToken && !options.headers['X-CSRF-TOKEN']) {
+        options.headers['X-CSRF-TOKEN'] = csrfToken;
+    }
+
+    return fetch(url, options).then(res => {
+        if (res.status === 401 || (res.redirected && res.url.includes('/login'))) {
+            window.location.href = '/admin/login';
+            throw new Error('Unauthenticated');
+        }
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            return res.text().then(text => {
+                console.error("Non-JSON response received:", text.substring(0, 200));
+                throw new Error("Server returned non-JSON response (session may have expired). Please log in again.");
+            });
+        }
+        if (!res.ok) {
+            return res.json().then(errData => {
+                throw new Error(errData.message || `HTTP Error ${res.status}`);
+            });
+        }
+        return res.json();
+    });
+};
+
 // Sidebar drop-down logic
 let currentPanel = 'dashboard';
 let currentPage = 1;
@@ -108,6 +142,8 @@ function switchPanel(panelId) {
         if (typeof fetchSecurityChecks === 'function') fetchSecurityChecks();
     } else if (panelId === 'admin-profile') {
         if (typeof fetchAdminProfilePanelData === 'function') fetchAdminProfilePanelData();
+    } else if (panelId === 'license-settings' || panelId === 'general-settings') {
+        if (typeof fetchGeneralSettings === 'function') fetchGeneralSettings();
     } else if (panelId === 'customers') {
         if (typeof fetchCustomersList === 'function') fetchCustomersList();
     } else if (panelId === 'sys-backups') {
@@ -133,17 +169,18 @@ function switchPanel(panelId) {
 
 // Toast Messages
 let toastTimer;
-function showToast(message) {
+function showToast(message, type = 'info') {
     const toast = document.getElementById('toast-message');
     const toastText = document.getElementById('toast-text-content');
     if (!toast || !toastText) return;
-    toastText.innerText = message;
+    toastText.innerHTML = message;
+    toast.style.display = 'flex';
     toast.classList.add('show');
 
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         toast.classList.remove('show');
-    }, 3000);
+    }, 4000);
 }
 
 // Trigger search globally

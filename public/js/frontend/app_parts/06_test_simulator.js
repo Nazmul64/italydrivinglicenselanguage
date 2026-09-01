@@ -329,7 +329,7 @@ function selectTestAnswer(ans) {
     const isCorrect = (ans === databaseIsVero);
 
     if (isSfidaMode) {
-        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong', q.type || 'argomenti');
         const veroBtn = document.getElementById('test-vero-btn');
         const falsoBtn = document.getElementById('test-falso-btn');
 
@@ -371,7 +371,7 @@ function selectTestAnswer(ans) {
     }
 
     if (isImmediateCorrectionActive) {
-        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong', q.type || 'argomenti');
         playAppSound(isCorrect);
 
         const veroBtn = document.getElementById('test-vero-btn');
@@ -479,7 +479,8 @@ function toggleTestTranslation() {
         const itText = q.italian || q.question || '';
         const bnText = q.bangla || q.bn_question || '';
         const vocab = q.vocabulary || [];
-        openQuestionTranslationModal(itText, bnText, vocab);
+        const qImg = q.image || q.img || '';
+        openQuestionTranslationModal(itText, bnText, vocab, qImg);
     } else {
         showToast('অনুবাদ লোড করা সম্ভব হয়নি');
     }
@@ -795,24 +796,25 @@ function openTestDetailsView() {
         const q = testQuestions[i];
         const userAnswer = testAnswers[i];
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+        const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
 
         if (userAnswer === null) {
             unansweredAnswers++;
         } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
             if (q && q.id) {
-                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'correct' };
-                stats[q.id].correct = (stats[q.id].correct || 0) + 1;
-                stats[q.id].state = 'correct';
-                logBatchPayload.push({ question_id: q.id, is_correct: true });
+                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'correct' };
+                stats[statKey].correct = (stats[statKey].correct || 0) + 1;
+                stats[statKey].state = 'correct';
+                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: true });
             }
         } else {
             wrongAnswers++;
             if (q && q.id) {
-                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'wrong' };
-                stats[q.id].wrong = (stats[q.id].wrong || 0) + 1;
-                stats[q.id].state = 'wrong';
-                logBatchPayload.push({ question_id: q.id, is_correct: false });
+                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'wrong' };
+                stats[statKey].wrong = (stats[statKey].wrong || 0) + 1;
+                stats[statKey].state = 'wrong';
+                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: false });
             }
         }
     }
@@ -823,10 +825,13 @@ function openTestDetailsView() {
 
     if (logBatchPayload.length > 0) {
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+        const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+
         fetch('/api/user-mcq-results/log', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
-            body: JSON.stringify({ results: logBatchPayload })
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Client-Phone': userPhone },
+            body: JSON.stringify({ phone: userPhone, session_id: userSessionId, results: logBatchPayload })
         }).catch(err => console.error("Error logging exam results: ", err));
     }
 
@@ -1101,7 +1106,7 @@ function renderDetailResultsList() {
 
                     <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="background: #ecfdf5; border: 1px solid #10b981; color: #10b981;" title="Bookmark">
                         <i class="fa-regular fa-bookmark" style="font-size: 12px;"></i>
-                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">শীট</span>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">সেভ</span>
                     </button>
 
                     <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;" title="Add Note">
@@ -1134,7 +1139,7 @@ function renderDetailResultsList() {
                         <i class="fa-solid fa-gauge-high" style="font-size: 11px; color: #4CAF50;"></i>
                         <span id="detail-speed-lbl-${i}">${getDetailQuestionSpeed(i)}x</span>
                     </button>
-                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none; position: absolute; bottom: 34px; right: 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px; z-index: 100; min-width: 90px; max-height: 220px; overflow-y: auto;">
+                    <div id="detail-speed-popover-${i}" class="detail-speed-popover-menu" style="display: none;">
                     </div>
                 </div>
             </div>
@@ -1189,7 +1194,7 @@ function renderSpeedPopoverItems(index) {
     popover.innerHTML = options.map(rate => {
         const isSelected = rate === currentSpeed;
         return `
-            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : '#1e293b'}; background: ${isSelected ? '#f0fdf4' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isSelected ? '#f0fdf4' : 'transparent'}'">
+            <div onclick="selectDetailQuestionSpeed(event, ${index}, ${rate})" style="padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; color: ${isSelected ? '#16a34a' : 'var(--text-primary, #1e293b)'}; background: ${isSelected ? 'rgba(34, 197, 94, 0.12)' : 'transparent'}; border-radius: 6px; user-select: none;" onmouseover="this.style.background='var(--border-card, #f1f5f9)'" onmouseout="this.style.background='${isSelected ? 'rgba(34, 197, 94, 0.12)' : 'transparent'}'">
                 <span style="width: 12px; font-weight: 900; color: #16a34a;">${isSelected ? '✓' : ''}</span>
                 <span>${rate}</span>
             </div>
@@ -1223,7 +1228,7 @@ window.addEventListener('click', () => {
 function toggleDetailTranslation(index) {
     if (!testQuestions || !testQuestions[index]) return;
     const q = testQuestions[index];
-    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '');
+    openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], q.image || q.img || '');
 }
 
 // 🎤 Speaker Microphone Button - Pronunciation TTS Only

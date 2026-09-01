@@ -24,7 +24,7 @@
     <div class="test-question-box" style="display: flex; gap: 20px; align-items: center; background-color: var(--bg-card); padding: 20px; border-radius: 16px; border: 1px solid var(--border-card); margin-bottom: 16px; min-height: 180px;">
         <!-- Left Side: Traffic Sign / Figure Image -->
         <div id="test-question-img-container" style="display: flex; width: 170px; min-width: 170px; height: 170px; align-items: center; justify-content: center; background: #ffffff; border-radius: 12px; border: 1px solid var(--border-card); padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-            <img id="test-question-img" src="" alt="Figura" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+            <img id="test-question-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Figura" style="max-width: 100%; max-height: 100%; object-fit: contain;">
         </div>
 
         <!-- Right Side: Question Statement Text & Bangla -->

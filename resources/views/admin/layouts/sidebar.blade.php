@@ -177,6 +177,13 @@
             </span>
         </div>
 
+        <div class="menu-item" onclick="switchPanel('license-settings')" id="menu-license-settings">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
+                <span>Free Access & License Setting</span>
+            </span>
+        </div>
+
         <div class="menu-item" onclick="switchPanel('admin-profile')" id="menu-admin-profile">
             <span class="menu-link-group">
                 <i class="fa-solid fa-user-gear" style="color: #10b981;"></i>

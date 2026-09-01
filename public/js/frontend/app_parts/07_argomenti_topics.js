@@ -156,8 +156,10 @@ function openPageDetailsScreen(pageId) {
                 fetch(`/api/notes?page_id=${page.id}`).then(r => r.json())
             ])
                 .then(([savedList, notesList]) => {
-                    const savedIds = savedList.map(s => s.question_id);
-                    renderPageQuestionsList(page.questions, savedIds, notesList);
+                    const savedArr = Array.isArray(savedList) ? savedList : (savedList && Array.isArray(savedList.data) ? savedList.data : []);
+                    const savedIds = savedArr.map(s => s.question_id || s.id);
+                    const notesArr = Array.isArray(notesList) ? notesList : (notesList && Array.isArray(notesList.data) ? notesList.data : []);
+                    renderPageQuestionsList(page.questions, savedIds, notesArr);
                 })
                 .catch(err => {
                     console.error("Error fetching bookmarks or notes: ", err);
@@ -199,6 +201,19 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const isCorrect = isAnswered && (record.state === 'correct' || correctCount > wrongCount);
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
         card.style.position = 'relative';
+        card.style.cursor = 'pointer';
+        card.onclick = (e) => {
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) {
+                return;
+            }
+            if (typeof isArgomentiSelectionMode !== 'undefined' && !isArgomentiSelectionMode) {
+                return; // Selection mode is inactive. Do not select on card click.
+            }
+            card.classList.toggle('selected-q-card');
+            if (typeof updateArgomentiSelectionPills === 'function') {
+                updateArgomentiSelectionPills();
+            }
+        };
 
         const saveIconClass = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         const saveIconColor = isSaved ? 'color: var(--accent-green);' : '';
@@ -213,11 +228,22 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
-        if (q.image || q.img) {
+        let effectiveImg = q.image || q.img || '';
+        if (!effectiveImg && Array.isArray(q.vocabulary) && q.vocabulary.length > 0) {
+            const vImg = q.vocabulary.find(v => v && (v.image || v.img));
+            if (vImg) effectiveImg = vImg.image || vImg.img;
+        }
+
+        const hasImage = !!effectiveImg;
+        const imgPos = q.image_position || 'left';
+        const showTopImg = hasImage && (imgPos === 'top' || imgPos === 'both');
+        const showLeftImg = hasImage && (imgPos === 'left' || imgPos === 'both');
+
+        if (showTopImg) {
             const topImgCard = document.createElement('div');
             topImgCard.className = 'detail-q-top-image-card';
             topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
-            topImgCard.innerHTML = `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            topImgCard.innerHTML = `<img src="${effectiveImg}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${effectiveImg}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
             container.appendChild(topImgCard);
         }
 
@@ -234,7 +260,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                ${showLeftImg ? `<img src="${effectiveImg}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${effectiveImg}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
@@ -458,13 +484,17 @@ function showQuestionSpeedPopover(btn, isCartelli = false) {
     popover.style.display = 'flex';
     popover.style.flexDirection = 'column';
     popover.style.background = 'var(--bg-card)';
-    popover.style.border = '1px solid var(--border-card)';
-    popover.style.borderRadius = '8px';
-    popover.style.boxShadow = '0 10px 25px rgba(0,0,0,0.1)';
-    popover.style.minWidth = '85px';
+    popover.style.border = '1.5px solid var(--border-card)';
+    popover.style.borderRadius = '12px';
+    popover.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+    popover.style.minWidth = '90px';
+    popover.style.padding = '4px 0';
+    popover.style.maxHeight = 'none';
+    popover.style.height = 'auto';
+    popover.style.overflow = 'hidden';
 
-    const popoverHeight = popover.offsetHeight || 220;
-    const popoverWidth = popover.offsetWidth || 85;
+    const popoverHeight = popover.getBoundingClientRect().height || popover.offsetHeight || 300;
+    const popoverWidth = popover.getBoundingClientRect().width || popover.offsetWidth || 90;
 
     let left = rect.left + scrollLeft + (rect.width / 2) - (popoverWidth / 2);
     let top = rect.top + scrollTop - popoverHeight - 8;
@@ -529,7 +559,7 @@ function togglePageTranslation(qId) {
     const q = activePageDetails.questions.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian, q.bangla, q.vocabulary || []);
+    openQuestionTranslationModal(q.italian, q.bangla, q.vocabulary || [], q.image || q.img || '');
 }
 
 function startPageQuiz() {
@@ -698,44 +728,59 @@ function togglePageDetailsPageDropdown() {
     }
 }
 
-function toggleCurrentPageSelection() {
-    const btn = document.getElementById('page-details-select-toggle-btn');
-    if (!btn) return;
-    const isSelected = btn.classList.contains('active');
+window.isArgomentiSelectionMode = window.isArgomentiSelectionMode || false;
+
+function updateArgomentiSelectionPills() {
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
-    if (isSelected) {
-        btn.classList.remove('active');
-        btn.innerText = 'Select Page';
-        cards.forEach(c => c.classList.remove('selected-q-card'));
-        showToast('পেজ সিলেক্ট মুক্ত করা হয়েছে');
+    const selectedCards = document.querySelectorAll('#page-questions-list-container .detail-q-card.selected-q-card');
+    const selectBtn = document.getElementById('page-details-select-toggle-btn');
+    const selectAllBtn = document.getElementById('page-details-select-all-btn');
+    const unselectAllBtn = document.getElementById('page-details-unselect-all-btn');
+
+    if (selectAllBtn) selectAllBtn.classList.remove('active');
+    if (unselectAllBtn) unselectAllBtn.classList.remove('active');
+    if (selectBtn) selectBtn.classList.remove('active');
+
+    if (window.isArgomentiSelectionMode) {
+        if (selectBtn) selectBtn.style.display = 'none';
+        if (cards.length > 0 && selectedCards.length === cards.length) {
+            if (selectAllBtn) selectAllBtn.classList.add('active');
+        }
     } else {
-        btn.classList.add('active');
-        btn.innerText = 'Selected Page';
-        cards.forEach(c => c.classList.add('selected-q-card'));
-        showToast('পেজ সিলেক্ট করা হয়েছে');
+        if (selectBtn) selectBtn.style.display = 'inline-block';
+        if (selectedCards.length === 0) {
+            if (unselectAllBtn) unselectAllBtn.classList.add('active');
+        }
     }
 }
 
+function toggleCurrentPageSelection() {
+    window.isArgomentiSelectionMode = true;
+    const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
+    const selectedCount = document.querySelectorAll('#page-questions-list-container .detail-q-card.selected-q-card').length;
+    if (selectedCount === 0 && cards.length > 0) {
+        cards[0].classList.add('selected-q-card');
+    }
+    updateArgomentiSelectionPills();
+    showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
+}
+
 function selectAllPagesInDetails() {
-    const btnAll = document.getElementById('page-details-select-all-btn');
-    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
-    if (btnAll) btnAll.classList.add('active');
-    if (btnUnselect) btnUnselect.classList.remove('active');
+    window.isArgomentiSelectionMode = true;
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
     cards.forEach(c => c.classList.add('selected-q-card'));
-    showToast('সব পেজ সিলেক্ট করা হয়েছে');
+    updateArgomentiSelectionPills();
+    showToast('সব প্রশ্ন সিলেক্ট করা হয়েছে');
 }
 
 function unselectAllPagesInDetails() {
-    const btnAll = document.getElementById('page-details-select-all-btn');
-    const btnUnselect = document.getElementById('page-details-unselect-all-btn');
-    if (btnAll) btnAll.classList.remove('active');
-    if (btnUnselect) btnUnselect.classList.add('active');
+    window.isArgomentiSelectionMode = false;
     const cards = document.querySelectorAll('#page-questions-list-container .detail-q-card');
     cards.forEach(c => c.classList.remove('selected-q-card'));
-    showToast('সব পেজ আনসিলেক্ট করা হয়েছে');
+    updateArgomentiSelectionPills();
+    showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
-
+window.updateArgomentiSelectionPills = updateArgomentiSelectionPills;
 window.toggleCurrentPageSelection = toggleCurrentPageSelection;
 window.selectAllPagesInDetails = selectAllPagesInDetails;
 window.unselectAllPagesInDetails = unselectAllPagesInDetails;
