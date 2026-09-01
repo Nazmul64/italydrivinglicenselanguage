@@ -291,7 +291,7 @@ function updateNotedMcqsPillStates() {
 function updateNotedQuizBtn() {
     const btn = document.getElementById('noted-mcqs-quiz-btn-container');
     if (!btn) return;
-    if (selectedNotedMcqIds.length > 0 || (isNotedSelectMode && activeNotedMcqsData.length > 0)) {
+    if (activeNotedMcqsData && activeNotedMcqsData.length > 0) {
         btn.style.display = 'block';
     } else {
         btn.style.display = 'none';
@@ -306,7 +306,7 @@ function startNotedMcqsQuiz() {
         : activeNotedMcqsData.map(item => item.question || item);
 
     if (!questionsToQuiz || questionsToQuiz.length === 0) {
-        if (typeof showToast === 'function') showToast('কোনো প্রশ্ন সিলেক্ট করা হয়নি');
+        if (typeof showToast === 'function') showToast('নোট করা কোনো প্রশ্ন পাওয়া যায়নি');
         return;
     }
 

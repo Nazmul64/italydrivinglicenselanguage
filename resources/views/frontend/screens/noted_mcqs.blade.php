@@ -18,7 +18,7 @@
     </div>
 
     <!-- Sticky Bottom Right Quiz Button -->
-    <div id="noted-mcqs-quiz-btn-container" style="position: fixed; bottom: 80px; right: 24px; z-index: 1000; display: none;">
+    <div id="noted-mcqs-quiz-btn-container" style="position: fixed; bottom: 80px; right: 24px; z-index: 1000; display: block;">
         <button class="btn btn-primary" id="noted-mcqs-quiz-btn" onclick="startNotedMcqsQuiz()" style="height: 40px; border-radius: 20px; font-weight: 800; font-size: 13px; background-color: var(--accent-green); color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 20px; cursor: pointer;">
             <span>QUIZ &gt;</span>
         </button>
