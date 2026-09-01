@@ -161,6 +161,10 @@ function renderNotedMcqsList(notedItems) {
                     <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
                     <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                 </button>
+                <button type="button" class="test-ctrl-btn" onclick="showQuestionSpeedPopover(this, false)" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Speech Speed">
+                    <i class="fa-solid fa-gauge-high" style="color: var(--accent-green); font-size: 13px;"></i>
+                    <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">স্পিড</span>
+                </button>
                 ${(q.audio || q.voice) ? `
                     <button type="button" class="test-ctrl-btn" id="noted-play-btn-${q.id}" onclick="if(typeof playQuestionMp3 === 'function') playQuestionMp3('${q.audio || q.voice}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
                         <i class="fa-solid fa-play" style="font-size:12px;"></i>
