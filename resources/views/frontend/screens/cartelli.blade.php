@@ -197,7 +197,7 @@
                                             <img src="{{ $mcq->image }}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)" style="width: 90px; min-width: 90px; height: 90px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; background: #fff; padding: 4px;" title="ছবি দেখুন">
                                         @endif
                                         <div style="flex: 1; min-width: 0;">
-                                            <div class="detail-q-text-it" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5;">{{ $mcq->question }}</div>
+                                            <div class="detail-q-text-it" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5;">{!! $mcq->question !!}</div>
                                             @if($mcq->bn_question)
                                                 <div class="detail-q-text-bn" id="cartelli-mcq-bn-{{ $mcq->id }}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">{{ $mcq->bn_question }}</div>
                                             @endif
@@ -206,13 +206,17 @@
 
                                     <!-- MCQ Action Buttons -->
                                     <div style="display: flex; gap: 6px; margin-top: 14px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                                        <button type="button" class="test-speaker-btn" onclick="speakCartelliItalian('{{ addslashes($mcq->question) }}')" style="padding: 5px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Italiano">
+                                        <button type="button" class="test-speaker-btn" onclick="speakCartelliItalian('{{ addslashes(strip_tags($mcq->question)) }}')" style="padding: 5px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Italiano">
                                             <i class="fa-solid fa-microphone" style="font-size: 13px; color: var(--accent-green);"></i>
                                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">Italiano</span>
                                         </button>
                                         <button type="button" class="test-ctrl-btn" onclick="toggleCartelliTranslation({{ $mcq->id }})" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
                                             <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1;">A Z</div>
                                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">অনুবাদ</span>
+                                        </button>
+                                        <button type="button" class="test-ctrl-btn" onclick="toggleSavedMcq({{ $mcq->id }}, this, 'cartelli')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Save">
+                                            <i class="fa-regular fa-bookmark" style="font-size: 13px; color: var(--text-secondary);"></i>
+                                            <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">সেভ</span>
                                         </button>
                                         <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $mcq->id }}, null, '')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
                                             <i class="fa-regular fa-note-sticky" style="font-size: 13px; color: var(--text-secondary);"></i>

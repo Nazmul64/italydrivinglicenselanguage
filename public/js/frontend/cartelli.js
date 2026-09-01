@@ -752,6 +752,9 @@ function renderCartelliPageMcqs(mcqs) {
 
         const card = document.createElement('div');
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (record && record.state === 'correct' ? 'correct' : 'incorrect')}`;
+        card.id = `cartelli-card-${q.id}`;
+        card.setAttribute('data-qid', q.id);
+        card.setAttribute('data-qtype', 'cartelli');
         card.setAttribute('data-qid', q.id);
         card.style.position = 'relative';
         card.style.cursor = 'pointer';
@@ -797,7 +800,7 @@ function renderCartelliPageMcqs(mcqs) {
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
                 ${showLeftImg ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
-                    <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || []) : (q.question || '')}</div>
+                    <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || [], q.id, 'cartelli') : (q.question || '')}</div>
                     <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>
                 </div>
             </div>
@@ -1215,7 +1218,7 @@ function toggleCartelliBookmark(qId, btn) {
     const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
-    fetch('/api/saved-mcqs/toggle', {
+    fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

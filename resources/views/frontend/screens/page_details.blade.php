@@ -113,6 +113,10 @@
                                                 <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1;">A Z</div>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">অনুবাদ</span>
                                             </button>
+                                            <button type="button" class="test-ctrl-btn" onclick="toggleSavedMcq({{ $q->id }}, this, 'argomenti')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Save">
+                                                <i class="fa-regular fa-bookmark" style="font-size: 13px; color: var(--text-secondary);"></i>
+                                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">সেভ</span>
+                                            </button>
                                             <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $q->id }}, null, '')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
                                                 <i class="fa-regular fa-note-sticky" style="font-size: 13px; color: var(--text-secondary);"></i>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">নোট</span>

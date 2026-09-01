@@ -498,7 +498,9 @@ function saveUserNote() {
         body: JSON.stringify({
             page_id: pageId || null,
             question_id: questionId || null,
-            note_text: noteText
+            note_text: noteText,
+            session_id: localStorage.getItem('app_client_session_id') || '',
+            user_phone: localStorage.getItem('app_client_phone') || ''
         })
     })
         .then(res => res.json())

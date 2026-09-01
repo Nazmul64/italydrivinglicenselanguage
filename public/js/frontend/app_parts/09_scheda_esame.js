@@ -321,7 +321,7 @@ function renderSchedaExamDots() {
 // vocabCache: stores per-question vocabulary by word (for modal lookup)
 const vocabCache = {};
 
-function highlightDictionaryTerms(text, questionVocabulary, questionId) {
+function highlightDictionaryTerms(text, questionVocabulary, questionId, questionType) {
     if (!text) return '';
     let resultText = text;
 
@@ -335,6 +335,11 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId) {
         });
     }
 
+    const qIdVal = questionId ? questionId : null;
+    const qTypeVal = questionType ? questionType : 'argomenti';
+    const qIdArg = qIdVal ? qIdVal : 'null';
+    const qTypeArg = `'${qTypeVal}'`;
+
     const hasExplicitUnderlines = /<u>[\s\S]*?<\/u>/i.test(resultText);
 
     // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
@@ -342,13 +347,12 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId) {
         resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
             const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
             const lowerClean = cleanWord.toLowerCase();
-            return `<span class="dict-term-link" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this); }">${innerWord}</span>`;
+            return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); }">${innerWord}</span>`;
         });
-        // If the author explicitly specified <u> tags, do NOT auto-highlight any additional occurrences outside the tags!
         return resultText;
     }
 
-    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words (match whole word, first occurrence per item)
+    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words
     if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
         const sortedVocab = [...questionVocabulary].sort((a, b) =>
             (b.italian || '').length - (a.italian || '').length
@@ -360,12 +364,12 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId) {
             const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}', this)">${match}</span>`;
+                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
             });
         });
     }
 
-    // 3. Highlight global dictionary words from database (whole word, single match)
+    // 3. Highlight global dictionary words from database
     if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
         const sortedTerms = [...dictionaryData].sort((a, b) => (b.word || '').length - (a.word || '').length);
         sortedTerms.forEach(term => {
@@ -373,7 +377,7 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId) {
             const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
             resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}', this)">${match}</span>`;
+                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
             });
         });
     }
@@ -385,21 +389,72 @@ let currentDictTerm = null;
 let currentDictModalLang = 'bn';
 let savedDictWords = JSON.parse(localStorage.getItem('saved_dict_words') || '[]');
 
+function extractTargetQuestionId(elOrQId) {
+    if (typeof elOrQId === 'number') return elOrQId;
+    if (typeof elOrQId === 'string' && /^\d+$/.test(elOrQId.trim())) return parseInt(elOrQId.trim());
+
+    let card = null;
+    if (elOrQId && typeof elOrQId.closest === 'function') {
+        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
+    }
+    if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
+        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
+    }
+    if (card) {
+        if (card.getAttribute('data-qid')) return parseInt(card.getAttribute('data-qid'));
+        if (card.getAttribute('data-question-id')) return parseInt(card.getAttribute('data-question-id'));
+        const match = (card.id || '').match(/\d+/);
+        if (match) return parseInt(match[0]);
+    }
+    return null;
+}
+
+function extractTargetQuestionType(elOrQId, fallbackQId) {
+    if (elOrQId && typeof elOrQId === 'object' && elOrQId.getAttribute) {
+        const directType = elOrQId.getAttribute('data-qtype');
+        if (directType) return directType;
+    }
+    let card = null;
+    if (elOrQId && typeof elOrQId.closest === 'function') {
+        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
+    }
+    if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
+        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
+    }
+    if (card) {
+        const type = card.getAttribute('data-qtype');
+        if (type) return type;
+        if ((card.id || '').includes('cartelli')) return 'cartelli';
+    }
+    if (typeof activeScreen !== 'undefined' && (activeScreen === 'cartelli-page' || activeScreen === 'cartelli' || activeScreen === 'cartelli-schede')) {
+        return 'cartelli';
+    }
+    return 'argomenti';
+}
+
 function updateDictSaveIconState() {
     const saveBtn = document.getElementById('dict-modal-save-btn');
     if (!saveBtn || !currentDictTerm) return;
 
     let isSaved = false;
     const qId = currentDictTerm.questionId;
+    const qType = currentDictTerm.questionType || 'argomenti';
     const wordKey = currentDictTerm.word ? currentDictTerm.word.toLowerCase() : '';
 
     if (qId) {
-        if (typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+        if (qType === 'cartelli') {
+            const cBookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
+            isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId));
+        } else {
+            const aBookmarks = JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]');
+            isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId));
+        }
+        if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
             isSaved = activeSavedMcqs.some(q => (q.id === qId || (q.question && q.question.id === qId)));
         }
         if (!isSaved) {
-            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark`);
-            if (cardBookmark && cardBookmark.style.color && cardBookmark.style.color.includes('green')) {
+            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
+            if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
                 isSaved = true;
             }
         }
@@ -416,12 +471,22 @@ function updateDictSaveIconState() {
         saveBtn.className = 'fa-regular fa-bookmark';
         saveBtn.style.color = 'var(--text-primary, #1e293b)';
     }
+
+    // Also update Note icon state in modal
+    const noteBtn = document.getElementById('dict-modal-note-btn');
+    if (noteBtn && qId) {
+        const cNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
+        const aNotes = JSON.parse(localStorage.getItem('argomenti_notes') || '{}');
+        const hasNote = (cNotes[qId] && cNotes[qId].trim() !== '') || (aNotes[qId] && aNotes[qId].trim() !== '');
+        noteBtn.style.color = hasNote ? '#4CAF50' : 'var(--text-primary, #1e293b)';
+    }
 }
 
 function saveDictWord() {
     if (!currentDictTerm) return;
     const wordKey = currentDictTerm.word ? currentDictTerm.word.toLowerCase() : '';
     const qId = currentDictTerm.questionId;
+    const qType = currentDictTerm.questionType || 'argomenti';
 
     if (qId) {
         const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
@@ -438,6 +503,7 @@ function saveDictWord() {
             },
             body: JSON.stringify({
                 question_id: qId,
+                type: qType,
                 phone: savedPhone,
                 session_id: savedSessionId
             })
@@ -451,22 +517,33 @@ function saveDictWord() {
                 saveBtn.style.color = isNowSaved ? '#4CAF50' : 'var(--text-primary, #1e293b)';
             }
 
-            const cardBookmark = document.querySelector(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark`);
-            if (cardBookmark) {
-                cardBookmark.style.color = isNowSaved ? 'var(--accent-green)' : 'var(--text-secondary)';
-            }
+            // Sync with local storage bookmarks
+            const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
+            let bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            const idx = bookmarks.indexOf(qId);
+            if (isNowSaved && idx === -1) bookmarks.push(qId);
+            else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
+            localStorage.setItem(storageKey, JSON.stringify(bookmarks));
+
+            // Sync card bookmark icons on current screen
+            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
+            cardBookmarks.forEach(icon => {
+                icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
+            });
 
             if (typeof showToast === 'function') {
-                showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভড এমসিকিউ-তে সংরক্ষণ করা হয়েছে' : 'সেভ থেকে সরানো হয়েছে'));
+                showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভ করা হয়েছে (Saved)' : 'সেভ থেকে সরানো হয়েছে (Removed)'));
             }
 
             if (wordKey) {
-                const idx = savedDictWords.indexOf(wordKey);
-                if (isNowSaved && idx === -1) savedDictWords.push(wordKey);
-                else if (!isNowSaved && idx > -1) savedDictWords.splice(idx, 1);
+                const wIdx = savedDictWords.indexOf(wordKey);
+                if (isNowSaved && wIdx === -1) savedDictWords.push(wordKey);
+                else if (!isNowSaved && wIdx > -1) savedDictWords.splice(wIdx, 1);
                 localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
             }
 
+            // Refresh saved screen if active
             if (typeof loadSavedMcqsScreen === 'function' && typeof activeScreen !== 'undefined' && activeScreen === 'saved-mcqs') {
                 loadSavedMcqsScreen();
             }
@@ -485,21 +562,27 @@ function toggleLocalDictWordSave(wordKey) {
     const index = savedDictWords.indexOf(wordKey);
     if (index > -1) {
         savedDictWords.splice(index, 1);
-        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্ক থেকে সরানো হয়েছে');
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্ক থেকে সরানো হয়েছে');
     } else {
         savedDictWords.push(wordKey);
-        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্কে সংরক্ষণ করা হয়েছে');
+        if (typeof showToast === 'function') showToast('শব্দটি বুকমার্কে সেভ করা হয়েছে');
     }
     localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
     updateDictSaveIconState();
 }
 
 function openDictWordNote() {
-    if (!currentDictTerm) return;
+    if (!currentDictTerm || !currentDictTerm.questionId) {
+        if (typeof showToast === 'function') showToast('নোট যোগ করার জন্য কোনো প্রশ্ন পাওয়া যায়নি');
+        return;
+    }
     const qId = currentDictTerm.questionId;
+    const qType = currentDictTerm.questionType || 'argomenti';
     closeDictTermModal();
     if (typeof openNotesModal === 'function') {
         openNotesModal(null, qId, null, '');
+    } else if (typeof openCartelliNotesModal === 'function') {
+        openCartelliNotesModal(qId);
     }
 }
 window.openDictWordNote = openDictWordNote;
@@ -512,69 +595,14 @@ function closeDictTermModal() {
     }
 }
 
-function toggleDictModalLang() {
-    const textBnEl = document.getElementById('dict-modal-text-bn');
-    const langTextEl = document.getElementById('dict-modal-lang-text');
-    if (!textBnEl) return;
-
-    if (textBnEl.style.display === 'none') {
-        textBnEl.style.display = 'block';
-        if (langTextEl) langTextEl.innerText = 'Bangla';
-    } else {
-        textBnEl.style.display = 'none';
-        if (langTextEl) langTextEl.innerText = 'Italian';
-    }
-}
-
-function searchDictWord() {
-    if (!currentDictTerm || !currentDictTerm.word) return;
-    const word = currentDictTerm.word;
-    closeDictTermModal();
-    if (typeof openScreen === 'function') {
-        openScreen('dizionario', 'Dizionario');
-    }
-    const searchInput = document.getElementById('dictionary-search');
-    if (searchInput) {
-        searchInput.value = word;
-        if (typeof filterDictionary === 'function') filterDictionary();
-    }
-}
-
-function speakDictWord() {
-    if (!currentDictTerm) return;
-    const wordToSpeak = currentDictTerm.word || currentDictTerm.desc_it || '';
-    if ('speechSynthesis' in window && wordToSpeak) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(wordToSpeak);
-        utterance.lang = 'it-IT';
-        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
-        window.speechSynthesis.speak(utterance);
-    }
-}
-
-function extractTargetQuestionId(elOrQId) {
-    if (typeof elOrQId === 'number') return elOrQId;
-    let card = null;
-    if (elOrQId && typeof elOrQId.closest === 'function') {
-        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"]');
-    }
-    if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
-        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"]');
-    }
-    if (card) {
-        const match = (card.id || '').match(/\d+/);
-        if (match) return parseInt(match[0]);
-    }
-    return null;
-}
-
-function openDictionaryTermModal(wordText, elOrQId) {
+function openDictionaryTermModal(wordText, elOrQId, explicitQId, explicitType) {
     const cleanWord = (wordText || '').trim();
     if (!cleanWord) return;
-    const questionId = extractTargetQuestionId(elOrQId);
+    const questionId = explicitQId || extractTargetQuestionId(elOrQId);
+    const questionType = explicitType || extractTargetQuestionType(elOrQId, questionId);
 
     if (typeof vocabCache !== 'undefined' && vocabCache[cleanWord.toLowerCase()]) {
-        openVocabModal(cleanWord, questionId);
+        openVocabModal(cleanWord, elOrQId, questionId, questionType);
         return;
     }
 
@@ -590,18 +618,18 @@ function openDictionaryTermModal(wordText, elOrQId) {
                 if (resData && resData.data && resData.data.length > 0) {
                     termData = resData.data.find(d => (d.word || '').toLowerCase() === cleanWord.toLowerCase()) || resData.data[0];
                 }
-                displayDictTermModal(termData || { word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId);
+                displayDictTermModal(termData || { word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId, questionType);
             })
             .catch(err => {
-                displayDictTermModal({ word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId);
+                displayDictTermModal({ word: cleanWord, desc_it: cleanWord, desc_bn: '' }, questionId, questionType);
             });
         return;
     }
 
-    displayDictTermModal(item, questionId);
+    displayDictTermModal(item, questionId, questionType);
 }
 
-function displayDictTermModal(item, questionId) {
+function displayDictTermModal(item, questionId, questionType) {
     if (!item) return;
 
     currentDictTerm = {
@@ -610,7 +638,8 @@ function displayDictTermModal(item, questionId) {
         desc_bn: item.desc_bn || item.bn || '',
         image: item.image || '',
         video: item.video || null,
-        questionId: questionId || null
+        questionId: questionId || null,
+        questionType: questionType || 'argomenti'
     };
     currentDictModalLang = 'bn';
 
@@ -657,47 +686,23 @@ function displayDictTermModal(item, questionId) {
     if (modal) modal.style.display = 'flex';
 }
 
-function closeVocabTermModal() {
-    const modal = document.getElementById('vocab-term-modal');
-    if (modal) modal.style.display = 'none';
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-    }
-}
+function openVocabModal(wordText, elOrQId, explicitQId, explicitType) {
+    const item = vocabCache ? vocabCache[wordText.toLowerCase()] : null;
+    const questionId = explicitQId || extractTargetQuestionId(elOrQId);
+    const questionType = explicitType || extractTargetQuestionType(elOrQId, questionId);
 
-function closeTranslationPopupModal() {
-    const modal = document.getElementById('translation-popup-modal');
-    if (modal) modal.style.display = 'none';
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    if (!item) {
+        openDictionaryTermModal(wordText, elOrQId, questionId, questionType);
+        return;
     }
-}
-
-function speakTranslationModalText() {
-    const itEl = document.getElementById('trans-modal-italian');
-    if (!itEl) return;
-    const textToSpeak = itEl.innerText || itEl.textContent || '';
-    if ('speechSynthesis' in window && textToSpeak) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.lang = 'it-IT';
-        utterance.rate = parseFloat(localStorage.getItem('app_speech_rate') || '0.85');
-        window.speechSynthesis.speak(utterance);
-    }
-}
-
-// Open popup for per-question vocabulary words
-function openVocabModal(wordText, elOrQId) {
-    const item = vocabCache[wordText.toLowerCase()];
-    if (!item) return;
-    const questionId = extractTargetQuestionId(elOrQId);
 
     currentDictTerm = {
         word: item.italian || wordText,
         desc_it: item.italian || wordText,
         desc_bn: item.bangla || '',
         image: item.image || '',
-        questionId: questionId || null
+        questionId: questionId || null,
+        questionType: questionType || 'argomenti'
     };
     currentDictModalLang = 'bn';
 

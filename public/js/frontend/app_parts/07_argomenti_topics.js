@@ -200,6 +200,9 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const card = document.createElement('div');
         const isCorrect = isAnswered && (record.state === 'correct' || correctCount > wrongCount);
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
+        card.id = `argomenti-q-card-${q.id}`;
+        card.setAttribute('data-qid', q.id);
+        card.setAttribute('data-qtype', 'argomenti');
         card.style.position = 'relative';
         card.style.cursor = 'pointer';
         card.onclick = (e) => {
