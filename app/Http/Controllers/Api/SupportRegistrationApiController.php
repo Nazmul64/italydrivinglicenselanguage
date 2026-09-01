@@ -75,6 +75,18 @@ class SupportRegistrationApiController extends Controller
         }
         $licenseStatus = $license->status;
 
+        $incomingSessionId = $request->input('session_id') ?: $request->header('X-Session-ID');
+
+        // Clean up or merge any previous guest AppClient records for this session
+        if ($incomingSessionId && $incomingSessionId !== $user->uuid) {
+            \App\Models\AppClient::where('session_id', $incomingSessionId)->delete();
+            \App\Models\Message::where('session_id', $incomingSessionId)->update([
+                'session_id'  => $user->uuid,
+                'sender_id'   => $user->uuid,
+                'sender_name' => trim($firstName . ' ' . $lastName),
+            ]);
+        }
+
         // Keep AppClient synchronized for admin chat compatibility
         \App\Models\AppClient::updateOrCreate(
             ['phone' => $phone],
@@ -86,6 +98,11 @@ class SupportRegistrationApiController extends Controller
                 'expires_at' => $license->expires_at,
             ]
         );
+
+        // Remove any orphan Guest User entries with phone N/A
+        \App\Models\AppClient::where('first_name', 'Guest')->where(function($q) {
+            $q->whereNull('phone')->orWhere('phone', 'N/A')->orWhere('phone', '');
+        })->delete();
 
         // Issue Sanctum Token
         $token = $user->createToken('mobile_app_token')->plainTextToken;
