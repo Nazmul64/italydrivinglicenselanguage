@@ -4,7 +4,7 @@
  */
 
 let activeNotedMcqsData = [];
-let notedMcqsSelectMode = false;
+let isNotedSelectMode = false;
 let selectedNotedMcqIds = [];
 
 function loadNotedMcqsScreen() {
@@ -41,6 +41,8 @@ function loadNotedMcqsScreen() {
         activeNotedMcqsData = items;
         if (countBadge) countBadge.innerText = `${items.length} Domande`;
         renderNotedMcqsList(items);
+        updateNotedMcqsPillStates();
+        updateNotedQuizBtn();
     })
     .catch(err => {
         console.error('Error fetching noted MCQs:', err);
@@ -68,11 +70,19 @@ function renderNotedMcqsList(notedItems) {
         window.cachedQuestionsMap[q.id] = q;
 
         const qType = item.type || q.type || 'argomenti';
+        const isSelected = selectedNotedMcqIds.includes(q.id);
+
         const card = document.createElement('div');
-        card.className = 'content-card detail-q-card';
+        card.className = `content-card detail-q-card ${isSelected ? 'selected-q-card' : ''}`;
+        card.id = `noted-card-${q.id}`;
         card.setAttribute('data-qid', q.id);
         card.setAttribute('data-qtype', qType);
-        card.style.cssText = 'padding: 16px; border-radius: 16px; margin-bottom: 12px; background: var(--bg-card); border: 1px solid var(--border-card); position: relative;';
+        card.style.cssText = 'padding: 16px; border-radius: 16px; margin-bottom: 12px; background: var(--bg-card); border: 1.5px solid ' + (isSelected ? 'var(--accent-green, #22c55e)' : 'var(--border-card)') + '; position: relative; cursor: pointer; transition: all 0.2s ease;';
+
+        card.onclick = function(e) {
+            if (e.target.closest('button, input, a, i, .test-ctrl-btn, .test-speaker-btn, .pill-btn, img')) return;
+            toggleNotedCardSelection(q.id);
+        };
 
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero');
         const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
@@ -124,10 +134,10 @@ function renderNotedMcqsList(notedItems) {
                             </span>
                         `}
                     </div>
-                    <button onclick="const b=document.getElementById('q-noted-correct-badge-${q.id}'); if(b) b.style.display=(b.style.display==='none'||!b.style.display?'flex':'none');" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Mostra Risposta Corretta">
+                    <button type="button" onclick="const b=document.getElementById('q-noted-correct-badge-${q.id}'); if(b) b.style.display=(b.style.display==='none'||!b.style.display?'flex':'none');" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: var(--accent-blue, #3b82f6); font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Mostra Risposta Corretta">
                         <i class="fa fa-eye" aria-hidden="true"></i>
                     </button>
-                    <button onclick="openNotesModal(null, ${q.id}, ${item.id || 'null'}, '${noteSnippet}', '${qType}')" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: #10B981; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Edit Note">
+                    <button type="button" onclick="openNotesModal(null, ${q.id}, ${item.id || 'null'}, '${noteSnippet}', '${qType}')" style="background: none; border: none; padding: 4px 6px; cursor: pointer; color: #10B981; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Edit Note">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                 </div>
@@ -137,7 +147,6 @@ function renderNotedMcqsList(notedItems) {
                 ${leftThumbHtml}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary) : (q.italian || q.question || '')}</div>
-                    <div class="detail-q-text-bn" id="mod-noted-bn-${q.id}" style="display: none; font-size: 12px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
                 </div>
             </div>
 
@@ -148,22 +157,22 @@ function renderNotedMcqsList(notedItems) {
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: flex-start; width: 100%; flex-wrap: wrap;">
-                <button class="test-speaker-btn" onclick="if(typeof speakTextTTS === 'function') speakTextTTS('${safeItalian(q.italian || q.question || '')}');" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
+                <button type="button" class="test-speaker-btn" onclick="speakTextTTS(${q.id});" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
                     <i class="fa-solid fa-microphone" style="font-size:13px;"></i>
                     <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">Italiano</span>
                 </button>
                 ${(q.audio || q.voice) ? `
-                    <button class="test-ctrl-btn" id="noted-play-btn-${q.id}" onclick="if(typeof playQuestionMp3 === 'function') playQuestionMp3('${q.audio || q.voice}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
+                    <button type="button" class="test-ctrl-btn" id="noted-play-btn-${q.id}" onclick="if(typeof playQuestionMp3 === 'function') playQuestionMp3('${q.audio || q.voice}', ${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Play MP3 Voiceover">
                         <i class="fa-solid fa-play" style="font-size:12px;"></i>
                         <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">বাংলা</span>
                     </button>
                     <input type="range" class="test-slider" id="noted-audio-slider-${q.id}" min="0" max="100" value="0" style="flex: 1; min-width: 30px; max-width: 140px;" readonly>
                 ` : ''}
-                <button class="test-ctrl-btn" onclick="const el=document.getElementById('mod-noted-bn-${q.id}'); if(el) el.style.display=(el.style.display==='none'?'block':'none');" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
+                <button type="button" class="test-ctrl-btn" onclick="openNotedQuestionTranslation(${q.id})" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Translate">
                     <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 9px; font-weight: 900; color: var(--accent-green); line-height: 1; font-family: sans-serif;">A Z</div>
                     <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); white-space: nowrap;">অনুবাদ</span>
                 </button>
-                <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, ${item.id || 'null'}, '${noteSnippet}', '${qType}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Edit Note">
+                <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, ${item.id || 'null'}, '${noteSnippet}', '${qType}')" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Edit Note">
                     <i class="fa-solid fa-note-sticky" style="font-size: 13px; color: #10B981;"></i>
                     <span style="font-size: 9px; font-weight: 800; color: #10B981; white-space: nowrap;">নোট</span>
                 </button>
@@ -175,29 +184,114 @@ function renderNotedMcqsList(notedItems) {
     });
 }
 
-function safeItalian(text) {
-    return (text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+function openNotedQuestionTranslation(qId) {
+    let targetQ = null;
+    if (window.cachedQuestionsMap && window.cachedQuestionsMap[qId]) {
+        targetQ = window.cachedQuestionsMap[qId];
+    } else if (activeNotedMcqsData && Array.isArray(activeNotedMcqsData)) {
+        const found = activeNotedMcqsData.find(item => (item.id == qId || (item.question && item.question.id == qId)));
+        if (found) targetQ = found.question || found;
+    }
+    if (!targetQ) return;
+
+    const itText = targetQ.italian || targetQ.question || '';
+    const bnText = targetQ.bangla || targetQ.bn_question || '';
+    const vocab = targetQ.vocabulary || [];
+    const img = targetQ.image || targetQ.img || (targetQ.page ? targetQ.page.image : '');
+
+    if (typeof openQuestionTranslationModal === 'function') {
+        openQuestionTranslationModal(itText, bnText, vocab, img);
+    }
+}
+
+function toggleNotedCardSelection(qId) {
+    const idx = selectedNotedMcqIds.indexOf(qId);
+    if (idx > -1) {
+        selectedNotedMcqIds.splice(idx, 1);
+    } else {
+        selectedNotedMcqIds.push(qId);
+    }
+    isNotedSelectMode = selectedNotedMcqIds.length > 0;
+    renderNotedMcqsSelectionUI();
+    updateNotedMcqsPillStates();
+    updateNotedQuizBtn();
 }
 
 function selectAllNotedMcqs() {
     selectedNotedMcqIds = activeNotedMcqsData.map(item => (item.question ? item.question.id : item.id));
+    isNotedSelectMode = true;
+    renderNotedMcqsSelectionUI();
+    updateNotedMcqsPillStates();
     updateNotedQuizBtn();
+    if (typeof showToast === 'function') {
+        showToast('সব নোট করা প্রশ্ন সিলেক্ট করা হয়েছে');
+    }
 }
 
 function unselectAllNotedMcqs() {
     selectedNotedMcqIds = [];
+    isNotedSelectMode = false;
+    renderNotedMcqsSelectionUI();
+    updateNotedMcqsPillStates();
     updateNotedQuizBtn();
+    if (typeof showToast === 'function') {
+        showToast('সব আন-সিলেক্ট করা হয়েছে');
+    }
 }
 
 function toggleNotedMcqsSelectMode() {
-    notedMcqsSelectMode = !notedMcqsSelectMode;
+    isNotedSelectMode = true;
+    renderNotedMcqsSelectionUI();
+    updateNotedMcqsPillStates();
     updateNotedQuizBtn();
+    if (typeof showToast === 'function') {
+        showToast('সিলেক্ট মোড চালু হয়েছে। যেকোনো প্রশ্নে ক্লিক করে সিলেক্ট করুন');
+    }
+}
+
+function renderNotedMcqsSelectionUI() {
+    activeNotedMcqsData.forEach(item => {
+        const q = item.question || item;
+        if (!q || !q.id) return;
+        const card = document.getElementById(`noted-card-${q.id}`);
+        if (card) {
+            if (selectedNotedMcqIds.includes(q.id)) {
+                card.classList.add('selected-q-card');
+                card.style.borderColor = 'var(--accent-green, #22c55e)';
+                card.style.backgroundColor = 'rgba(34, 197, 94, 0.04)';
+            } else {
+                card.classList.remove('selected-q-card');
+                card.style.borderColor = 'var(--border-card)';
+                card.style.backgroundColor = 'var(--bg-card)';
+            }
+        }
+    });
+}
+
+function updateNotedMcqsPillStates() {
+    const btnSelect = document.getElementById('noted-select-toggle-btn');
+    const btnAll = document.getElementById('noted-select-all-btn');
+    const btnUnselect = document.getElementById('noted-unselect-all-btn');
+
+    if (btnSelect) btnSelect.classList.remove('active');
+    if (btnAll) btnAll.classList.remove('active');
+    if (btnUnselect) btnUnselect.classList.remove('active');
+
+    if (isNotedSelectMode || selectedNotedMcqIds.length > 0) {
+        if (btnSelect) btnSelect.style.display = 'none';
+        if (activeNotedMcqsData.length > 0 && selectedNotedMcqIds.length === activeNotedMcqsData.length) {
+            if (btnAll) btnAll.classList.add('active');
+        }
+    } else {
+        if (btnSelect) btnSelect.style.display = 'inline-block';
+        if (btnUnselect) btnUnselect.classList.add('active');
+    }
 }
 
 function updateNotedQuizBtn() {
     const btn = document.getElementById('noted-mcqs-quiz-btn-container');
     if (!btn) return;
-    if (selectedNotedMcqIds.length > 0) {
+    if (selectedNotedMcqIds.length > 0 || (isNotedSelectMode && activeNotedMcqsData.length > 0)) {
         btn.style.display = 'block';
     } else {
         btn.style.display = 'none';
@@ -205,17 +299,56 @@ function updateNotedQuizBtn() {
 }
 
 function startNotedMcqsQuiz() {
-    if (selectedNotedMcqIds.length === 0) {
-        if (typeof showToast === 'function') showToast('কুইজ শুরু করতে অন্তত একটি প্রশ্ন নির্বাচন করুন');
+    const questionsToQuiz = (selectedNotedMcqIds && selectedNotedMcqIds.length > 0)
+        ? activeNotedMcqsData
+            .map(item => item.question || item)
+            .filter(q => selectedNotedMcqIds.includes(q.id))
+        : activeNotedMcqsData.map(item => item.question || item);
+
+    if (!questionsToQuiz || questionsToQuiz.length === 0) {
+        if (typeof showToast === 'function') showToast('কোনো প্রশ্ন সিলেক্ট করা হয়নি');
         return;
     }
-    const selectedQuestions = activeNotedMcqsData
-        .map(item => item.question || item)
-        .filter(q => selectedNotedMcqIds.includes(q.id));
 
-    if (typeof startDynamicCustomQuiz === 'function') {
-        startDynamicCustomQuiz(selectedQuestions, 'Noted MCQs Quiz');
+    testQuestions = questionsToQuiz.map(q => ({
+        id: q.id,
+        italian: q.italian || q.question || '',
+        bangla: q.bangla || q.bn_question || '',
+        is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero'),
+        image: q.image || q.img || (q.page && q.page.image ? q.page.image : null),
+        audio: q.audio || q.voice,
+        video: q.video,
+        vocabulary: q.vocabulary || []
+    })).sort(() => Math.random() - 0.5);
+
+    currentTestIndex = 0;
+    testAnswers = Array(testQuestions.length).fill(null);
+    practiceMode = 'exam';
+
+    const timerPill = document.getElementById('test-timer');
+    if (timerPill) {
+        timerPill.innerText = `NOTED MCQS QUIZ`;
+        timerPill.style.backgroundColor = 'rgba(76, 175, 80, 0.08)';
+        timerPill.style.borderColor = 'var(--accent-green)';
+        timerPill.style.color = 'var(--accent-green)';
+    }
+    const timerLabel = document.querySelector('.test-timer-label');
+    if (timerLabel) {
+        timerLabel.innerText = `${testQuestions.length} Noted MCQs`;
+    }
+
+    if (typeof openScreen === 'function') {
+        openScreen('test', 'Noted MCQs Quiz');
+        if (typeof switchTestQuestionTab === 'function') switchTestQuestionTab(1);
+        if (typeof showTestQuestion === 'function') showTestQuestion();
+        if (typeof startTestTimer === 'function') startTestTimer();
     }
 }
 
 window.loadNotedMcqsScreen = loadNotedMcqsScreen;
+window.openNotedQuestionTranslation = openNotedQuestionTranslation;
+window.toggleNotedCardSelection = toggleNotedCardSelection;
+window.selectAllNotedMcqs = selectAllNotedMcqs;
+window.unselectAllNotedMcqs = unselectAllNotedMcqs;
+window.toggleNotedMcqsSelectMode = toggleNotedMcqsSelectMode;
+window.startNotedMcqsQuiz = startNotedMcqsQuiz;
