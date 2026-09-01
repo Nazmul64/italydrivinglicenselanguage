@@ -599,7 +599,7 @@ function openDictWordNote() {
     const qType = currentDictTerm.questionType || 'argomenti';
     closeDictTermModal();
     if (typeof openNotesModal === 'function') {
-        openNotesModal(null, qId, null, '');
+        openNotesModal(null, qId, null, '', qType);
     } else if (typeof openCartelliNotesModal === 'function') {
         openCartelliNotesModal(qId);
     }

@@ -42,6 +42,7 @@
             @include('frontend.screens.translation')
             @include('frontend.screens.page_details')
             @include('frontend.screens.saved_mcqs')
+            @include('frontend.screens.noted_mcqs')
             @include('frontend.screens.correct_mcqs')
             @include('frontend.screens.wrong_mcqs')
         </div>

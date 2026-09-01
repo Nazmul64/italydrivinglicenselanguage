@@ -115,12 +115,20 @@ class DatabaseSeeder extends Seeder
                 'order_index' => 9
             ],
             [
+                'title' => 'Noted MCQs',
+                'subtitle' => 'নোট করা এমসিকিউ',
+                'screen_key' => 'noted-mcqs',
+                'icon_class' => 'fa-regular fa-note-sticky',
+                'icon_color' => '#10B981',
+                'order_index' => 10
+            ],
+            [
                 'title' => 'Correct MCQs',
                 'subtitle' => 'সঠিক এমসিকিউ',
                 'screen_key' => 'correct-mcqs',
                 'icon_class' => 'fa-solid fa-circle-check',
                 'icon_color' => '#22C55E',
-                'order_index' => 10
+                'order_index' => 11
             ],
             [
                 'title' => 'Wrong MCQs',
@@ -128,7 +136,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'wrong-mcqs',
                 'icon_class' => 'fa-solid fa-circle-xmark',
                 'icon_color' => '#EF4444',
-                'order_index' => 11
+                'order_index' => 12
             ],
             [
                 'title' => 'Support',
@@ -136,7 +144,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'support',
                 'icon_class' => 'fa-solid fa-headset',
                 'icon_color' => '#0EA5E9',
-                'order_index' => 12
+                'order_index' => 13
             ],
             [
                 'title' => 'Top Performers',
@@ -144,7 +152,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'top-performers',
                 'icon_class' => 'fa-solid fa-ranking-star',
                 'icon_color' => '#F59E0B',
-                'order_index' => 13,
+                'order_index' => 14,
                 'status' => 1
             ],
             [
@@ -153,7 +161,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'manuale',
                 'icon_class' => 'fa-solid fa-book-bookmark',
                 'icon_color' => '#2563EB',
-                'order_index' => 14,
+                'order_index' => 15,
                 'status' => 1
             ],
             [
@@ -162,7 +170,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'patente-social',
                 'icon_class' => 'fa-solid fa-users',
                 'icon_color' => '#8B5CF6',
-                'order_index' => 15,
+                'order_index' => 16,
                 'status' => 1
             ],
             [
@@ -171,7 +179,7 @@ class DatabaseSeeder extends Seeder
                 'screen_key' => 'translation',
                 'icon_class' => 'fa-solid fa-language',
                 'icon_color' => '#0284C7',
-                'order_index' => 16,
+                'order_index' => 17,
                 'status' => 1
             ]
         ];

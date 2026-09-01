@@ -447,17 +447,37 @@ function toggleSavedMcq(questionId, btnElement, type) {
 // User Notes Modal Dialog Operations
 // ==========================================
 
-function openNotesModal(pageId, questionId, noteId, existingText) {
+function openNotesModal(pageId, questionId, noteId, existingText, type) {
     const modal = document.getElementById('notes-modal');
     if (!modal) return;
+
+    let qType = type;
+    if (!qType && questionId) {
+        if (typeof extractTargetQuestionType === 'function') {
+            qType = extractTargetQuestionType(null, questionId);
+        } else {
+            const currentActive = (typeof screenHistory !== 'undefined' && screenHistory.length > 0) ? screenHistory[screenHistory.length - 1] : (typeof activeScreen !== 'undefined' ? activeScreen : '');
+            qType = (currentActive.includes('cartelli')) ? 'cartelli' : 'argomenti';
+        }
+    }
+    qType = qType || 'argomenti';
 
     document.getElementById('notes-form-page-id').value = pageId || '';
     document.getElementById('notes-form-question-id').value = questionId || '';
     document.getElementById('notes-form-note-id').value = noteId || '';
-    document.getElementById('notes-textarea').value = existingText || '';
+    const typeInput = document.getElementById('notes-form-type');
+    if (typeInput) typeInput.value = qType;
 
-    if (!existingText && (questionId || pageId)) {
-        const query = questionId ? `question_id=${questionId}` : `page_id=${pageId}`;
+    let localText = existingText || '';
+    if (!localText && questionId) {
+        const storeKey = qType === 'cartelli' ? 'cartelli_notes' : 'argomenti_notes';
+        const localNotes = JSON.parse(localStorage.getItem(storeKey) || '{}');
+        if (localNotes[questionId]) localText = localNotes[questionId];
+    }
+    document.getElementById('notes-textarea').value = localText;
+
+    if (!localText && (questionId || pageId)) {
+        const query = questionId ? `question_id=${questionId}&type=${qType}` : `page_id=${pageId}`;
         fetch(`/api/notes?${query}`)
             .then(res => res.json())
             .then(notes => {
@@ -472,7 +492,7 @@ function openNotesModal(pageId, questionId, noteId, existingText) {
             .catch(err => {
                 console.error("Error loading note: ", err);
             });
-    } else if (existingText) {
+    } else if (localText) {
         document.getElementById('notes-delete-btn').style.display = 'block';
     } else {
         document.getElementById('notes-delete-btn').style.display = 'none';
@@ -490,6 +510,8 @@ function saveUserNote() {
     const pageId = document.getElementById('notes-form-page-id').value;
     const questionId = document.getElementById('notes-form-question-id').value;
     const noteText = document.getElementById('notes-textarea').value;
+    const typeInput = document.getElementById('notes-form-type');
+    const qType = (typeInput ? typeInput.value : null) || 'argomenti';
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     if (!noteText.trim()) {
@@ -498,16 +520,28 @@ function saveUserNote() {
     }
 
     if (questionId) {
-        let cartelliNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
-        cartelliNotes[questionId] = noteText.trim();
-        localStorage.setItem('cartelli_notes', JSON.stringify(cartelliNotes));
+        const storeKey = qType === 'cartelli' ? 'cartelli_notes' : 'argomenti_notes';
+        let notesObj = JSON.parse(localStorage.getItem(storeKey) || '{}');
+        notesObj[questionId] = noteText.trim();
+        localStorage.setItem(storeKey, JSON.stringify(notesObj));
 
-        const noteBtn = document.getElementById(`cartelli-note-btn-${questionId}`);
-        if (noteBtn) {
-            const icon = noteBtn.querySelector('i');
-            if (icon) icon.style.color = 'var(--accent-green)';
-            const label = noteBtn.querySelector('span');
-            if (label) label.style.color = 'var(--accent-green)';
+        // Sync card Note button icons
+        const selector = qType === 'cartelli'
+            ? `#cartelli-mcq-card-${questionId} .fa-note-sticky, #cartelli-card-${questionId} .fa-note-sticky, [data-qtype="cartelli"][data-qid="${questionId}"] .fa-note-sticky`
+            : `#argomenti-q-card-${questionId} .fa-note-sticky, [data-qtype="argomenti"][data-qid="${questionId}"] .fa-note-sticky`;
+
+        const noteIcons = document.querySelectorAll(selector);
+        noteIcons.forEach(icon => {
+            icon.className = 'fa-solid fa-note-sticky';
+            icon.style.color = '#10B981';
+            const span = icon.closest('button')?.querySelector('span');
+            if (span) span.style.color = '#10B981';
+        });
+
+        // Sync modal note button icon if open
+        const dictNoteBtn = document.getElementById('dict-modal-note-btn');
+        if (dictNoteBtn) {
+            dictNoteBtn.style.color = '#4CAF50';
         }
     }
 
@@ -520,6 +554,7 @@ function saveUserNote() {
         body: JSON.stringify({
             page_id: pageId || null,
             question_id: questionId || null,
+            type: qType,
             note_text: noteText,
             session_id: localStorage.getItem('app_client_session_id') || '',
             user_phone: localStorage.getItem('app_client_phone') || ''
@@ -530,8 +565,8 @@ function saveUserNote() {
             showToast('নোট সফলভাবে সংরক্ষণ করা হয়েছে');
             closeNotesModal();
 
-            if (typeof activePageDetails !== 'undefined' && activePageDetails) {
-                openPageDetailsScreen(activePageDetails.id);
+            if (typeof loadNotedMcqsScreen === 'function') {
+                loadNotedMcqsScreen();
             }
         })
         .catch(err => {
@@ -544,25 +579,40 @@ function saveUserNote() {
 function deleteUserNote() {
     const questionId = document.getElementById('notes-form-question-id').value;
     const noteId = document.getElementById('notes-form-note-id').value;
+    const typeInput = document.getElementById('notes-form-type');
+    const qType = (typeInput ? typeInput.value : null) || 'argomenti';
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     if (questionId) {
-        let cartelliNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
-        delete cartelliNotes[questionId];
-        localStorage.setItem('cartelli_notes', JSON.stringify(cartelliNotes));
+        const storeKey = qType === 'cartelli' ? 'cartelli_notes' : 'argomenti_notes';
+        let notesObj = JSON.parse(localStorage.getItem(storeKey) || '{}');
+        delete notesObj[questionId];
+        localStorage.setItem(storeKey, JSON.stringify(notesObj));
 
-        const noteBtn = document.getElementById(`cartelli-note-btn-${questionId}`);
-        if (noteBtn) {
-            const icon = noteBtn.querySelector('i');
-            if (icon) icon.style.color = '';
-            const label = noteBtn.querySelector('span');
-            if (label) label.style.color = '';
+        // Reset card Note button icons
+        const selector = qType === 'cartelli'
+            ? `#cartelli-mcq-card-${questionId} .fa-note-sticky, #cartelli-card-${questionId} .fa-note-sticky, [data-qtype="cartelli"][data-qid="${questionId}"] .fa-note-sticky`
+            : `#argomenti-q-card-${questionId} .fa-note-sticky, [data-qtype="argomenti"][data-qid="${questionId}"] .fa-note-sticky`;
+
+        const noteIcons = document.querySelectorAll(selector);
+        noteIcons.forEach(icon => {
+            icon.className = 'fa-regular fa-note-sticky';
+            icon.style.color = '';
+            const span = icon.closest('button')?.querySelector('span');
+            if (span) span.style.color = '';
+        });
+
+        // Reset modal note button icon
+        const dictNoteBtn = document.getElementById('dict-modal-note-btn');
+        if (dictNoteBtn) {
+            dictNoteBtn.style.color = 'var(--text-primary, #1e293b)';
         }
     }
 
     if (!noteId) {
         showToast('নোটটি মুছে ফেলা হয়েছে');
         closeNotesModal();
+        if (typeof loadNotedMcqsScreen === 'function') loadNotedMcqsScreen();
         return;
     }
 
@@ -576,8 +626,8 @@ function deleteUserNote() {
         .then(data => {
             showToast('নোটটি মুছে ফেলা হয়েছে');
             closeNotesModal();
-            if (typeof activePageDetails !== 'undefined' && activePageDetails) {
-                openPageDetailsScreen(activePageDetails.id);
+            if (typeof loadNotedMcqsScreen === 'function') {
+                loadNotedMcqsScreen();
             }
         })
         .catch(err => {

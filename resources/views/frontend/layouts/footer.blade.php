@@ -245,6 +245,7 @@
                 <input type="hidden" id="notes-form-page-id">
                 <input type="hidden" id="notes-form-question-id">
                 <input type="hidden" id="notes-form-note-id">
+                <input type="hidden" id="notes-form-type" value="argomenti">
 
                 <textarea id="notes-textarea" rows="4" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--border-card); background-color: var(--bg-page); color: var(--text-primary); font-size: 13px; font-weight: 600; resize: none; outline: none; margin-bottom: 12px; font-family: inherit; transition: border-color 0.2s;" placeholder="এখানে আপনার প্রয়োজনীয় নোটটি লিখুন..."></textarea>
 
@@ -612,6 +613,7 @@
     <script src="{{ asset('js/frontend/modules/scheda_esame.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/dizionario.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/saved_mcqs.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/noted_mcqs.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/correct_mcqs.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/wrong_mcqs.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/support.js') }}?v={{ time() }}"></script>

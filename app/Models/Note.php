@@ -14,6 +14,7 @@ class Note extends Model
         'user_id',
         'page_id',
         'question_id',
+        'type',
         'note_text',
     ];
 
@@ -25,5 +26,15 @@ class Note extends Model
     public function question()
     {
         return $this->belongsTo(Question::class, 'question_id');
+    }
+
+    public function cartelloQuestion()
+    {
+        return $this->belongsTo(CartelloMcq::class, 'question_id');
+    }
+
+    public function cartelloPage()
+    {
+        return $this->belongsTo(CartelloPage::class, 'page_id');
     }
 }

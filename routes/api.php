@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\SupportApiController;
 use App\Http\Controllers\Api\WrongMcqsApiController;
 use App\Http\Controllers\Api\CorrectMcqsApiController;
 use App\Http\Controllers\Api\SavedMcqsApiController;
+use App\Http\Controllers\Api\NotedMcqsApiController;
 use App\Http\Controllers\Api\TranslationApiController;
 use App\Http\Controllers\Api\PatenteSocialApiController;
 use App\Http\Controllers\Api\ManualeApiController;
@@ -67,13 +68,19 @@ Route::prefix('v1')->group(function () {
     Route::get('/server-config', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
     Route::get('/leaderboard', [LeaderboardApiController::class, 'index']);
 
-    // 🔒 2. AUTHENTICATED USER ROUTES (Sanctum)
-    
-    // 📌 4. SAVED, CORRECT & WRONG MCQS & LOGGING API (Sanctum Token or Phone / Session ID)
+    // 📌 SAVED, NOTED, CORRECT & WRONG MCQS & LOGGING API
     Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
     Route::get('/v1/saved-mcqs', [SavedMcqsApiController::class, 'index']);
     Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
     Route::post('/v1/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
+
+    Route::get('/noted-mcqs', [NotedMcqsApiController::class, 'index']);
+    Route::get('/v1/noted-mcqs', [NotedMcqsApiController::class, 'index']);
+    Route::post('/noted-mcqs/save', [NotedMcqsApiController::class, 'save']);
+    Route::post('/v1/noted-mcqs/save', [NotedMcqsApiController::class, 'save']);
+    Route::delete('/noted-mcqs/{id}', [NotedMcqsApiController::class, 'delete']);
+    Route::delete('/v1/noted-mcqs/{id}', [NotedMcqsApiController::class, 'delete']);
+
     Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
     Route::get('/v1/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
     Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
@@ -138,7 +145,6 @@ Route::prefix('v1')->group(function () {
         return response()->json(['status' => 'success', 'data' => $questions]);
     });
 
-    
     // Live Chat & Support Messages for App & Frontend
     Route::get('/chat/messages', function (Request $request) {
         $sessionId = $request->query('session_id') ?: $request->header('X-Session-ID');
@@ -260,3 +266,5 @@ Route::post('/support/register', [SupportRegistrationApiController::class, 'regi
 Route::post('/client/verify', [DynamicContentController::class, 'submitVerification']);
 Route::get('/client/status', [DynamicContentController::class, 'getClientStatus']);
 Route::get('/support/messages', [SupportApiController::class, 'index']);
+Route::get('/noted-mcqs', [NotedMcqsApiController::class, 'index']);
+Route::get('/v1/noted-mcqs', [NotedMcqsApiController::class, 'index']);

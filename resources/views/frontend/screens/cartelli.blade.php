@@ -218,7 +218,7 @@
                                             <i class="fa-regular fa-bookmark" style="font-size: 13px; color: var(--text-secondary);"></i>
                                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">সেভ</span>
                                         </button>
-                                        <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $mcq->id }}, null, '')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
+                                        <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $mcq->id }}, null, '', 'cartelli')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
                                             <i class="fa-regular fa-note-sticky" style="font-size: 13px; color: var(--text-secondary);"></i>
                                             <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">নোট</span>
                                         </button>
@@ -437,6 +437,24 @@
         }
     }
 
+    function syncCartelliNoteStates() {
+        const cNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
+        Object.keys(cNotes).forEach(qId => {
+            if (cNotes[qId] && cNotes[qId].trim() !== '') {
+                const card = document.getElementById(`cartelli-mcq-card-${qId}`);
+                if (card) {
+                    const icon = card.querySelector('.fa-note-sticky');
+                    if (icon) {
+                        icon.className = 'fa-solid fa-note-sticky';
+                        icon.style.color = '#10B981';
+                        const span = icon.closest('button')?.querySelector('span');
+                        if (span) span.style.color = '#10B981';
+                    }
+                }
+            }
+        });
+    }
+
     // Close dropdowns on outside click
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.chapter-selector-trigger')) {
@@ -447,5 +465,10 @@
             const d3 = document.getElementById('cartelli-page-dropdown');
             if (d3) d3.style.display = 'none';
         }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof syncCartelliBookmarkStates === 'function') syncCartelliBookmarkStates();
+        syncCartelliNoteStates();
     });
 </script>

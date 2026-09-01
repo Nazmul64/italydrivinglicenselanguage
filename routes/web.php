@@ -151,13 +151,14 @@ if (!function_exists('getFrontendHomeCards')) {
                 ['title' => 'Dizionario', 'subtitle' => 'অভিধান', 'screen_key' => 'dizionario', 'icon_class' => 'fa-solid fa-book-open', 'icon_color' => '#10B981', 'order_index' => 7, 'status' => 1],
                 ['title' => 'Cartelli', 'subtitle' => 'ট্রাফিক সাইন', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'icon_color' => '#F97316', 'order_index' => 8, 'status' => 1],
                 ['title' => 'Saved MCQs', 'subtitle' => 'সেভ করা এমসিকিউ', 'screen_key' => 'saved-mcqs', 'icon_class' => 'fa-solid fa-bookmark', 'icon_color' => '#EF4444', 'order_index' => 9, 'status' => 1],
-                ['title' => 'Correct MCQs', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct-mcqs', 'icon_class' => 'fa-solid fa-circle-check', 'icon_color' => '#22C55E', 'order_index' => 10, 'status' => 1],
-                ['title' => 'Wrong MCQs', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong-mcqs', 'icon_class' => 'fa-solid fa-circle-xmark', 'icon_color' => '#EF4444', 'order_index' => 11, 'status' => 1],
-                ['title' => 'Support', 'subtitle' => 'লাইভ চ্যাট', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'icon_color' => '#0EA5E9', 'order_index' => 12, 'status' => 1],
-                ['title' => 'Top Performers', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top-performers', 'icon_class' => 'fa-solid fa-ranking-star', 'icon_color' => '#F59E0B', 'order_index' => 13, 'status' => 1],
-                ['title' => 'Manuale', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'icon_color' => '#2563EB', 'order_index' => 14, 'status' => 1],
-                ['title' => 'Patente Social', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente-social', 'icon_class' => 'fa-solid fa-users', 'icon_color' => '#8B5CF6', 'order_index' => 15, 'status' => 1],
-                ['title' => 'Translation', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'icon_color' => '#0284C7', 'order_index' => 16, 'status' => 1],
+                ['title' => 'Noted MCQs', 'subtitle' => 'নোট করা এমসিকিউ', 'screen_key' => 'noted-mcqs', 'icon_class' => 'fa-regular fa-note-sticky', 'icon_color' => '#10B981', 'order_index' => 10, 'status' => 1],
+                ['title' => 'Correct MCQs', 'subtitle' => 'সঠিক এমসিকিউ', 'screen_key' => 'correct-mcqs', 'icon_class' => 'fa-solid fa-circle-check', 'icon_color' => '#22C55E', 'order_index' => 11, 'status' => 1],
+                ['title' => 'Wrong MCQs', 'subtitle' => 'ভুল এমসিকিউ', 'screen_key' => 'wrong-mcqs', 'icon_class' => 'fa-solid fa-circle-xmark', 'icon_color' => '#EF4444', 'order_index' => 12, 'status' => 1],
+                ['title' => 'Support', 'subtitle' => 'লাইভ চ্যাট', 'screen_key' => 'support', 'icon_class' => 'fa-solid fa-headset', 'icon_color' => '#0EA5E9', 'order_index' => 13, 'status' => 1],
+                ['title' => 'Top Performers', 'subtitle' => 'সেরা শিক্ষার্থী র‍্যাংকিং', 'screen_key' => 'top-performers', 'icon_class' => 'fa-solid fa-ranking-star', 'icon_color' => '#F59E0B', 'order_index' => 14, 'status' => 1],
+                ['title' => 'Manuale', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'icon_color' => '#2563EB', 'order_index' => 15, 'status' => 1],
+                ['title' => 'Patente Social', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente-social', 'icon_class' => 'fa-solid fa-users', 'icon_color' => '#8B5CF6', 'order_index' => 16, 'status' => 1],
+                ['title' => 'Translation', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'icon_color' => '#0284C7', 'order_index' => 17, 'status' => 1],
             ];
             foreach ($defaultCards as $dc) {
                 try {
@@ -212,7 +213,7 @@ Route::get('/', function () {
 
 Route::get('/{screen}', function ($screen) {
     return view('frontend.home', getFrontendViewData());
-})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|cartelli|cartelli-schede|cartelli-page|saved-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
+})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
 Route::get('/app', function () {
     return view('frontend.mobile_app', getFrontendViewData());
@@ -596,11 +597,17 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::get('/api/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
     Route::get('/api/v1/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
 
-    // Saved, Correct, and Wrong MCQs Routes
+    // Saved, Noted, Correct, and Wrong MCQs Routes
     Route::get('/api/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);
     Route::get('/api/v1/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);
     Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'toggle']);
     Route::post('/api/v1/saved-mcqs/toggle', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'toggle']);
+    Route::get('/api/noted-mcqs', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'index']);
+    Route::get('/api/v1/noted-mcqs', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'index']);
+    Route::post('/api/noted-mcqs/save', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::post('/api/v1/noted-mcqs/save', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::delete('/api/noted-mcqs/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
+    Route::delete('/api/v1/noted-mcqs/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
     Route::get('/api/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
     Route::get('/api/v1/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
     Route::get('/api/wrong-mcqs', [\App\Http\Controllers\Api\WrongMcqsApiController::class, 'index']);

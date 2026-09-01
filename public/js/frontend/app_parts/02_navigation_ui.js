@@ -879,6 +879,7 @@ const SCREEN_TITLES = {
     'cartelli-schede': 'Scegli Scheda',
     'cartelli-page': 'Vere e False',
     'saved-mcqs': 'Saved MCQs',
+    'noted-mcqs': 'Noted MCQs',
     'correct-mcqs': 'Correct MCQs',
     'wrong-mcqs': 'Wrong MCQs',
     'social': 'Patente Social',
@@ -980,6 +981,8 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         renderCartelliChaptersGrid();
     } else if (screenId === 'saved-mcqs') {
         loadSavedMcqsScreen();
+    } else if (screenId === 'noted-mcqs') {
+        if (typeof loadNotedMcqsScreen === 'function') loadNotedMcqsScreen();
     } else if (screenId === 'correct-mcqs') {
         loadCorrectMcqsList();
     } else if (screenId === 'wrong-mcqs') {
@@ -1035,6 +1038,7 @@ function navigateBack() {
         'home': 'mbanglapatenteb', 'lezioni': 'Lezioni', 'test': 'Practice Quiz',
         'argomenti': 'Argomenti', 'argomenti-schede': 'Scegli Scheda',
         'page-details': 'Vere e False', 'saved-mcqs': 'Saved MCQs',
+        'noted-mcqs': 'Noted MCQs',
         'correct-mcqs': 'Correct MCQs', 'wrong-mcqs': 'Wrong MCQs',
         'eclass': 'E-Class', 'sfida': 'Sfida', 'scheda-esame': 'Scheda Esame',
         'exam-simulation': 'Exam Simulation', 'dizionario': 'Dizionario',

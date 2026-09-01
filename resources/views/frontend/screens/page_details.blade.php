@@ -117,7 +117,7 @@
                                                 <i class="fa-regular fa-bookmark" style="font-size: 13px; color: var(--text-secondary);"></i>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">সেভ</span>
                                             </button>
-                                            <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $q->id }}, null, '')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
+                                            <button type="button" class="test-ctrl-btn" onclick="openNotesModal(null, {{ $q->id }}, null, '', 'argomenti')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Note">
                                                 <i class="fa-regular fa-note-sticky" style="font-size: 13px; color: var(--text-secondary);"></i>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">নোট</span>
                                             </button>
@@ -358,6 +358,24 @@
         }
     }
 
+    function syncArgomentiNoteStates() {
+        const aNotes = JSON.parse(localStorage.getItem('argomenti_notes') || '{}');
+        Object.keys(aNotes).forEach(qId => {
+            if (aNotes[qId] && aNotes[qId].trim() !== '') {
+                const card = document.getElementById(`argomenti-q-card-${qId}`);
+                if (card) {
+                    const icon = card.querySelector('.fa-note-sticky');
+                    if (icon) {
+                        icon.className = 'fa-solid fa-note-sticky';
+                        icon.style.color = '#10B981';
+                        const span = icon.closest('button')?.querySelector('span');
+                        if (span) span.style.color = '#10B981';
+                    }
+                }
+            }
+        });
+    }
+
     // Close dropdowns on outside click
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.chapter-selector-trigger')) {
@@ -366,5 +384,10 @@
             const d2 = document.getElementById('page-details-page-dropdown');
             if (d2) d2.style.display = 'none';
         }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof syncArgomentiBookmarkStates === 'function') syncArgomentiBookmarkStates();
+        syncArgomentiNoteStates();
     });
 </script>
