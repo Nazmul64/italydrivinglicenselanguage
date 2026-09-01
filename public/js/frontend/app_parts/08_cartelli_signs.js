@@ -412,15 +412,19 @@ function toggleSavedMcq(questionId, btnElement, type) {
             else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
             localStorage.setItem(storageKey, JSON.stringify(bookmarks));
 
-            // Sync all matching card icons
-            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${questionId} .fa-bookmark, #saved-card-${questionId} .fa-bookmark, #cartelli-mcq-card-${questionId} .fa-bookmark, #cartelli-card-${questionId} .fa-bookmark, [data-qid="${questionId}"] .fa-bookmark`);
+            // Sync all matching card icons strictly by qType
+            const selector = qType === 'cartelli'
+                ? `#cartelli-mcq-card-${questionId} .fa-bookmark, #cartelli-card-${questionId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${questionId}"] .fa-bookmark`
+                : `#argomenti-q-card-${questionId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${questionId}"] .fa-bookmark`;
+
+            const cardBookmarks = document.querySelectorAll(selector);
             cardBookmarks.forEach(icon => {
                 icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
                 icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
             });
 
-            // Update modal bookmark icon if open
-            if (typeof currentDictTerm !== 'undefined' && currentDictTerm && currentDictTerm.questionId == questionId) {
+            // Update modal bookmark icon if open for this exact question and type
+            if (typeof currentDictTerm !== 'undefined' && currentDictTerm && currentDictTerm.questionId == questionId && (currentDictTerm.questionType || 'argomenti') === qType) {
                 const saveBtn = document.getElementById('dict-modal-save-btn');
                 if (saveBtn) {
                     saveBtn.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';

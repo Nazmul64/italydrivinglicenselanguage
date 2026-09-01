@@ -395,10 +395,10 @@ function extractTargetQuestionId(elOrQId) {
 
     let card = null;
     if (elOrQId && typeof elOrQId.closest === 'function') {
-        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
+        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-mcq-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
     }
     if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
-        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
+        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="argomenti-q-card-"], [id*="cartelli-mcq-card-"], [id*="cartelli-card-"], [id*="saved-card-"], [id*="wrong-card-"], [id*="correct-card-"]');
     }
     if (card) {
         if (card.getAttribute('data-qid')) return parseInt(card.getAttribute('data-qid'));
@@ -416,17 +416,18 @@ function extractTargetQuestionType(elOrQId, fallbackQId) {
     }
     let card = null;
     if (elOrQId && typeof elOrQId.closest === 'function') {
-        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
+        card = elOrQId.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-mcq-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
     }
     if (!card && typeof window !== 'undefined' && window.event && window.event.target) {
-        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
+        card = window.event.target.closest('.detail-q-card, [id*="-card-"], [id*="cartelli-mcq-card-"], [id*="cartelli-card-"], [id*="argomenti-q-card-"]');
     }
     if (card) {
         const type = card.getAttribute('data-qtype');
         if (type) return type;
         if ((card.id || '').includes('cartelli')) return 'cartelli';
     }
-    if (typeof activeScreen !== 'undefined' && (activeScreen === 'cartelli-page' || activeScreen === 'cartelli' || activeScreen === 'cartelli-schede')) {
+    const currentActive = (typeof screenHistory !== 'undefined' && screenHistory.length > 0) ? screenHistory[screenHistory.length - 1] : (typeof activeScreen !== 'undefined' ? activeScreen : '');
+    if (currentActive === 'cartelli-page' || currentActive === 'cartelli' || currentActive === 'cartelli-schede') {
         return 'cartelli';
     }
     return 'argomenti';
@@ -445,17 +446,38 @@ function updateDictSaveIconState() {
         if (qType === 'cartelli') {
             const cBookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
             isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId)) || cBookmarks.includes(parseInt(qId));
+            
+            if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+                isSaved = activeSavedMcqs.some(q => {
+                    const type = q.type || (q.question && q.question.type);
+                    const id = (q.question && q.question.id) || q.id;
+                    return type === 'cartelli' && id == qId;
+                });
+            }
+            
+            if (!isSaved) {
+                const cardBookmark = document.querySelector(`#cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${qId}"] .fa-bookmark`);
+                if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
+                    isSaved = true;
+                }
+            }
         } else {
             const aBookmarks = JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]');
             isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId)) || aBookmarks.includes(parseInt(qId));
-        }
-        if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
-            isSaved = activeSavedMcqs.some(q => (q.id == qId || (q.question && q.question.id == qId)));
-        }
-        if (!isSaved) {
-            const cardBookmark = document.querySelector(`#saved-card-${qId} .fa-bookmark, #argomenti-q-card-${qId} .fa-bookmark, #cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
-            if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
-                isSaved = true;
+            
+            if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
+                isSaved = activeSavedMcqs.some(q => {
+                    const type = q.type || (q.question && q.question.type) || 'argomenti';
+                    const id = (q.question && q.question.id) || q.id;
+                    return type !== 'cartelli' && id == qId;
+                });
+            }
+            
+            if (!isSaved) {
+                const cardBookmark = document.querySelector(`#argomenti-q-card-${qId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${qId}"] .fa-bookmark`);
+                if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
+                    isSaved = true;
+                }
             }
         }
     } else if (wordKey) {
@@ -475,7 +497,9 @@ function updateDictSaveIconState() {
     if (noteBtn && qId) {
         const cNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
         const aNotes = JSON.parse(localStorage.getItem('argomenti_notes') || '{}');
-        const hasNote = (cNotes[qId] && cNotes[qId].trim() !== '') || (aNotes[qId] && aNotes[qId].trim() !== '');
+        const hasNote = qType === 'cartelli'
+            ? (cNotes[qId] && cNotes[qId].trim() !== '')
+            : (aNotes[qId] && aNotes[qId].trim() !== '');
         noteBtn.style.color = hasNote ? '#4CAF50' : 'var(--text-primary, #1e293b)';
     }
 }
@@ -524,7 +548,11 @@ function saveDictWord() {
             localStorage.setItem(storageKey, JSON.stringify(bookmarks));
 
             // Sync card bookmark icons on current screen
-            const cardBookmarks = document.querySelectorAll(`#argomenti-q-card-${qId} .fa-bookmark, #saved-card-${qId} .fa-bookmark, #cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qid="${qId}"] .fa-bookmark`);
+            const selector = qType === 'cartelli'
+                ? `#cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${qId}"] .fa-bookmark`
+                : `#argomenti-q-card-${qId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${qId}"] .fa-bookmark`;
+
+            const cardBookmarks = document.querySelectorAll(selector);
             cardBookmarks.forEach(icon => {
                 icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
                 icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
@@ -532,13 +560,6 @@ function saveDictWord() {
 
             if (typeof showToast === 'function') {
                 showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভ করা হয়েছে (Saved)' : 'সেভ থেকে সরানো হয়েছে (Removed)'));
-            }
-
-            if (wordKey) {
-                const wIdx = savedDictWords.indexOf(wordKey);
-                if (isNowSaved && wIdx === -1) savedDictWords.push(wordKey);
-                else if (!isNowSaved && wIdx > -1) savedDictWords.splice(wIdx, 1);
-                localStorage.setItem('saved_dict_words', JSON.stringify(savedDictWords));
             }
 
             // Refresh saved screen if active or reload cached saved MCQs
