@@ -875,14 +875,24 @@ class DynamicContentController extends Controller
 
         session(['app_client_phone' => $client->phone]);
 
-        // Ensure an initial welcome message exists for this session
-        $existingMsg = \App\Models\Message::where('session_id', $sessionId)->exists();
+        // Ensure Conversation exists
+        $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $userObj->uuid]);
+
+        // Ensure an initial registration message exists for this session
+        $existingMsg = \App\Models\Message::where('session_id', $sessionId)
+            ->orWhere('session_id', $userObj->uuid)
+            ->orWhere('conversation_id', $convo->id)
+            ->exists();
+
         if (!$existingMsg) {
             \App\Models\Message::create([
-                'session_id'  => $sessionId,
-                'sender'      => 'admin',
-                'sender_name' => 'Support Admin',
-                'message'     => "🎉 ধন্যবাদ {$client->first_name}! আপনার নিবন্ধিত তথ্য জমা হয়েছে। আমাদের প্রতিনিধি দ্রুত আপনার সাথে যোগাযোগ করবে।",
+                'conversation_id' => $convo->id,
+                'session_id'      => $sessionId,
+                'sender'          => 'user',
+                'sender_type'     => 'user',
+                'sender_id'       => $userObj->uuid,
+                'sender_name'     => trim($firstName . ' ' . $lastName),
+                'message'         => '🎉 কাস্টমার নিবন্ধিত হয়েছে (' . $firstName . ' ' . $lastName . ' - ' . $rawPhone . ')',
             ]);
         }
 

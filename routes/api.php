@@ -145,3 +145,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/dashboard/banners', [DynamicContentController::class, 'getPublicSliders']);
     Route::get('/sliders', [DynamicContentController::class, 'getPublicSliders']);
 });
+
+Route::post('/support/register', [SupportRegistrationApiController::class, 'register']);
+Route::post('/client/verify', [DynamicContentController::class, 'submitVerification']);
+Route::get('/client/status', [DynamicContentController::class, 'getClientStatus']);
+Route::get('/support/messages', [SupportApiController::class, 'index']);

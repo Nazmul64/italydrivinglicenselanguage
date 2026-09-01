@@ -99,6 +99,26 @@ class SupportRegistrationApiController extends Controller
             ]
         );
 
+        // Ensure Conversation exists
+        $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
+
+        // If no message exists yet, create an initial customer message so it appears immediately in Admin Chat Room
+        $hasExistingMsg = \App\Models\Message::where('session_id', $user->uuid)
+            ->orWhere('conversation_id', $convo->id)
+            ->exists();
+
+        if (!$hasExistingMsg) {
+            \App\Models\Message::create([
+                'conversation_id' => $convo->id,
+                'session_id'      => $user->uuid,
+                'sender'          => 'user',
+                'sender_type'     => 'user',
+                'sender_id'       => $user->uuid,
+                'sender_name'     => trim($firstName . ' ' . $lastName),
+                'message'         => '🎉 কাস্টমার নিবন্ধিত হয়েছে (' . $firstName . ' ' . $lastName . ' - ' . $phone . ')',
+            ]);
+        }
+
         // Remove any orphan Guest User entries with phone N/A
         \App\Models\AppClient::where('first_name', 'Guest')->where(function($q) {
             $q->whereNull('phone')->orWhere('phone', 'N/A')->orWhere('phone', '');
