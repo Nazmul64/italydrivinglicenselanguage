@@ -1,15 +1,3 @@
-# Disable directory browsing
-Options -Indexes
-
-# Block access to sensitive files
-<FilesMatch "^\.env|composer\.(json|lock)|package\.(json|lock)|package-lock\.json|artisan|phpunit\.xml|webpack\.mix\.js|vite\.config\.js|README\.md">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
-
-# Block access to sensitive directories
-RedirectMatch 404 ^/(app|bootstrap|config|database|resources|routes|storage|tests|vendor)/
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
@@ -19,3 +7,15 @@ RedirectMatch 404 ^/(app|bootstrap|config|database|resources|routes|storage|test
     # Send all traffic to public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
+
+# Block direct access to sensitive files
+<FilesMatch "^\.env|composer\.(json|lock)|package\.(json|lock)|package-lock\.json|artisan|phpunit\.xml">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+

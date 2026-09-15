@@ -70,6 +70,16 @@
                     <i class="fa-solid fa-images" style="font-size: 22px;"></i>
                 </div>
             </div>
+            <!-- Manuale Theory Topics -->
+            <div class="card" style="padding: 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="switchPanel('manuale')">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Manuale Theory (ম্যানুয়াল)</div>
+                    <div style="font-size: 28px; font-weight: 800; margin-top: 4px; color: var(--text-primary);" id="stat-manuales">0</div>
+                </div>
+                <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(56, 189, 248, 0.12); display: flex; align-items: center; justify-content: center; color: #38bdf8;">
+                    <i class="fa-solid fa-book-bookmark" style="font-size: 22px;"></i>
+                </div>
+            </div>
             <!-- Users -->
             <div class="card" style="padding: 20px; display: flex; align-items: center; justify-content: space-between;">
                 <div>
@@ -491,7 +501,7 @@
         <div class="welcome-header">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
                 <div>
-                    <h2 class="welcome-title">Manage Manuale (ম্যানুয়াল থিওরি)</h2>
+                    <h2 class="welcome-title">ম্যানুয়াল থিওরি গাইড (Manuale)</h2>
                     <p class="welcome-subtitle">Create and configure theory guidebook topics with text, images, and underlined terms.</p>
                 </div>
                 <div style="display: flex; gap: 8px;">
@@ -591,10 +601,12 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th style="width: 120px; text-align: center;">IMAGE</th>
+                        <th style="width: 70px;">ID</th>
+                        <th style="width: 110px; text-align: center;">IMAGE</th>
+                        <th>TITLE</th>
+                        <th>SUBTITLE</th>
                         <th>LINK URL</th>
-                        <th style="width: 180px; text-align: right;">ACTIONS</th>
+                        <th style="width: 160px; text-align: right;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody id="sliders-table-body">

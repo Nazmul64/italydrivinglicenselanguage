@@ -66,7 +66,7 @@ class DynamicContentController extends Controller
         $this->checkPermission('sliders');
 
         $request->validate([
-            'title'        => 'required|string|max:255',
+            'title'        => 'nullable|string|max:255',
             'subtitle'     => 'nullable|string|max:255',
             'button_text'  => 'nullable|string|max:255',
             'link_url'     => 'nullable|string|max:500',
@@ -75,7 +75,7 @@ class DynamicContentController extends Controller
         ]);
 
         $data = [
-            'title'       => $request->title,
+            'title'       => $request->title ?: 'Banner Slider',
             'subtitle'    => $request->subtitle,
             'button_text' => $request->button_text,
             'link_url'    => $request->link_url,
@@ -85,12 +85,13 @@ class DynamicContentController extends Controller
 
         if ($request->hasFile('image')) {
             $uploadedPath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/sliders', 'slider', 1200, 80);
-            $data['image_url'] = $uploadedPath ?: '';
+            $data['image_url'] = $uploadedPath ? asset($uploadedPath) : '';
         } else {
             $data['image_url'] = $request->image_url ?? '';
         }
 
         $slider = Slider::create($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($slider);
     }
 
@@ -100,7 +101,7 @@ class DynamicContentController extends Controller
         $slider = Slider::findOrFail($id);
 
         $request->validate([
-            'title'        => 'required|string|max:255',
+            'title'        => 'nullable|string|max:255',
             'subtitle'     => 'nullable|string|max:255',
             'button_text'  => 'nullable|string|max:255',
             'link_url'     => 'nullable|string|max:500',
@@ -109,7 +110,7 @@ class DynamicContentController extends Controller
         ]);
 
         $data = [
-            'title'       => $request->title,
+            'title'       => $request->title ?: $slider->title,
             'subtitle'    => $request->subtitle,
             'button_text' => $request->button_text,
             'link_url'    => $request->link_url,
@@ -117,14 +118,15 @@ class DynamicContentController extends Controller
         ];
 
         if ($request->hasFile('image')) {
-            if ($slider->image_url && file_exists(public_path($slider->image_url))) {
-                @unlink(public_path($slider->image_url));
+            if ($slider->image_url && file_exists(public_path(str_replace(asset(''), '', $slider->image_url)))) {
+                @unlink(public_path(str_replace(asset(''), '', $slider->image_url)));
             }
             $uploadedPath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/sliders', 'slider', 1200, 80);
-            $data['image_url'] = $uploadedPath ?: '';
+            $data['image_url'] = $uploadedPath ? asset($uploadedPath) : '';
         }
 
         $slider->update($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($slider);
     }
 
@@ -133,6 +135,7 @@ class DynamicContentController extends Controller
         $this->checkPermission('sliders');
         $slider = Slider::findOrFail($id);
         $slider->update(['status' => !$slider->status]);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($slider);
     }
 
@@ -140,10 +143,11 @@ class DynamicContentController extends Controller
     {
         $this->checkPermission('sliders');
         $slider = Slider::findOrFail($id);
-        if ($slider->image_url && file_exists(public_path($slider->image_url))) {
-            @unlink(public_path($slider->image_url));
+        if ($slider->image_url && file_exists(public_path(str_replace(asset(''), '', $slider->image_url)))) {
+            @unlink(public_path(str_replace(asset(''), '', $slider->image_url)));
         }
         $slider->delete();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json(['success' => true]);
     }
 
@@ -213,6 +217,7 @@ class DynamicContentController extends Controller
         }
 
         $class = LectureClass::create($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($class);
     }
 
@@ -264,6 +269,7 @@ class DynamicContentController extends Controller
         }
 
         $class->update($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($class);
     }
 
@@ -272,6 +278,7 @@ class DynamicContentController extends Controller
         $this->checkPermission('lectures');
         $class = LectureClass::findOrFail($id);
         $class->update(['status' => !$class->status]);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json($class);
     }
 
@@ -286,6 +293,7 @@ class DynamicContentController extends Controller
             @unlink(public_path($class->video_path));
         }
         $class->delete();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         return response()->json(['success' => true]);
     }
 
@@ -775,34 +783,51 @@ class DynamicContentController extends Controller
 
     public function submitVerification(Request $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'phone' => 'required|string|max:50',
-        ]);
+        $firstName = trim($request->input('first_name') ?: $request->input('firstName') ?: '');
+        $lastName  = trim($request->input('last_name') ?: $request->input('lastName') ?: '');
+        $rawPhone  = trim($request->input('phone') ?: $request->input('phoneNumber') ?: $request->input('phone_number') ?: $request->input('mobile') ?: '');
 
-        $sessionId = $request->input('session_id') ?: session()->getId();
-        $rawPhone  = trim($request->phone);
-        $firstName = trim($request->first_name);
-        $lastName  = trim($request->last_name);
+        if (empty($firstName) && empty($lastName) && $request->filled('name')) {
+            $nameParts = explode(' ', trim($request->input('name')), 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName  = $nameParts[1] ?? '';
+        }
+
+        if (empty($firstName) || empty($rawPhone)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'First name and phone number are required.',
+                'errors'  => [
+                    'first_name' => empty($firstName) ? ['The first name field is required.'] : [],
+                    'phone'      => empty($rawPhone) ? ['The phone number field is required.'] : [],
+                ]
+            ], 422);
+        }
+
+        $sessionId  = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID') ?: session()->getId();
         $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+        $last10     = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
         
         // 1. Find existing client by phone number or session ID
-        $client = AppClient::where(function ($q) use ($rawPhone, $cleanPhone) {
+        $client = AppClient::where(function ($q) use ($rawPhone, $cleanPhone, $last10) {
             $q->where('phone', $rawPhone);
             if (!empty($cleanPhone)) {
                 $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                if (!empty($last10)) {
+                    $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                }
             }
         })->orderBy('is_active', 'desc')->first();
         
-        if (!$client) {
+        if (!$client && $sessionId) {
             $client = AppClient::where('session_id', $sessionId)->first();
-            if (!$client) {
-                $client = new AppClient();
-                $client->session_id = $sessionId;
-                $client->stars = rand(3, 5);
-                $client->progress = rand(30, 80);
-            }
+        }
+
+        if (!$client) {
+            $client = new AppClient();
+            $client->session_id = $sessionId;
+            $client->stars = 5;
+            $client->progress = 50;
         }
         
         $oldSessionId = $client->session_id;
@@ -832,17 +857,20 @@ class DynamicContentController extends Controller
         }
 
         // 2. Sync or create User table record
-        $userObj = \App\Models\User::where(function ($q) use ($rawPhone, $cleanPhone) {
+        $userObj = \App\Models\User::where(function ($q) use ($rawPhone, $cleanPhone, $last10) {
             $q->where('phone', $rawPhone);
             if (!empty($cleanPhone)) {
                 $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                if (!empty($last10)) {
+                    $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                }
             }
         })->first();
 
         if (!$userObj) {
             $userObj = \App\Models\User::create([
                 'uuid'       => (string) \Illuminate\Support\Str::uuid(),
-                'name'       => $firstName . ' ' . $lastName,
+                'name'       => trim($firstName . ' ' . $lastName),
                 'first_name' => $firstName,
                 'last_name'  => $lastName,
                 'phone'      => $rawPhone,
@@ -852,9 +880,9 @@ class DynamicContentController extends Controller
             ]);
         } else {
             $userObj->update([
-                'first_name' => $firstName,
-                'last_name'  => $lastName,
-                'name'       => $firstName . ' ' . $lastName,
+                'first_name' => $firstName ?: $userObj->first_name,
+                'last_name'  => $lastName ?: $userObj->last_name,
+                'name'       => trim(($firstName ?: $userObj->first_name) . ' ' . ($lastName ?: $userObj->last_name)),
                 'phone'      => $rawPhone,
             ]);
         }
@@ -862,7 +890,7 @@ class DynamicContentController extends Controller
         // Check existing user license or keep inactive by default
         $existingLicense = \App\Models\License::where('user_id', $userObj->uuid)->latest()->first();
         if (!$existingLicense) {
-            \App\Models\License::create([
+            $existingLicense = \App\Models\License::create([
                 'user_id'     => $userObj->uuid,
                 'license_key' => (string) rand(100000, 999999),
                 'status'      => 'inactive',
@@ -896,14 +924,22 @@ class DynamicContentController extends Controller
             ]);
         }
 
+        $token = $userObj->createToken('mobile_app_token')->plainTextToken;
         $alreadyActive = (bool) $client->is_active;
 
         $response = response()->json([
             'success' => true,
             'already_active' => $alreadyActive,
             'is_active' => (bool)$client->is_active,
+            'license_status' => $existingLicense ? $existingLicense->status : 'inactive',
             'client' => $client,
-            'user' => $userObj,
+            'user' => [
+                'id'         => $userObj->uuid,
+                'first_name' => $userObj->first_name,
+                'last_name'  => $userObj->last_name,
+                'phone'      => $userObj->phone,
+            ],
+            'token' => $token,
             'message' => 'Client verified successfully.'
         ]);
 
@@ -913,25 +949,6 @@ class DynamicContentController extends Controller
     public function getClients(Request $request)
     {
         $this->checkPermission('sliders');
-
-        // Sync any User records that aren't yet in AppClient
-        $users = \App\Models\User::whereNotNull('phone')->get();
-        foreach ($users as $u) {
-            $exists = AppClient::where('phone', $u->phone)->exists();
-            if (!$exists && !empty($u->phone)) {
-                $license = \App\Models\License::where('user_id', $u->uuid)->where('status', 'active')->first();
-                AppClient::create([
-                    'session_id' => $u->uuid,
-                    'first_name' => $u->first_name ?: $u->name,
-                    'last_name'  => $u->last_name ?: '',
-                    'phone'      => $u->phone,
-                    'is_active'  => $license ? true : false,
-                    'expires_at' => $license ? $license->expires_at : now()->addDays(365),
-                    'stars'      => 5,
-                    'progress'   => 50,
-                ]);
-            }
-        }
 
         $query = AppClient::orderBy('updated_at', 'desc');
 

@@ -150,9 +150,11 @@
                         localStorage.setItem('app_client_active', 'true');
                         if (data.phone) {
                             localStorage.setItem('app_client_phone', data.phone);
+                            document.cookie = "app_client_phone=" + encodeURIComponent(data.phone) + "; path=/; SameSite=Lax; max-age=31536000";
                         }
                         if (data.session_id) {
                             localStorage.setItem('app_client_session_id', data.session_id);
+                            document.cookie = "app_client_session_id=" + encodeURIComponent(data.session_id) + "; path=/; SameSite=Lax; max-age=31536000";
                         }
                         if (data.first_name) {
                             localStorage.setItem('app_client_first_name', data.first_name);
@@ -160,12 +162,32 @@
                         if (data.last_name) {
                             localStorage.setItem('app_client_last_name', data.last_name);
                         }
+                        document.cookie = "qr_session_id=" + encodeURIComponent(sessionId) + "; path=/; SameSite=Lax; max-age=31536000";
+                        document.cookie = "qr_tab_unlocked=1; path=/; SameSite=Lax; max-age=31536000";
                         document.cookie = "qr_unlocked_" + encodeURIComponent(sessionId) + "=true; path=/; max-age=31536000";
-                        window.location.href = '/?qr_unlocked=1';
+
+                        var badge = document.querySelector('.status-badge');
+                        if (badge) {
+                            badge.innerHTML = '<span style="color:#16a34a;font-weight:800;font-size:13px;">🎉 আনলক সফল হয়েছে! লোড হচ্ছে...</span>';
+                            badge.style.background = 'rgba(34, 197, 94, 0.15)';
+                        }
+
+                        var curPath = window.location.pathname;
+                        var curSearch = window.location.search;
+                        if (curSearch) {
+                            curSearch = curSearch.replace(/[?&]qr_unlocked=[^&]*/g, '').replace(/^&/, '?');
+                        }
+                        setTimeout(function() {
+                            if (curPath && curPath !== '/' && !curPath.includes('qr-')) {
+                                window.location.href = curPath + (curSearch || '');
+                            } else {
+                                window.location.href = '/';
+                            }
+                        }, 300);
                     }
                 })
                 .catch(function(err) { console.error('QR Session Check Error:', err); });
-        }, 1500);
+        }, 1200);
     </script>
 </body>
 </html>

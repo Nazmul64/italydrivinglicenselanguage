@@ -33,9 +33,18 @@ class DatabaseSeeder extends Seeder
         // Default Application Setting
         $setting = Setting::firstOrCreate(
             ['id' => 1],
-            ['app_name' => 'Italy Bangla Patente']
+            [
+                'app_name' => 'mbanglapatenteb',
+                'qr_protection_enabled' => 1,
+                'qr_target_mode' => 'local',
+                'qr_live_url' => 'http://mbanglapatenteb.com',
+                'qr_local_url' => 'http://192.168.0.102:8000'
+            ]
         );
         $setting->update([
+            'qr_protection_enabled' => 1,
+            'qr_target_mode' => 'local',
+            'qr_local_url' => 'http://192.168.0.102:8000',
             'license_message' => "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team"
         ]);
 
@@ -91,9 +100,9 @@ class DatabaseSeeder extends Seeder
                 'order_index' => 6
             ],
             [
-                'title' => 'Dizionario',
-                'subtitle' => 'অভিধান',
-                'screen_key' => 'dizionario',
+                'title' => 'Word',
+                'subtitle' => 'শব্দ তালিকা',
+                'screen_key' => 'words',
                 'icon_class' => 'fa-solid fa-book-open',
                 'icon_color' => '#10B981',
                 'order_index' => 7
@@ -180,6 +189,15 @@ class DatabaseSeeder extends Seeder
                 'icon_class' => 'fa-solid fa-language',
                 'icon_color' => '#0284C7',
                 'order_index' => 17,
+                'status' => 1
+            ],
+            [
+                'title' => 'Dizionario',
+                'subtitle' => 'অভিধান',
+                'screen_key' => 'dictionary',
+                'icon_class' => 'fa-solid fa-spell-check',
+                'icon_color' => '#0D9488',
+                'order_index' => 18,
                 'status' => 1
             ]
         ];

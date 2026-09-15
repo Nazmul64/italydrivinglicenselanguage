@@ -177,6 +177,8 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
     if (!container) return;
     container.innerHTML = '';
 
+    if (!Array.isArray(questions)) return;
+
     const userStats = getUserQuestionStats();
 
     questions.forEach((q, index) => {
@@ -202,18 +204,12 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         card.className = `detail-q-card ${!isAnswered ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
         card.id = `argomenti-q-card-${q.id}`;
         card.setAttribute('data-qid', q.id);
-        card.setAttribute('data-qtype', 'argomenti');
         card.style.position = 'relative';
-        card.style.cursor = 'pointer';
+
         card.onclick = (e) => {
-            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) {
-                return;
-            }
-            if (typeof isArgomentiSelectionMode !== 'undefined' && !isArgomentiSelectionMode) {
-                return; // Selection mode is inactive. Do not select on card click.
-            }
-            card.classList.toggle('selected-q-card');
-            if (typeof updateArgomentiSelectionPills === 'function') {
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('.test-ctrl-btn') || e.target.closest('.test-speaker-btn') || e.target.closest('.dict-term') || e.target.closest('img')) return;
+            if (window.isArgomentiSelectionMode) {
+                card.classList.toggle('selected-q-card');
                 updateArgomentiSelectionPills();
             }
         };
@@ -231,13 +227,11 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
-        let effectiveImg = q.image || q.img || '';
-        if (!effectiveImg && Array.isArray(q.vocabulary) && q.vocabulary.length > 0) {
-            const vImg = q.vocabulary.find(v => v && (v.image || v.img));
-            if (vImg) effectiveImg = vImg.image || vImg.img;
-        }
+        const rawVocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
+        const rawQImage = q.image || q.img || rawVocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
+        const cleanQImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : (rawQImage && !rawQImage.includes('/data/user/') && !rawQImage.includes('scaled_IMG') ? rawQImage : '');
 
-        const hasImage = !!effectiveImg;
+        const hasImage = !!cleanQImage;
         const imgPos = q.image_position || 'left';
         const showTopImg = hasImage && (imgPos === 'top' || imgPos === 'both');
         const showLeftImg = hasImage && (imgPos === 'left' || imgPos === 'both');
@@ -246,7 +240,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             const topImgCard = document.createElement('div');
             topImgCard.className = 'detail-q-top-image-card';
             topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
-            topImgCard.innerHTML = `<img src="${effectiveImg}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${effectiveImg}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            topImgCard.innerHTML = `<img src="${cleanQImage}" onerror="this.parentElement.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanQImage}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
             container.appendChild(topImgCard);
         }
 
@@ -263,10 +257,10 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${showLeftImg ? `<img src="${effectiveImg}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${effectiveImg}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                ${showLeftImg ? `<img src="${cleanQImage}" onerror="this.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanQImage}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
-                    <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
-                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
+                    <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary) : (q.italian || q.question || '')}</div>
+                    <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
                 </div>
             </div>
 
@@ -308,7 +302,6 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
             ` : ''}
         `;
-        card.setAttribute('data-q-img', q.image || q.img || '');
         container.appendChild(card);
     });
 }
@@ -316,25 +309,18 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
 function toggleArgomentiQuestionAnswer(qId) {
     const textEl = document.getElementById(`page-ans-text-${qId}`);
     const iconEl = document.getElementById(`page-eye-icon-${qId}`);
-    const btnEl = document.getElementById(`page-eye-btn-${qId}`);
     if (!textEl || !iconEl) return;
 
     if (textEl.style.display === 'none') {
         textEl.style.display = 'inline';
         iconEl.className = 'fa-regular fa-eye-slash';
         iconEl.style.color = 'var(--accent-green)';
-        // Update label text inside the button
-        const labelEl = btnEl ? btnEl.querySelector('span') : null;
-        if (labelEl) { labelEl.innerText = 'লুকান'; labelEl.style.color = 'var(--accent-green)'; }
     } else {
         textEl.style.display = 'none';
         iconEl.className = 'fa-regular fa-eye';
         iconEl.style.color = 'var(--text-secondary)';
-        const labelEl = btnEl ? btnEl.querySelector('span') : null;
-        if (labelEl) { labelEl.innerText = 'প্রশ্ন দেখুন'; labelEl.style.color = 'var(--text-secondary)'; }
     }
 }
-
 
 // 🎤 Microphone (TTS Only) - Pronunciation of displayed question text
 function readQuestionSpeechOnPage(index) {
@@ -465,7 +451,7 @@ function showQuestionSpeedPopover(btn, isCartelli = false) {
             showToast(`গতি নির্ধারণ করা হয়েছে: ${rate}x`);
 
             if (isCartelli) {
-                if (playingCartelliAudioIndex !== null && cartelliNativeAudio) {
+                if (typeof playingCartelliAudioIndex !== 'undefined' && playingCartelliAudioIndex !== null && typeof cartelliNativeAudio !== 'undefined' && cartelliNativeAudio) {
                     cartelliNativeAudio.playbackRate = rate;
                 }
             }
@@ -562,7 +548,12 @@ function togglePageTranslation(qId) {
     const q = activePageDetails.questions.find(item => item.id === qId);
     if (!q) return;
 
-    openQuestionTranslationModal(q.italian, q.bangla, q.vocabulary || [], q.image || q.img || '');
+    if (typeof openQuestionTranslationModal === 'function') {
+        const rawVocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
+        const rawQImage = q.image || q.img || rawVocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : '');
+        const cleanQImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : rawQImage;
+        openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], cleanQImage);
+    }
 }
 
 function startPageQuiz() {
@@ -577,7 +568,7 @@ function startPageQuiz() {
             italian: q.italian || q.question || '',
             bangla: q.bangla || q.bn_question || '',
             is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1,
-            image: q.image,
+            image: typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(q.image || q.img) : (q.image || q.img),
             audio: q.audio || q.voice,
             video: q.video,
             vocabulary: q.vocabulary || []
@@ -783,6 +774,20 @@ function unselectAllPagesInDetails() {
     updateArgomentiSelectionPills();
     showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
+
+window.openPageDetailsScreen = openPageDetailsScreen;
+window.renderPageQuestionsList = renderPageQuestionsList;
+window.toggleArgomentiQuestionAnswer = toggleArgomentiQuestionAnswer;
+window.readQuestionSpeechOnPage = readQuestionSpeechOnPage;
+window.playQuestionAudioOrSpeechOnPage = playQuestionAudioOrSpeechOnPage;
+window.stopAllPageAudio = stopAllPageAudio;
+window.showQuestionSpeedPopover = showQuestionSpeedPopover;
+window.togglePlayAllPageQuestions = togglePlayAllPageQuestions;
+window.togglePageTranslation = togglePageTranslation;
+window.startPageQuiz = startPageQuiz;
+window.togglePageMainAudio = togglePageMainAudio;
+window.seekPageMainAudio = seekPageMainAudio;
+window.updatePageAudioProgress = updatePageAudioProgress;
 window.updateArgomentiSelectionPills = updateArgomentiSelectionPills;
 window.toggleCurrentPageSelection = toggleCurrentPageSelection;
 window.selectAllPagesInDetails = selectAllPagesInDetails;

@@ -280,4 +280,57 @@ class SupportAndLicenseV1Test extends TestCase
             return str_contains($msg['message'], '[LICENSE_CARD:days=365');
         }));
     }
+
+    /** @test */
+    public function guest_opening_support_messages_returns_empty_fast_without_full_table_scan()
+    {
+        // Calling support messages without query parameters should return empty array immediately
+        $response = $this->getJson('/api/v1/support/messages');
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => []
+            ]);
+
+        $chatResponse = $this->getJson('/api/chat/messages');
+        $chatResponse->assertStatus(200)
+            ->assertJson([]);
+    }
+
+    /** @test */
+    public function client_verify_handles_flexible_field_names_and_shows_in_admin_panel()
+    {
+        $response = $this->postJson('/api/client/verify', [
+            'firstName'   => 'Nazmul',
+            'lastName'    => 'Hossain',
+            'phoneNumber' => '01706640864',
+            'sessionId'   => 'device_sess_999'
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'is_active' => false,
+            ]);
+
+        $admin = User::create([
+            'name'     => 'Admin',
+            'email'    => 'admin@gmail.com',
+            'password' => bcrypt('password'),
+            'role'     => 'super_admin',
+        ]);
+
+        $this->actingAs($admin);
+        $convos = $this->getJson('/admin/api/chat/conversations');
+        $convos->assertStatus(200);
+
+        $found = collect($convos->json())->firstWhere('client.phone', '01706640864');
+        $this->assertNotNull($found);
+        $this->assertEquals('Nazmul', $found['client']['first_name']);
+
+        // Check messages can be fetched for this session
+        $msgs = $this->getJson('/admin/api/chat/messages/' . $found['session_id']);
+        $msgs->assertStatus(200);
+        $this->assertNotEmpty($msgs->json());
+    }
 }

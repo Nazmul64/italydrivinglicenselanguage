@@ -18,9 +18,20 @@ class NotedMcqsApiController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : $request->query("user_id");
-        $phone = $request->query("phone") ?? $request->header("X-Client-Phone") ?? ($user ? $user->phone : session("app_client_phone"));
-        $sessionId = $request->query("session_id") ?: $request->header("X-Session-ID") ?: session()->getId();
+        $userId = $user ? $user->id : ($request->query("user_id") ?: $request->input("user_id"));
+        $phone = $request->query("phone") 
+            ?? $request->query("user_phone") 
+            ?? $request->input("phone") 
+            ?? $request->input("user_phone") 
+            ?? $request->header("X-Client-Phone") 
+            ?? ($user ? $user->phone : session("app_client_phone"));
+            
+        $sessionId = $request->query("session_id") 
+            ?? $request->query("sessionId") 
+            ?? $request->input("session_id") 
+            ?? $request->input("sessionId") 
+            ?? $request->header("X-Session-ID") 
+            ?? session()->getId();
 
         $sessionIds = array_filter([$sessionId]);
 
@@ -60,10 +71,12 @@ class NotedMcqsApiController extends Controller
         }
 
         $query = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
-            ->whereNotNull('question_id')
+            ->whereNotNull('note_text')
             ->where('note_text', '!=', '');
 
+        $hasUserFilter = false;
         if ($userId || !empty($sessionIds)) {
+            $hasUserFilter = true;
             $query->where(function ($q) use ($userId, $sessionIds) {
                 if ($userId) {
                     $q->where("user_id", $userId);
@@ -80,10 +93,10 @@ class NotedMcqsApiController extends Controller
 
         $notesList = $query->orderBy("updated_at", "desc")->get();
 
-        // If no items for this specific session, fallback to all notes
-        if ($notesList->isEmpty()) {
+        // If user didn't specify any session/user filter at all, or if empty fallback
+        if ($notesList->isEmpty() && !$hasUserFilter) {
             $notesList = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
-                ->whereNotNull('question_id')
+                ->whereNotNull('note_text')
                 ->where('note_text', '!=', '')
                 ->orderBy("updated_at", "desc")
                 ->get();
@@ -126,6 +139,7 @@ class NotedMcqsApiController extends Controller
                         "session_id"  => $item->session_id,
                         "user_id"     => $item->user_id,
                         "question_id" => $item->question_id,
+                        "page_id"     => $item->page_id,
                         "type"        => "cartelli",
                         "note_text"   => $item->note_text,
                         "created_at"  => $item->created_at,
@@ -169,6 +183,7 @@ class NotedMcqsApiController extends Controller
                         "session_id"  => $item->session_id,
                         "user_id"     => $item->user_id,
                         "question_id" => $item->question_id,
+                        "page_id"     => $item->page_id,
                         "type"        => "argomenti",
                         "note_text"   => $item->note_text,
                         "created_at"  => $item->created_at,
@@ -177,38 +192,68 @@ class NotedMcqsApiController extends Controller
                     ];
                 }
             }
-            return $item;
+
+            return [
+                "id"          => $item->id,
+                "session_id"  => $item->session_id,
+                "user_id"     => $item->user_id,
+                "question_id" => $item->question_id,
+                "page_id"     => $item->page_id,
+                "type"        => $item->type ?: "argomenti",
+                "note_text"   => $item->note_text,
+                "created_at"  => $item->created_at,
+                "updated_at"  => $item->updated_at,
+                "question"    => null
+            ];
         });
 
         return response()->json([
             "status" => "success",
+            "total" => $result->count(),
             "data" => $result
         ]);
     }
 
     /**
-     * Save or update a note on a question.
+     * Save or update a note on a question or page.
      */
     public function save(Request $request)
     {
-        $request->validate([
-            'note_text' => 'required|string',
-        ]);
-
         $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : $request->input("user_id");
-        $phone = $request->input("phone") ?? $request->header("X-Client-Phone") ?? ($user ? $user->phone : session("app_client_phone"));
-        $sessionId = $request->input("session_id") ?: $request->header("X-Session-ID") ?: session()->getId();
-        $questionId = $request->input("question_id");
-        $pageId = $request->input("page_id");
-        $type = $request->input("type", "argomenti");
-        $noteText = trim($request->input("note_text"));
+        $userId = $user ? $user->id : ($request->input("user_id") ?: $request->input("userId"));
+        $phone = $request->input("phone") 
+            ?? $request->input("user_phone") 
+            ?? $request->input("phoneNumber") 
+            ?? $request->header("X-Client-Phone") 
+            ?? ($user ? $user->phone : session("app_client_phone"));
+            
+        $sessionId = $request->input("session_id") 
+            ?? $request->input("sessionId") 
+            ?? $request->header("X-Session-ID") 
+            ?? session()->getId();
 
-        if (!$type || $type === 'argomenti') {
+        $questionId = $request->input("question_id") ?? $request->input("questionId") ?? $request->input("id");
+        $pageId = $request->input("page_id") ?? $request->input("pageId");
+        $type = $request->input("type");
+        
+        $noteText = trim((string)(
+            $request->input("note_text") 
+            ?? $request->input("note") 
+            ?? $request->input("text") 
+            ?? $request->input("content") 
+            ?? $request->input("body") 
+            ?? ''
+        ));
+
+        // Auto detect question type if not provided
+        if ($questionId && (!$type || $type === 'argomenti')) {
             if (CartelloMcq::where("id", $questionId)->exists() && !Question::where("id", $questionId)->exists()) {
                 $type = "cartelli";
+            } else {
+                $type = $type ?: "argomenti";
             }
         }
+        $type = $type ?: "argomenti";
 
         $sessionIds = array_filter([$sessionId]);
 
@@ -235,13 +280,18 @@ class NotedMcqsApiController extends Controller
             }
         }
 
+        if (!$questionId && !$pageId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Either question_id or page_id must be provided'
+            ], 422);
+        }
+
         $query = Note::query();
         if ($questionId) {
             $query->where("question_id", $questionId)->where("type", $type);
         } elseif ($pageId) {
             $query->where("page_id", $pageId);
-        } else {
-            return response()->json(['error' => 'Either question_id or page_id must be provided'], 400);
         }
 
         if ($userId || !empty($sessionIds)) {
@@ -261,10 +311,29 @@ class NotedMcqsApiController extends Controller
 
         $existing = $query->first();
 
+        // If noteText is empty and existing note found, delete it
+        if ($noteText === '' && $existing) {
+            $existing->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'নোটটি মুছে ফেলা হয়েছে',
+                'data' => null
+            ]);
+        }
+
+        if ($noteText === '') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'নোটের বিবরণ লিখুন'
+            ], 422);
+        }
+
         if ($existing) {
             $existing->update([
                 'note_text' => $noteText,
-                'type' => $type
+                'type' => $type,
+                'user_id' => $userId ?: $existing->user_id,
+                'session_id' => $sessionId ?: $existing->session_id,
             ]);
             return response()->json([
                 'status' => 'success',
@@ -291,10 +360,21 @@ class NotedMcqsApiController extends Controller
     /**
      * Delete a note.
      */
-    public function delete($id)
+    public function delete(Request $request, $id = null)
     {
-        $note = Note::findOrFail($id);
-        $note->delete();
+        $noteId = $id ?: ($request->input('id') ?: $request->input('note_id'));
+        if (!$noteId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Note ID is required'
+            ], 422);
+        }
+
+        $note = Note::find($noteId);
+        if ($note) {
+            $note->delete();
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'নোটটি মুছে ফেলা হয়েছে'

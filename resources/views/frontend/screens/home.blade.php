@@ -6,7 +6,13 @@
         <div class="slider-wrapper" id="slider-wrapper">
             @foreach($sliders as $slider)
                 <div class="slide">
-                    <img src="{{ $slider->image_url }}" alt="{{ $slider->title }}">
+                    @if(!empty($slider->link_url) && $slider->link_url !== '#')
+                        <a href="{{ $slider->link_url }}" target="_blank" rel="noopener noreferrer" style="display: block; width: 100%; height: 100%;">
+                            <img src="{{ $slider->image_url }}" alt="{{ $slider->title }}">
+                        </a>
+                    @else
+                        <img src="{{ $slider->image_url }}" alt="{{ $slider->title }}">
+                    @endif
                 </div>
             @endforeach
         </div>
@@ -36,6 +42,10 @@
                     $onClickAttr = "openScreen('saved-mcqs', 'Saved MCQs')";
                 } elseif ($sk == 'patente-social' || $sk == 'patente_social' || $sk == 'social') {
                     $onClickAttr = "openScreen('social', 'Patente Social')";
+                } elseif ($sk == 'dictionary' || $sk == 'dizionario-search') {
+                    $onClickAttr = "openScreen('dictionary', 'Dizionario')";
+                } elseif ($sk == 'dizionario' || $sk == 'word' || $sk == 'words') {
+                    $onClickAttr = "openScreen('dizionario', 'Word')";
                 }
             @endphp
             <div class="nav-card {{ $sk == 'support' ? 'support-nav-card' : '' }}" onclick="{{ $onClickAttr }}">
@@ -139,26 +149,47 @@
                           <text x="72" y="80" text-anchor="middle" fill="#FF9800" font-size="9" font-weight="bold">✓</text>
                         </svg>
 
-                    @elseif($sk == 'dizionario' || $sk == 'dictionary')
-                        {{-- Dictionary / Open Book --}}
+                    @elseif($sk == 'dizionario' || $sk == 'word' || $sk == 'words')
+                        {{-- Word / Vocabulary Glossary --}}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
                           <path d="M50,20 Q35,16 16,20 L16,82 Q35,78 50,82 Q65,78 84,82 L84,20 Q65,16 50,20z" fill="#fff" stroke="#e0e9ff" stroke-width="1.5"/>
-                          <line x1="50" y1="20" x2="50" y2="82" stroke="#4A90D9" stroke-width="3"/>
-                          <rect x="20" y="30" width="24" height="3" rx="1.5" fill="#d0ddf5"/>
+                          <line x1="50" y1="20" x2="50" y2="82" stroke="#10B981" stroke-width="3"/>
+                          <rect x="20" y="30" width="24" height="3" rx="1.5" fill="#a7f3d0"/>
                           <rect x="20" y="37" width="20" height="3" rx="1.5" fill="#e0e9ff"/>
-                          <rect x="20" y="44" width="24" height="3" rx="1.5" fill="#d0ddf5"/>
+                          <rect x="20" y="44" width="24" height="3" rx="1.5" fill="#a7f3d0"/>
                           <rect x="20" y="51" width="16" height="3" rx="1.5" fill="#e0e9ff"/>
-                          <rect x="20" y="58" width="22" height="3" rx="1.5" fill="#d0ddf5"/>
-                          <rect x="56" y="30" width="24" height="3" rx="1.5" fill="#d0ddf5"/>
+                          <rect x="20" y="58" width="22" height="3" rx="1.5" fill="#a7f3d0"/>
+                          <rect x="56" y="30" width="24" height="3" rx="1.5" fill="#a7f3d0"/>
                           <rect x="56" y="37" width="18" height="3" rx="1.5" fill="#e0e9ff"/>
-                          <rect x="56" y="44" width="24" height="3" rx="1.5" fill="#d0ddf5"/>
+                          <rect x="56" y="44" width="24" height="3" rx="1.5" fill="#a7f3d0"/>
                           <rect x="56" y="51" width="20" height="3" rx="1.5" fill="#e0e9ff"/>
-                          <rect x="56" y="58" width="16" height="3" rx="1.5" fill="#d0ddf5"/>
-                          <path d="M16,20 Q35,14 50,20" fill="#4A90D9" opacity="0.8"/>
-                          <path d="M84,20 Q65,14 50,20" fill="#4A90D9" opacity="0.8"/>
-                          <circle cx="75" cy="72" r="10" fill="none" stroke="#FFD95A" stroke-width="4" class="float-anim"/>
-                          <line x1="82" y1="79" x2="88" y2="85" stroke="#FFD95A" stroke-width="4" stroke-linecap="round"/>
-                          <line x1="72" y1="69" x2="78" y2="75" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+                          <rect x="56" y="58" width="16" height="3" rx="1.5" fill="#a7f3d0"/>
+                          <path d="M16,20 Q35,14 50,20" fill="#10B981" opacity="0.85"/>
+                          <path d="M84,20 Q65,14 50,20" fill="#10B981" opacity="0.85"/>
+                          <circle cx="75" cy="72" r="10" fill="#10B981" class="float-anim"/>
+                          <text x="75" y="76" text-anchor="middle" font-size="10" font-weight="900" fill="#FFF">W</text>
+                        </svg>
+
+                    @elseif($sk == 'dictionary' || $sk == 'dizionario-search')
+                        {{-- Dictionary Search / Lexicon --}}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                          <defs>
+                            <linearGradient id="dictGrad_{{ $card->id }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stop-color="#0284C7" />
+                              <stop offset="100%" stop-color="#0EA5E9" />
+                            </linearGradient>
+                          </defs>
+                          <rect x="18" y="16" width="64" height="70" rx="8" fill="url(#dictGrad_{{ $card->id }})"/>
+                          <rect x="24" y="22" width="52" height="58" rx="5" fill="#FFFFFF"/>
+                          <rect x="28" y="28" width="22" height="5" rx="2" fill="#0284C7"/>
+                          <rect x="28" y="36" width="36" height="3" rx="1.5" fill="#BAE6FD"/>
+                          <rect x="28" y="42" width="28" height="3" rx="1.5" fill="#E2E8F0"/>
+                          <rect x="28" y="48" width="32" height="3" rx="1.5" fill="#BAE6FD"/>
+                          <rect x="28" y="54" width="20" height="3" rx="1.5" fill="#E2E8F0"/>
+                          <circle cx="68" cy="65" r="14" fill="#FFFFFF" stroke="#0284C7" stroke-width="3" class="float-anim"/>
+                          <circle cx="68" cy="65" r="8" fill="#F0F9FF"/>
+                          <line x1="77" y1="74" x2="86" y2="83" stroke="#F59E0B" stroke-width="4.5" stroke-linecap="round"/>
+                          <text x="68" y="69" text-anchor="middle" font-size="9" font-weight="900" fill="#0284C7">A-Z</text>
                         </svg>
 
                     @elseif($sk == 'cartelli')

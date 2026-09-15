@@ -24,6 +24,50 @@
     };
 })();
 
+// --- Global Safe Image URL Sanitizer & Cache Sanitizer ---
+window.sanitizeAppImageUrl = function (url) {
+    if (!url || typeof url !== 'string') return '';
+    url = url.trim();
+    if (url.startsWith('/data/user/') || url.startsWith('/data/data/') || url.startsWith('file://') || url.startsWith('/storage/emulated/') || url.includes('scaled_IMG') || url.includes('com.example.')) {
+        return '';
+    }
+    return url;
+};
+
+// Auto-clean bad local device image paths from ALL browser localStorage and sessionStorage keys
+(function cleanupBadLocalStoreImages() {
+    try {
+        const cleanStore = (store) => {
+            const keys = [];
+            for (let i = 0; i < store.length; i++) {
+                keys.push(store.key(i));
+            }
+            keys.forEach(key => {
+                if (!key) return;
+                const raw = store.getItem(key);
+                if (raw && (raw.includes('/data/user/') || raw.includes('/data/data/') || raw.includes('scaled_IMG') || raw.includes('/storage/emulated/') || raw.includes('com.example.'))) {
+                    try {
+                        let parsed = JSON.parse(raw);
+                        let cleaned = JSON.stringify(parsed, (k, v) => {
+                            if (typeof v === 'string' && (v.startsWith('/data/user/') || v.startsWith('/data/data/') || v.startsWith('file://') || v.startsWith('/storage/emulated/') || v.includes('scaled_IMG') || v.includes('com.example.'))) {
+                                return '';
+                            }
+                            return v;
+                        });
+                        store.setItem(key, cleaned);
+                    } catch(e) {
+                        if (raw.startsWith('/data/user/') || raw.includes('scaled_IMG') || raw.includes('com.example.')) {
+                            store.removeItem(key);
+                        }
+                    }
+                }
+            });
+        };
+        cleanStore(localStorage);
+        cleanStore(sessionStorage);
+    } catch(err) {}
+})();
+
 // --- Global Simulation & Speech Variables ---
 const speedOptionsList = [0.65, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 let testAudioSpeed = 1.0;
@@ -44,9 +88,20 @@ let isSchedeSelectMode = false;
 // --- Global Activation State Variables ---
 let activationStatusInterval = null;
 let currentClientVerified = false;
-let currentClientActive = sessionStorage.getItem('tab_qr_unlocked') === 'true' || window.location.search.includes('qr_unlocked=1') || localStorage.getItem('app_client_active') === 'true';
+let currentClientActive = sessionStorage.getItem('tab_qr_unlocked') === 'true';
 let currentClientPhone = localStorage.getItem('app_client_phone') || null;
 let currentClientSessionId = localStorage.getItem('app_client_session_id') || null;
+
+if (currentClientActive) {
+    sessionStorage.setItem('tab_qr_unlocked', 'true');
+    document.cookie = "qr_tab_unlocked=1; path=/; SameSite=Lax";
+}
+if (currentClientPhone) {
+    document.cookie = "app_client_phone=" + encodeURIComponent(currentClientPhone) + "; path=/; SameSite=Lax";
+}
+if (currentClientSessionId) {
+    document.cookie = "app_client_session_id=" + encodeURIComponent(currentClientSessionId) + "; path=/; SameSite=Lax";
+}
 
 function getUserStatsStorageKey() {
     if (currentClientPhone) {

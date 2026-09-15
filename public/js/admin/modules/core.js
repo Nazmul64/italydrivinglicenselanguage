@@ -115,6 +115,12 @@ function switchPanel(panelId) {
         if (typeof fetchCategories === 'function') fetchCategories();
     } else if (panelId === 'mcq-exams') {
         if (typeof loadAdminExamsList === 'function') loadAdminExamsList();
+    } else if (panelId === 'dizionario') {
+        if (typeof fetchDizionario === 'function') fetchDizionario(1);
+    } else if (panelId === 'manuale') {
+        if (typeof fetchManualeAdminData === 'function') fetchManualeAdminData();
+    } else if (panelId === 'customers') {
+        if (typeof fetchAppClients === 'function') fetchAppClients(1);
     } else if (panelId === 'sliders') {
         if (typeof fetchSliders === 'function') fetchSliders();
     } else if (panelId === 'popup-promo') {
@@ -198,13 +204,16 @@ function fetchStats() {
         .then(res => res.json())
         .then(data => {
             if (document.getElementById('stat-chapters')) {
-                document.getElementById('stat-chapters').innerText = data.total_chapters;
-                document.getElementById('stat-pages').innerText = data.total_pages;
-                document.getElementById('stat-questions').innerText = data.total_questions;
-                document.getElementById('stat-videos').innerText = data.total_videos;
-                document.getElementById('stat-live-sessions').innerText = data.total_live_sessions;
-                document.getElementById('stat-sliders').innerText = data.total_sliders;
-                document.getElementById('stat-users').innerText = data.total_users;
+                document.getElementById('stat-chapters').innerText = data.total_chapters || 0;
+                document.getElementById('stat-pages').innerText = data.total_pages || 0;
+                document.getElementById('stat-questions').innerText = data.total_questions || 0;
+                document.getElementById('stat-videos').innerText = data.total_videos || 0;
+                document.getElementById('stat-live-sessions').innerText = data.total_live_sessions || 0;
+                document.getElementById('stat-sliders').innerText = data.total_sliders || 0;
+                if (document.getElementById('stat-manuales')) {
+                    document.getElementById('stat-manuales').innerText = data.total_manuales || 0;
+                }
+                document.getElementById('stat-users').innerText = data.total_users || 0;
             }
             if (document.getElementById('dash-total-sales')) {
                 document.getElementById('dash-total-sales').innerText = data.total_questions + ' questions';

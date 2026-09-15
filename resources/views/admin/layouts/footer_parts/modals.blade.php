@@ -344,13 +344,23 @@
                 <input type="hidden" id="form-slider-id">
 
                 <div class="form-group">
+                    <label class="form-label" for="form-slider-title">Slider Title (শিরোনাম)</label>
+                    <input type="text" class="form-control" id="form-slider-title" placeholder="Banner Title">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="form-slider-subtitle">Slider Subtitle (উপশিরোনাম)</label>
+                    <input type="text" class="form-control" id="form-slider-subtitle" placeholder="Banner Subtitle">
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" for="form-slider-link">Link URL</label>
                     <input type="text" class="form-control" id="form-slider-link" placeholder="e.g. # or URL">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="form-slider-image">Slider Banner Image</label>
-                    <input type="file" class="form-control" id="form-slider-image" accept="image/*">
+                    <input type="file" class="form-control" id="form-slider-image" accept="image/*" onchange="previewSliderImage(this)">
                     <div id="slider-image-preview" style="margin-top: 10px; display: none;">
                         <img src="" id="slider-preview-img" style="max-width: 100%; height: 100px; border-radius: 8px; object-fit: cover;">
                     </div>

@@ -41,6 +41,358 @@ class DizionarioController extends Controller
         return response()->json($terms);
     }
 
+    /**
+     * Compile and retrieve all vocabulary words from MCQs, Cartelli, Manuale and Dizionario table.
+     */
+    public function getAllVocabularyData()
+    {
+        return \Illuminate\Support\Facades\Cache::remember('all_compiled_mcq_vocabulary', 600, function () {
+            $vocabMap = [];
+
+            // 1. Dizionario Table Terms
+            $dizionarioTerms = Dizionario::all();
+            foreach ($dizionarioTerms as $d) {
+                $word = trim($d->word ?? '');
+                if (!$word) continue;
+                $key = mb_strtolower($word);
+
+                if (!isset($vocabMap[$key])) {
+                    $vocabMap[$key] = [
+                        'word' => $word,
+                        'bn' => trim($d->bn ?? ''),
+                        'desc_it' => trim($d->desc_it ?? ''),
+                        'desc_bn' => trim($d->desc_bn ?? ''),
+                        'image' => $d->image ? (str_starts_with($d->image, 'http') ? $d->image : asset($d->image)) : '',
+                        'audio' => $d->audio ? (str_starts_with($d->audio, 'http') ? $d->audio : asset($d->audio)) : '',
+                        'video' => $d->video ? (str_starts_with($d->video, 'http') ? $d->video : asset($d->video)) : '',
+                        'source' => 'Dizionario',
+                        'examples' => [],
+                    ];
+                } else {
+                    if (empty($vocabMap[$key]['bn']) && !empty($d->bn)) {
+                        $vocabMap[$key]['bn'] = trim($d->bn);
+                    }
+                    if (empty($vocabMap[$key]['desc_it']) && !empty($d->desc_it)) {
+                        $vocabMap[$key]['desc_it'] = trim($d->desc_it);
+                    }
+                    if (empty($vocabMap[$key]['desc_bn']) && !empty($d->desc_bn)) {
+                        $vocabMap[$key]['desc_bn'] = trim($d->desc_bn);
+                    }
+                    if (empty($vocabMap[$key]['image']) && !empty($d->image)) {
+                        $vocabMap[$key]['image'] = str_starts_with($d->image, 'http') ? $d->image : asset($d->image);
+                    }
+                }
+            }
+
+            // 2. Questions (Argomenti / Scheda Esame MCQs)
+            $questions = \App\Models\Question::whereNotNull('vocabulary')
+                ->orWhere('italian', 'like', '%<u>%')
+                ->get(['id', 'chapter', 'chapter_name', 'page_id', 'italian', 'bangla', 'vocabulary', 'image']);
+
+            foreach ($questions as $q) {
+                $rawVocab = $q->vocabulary;
+                if (is_string($rawVocab)) {
+                    $rawVocab = json_decode($rawVocab, true);
+                }
+
+                if (is_array($rawVocab) && count($rawVocab) > 0) {
+                    foreach ($rawVocab as $item) {
+                        $it = trim($item['italian'] ?? $item['word'] ?? $item['italian_word'] ?? $item['it'] ?? '');
+                        $bn = trim($item['bangla'] ?? $item['meaning'] ?? $item['bangla_meaning'] ?? $item['bn'] ?? $item['translation'] ?? '');
+                        $img = $item['image'] ?? $item['image_path'] ?? $item['img'] ?? $q->image ?? '';
+
+                        if (!$it) continue;
+                        $key = mb_strtolower($it);
+
+                        $cleanExampleIt = strip_tags($q->italian ?? '');
+                        $cleanExampleBn = strip_tags($q->bangla ?? '');
+
+                        if (!isset($vocabMap[$key])) {
+                            $vocabMap[$key] = [
+                                'word' => $it,
+                                'bn' => $bn,
+                                'desc_it' => $cleanExampleIt,
+                                'desc_bn' => $cleanExampleBn,
+                                'image' => $img ? (str_starts_with($img, 'http') ? $img : asset($img)) : '',
+                                'audio' => '',
+                                'video' => '',
+                                'source' => 'Argomenti MCQ',
+                                'target_type' => 'argomenti',
+                                'page_id' => $q->page_id,
+                                'question_id' => $q->id,
+                                'chapter' => $q->chapter_name ?: "Chapter {$q->chapter}",
+                                'examples' => [],
+                            ];
+                        } else {
+                            if (empty($vocabMap[$key]['bn']) && !empty($bn)) {
+                                $vocabMap[$key]['bn'] = $bn;
+                            }
+                            if (empty($vocabMap[$key]['image']) && !empty($img)) {
+                                $vocabMap[$key]['image'] = str_starts_with($img, 'http') ? $img : asset($img);
+                            }
+                            if (empty($vocabMap[$key]['page_id']) && !empty($q->page_id)) {
+                                $vocabMap[$key]['page_id'] = $q->page_id;
+                                $vocabMap[$key]['question_id'] = $q->id;
+                                $vocabMap[$key]['target_type'] = 'argomenti';
+                            }
+                        }
+
+                        if ($cleanExampleIt && count($vocabMap[$key]['examples']) < 5) {
+                            $vocabMap[$key]['examples'][] = [
+                                'it' => $cleanExampleIt,
+                                'bn' => $cleanExampleBn,
+                                'chapter' => $q->chapter_name ?: "Chapter {$q->chapter}",
+                                'page_id' => $q->page_id,
+                                'question_id' => $q->id,
+                                'target_type' => 'argomenti',
+                                'source' => 'Argomenti MCQ'
+                            ];
+                        }
+                    }
+                }
+
+                // Also parse <u> tags if vocabulary JSON was not populated
+                if (preg_match_all('/<u>(.*?)<\/u>/i', $q->italian ?? '', $matches)) {
+                    foreach ($matches[1] as $underlinedWord) {
+                        $cleanWord = trim(strip_tags($underlinedWord));
+                        if (!$cleanWord || mb_strlen($cleanWord) < 2) continue;
+                        $key = mb_strtolower($cleanWord);
+
+                        if (!isset($vocabMap[$key])) {
+                            $cleanExampleIt = strip_tags($q->italian ?? '');
+                            $cleanExampleBn = strip_tags($q->bangla ?? '');
+                            $vocabMap[$key] = [
+                                'word' => $cleanWord,
+                                'bn' => '',
+                                'desc_it' => $cleanExampleIt,
+                                'desc_bn' => $cleanExampleBn,
+                                'image' => $q->image ? (str_starts_with($q->image, 'http') ? $q->image : asset($q->image)) : '',
+                                'audio' => '',
+                                'video' => '',
+                                'source' => 'Argomenti MCQ',
+                                'target_type' => 'argomenti',
+                                'page_id' => $q->page_id,
+                                'question_id' => $q->id,
+                                'chapter' => $q->chapter_name ?: "Chapter {$q->chapter}",
+                                'examples' => [
+                                    [
+                                        'it' => $cleanExampleIt,
+                                        'bn' => $cleanExampleBn,
+                                        'chapter' => $q->chapter_name ?: "Chapter {$q->chapter}",
+                                        'page_id' => $q->page_id,
+                                        'question_id' => $q->id,
+                                        'target_type' => 'argomenti',
+                                        'source' => 'Argomenti MCQ'
+                                    ]
+                                ],
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // 3. Cartelli MCQs
+            $cartelliMcqs = \App\Models\CartelloMcq::whereNotNull('vocabulary')
+                ->orWhere('question', 'like', '%<u>%')
+                ->get(['id', 'page_id', 'question', 'bn_question', 'vocabulary', 'image']);
+
+            foreach ($cartelliMcqs as $cm) {
+                $rawVocab = $cm->vocabulary;
+                if (is_string($rawVocab)) {
+                    $rawVocab = json_decode($rawVocab, true);
+                }
+
+                if (is_array($rawVocab) && count($rawVocab) > 0) {
+                    foreach ($rawVocab as $item) {
+                        $it = trim($item['italian'] ?? $item['word'] ?? $item['it'] ?? '');
+                        $bn = trim($item['bangla'] ?? $item['meaning'] ?? $item['bn'] ?? '');
+                        $img = $item['image'] ?? $cm->image ?? '';
+
+                        if (!$it) continue;
+                        $key = mb_strtolower($it);
+
+                        $cleanExampleIt = strip_tags($cm->question ?? '');
+                        $cleanExampleBn = strip_tags($cm->bn_question ?? '');
+
+                        if (!isset($vocabMap[$key])) {
+                            $vocabMap[$key] = [
+                                'word' => $it,
+                                'bn' => $bn,
+                                'desc_it' => $cleanExampleIt,
+                                'desc_bn' => $cleanExampleBn,
+                                'image' => $img ? (str_starts_with($img, 'http') ? $img : asset($img)) : '',
+                                'audio' => '',
+                                'video' => '',
+                                'source' => 'Cartelli MCQ',
+                                'target_type' => 'cartelli',
+                                'page_id' => $cm->page_id,
+                                'question_id' => $cm->id,
+                                'chapter' => 'Cartelli Stradali',
+                                'examples' => [],
+                            ];
+                        } else {
+                            if (empty($vocabMap[$key]['bn']) && !empty($bn)) {
+                                $vocabMap[$key]['bn'] = $bn;
+                            }
+                            if (empty($vocabMap[$key]['image']) && !empty($img)) {
+                                $vocabMap[$key]['image'] = str_starts_with($img, 'http') ? $img : asset($img);
+                            }
+                            if (empty($vocabMap[$key]['page_id']) && !empty($cm->page_id)) {
+                                $vocabMap[$key]['page_id'] = $cm->page_id;
+                                $vocabMap[$key]['question_id'] = $cm->id;
+                                $vocabMap[$key]['target_type'] = 'cartelli';
+                            }
+                        }
+
+                        if ($cleanExampleIt && count($vocabMap[$key]['examples']) < 5) {
+                            $vocabMap[$key]['examples'][] = [
+                                'it' => $cleanExampleIt,
+                                'bn' => $cleanExampleBn,
+                                'chapter' => 'Cartelli Stradali',
+                                'page_id' => $cm->page_id,
+                                'question_id' => $cm->id,
+                                'target_type' => 'cartelli',
+                                'source' => 'Cartelli MCQ'
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // 4. Manuale Chapters
+            $manuales = \App\Models\Manuale::whereNotNull('vocabulary')
+                ->get(['id', 'title', 'chapter_number', 'vocabulary', 'image_path']);
+
+            foreach ($manuales as $man) {
+                $rawVocab = $man->vocabulary;
+                if (is_string($rawVocab)) {
+                    $rawVocab = json_decode($rawVocab, true);
+                }
+
+                if (is_array($rawVocab) && count($rawVocab) > 0) {
+                    foreach ($rawVocab as $item) {
+                        $it = trim($item['italian'] ?? $item['word'] ?? '');
+                        $bn = trim($item['bangla'] ?? $item['meaning'] ?? $item['bn'] ?? '');
+                        $img = $item['image'] ?? $man->image_path ?? '';
+
+                        if (!$it) continue;
+                        $key = mb_strtolower($it);
+
+                        if (!isset($vocabMap[$key])) {
+                            $vocabMap[$key] = [
+                                'word' => $it,
+                                'bn' => $bn,
+                                'desc_it' => $man->title ?? '',
+                                'desc_bn' => '',
+                                'image' => $img ? (str_starts_with($img, 'http') ? $img : asset($img)) : '',
+                                'audio' => '',
+                                'video' => '',
+                                'source' => 'Manuale',
+                                'target_type' => 'manuale',
+                                'page_id' => $man->id,
+                                'question_id' => null,
+                                'chapter' => $man->title ?? "Chapter {$man->chapter_number}",
+                                'examples' => [],
+                            ];
+                        } else {
+                            if (empty($vocabMap[$key]['bn']) && !empty($bn)) {
+                                $vocabMap[$key]['bn'] = $bn;
+                            }
+                            if (empty($vocabMap[$key]['image']) && !empty($img)) {
+                                $vocabMap[$key]['image'] = str_starts_with($img, 'http') ? $img : asset($img);
+                            }
+                        }
+                    }
+                }
+            }
+
+            $list = array_values($vocabMap);
+            usort($list, function ($a, $b) {
+                return strcasecmp($a['word'], $b['word']);
+            });
+
+            return $list;
+        });
+    }
+
+    /**
+     * Search vocabulary across MCQs, Cartelli, Manuale and Dizionario table.
+     */
+    public function searchVocabulary(Request $request)
+    {
+        $query = trim($request->input('q', $request->input('search', '')));
+        $letter = strtoupper(trim($request->input('letter', '')));
+
+        $allTerms = $this->getAllVocabularyData();
+
+        if (empty($query) && empty($letter)) {
+            return response()->json([
+                'status' => 'success',
+                'total' => count($allTerms),
+                'results' => $allTerms
+            ]);
+        }
+
+        $filtered = array_filter($allTerms, function ($item) use ($query, $letter) {
+            $word = $item['word'] ?? '';
+            $bn = $item['bn'] ?? '';
+            $descIt = $item['desc_it'] ?? '';
+            $descBn = $item['desc_bn'] ?? '';
+
+            if ($letter) {
+                $firstChar = strtoupper(mb_substr($word, 0, 1));
+                if ($firstChar !== $letter) {
+                    return false;
+                }
+            }
+
+            if ($query) {
+                $qLower = mb_strtolower($query);
+                $wordLower = mb_strtolower($word);
+                $bnLower = mb_strtolower($bn);
+                $descItLower = mb_strtolower($descIt);
+                $descBnLower = mb_strtolower($descBn);
+
+                return (
+                    str_contains($wordLower, $qLower) ||
+                    str_contains($bnLower, $qLower) ||
+                    str_contains($descItLower, $qLower) ||
+                    str_contains($descBnLower, $qLower)
+                );
+            }
+
+            return true;
+        });
+
+        // Re-index and prioritize exact or prefix matches
+        $results = array_values($filtered);
+        if ($query) {
+            $qLower = mb_strtolower($query);
+            usort($results, function ($a, $b) use ($qLower) {
+                $aWord = mb_strtolower($a['word']);
+                $bWord = mb_strtolower($b['word']);
+
+                $aExact = ($aWord === $qLower);
+                $bExact = ($bWord === $qLower);
+                if ($aExact !== $bExact) return $aExact ? -1 : 1;
+
+                $aStarts = str_starts_with($aWord, $qLower);
+                $bStarts = str_starts_with($bWord, $qLower);
+                if ($aStarts !== $bStarts) return $aStarts ? -1 : 1;
+
+                return strcasecmp($a['word'], $b['word']);
+            });
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'query' => $query,
+            'letter' => $letter,
+            'total' => count($results),
+            'results' => $results
+        ]);
+    }
+
     // ==========================================
     // Admin API Endpoints (For Administrative Interface)
     // ==========================================

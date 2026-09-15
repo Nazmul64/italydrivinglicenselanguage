@@ -261,32 +261,8 @@ class ArgomentiController extends Controller
      */
     public function getNotes(Request $request)
     {
-        $sessionId = $request->query('session_id') ?: session()->getId();
-        $userId = $request->query('user_id');
-        $pageId = $request->query('page_id');
-        $questionId = $request->query('question_id');
-        $type = $request->query('type');
-
-        $query = Note::query();
-
-        if ($userId) {
-            $query->where('user_id', $userId);
-        } else {
-            $query->where('session_id', $sessionId);
-        }
-
-        if ($pageId) {
-            $query->where('page_id', $pageId);
-        }
-        if ($questionId) {
-            $query->where('question_id', $questionId);
-            if ($type) {
-                $query->where('type', $type);
-            }
-        }
-
-        $notes = $query->orderBy('updated_at', 'desc')->get();
-        return response()->json($notes);
+        $notedApiController = new \App\Http\Controllers\Api\NotedMcqsApiController();
+        return $notedApiController->index($request);
     }
 
     /**
@@ -294,68 +270,17 @@ class ArgomentiController extends Controller
      */
     public function saveNote(Request $request)
     {
-        $request->validate([
-            'note_text' => 'required|string',
-        ]);
-
-        $sessionId = $request->input('session_id') ?: session()->getId();
-        $userId = $request->input('user_id');
-        $pageId = $request->input('page_id');
-        $questionId = $request->input('question_id');
-        $type = $request->input('type', 'argomenti');
-        $noteText = $request->input('note_text');
-
-        if ($questionId && (!$type || $type === 'argomenti')) {
-            if (\App\Models\CartelloMcq::where("id", $questionId)->exists() && !\App\Models\Question::where("id", $questionId)->exists()) {
-                $type = "cartelli";
-            }
-        }
-
-        // Find existing note for this page/question and user
-        $query = Note::query();
-        if ($userId) {
-            $query->where('user_id', $userId);
-        } else {
-            $query->where('session_id', $sessionId);
-        }
-
-        if ($questionId) {
-            $query->where('question_id', $questionId)->where('type', $type);
-        } elseif ($pageId) {
-            $query->where('page_id', $pageId);
-        } else {
-            return response()->json(['error' => 'Either page_id or question_id must be provided'], 400);
-        }
-
-        $existing = $query->first();
-
-        if ($existing) {
-            $existing->update([
-                'note_text' => $noteText,
-                'type' => $type
-            ]);
-            return response()->json($existing);
-        } else {
-            $note = Note::create([
-                'session_id' => $userId ? null : $sessionId,
-                'user_id' => $userId,
-                'page_id' => $pageId,
-                'question_id' => $questionId,
-                'type' => $type,
-                'note_text' => $noteText
-            ]);
-            return response()->json($note);
-        }
+        $notedApiController = new \App\Http\Controllers\Api\NotedMcqsApiController();
+        return $notedApiController->save($request);
     }
 
     /**
      * Delete a note.
      */
-    public function deleteNote($id)
+    public function deleteNote($id, Request $request = null)
     {
-        $note = Note::findOrFail($id);
-        $note->delete();
-        return response()->json(['success' => true]);
+        $notedApiController = new \App\Http\Controllers\Api\NotedMcqsApiController();
+        return $notedApiController->delete($request ?: request(), $id);
     }
 
     // ==========================================

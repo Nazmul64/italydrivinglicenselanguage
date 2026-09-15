@@ -14,40 +14,46 @@ class SupportRegistrationApiController extends Controller
 {
     public function register(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'first_name' => 'required|string|max:100',
-            'last_name'  => 'required|string|max:100',
-            'phone'      => 'required|string|max:25',
-        ]);
+        $firstName = trim($request->input('first_name') ?: $request->input('firstName') ?: '');
+        $lastName  = trim($request->input('last_name') ?: $request->input('lastName') ?: '');
+        $phone     = trim($request->input('phone') ?: $request->input('phoneNumber') ?: $request->input('phone_number') ?: $request->input('mobile') ?: '');
+        
+        if (empty($firstName) && empty($lastName) && $request->filled('name')) {
+            $nameParts = explode(' ', trim($request->input('name')), 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName  = $nameParts[1] ?? '';
+        }
 
-        if ($validator->fails()) {
+        if (empty($firstName) || empty($phone)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error.',
-                'errors'  => $validator->errors()
+                'message' => 'First name and phone number are required.',
+                'errors'  => [
+                    'first_name' => empty($firstName) ? ['The first name field is required.'] : [],
+                    'phone'      => empty($phone) ? ['The phone number field is required.'] : [],
+                ]
             ], 422);
         }
 
-        $phone = trim($request->input('phone'));
-        $firstName = trim($request->input('first_name'));
-        $lastName  = trim($request->input('last_name'));
-
-        // Normalize phone format if needed
-        if (!preg_match('/^\+?[0-9]{7,15}$/', str_replace([' ', '-'], '', $phone))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid phone number format.'
-            ], 422);
-        }
+        $cleanPhone = preg_replace('/\D/', '', $phone);
+        $last10 = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
 
         // Check if existing user exists by phone
-        $user = User::where('phone', $phone)->first();
+        $user = User::where(function($q) use ($phone, $cleanPhone, $last10) {
+            $q->where('phone', $phone);
+            if (!empty($cleanPhone)) {
+                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                if (!empty($last10)) {
+                    $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                }
+            }
+        })->first();
 
         if (!$user) {
             // Create new user with UUID
             $user = User::create([
                 'uuid'       => (string) Str::uuid(),
-                'name'       => $firstName . ' ' . $lastName,
+                'name'       => trim($firstName . ' ' . $lastName),
                 'first_name' => $firstName,
                 'last_name'  => $lastName,
                 'phone'      => $phone,
@@ -58,9 +64,9 @@ class SupportRegistrationApiController extends Controller
         } else {
             // Update names if changed
             $user->update([
-                'first_name' => $firstName,
-                'last_name'  => $lastName,
-                'name'       => $firstName . ' ' . $lastName,
+                'first_name' => $firstName ?: $user->first_name,
+                'last_name'  => $lastName ?: $user->last_name,
+                'name'       => trim(($firstName ?: $user->first_name) . ' ' . ($lastName ?: $user->last_name)),
             ]);
         }
 
@@ -75,11 +81,10 @@ class SupportRegistrationApiController extends Controller
         }
         $licenseStatus = $license->status;
 
-        $incomingSessionId = $request->input('session_id') ?: $request->header('X-Session-ID');
+        $incomingSessionId = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID');
 
         // Clean up or merge any previous guest AppClient records for this session
         if ($incomingSessionId && $incomingSessionId !== $user->uuid) {
-            \App\Models\AppClient::where('session_id', $incomingSessionId)->delete();
             \App\Models\Message::where('session_id', $incomingSessionId)->update([
                 'session_id'  => $user->uuid,
                 'sender_id'   => $user->uuid,
@@ -88,16 +93,33 @@ class SupportRegistrationApiController extends Controller
         }
 
         // Keep AppClient synchronized for admin chat compatibility
-        \App\Models\AppClient::updateOrCreate(
-            ['phone' => $phone],
-            [
+        $appClient = \App\Models\AppClient::where('phone', $phone);
+        if (!empty($cleanPhone)) {
+            $appClient->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+        }
+        $clientRecord = $appClient->first();
+
+        if ($clientRecord) {
+            $clientRecord->update([
+                'session_id' => $user->uuid,
+                'first_name' => $firstName ?: $clientRecord->first_name,
+                'last_name'  => $lastName ?: $clientRecord->last_name,
+                'phone'      => $phone,
+                'is_active'  => $licenseStatus === 'active' || $clientRecord->is_active,
+                'expires_at' => $license->expires_at ?: $clientRecord->expires_at,
+            ]);
+        } else {
+            $clientRecord = \App\Models\AppClient::create([
                 'session_id' => $user->uuid,
                 'first_name' => $firstName,
                 'last_name'  => $lastName,
+                'phone'      => $phone,
                 'is_active'  => $licenseStatus === 'active',
                 'expires_at' => $license->expires_at,
-            ]
-        );
+                'stars'      => 5,
+                'progress'   => 50,
+            ]);
+        }
 
         // Ensure Conversation exists
         $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $user->uuid]);
@@ -119,16 +141,12 @@ class SupportRegistrationApiController extends Controller
             ]);
         }
 
-        // Remove any orphan Guest User entries with phone N/A
-        \App\Models\AppClient::where('first_name', 'Guest')->where(function($q) {
-            $q->whereNull('phone')->orWhere('phone', 'N/A')->orWhere('phone', '');
-        })->delete();
-
         // Issue Sanctum Token
         $token = $user->createToken('mobile_app_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
+            'client'  => $clientRecord,
             'user' => [
                 'id'         => $user->uuid,
                 'first_name' => $user->first_name,

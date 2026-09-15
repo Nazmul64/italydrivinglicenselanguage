@@ -59,14 +59,35 @@ Route::prefix('v1')->group(function () {
     Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
     Route::get('/cartelli/chapter-mcqs/{chapterId}', [CartelliApiController::class, 'getChapterMcqs']);
 
+    Route::get('/home-cards', function () {
+        $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $cards
+        ]);
+    });
+
+    // 📖 DICTIONARY & VOCABULARY API (Fast cached multi-source search)
+    Route::get('/words', [DizionarioApiController::class, 'getTerms']);
     Route::get('/dizionario', [DizionarioApiController::class, 'getTerms']);
+    Route::get('/dizionario/search', [DizionarioApiController::class, 'getTerms']);
+    Route::get('/dictionary', [DizionarioApiController::class, 'getTerms']);
+    Route::get('/dictionary/search', [DizionarioApiController::class, 'getTerms']);
+    Route::get('/dictionary/all', [DizionarioApiController::class, 'getTerms']);
+    Route::get('/vocabulary', [DizionarioApiController::class, 'getTerms']);
+
     Route::get('/patente-social/cards', [PatenteSocialApiController::class, 'getCards']);
     Route::get('/patente-social/banners', [PatenteSocialApiController::class, 'getBanners']);
     Route::get('/patente-social/settings', [PatenteSocialApiController::class, 'getSettings']);
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
     Route::get('/server-mode', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
     Route::get('/server-config', [\App\Http\Controllers\SettingsController::class, 'getSettings']);
-    Route::get('/leaderboard', [LeaderboardApiController::class, 'index']);
+    Route::get('/manuale/chapters', [ManualeApiController::class, 'getChapters']);
+    Route::get('/v1/manuale/chapters', [ManualeApiController::class, 'getChapters']);
+    Route::get('/manuale/pages/{chapterId}', [ManualeApiController::class, 'getPages']);
+    Route::get('/v1/manuale/pages/{chapterId}', [ManualeApiController::class, 'getPages']);
+    Route::get('/manuale/page/{id}', [ManualeApiController::class, 'getPageContent']);
+    Route::get('/v1/manuale/page/{id}', [ManualeApiController::class, 'getPageContent']);
 
     // 📌 SAVED, NOTED, CORRECT & WRONG MCQS & LOGGING API
     Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
@@ -74,12 +95,23 @@ Route::prefix('v1')->group(function () {
     Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
     Route::post('/v1/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
 
+    // Notes RESTful API
     Route::get('/noted-mcqs', [NotedMcqsApiController::class, 'index']);
     Route::get('/v1/noted-mcqs', [NotedMcqsApiController::class, 'index']);
     Route::post('/noted-mcqs/save', [NotedMcqsApiController::class, 'save']);
     Route::post('/v1/noted-mcqs/save', [NotedMcqsApiController::class, 'save']);
+    Route::post('/noted-mcqs', [NotedMcqsApiController::class, 'save']);
     Route::delete('/noted-mcqs/{id}', [NotedMcqsApiController::class, 'delete']);
     Route::delete('/v1/noted-mcqs/{id}', [NotedMcqsApiController::class, 'delete']);
+    Route::post('/noted-mcqs/delete', [NotedMcqsApiController::class, 'delete']);
+    Route::post('/v1/noted-mcqs/delete', [NotedMcqsApiController::class, 'delete']);
+
+    Route::get('/notes', [NotedMcqsApiController::class, 'index']);
+    Route::get('/v1/notes', [NotedMcqsApiController::class, 'index']);
+    Route::post('/notes', [NotedMcqsApiController::class, 'save']);
+    Route::post('/v1/notes', [NotedMcqsApiController::class, 'save']);
+    Route::delete('/notes/{id}', [NotedMcqsApiController::class, 'delete']);
+    Route::delete('/v1/notes/{id}', [NotedMcqsApiController::class, 'delete']);
 
     Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
     Route::get('/v1/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
@@ -89,6 +121,16 @@ Route::prefix('v1')->group(function () {
     Route::post('/v1/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
     Route::get('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
     Route::get('/v1/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+
+    // 🌐 TRANSLATION & PRONUNCIATION RESTful API
+    Route::get('/translation', [TranslationApiController::class, 'getQuestionTranslation']);
+    Route::post('/translation', [TranslationApiController::class, 'translate']);
+    Route::get('/translate', [TranslationApiController::class, 'translate']);
+    Route::post('/translate', [TranslationApiController::class, 'translate']);
+    Route::get('/v1/translate', [TranslationApiController::class, 'translate']);
+    Route::post('/v1/translate', [TranslationApiController::class, 'translate']);
+    Route::get('/v1/translation', [TranslationApiController::class, 'getQuestionTranslation']);
+    Route::post('/v1/translation', [TranslationApiController::class, 'translate']);
 
     Route::middleware('auth:sanctum')->group(function () {
         // User Profile & Status
@@ -147,14 +189,32 @@ Route::prefix('v1')->group(function () {
 
     // Live Chat & Support Messages for App & Frontend
     Route::get('/chat/messages', function (Request $request) {
-        $sessionId = $request->query('session_id') ?: $request->header('X-Session-ID');
-        $phone = $request->query('phone') ?: $request->header('X-Client-Phone');
+        $sessionId = $request->query('session_id') ?: $request->query('sessionId') ?: $request->header('X-Session-ID');
+        $phone = $request->query('phone') ?: $request->query('phoneNumber') ?: $request->query('phone_number') ?: $request->header('X-Client-Phone');
         
+        if (empty($sessionId) && empty($phone)) {
+            return response()->json([
+                'status' => 'success',
+                'data' => []
+            ]);
+        }
+
         $query = \App\Models\Message::query();
         if ($phone) {
-            $user = \App\Models\User::where('phone', $phone)->first();
-            $client = \App\Models\AppClient::where('phone', $phone)->first();
-            $userUuids = array_filter([$user?->uuid, $client?->session_id, $sessionId]);
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $user = \App\Models\User::where('phone', $phone);
+            if (!empty($cleanPhone)) {
+                $user->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+            }
+            $userObj = $user->first();
+
+            $client = \App\Models\AppClient::where('phone', $phone);
+            if (!empty($cleanPhone)) {
+                $client->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+            }
+            $clientObj = $client->first();
+
+            $userUuids = array_filter([$userObj?->uuid, $clientObj?->session_id, $sessionId]);
             $query->where(function($q) use ($userUuids, $sessionId) {
                 if (!empty($userUuids)) {
                     $q->whereIn('session_id', $userUuids)
@@ -165,7 +225,10 @@ Route::prefix('v1')->group(function () {
                 }
             });
         } elseif ($sessionId) {
-            $query->where('session_id', $sessionId)->orWhere('sender_id', $sessionId);
+            $query->where(function($q) use ($sessionId) {
+                $q->where('session_id', $sessionId)
+                  ->orWhere('sender_id', $sessionId);
+            });
         }
         
         $messages = $query->orderBy('created_at', 'asc')->get();
@@ -176,11 +239,11 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::post('/chat/messages', function (Request $request) {
-        $sessionId = $request->input('session_id') ?: $request->header('X-Session-ID') ?: session()->getId();
-        $phone = $request->input('phone') ?: $request->header('X-Client-Phone');
-        $firstName = $request->input('first_name');
-        $lastName = $request->input('last_name');
-        $messageText = $request->input('message') ?: '';
+        $sessionId = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID') ?: session()->getId();
+        $phone = $request->input('phone') ?: $request->input('phoneNumber') ?: $request->input('phone_number') ?: $request->header('X-Client-Phone');
+        $firstName = trim($request->input('first_name') ?: $request->input('firstName') ?: '');
+        $lastName = trim($request->input('last_name') ?: $request->input('lastName') ?: '');
+        $messageText = trim($request->input('message') ?: $request->input('text') ?: '');
         $attachmentPath = $request->input('attachment_path') ?: $request->input('attachment');
 
         $user = $phone ? \App\Models\User::where('phone', $phone)->first() : null;
@@ -259,7 +322,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/live-classes', [DynamicContentController::class, 'getLiveClasses']);
     Route::get('/dashboard/cards', [DynamicContentController::class, 'getPublicHomeCards']);
     Route::get('/dashboard/banners', [DynamicContentController::class, 'getPublicSliders']);
+    Route::get('/v1/dashboard/banners', [DynamicContentController::class, 'getPublicSliders']);
     Route::get('/sliders', [DynamicContentController::class, 'getPublicSliders']);
+    Route::get('/v1/sliders', [DynamicContentController::class, 'getPublicSliders']);
 });
 
 Route::post('/support/register', [SupportRegistrationApiController::class, 'register']);

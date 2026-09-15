@@ -145,6 +145,9 @@
     let currentArgomentiPageId = null;
 
     function openPageDetailsScreen(chId, pageId) {
+        if (typeof pageId === 'undefined') {
+            pageId = chId;
+        }
         currentArgomentiChapId = chId;
         currentArgomentiPageId = pageId;
         if (typeof unselectAllPagesInDetails === 'function') unselectAllPagesInDetails();
@@ -174,8 +177,9 @@
             const mediaCont = document.getElementById('page-details-media-container');
             const imgEl = document.getElementById('page-details-image');
             if (mediaCont && imgEl) {
-                if (pImg) {
-                    imgEl.src = pImg;
+                const cleanImg = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(pImg) : (pImg && !pImg.includes('/data/user/') && !pImg.includes('scaled_IMG') ? pImg : '');
+                if (cleanImg) {
+                    imgEl.src = cleanImg;
                     mediaCont.style.display = 'block';
                 } else {
                     mediaCont.style.display = 'none';

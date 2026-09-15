@@ -1,6 +1,6 @@
 // --- 16. Client Verification & Activation Lock System ---
 function checkClientActivation() {
-    const isTabUnlocked = sessionStorage.getItem('tab_qr_unlocked') === 'true' || window.location.search.includes('qr_unlocked=1') || localStorage.getItem('app_client_active') === 'true';
+    const isTabUnlocked = sessionStorage.getItem('tab_qr_unlocked') === 'true';
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
     const savedSessionId = localStorage.getItem('app_client_session_id') || currentClientSessionId;
 
@@ -24,18 +24,24 @@ function checkClientActivation() {
             if (currentClientActive) {
                 sessionStorage.setItem('tab_qr_unlocked', 'true');
                 localStorage.setItem('app_client_active', 'true');
+                document.cookie = "qr_tab_unlocked=1; path=/; SameSite=Lax";
             }
 
             if (data.phone) {
                 currentClientPhone = data.phone;
                 localStorage.setItem('app_client_phone', data.phone);
+                document.cookie = "app_client_phone=" + encodeURIComponent(data.phone) + "; path=/; SameSite=Lax";
             }
             if (data.session_id) {
                 currentClientSessionId = data.session_id;
                 localStorage.setItem('app_client_session_id', data.session_id);
+                document.cookie = "app_client_session_id=" + encodeURIComponent(data.session_id) + "; path=/; SameSite=Lax";
             }
             if (data.first_name) {
                 localStorage.setItem('app_client_first_name', data.first_name);
+            }
+            if (data.last_name) {
+                localStorage.setItem('app_client_last_name', data.last_name);
             }
 
             if (currentClientActive) {
@@ -753,11 +759,12 @@ function loadCorrectMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-                const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const rawQImg = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const qImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImg) : (rawQImg && !rawQImg.includes('/data/user/') && !rawQImg.includes('scaled_IMG') ? rawQImg : '');
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                        <img src="${qImage}" onerror="this.parentElement.style.display='none'" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
@@ -1055,11 +1062,12 @@ function loadWrongMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-                const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const rawQImg = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const qImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImg) : (rawQImg && !rawQImg.includes('/data/user/') && !rawQImg.includes('scaled_IMG') ? rawQImg : '');
 
                 const leftThumbHtml = qImage ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                        <img src="${qImage}" onerror="this.parentElement.style.display='none'" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
                     </div>
                 ` : '';
 
@@ -1561,8 +1569,10 @@ function filterManualeTopics() {
     renderManualeTopics(filtered);
 }
 
-
-
-
-
-
+window.loadUserProfileData = loadUserProfileData;
+window.loadManualeTopics = loadManualeTopics;
+window.renderManualeTopics = renderManualeTopics;
+window.filterManualeTopics = filterManualeTopics;
+window.loadLeaderboardData = typeof loadLeaderboardData === 'function' ? loadLeaderboardData : undefined;
+window.loadCorrectMcqsList = typeof loadCorrectMcqsList === 'function' ? loadCorrectMcqsList : undefined;
+window.loadWrongMcqsList = typeof loadWrongMcqsList === 'function' ? loadWrongMcqsList : undefined;

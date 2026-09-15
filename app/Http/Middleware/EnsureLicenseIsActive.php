@@ -20,12 +20,19 @@ class EnsureLicenseIsActive
         if (
             !$isProtectionEnabled ||
             $request->is("*saved-mcqs*") ||
+            $request->is("*noted-mcqs*") ||
+            $request->is("*notes*") ||
             $request->is("*correct-mcqs*") ||
             $request->is("*wrong-mcqs*") ||
             $request->is("*user-mcq-results*") ||
+            $request->is("*dictionary*") ||
+            $request->is("*dizionario*") ||
+            $request->is("*words*") ||
+            $request->is("*vocabulary*") ||
+            $request->is("*translate*") ||
+            $request->is("*translation*") ||
             $request->is("*client/*") ||
             $request->is("*support/*") ||
-            $request->is("*translation*") ||
             $request->is("*settings*")
         ) {
             return $next($request);

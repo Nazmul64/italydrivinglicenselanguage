@@ -52,11 +52,12 @@ function loadSavedMcqsScreen() {
                 let locationBadgeHtml = '';
 
                 const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
-                const qImage = q.image || q.img || vocabImg || (page && page.image ? page.image : null);
+                const rawQImage = q.image || q.img || vocabImg || (page && page.image ? page.image : null);
+                const cleanQImg = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : (rawQImage && !rawQImage.includes('/data/user/') && !rawQImage.includes('scaled_IMG') ? rawQImage : '');
 
-                const leftThumbHtml = qImage ? `
+                const leftThumbHtml = cleanQImg ? `
                     <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                        <img src="${cleanQImg}" onerror="this.parentElement.style.display='none'" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanQImg}')" title="Zoom Image">
                     </div>
                 ` : '';
 

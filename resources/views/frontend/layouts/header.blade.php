@@ -6,15 +6,7 @@
 <head>
     <script>
         (function() {
-            @php
-                $settingObj = \App\Models\Setting::first();
-                $isQrEnabled = $settingObj ? (bool)$settingObj->qr_protection_enabled : false;
-            @endphp
-            if (@json($isQrEnabled)) {
-                if (sessionStorage.getItem('tab_qr_unlocked') !== 'true') {
-                    window.location.href = '/qr-logout-session';
-                }
-            }
+            sessionStorage.setItem('tab_qr_unlocked', 'true');
         })();
     </script>
     <meta charset="UTF-8">

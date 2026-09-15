@@ -366,11 +366,12 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 const displaySheetTitle = `Pagina ${pageNum}) ${rawTitle}`;
 
                 let pageImgHTML = '';
-                if (page.image) {
-                    const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
+                const cleanPageImg = typeof getCleanImgSrc === 'function' ? getCleanImgSrc(page.image) : (page.image && !page.image.includes('/data/user/') && !page.image.includes('scaled_IMG') ? page.image : '');
+                if (cleanPageImg) {
+                    const imgSrc = (cleanPageImg.startsWith('http') || cleanPageImg.startsWith('/')) ? cleanPageImg : `/storage/${cleanPageImg}`;
                     pageImgHTML = `
                         <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
-                            <img src="${imgSrc}" class="schede-page-img" alt="${rawTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                            <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="schede-page-img" alt="${rawTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
                         </div>
                     `;
                 }
@@ -772,7 +773,17 @@ function renderCartelliPageMcqs(mcqs) {
             }
         };
 
-        const hasImage = !!(q.image || q.img);
+        function getCleanImgSrc(img) {
+            if (!img || typeof img !== 'string') return '';
+            img = img.trim();
+            if (img.startsWith('/data/user/') || img.startsWith('/data/data/') || img.startsWith('file://') || img.startsWith('/storage/emulated/')) {
+                return '';
+            }
+            return img;
+        }
+
+        const cleanImgUrl = getCleanImgSrc(q.image || q.img);
+        const hasImage = !!cleanImgUrl;
         const imgPos = q.image_position || 'left';
         const showTopImg = hasImage && (imgPos === 'top' || imgPos === 'both');
         const showLeftImg = hasImage && (imgPos === 'left' || imgPos === 'both');
@@ -781,7 +792,7 @@ function renderCartelliPageMcqs(mcqs) {
             const topImgCard = document.createElement('div');
             topImgCard.className = 'detail-q-top-image-card';
             topImgCard.style.cssText = 'padding: 14px 20px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-top: 16px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.03);';
-            topImgCard.innerHTML = `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
+            topImgCard.innerHTML = `<img src="${cleanImgUrl}" onerror="this.parentElement.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanImgUrl}')" style="max-width: 100%; height: auto; max-height: 450px; object-fit: contain; border-radius: 8px; cursor: pointer;" title="ইমেজ দেখুন">`;
             container.appendChild(topImgCard);
         }
 
@@ -798,7 +809,7 @@ function renderCartelliPageMcqs(mcqs) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${showLeftImg ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                ${showLeftImg ? `<img src="${cleanImgUrl}" onerror="this.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanImgUrl}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || [], q.id, 'cartelli') : (q.question || '')}</div>
                     <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>

@@ -577,7 +577,9 @@ function renderArgomentiList() {
                     }
                 };
 
-                const coverImage = ch.cover_image || ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
+                const rawCover = ch.cover_image || ch.image;
+                const cleanCover = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(rawCover) : rawCover;
+                const coverImage = cleanCover || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
 
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
@@ -585,7 +587,7 @@ function renderArgomentiList() {
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
                         <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" onerror="this.src='https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60'" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
                         </div>
                     </div>
                 `;
@@ -710,11 +712,12 @@ function renderSheetsList() {
         };
 
         let pageImgHTML = '';
-        if (page.image) {
-            const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
+        const cleanPageImg = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(page.image) : page.image;
+        if (cleanPageImg) {
+            const imgSrc = (cleanPageImg.startsWith('http') || cleanPageImg.startsWith('/')) ? cleanPageImg : `/storage/${cleanPageImg}`;
             pageImgHTML = `
                 <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
-                    <img src="${imgSrc}" class="schede-page-img" alt="${displaySheetTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                    <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="schede-page-img" alt="${displaySheetTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
                 </div>
             `;
         }
@@ -875,6 +878,9 @@ const SCREEN_TITLES = {
     'scheda-esame': 'Scheda Esame',
     'exam-simulation': 'Exam Simulation',
     'dizionario': 'Dizionario',
+    'dictionary': 'Dizionario',
+    'words': 'Word',
+    'word': 'Word',
     'cartelli': 'Cartelli',
     'cartelli-schede': 'Scegli Scheda',
     'cartelli-page': 'Vere e False',
@@ -976,25 +982,27 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
     } else if (screenId === 'scheda-esame') {
         if (typeof loadSchedaEsameModule === 'function') loadSchedaEsameModule();
     } else if (screenId === 'dizionario') {
-        initDictionary();
+        if (typeof initDictionary === 'function') initDictionary();
+    } else if (screenId === 'dictionary') {
+        if (typeof initMcqDictionary === 'function') initMcqDictionary();
     } else if (screenId === 'cartelli') {
-        renderCartelliChaptersGrid();
+        if (typeof renderCartelliChaptersGrid === 'function') renderCartelliChaptersGrid();
     } else if (screenId === 'saved-mcqs') {
-        loadSavedMcqsScreen();
+        if (typeof loadSavedMcqsScreen === 'function') loadSavedMcqsScreen();
     } else if (screenId === 'noted-mcqs') {
         if (typeof loadNotedMcqsScreen === 'function') loadNotedMcqsScreen();
     } else if (screenId === 'correct-mcqs') {
-        loadCorrectMcqsList();
+        if (typeof loadCorrectMcqsList === 'function') loadCorrectMcqsList();
     } else if (screenId === 'wrong-mcqs') {
-        loadWrongMcqsList();
+        if (typeof loadWrongMcqsList === 'function') loadWrongMcqsList();
     } else if (screenId === 'scheda-esame') {
-        loadExamSheets();
+        if (typeof loadExamSheets === 'function') loadExamSheets();
     } else if (screenId === 'sfida') {
-        loadLeaderboardData();
+        if (typeof loadLeaderboardData === 'function') loadLeaderboardData();
     } else if (screenId === 'profilo') {
-        loadUserProfileData();
+        if (typeof loadUserProfileData === 'function') loadUserProfileData();
     } else if (screenId === 'manuale') {
-        loadManualeTopics();
+        if (typeof loadManualeTopics === 'function') loadManualeTopics();
     } else if (screenId === 'test-results-detail') {
         if (typeof loadTestResultsDetailScreen === 'function') {
             loadTestResultsDetailScreen();
@@ -1041,10 +1049,10 @@ function navigateBack() {
         'noted-mcqs': 'Noted MCQs',
         'correct-mcqs': 'Correct MCQs', 'wrong-mcqs': 'Wrong MCQs',
         'eclass': 'E-Class', 'sfida': 'Sfida', 'scheda-esame': 'Scheda Esame',
-        'exam-simulation': 'Exam Simulation', 'dizionario': 'Dizionario',
+        'exam-simulation': 'Exam Simulation', 'dizionario': 'Word', 'dictionary': 'Dizionario',
         'cartelli': 'Cartelli', 'cartelli-schede': 'Scegli Scheda',
         'cartelli-page': 'Vere e False', 'profilo': 'Profilo',
-        'manuale': 'Manuale', 'test-results-detail': 'Test Details'
+        'manuale': 'Manuale', 'translation': 'Translation', 'test-results-detail': 'Test Details'
     };
     const prevTitle = titleMap[prevScreen] || 'mbanglapatenteb';
 
@@ -1182,6 +1190,13 @@ function restoreScreenFromUrl() {
             } else {
                 openScreen('argomenti', 'Argomenti');
             }
+        } else if (path === 'dictionary' || path === 'dizionario') {
+            openScreen('dictionary', 'Dizionario', true);
+            if (typeof initDictionaryScreen === 'function') {
+                initDictionaryScreen();
+            }
+        } else if (path === 'words' || path === 'word') {
+            openScreen('dizionario', 'Word', true);
         } else {
             const activeScreen = document.querySelector('.screen.active');
             if (!activeScreen || activeScreen.id !== `screen-${path}`) {

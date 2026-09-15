@@ -612,6 +612,7 @@
     <script src="{{ asset('js/frontend/modules/sfida.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/scheda_esame.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/dizionario.js') }}?v={{ time() }}"></script>
+    <script src="{{ asset('js/frontend/modules/dictionary.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/saved_mcqs.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/noted_mcqs.js') }}?v={{ time() }}"></script>
     <script src="{{ asset('js/frontend/modules/correct_mcqs.js') }}?v={{ time() }}"></script>

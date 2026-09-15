@@ -86,7 +86,7 @@
         <div class="menu-item" onclick="switchPanel('manuale')" id="menu-manuale">
             <span class="menu-link-group">
                 <i class="fa-solid fa-book-bookmark" style="color: #38bdf8;"></i>
-                <span>Manage Manuale (ম্যানুয়াল থিওরি)</span>
+                <span>Manage Manuale (ম্যানুয়াল থিওরি গাইড)</span>
             </span>
         </div>
 

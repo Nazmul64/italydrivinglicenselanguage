@@ -3,52 +3,36 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
-Route::get('/qr-unlock', function (Request $request) {
-    $targetSessionId = $request->query('session_id') ?: session()->getId();
-    $phone = $request->query('phone') ?: $request->cookie('app_client_phone') ?: session('app_client_phone');
+Route::match(['get', 'post'], '/qr-unlock', function (Request $request) {
+    $targetSessionId = $request->input('session_id') ?: $request->query('session_id') ?: session()->getId();
+    $token           = $request->input('token') ?: $request->query('token');
+    $phone           = $request->input('phone') ?: $request->query('phone') ?: $request->cookie('app_client_phone') ?: session('app_client_phone');
 
-    $isDbActive = false;
+    if ($targetSessionId) {
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $targetSessionId, true, 86400 * 365);
+        \Illuminate\Support\Facades\Cache::put('qr_last_unlocked_session', $targetSessionId, 86400);
+    }
+    if ($token) {
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $token, true, 86400 * 365);
+    }
     if ($phone) {
-        $cleanPhone = preg_replace('/\D/', '', $phone);
-        $isDbActive = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
-            $q->where('phone', $phone);
-            if (!empty($cleanPhone)) {
-                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-            }
-        })->where('is_active', true)->where(function($q) {
-            $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-        })->exists();
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * 365);
+    }
+    \Illuminate\Support\Facades\Cache::put('qr_last_unlocked_time', time(), 86400);
+
+    session(['qr_unlocked' => true]);
+    if ($phone) session(['app_client_phone' => $phone]);
+    session()->save();
+
+    if ($request->expectsJson() || $request->is('api/*')) {
+        return response()->json([
+            'success' => true,
+            'status'  => 'success',
+            'message' => '🎉 সেশন সফলভাবে আনলক হয়েছে!'
+        ]);
     }
 
-    if (!$isDbActive && $targetSessionId) {
-        $isDbActive = \App\Models\AppClient::where('session_id', $targetSessionId)
-            ->where('is_active', true)
-            ->where(function($q) {
-                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-            })->exists();
-    }
-
-    if (!$isDbActive && $targetSessionId) {
-        $userObj = \App\Models\User::where('uuid', $targetSessionId)->first();
-        if ($userObj) {
-            $isDbActive = \App\Models\License::where('user_id', $userObj->uuid)
-                ->where('status', 'active')
-                ->where(function ($q) {
-                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                })->exists();
-        }
-    }
-
-    if ($isDbActive) {
-        session(['qr_unlocked' => true]);
-        if ($targetSessionId) {
-            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $targetSessionId, true, 86400 * 365);
-        }
-        if ($phone) {
-            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * 365);
-        }
-
-        return response('<!DOCTYPE html>
+    return response('<!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
@@ -72,32 +56,6 @@ Route::get('/qr-unlock', function (Request $request) {
     </div>
 </body>
 </html>', 200)->header('Content-Type', 'text/html');
-    }
-
-    return response('<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>License Pending</title>
-    <style>
-        body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; text-align: center; padding: 20px; }
-        .card { background: white; padding: 32px 24px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 380px; width: 100%; border: 1px solid #e2e8f0; }
-        .icon { font-size: 54px; margin-bottom: 12px; }
-        h2 { color: #eab308; font-size: 20px; margin-bottom: 8px; }
-        p { font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
-        .btn { display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 14px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">⚠️</div>
-        <h2>লাইসেন্স সক্রিয় নয়</h2>
-        <p>আপনার অ্যাকাউন্টের লাইসেন্স কি এখনও অ্যাক্টিভ করা হয়নি। লাইভ চ্যাটে আপনার নাম ও ফোন নম্বর লিখে এডমিনের সাথে যোগাযোগ করুন।</p>
-        <a href="/" class="btn">হোম পেজে যান</a>
-    </div>
-</body>
-</html>', 200)->header('Content-Type', 'text/html');
 });
 
 Route::get('/qr-logout-session', function (Request $request) {
@@ -110,18 +68,28 @@ Route::get('/qr-logout-session', function (Request $request) {
 
 Route::get('/qr-check-session', function (Request $request) {
     $sessionId = $request->query('session_id') ?: session()->getId();
+    $token = $request->query('token');
 
-    $unlocked = session('qr_unlocked') === true
-        || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId) === true;
+    $unlocked = \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId) === true
+        || ($token && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $token) === true)
+        || session('qr_unlocked') === true;
 
-    $phone = \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId) ?: session('app_client_phone');
-    $firstName = \Illuminate\Support\Facades\Cache::get('qr_first_name_' . $sessionId);
-    $lastName = \Illuminate\Support\Facades\Cache::get('qr_last_name_' . $sessionId);
+    $lastUnlockedSession = \Illuminate\Support\Facades\Cache::get('qr_last_unlocked_session');
+    $lastUnlockedTime = \Illuminate\Support\Facades\Cache::get('qr_last_unlocked_time');
+    if (!$unlocked && $lastUnlockedTime && (time() - $lastUnlockedTime < 60)) {
+        $unlocked = true;
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
+    }
+
+    $phone = \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId) ?: \Illuminate\Support\Facades\Cache::get('qr_phone_' . $lastUnlockedSession);
+    $firstName = \Illuminate\Support\Facades\Cache::get('qr_first_name_' . $sessionId) ?: \Illuminate\Support\Facades\Cache::get('qr_first_name_' . $lastUnlockedSession);
+    $lastName = \Illuminate\Support\Facades\Cache::get('qr_last_name_' . $sessionId) ?: \Illuminate\Support\Facades\Cache::get('qr_last_name_' . $lastUnlockedSession);
 
     if ($unlocked) {
         session(['qr_unlocked' => true]);
         if ($phone) session(['app_client_phone' => $phone]);
         session()->save();
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
     }
 
     return response()->json([
@@ -133,9 +101,10 @@ Route::get('/qr-check-session', function (Request $request) {
     ]);
 });
 
-Route::post('/api/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
-Route::post('/api/v1/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
-Route::post('/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::match(['get', 'post'], '/api/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::match(['get', 'post'], '/api/v1/qr-unlock', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::match(['get', 'post'], '/api/v1/qr-verification/verify', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
+Route::match(['get', 'post'], '/api/v1/qr/verify', [\App\Http\Controllers\Api\QrVerificationApiController::class, 'verify']);
 
 if (!function_exists('getFrontendHomeCards')) {
     function getFrontendHomeCards() {
@@ -148,7 +117,7 @@ if (!function_exists('getFrontendHomeCards')) {
                 ['title' => 'E-Class', 'subtitle' => 'অনলাইন ক্লাস', 'screen_key' => 'eclass', 'icon_class' => 'fa-solid fa-chalkboard-user', 'icon_color' => '#06B6D4', 'order_index' => 4, 'status' => 1],
                 ['title' => 'Sfida', 'subtitle' => 'চ্যালেঞ্জ', 'screen_key' => 'sfida', 'icon_class' => 'fa-solid fa-trophy', 'icon_color' => '#F59E0B', 'order_index' => 5, 'status' => 1],
                 ['title' => 'Scheda Esame', 'subtitle' => 'পরীক্ষার শিট', 'screen_key' => 'scheda-esame', 'icon_class' => 'fa-solid fa-file-signature', 'icon_color' => '#F43F5E', 'order_index' => 6, 'status' => 1],
-                ['title' => 'Dizionario', 'subtitle' => 'অভিধান', 'screen_key' => 'dizionario', 'icon_class' => 'fa-solid fa-book-open', 'icon_color' => '#10B981', 'order_index' => 7, 'status' => 1],
+                ['title' => 'Word', 'subtitle' => 'শব্দ তালিকা', 'screen_key' => 'dizionario', 'icon_class' => 'fa-solid fa-book-open', 'icon_color' => '#10B981', 'order_index' => 7, 'status' => 1],
                 ['title' => 'Cartelli', 'subtitle' => 'ট্রাফিক সাইন', 'screen_key' => 'cartelli', 'icon_class' => 'fa-solid fa-map-signs', 'icon_color' => '#F97316', 'order_index' => 8, 'status' => 1],
                 ['title' => 'Saved MCQs', 'subtitle' => 'সেভ করা এমসিকিউ', 'screen_key' => 'saved-mcqs', 'icon_class' => 'fa-solid fa-bookmark', 'icon_color' => '#EF4444', 'order_index' => 9, 'status' => 1],
                 ['title' => 'Noted MCQs', 'subtitle' => 'নোট করা এমসিকিউ', 'screen_key' => 'noted-mcqs', 'icon_class' => 'fa-regular fa-note-sticky', 'icon_color' => '#10B981', 'order_index' => 10, 'status' => 1],
@@ -159,6 +128,7 @@ if (!function_exists('getFrontendHomeCards')) {
                 ['title' => 'Manuale', 'subtitle' => 'ম্যানুয়াল থিওরি বই', 'screen_key' => 'manuale', 'icon_class' => 'fa-solid fa-book-bookmark', 'icon_color' => '#2563EB', 'order_index' => 15, 'status' => 1],
                 ['title' => 'Patente Social', 'subtitle' => 'কমিউনিটি সোশ্যাল ফিড', 'screen_key' => 'patente-social', 'icon_class' => 'fa-solid fa-users', 'icon_color' => '#8B5CF6', 'order_index' => 16, 'status' => 1],
                 ['title' => 'Translation', 'subtitle' => 'অনুবাদ ও সঠিক উচ্চারণ', 'screen_key' => 'translation', 'icon_class' => 'fa-solid fa-language', 'icon_color' => '#0284C7', 'order_index' => 17, 'status' => 1],
+                ['title' => 'Dizionario', 'subtitle' => 'অভিধান', 'screen_key' => 'dictionary', 'icon_class' => 'fa-solid fa-book-bookmark', 'icon_color' => '#0EA5E9', 'order_index' => 18, 'status' => 1],
             ];
             foreach ($defaultCards as $dc) {
                 try {
@@ -213,7 +183,7 @@ Route::get('/', function () {
 
 Route::get('/{screen}', function ($screen) {
     return view('frontend.home', getFrontendViewData());
-})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
+})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|dictionary|words|word|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
 Route::get('/app', function () {
     return view('frontend.mobile_app', getFrontendViewData());
@@ -589,9 +559,14 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::get('/api/pages/{id}', [\App\Http\Controllers\ArgomentiController::class, 'getPageDetails']);
     Route::get('/api/saved-mcqs', [\App\Http\Controllers\ArgomentiController::class, 'getSavedMcqs']);
     Route::post('/api/saved-mcqs/toggle', [\App\Http\Controllers\ArgomentiController::class, 'toggleSavedMcq']);
-    Route::get('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'getNotes']);
-    Route::post('/api/notes', [\App\Http\Controllers\ArgomentiController::class, 'saveNote']);
-    Route::delete('/api/notes/{id}', [\App\Http\Controllers\ArgomentiController::class, 'deleteNote']);
+    // Notes RESTful API Routes
+    Route::get('/api/notes', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'index']);
+    Route::get('/api/v1/notes', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'index']);
+    Route::post('/api/notes', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::post('/api/v1/notes', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::delete('/api/notes/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
+    Route::delete('/api/v1/notes/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
+
     Route::post('/api/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
     Route::post('/api/v1/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
     Route::get('/api/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
@@ -606,12 +581,30 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::get('/api/v1/noted-mcqs', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'index']);
     Route::post('/api/noted-mcqs/save', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
     Route::post('/api/v1/noted-mcqs/save', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::post('/api/noted-mcqs', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
+    Route::post('/api/v1/noted-mcqs', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'save']);
     Route::delete('/api/noted-mcqs/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
     Route::delete('/api/v1/noted-mcqs/{id}', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
+    Route::post('/api/noted-mcqs/delete', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
+    Route::post('/api/v1/noted-mcqs/delete', [\App\Http\Controllers\Api\NotedMcqsApiController::class, 'delete']);
     Route::get('/api/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
     Route::get('/api/v1/correct-mcqs', [\App\Http\Controllers\Api\CorrectMcqsApiController::class, 'index']);
     Route::get('/api/wrong-mcqs', [\App\Http\Controllers\Api\WrongMcqsApiController::class, 'index']);
     Route::get('/api/v1/wrong-mcqs', [\App\Http\Controllers\Api\WrongMcqsApiController::class, 'index']);
+
+    // Dictionary & Vocabulary Public API Routes
+    Route::get('/api/words', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/words', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/dizionario', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/dizionario', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/dizionario/search', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/dizionario/search', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/dictionary', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/dictionary', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/dictionary/search', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/dictionary/search', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/dictionary/all', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
+    Route::get('/api/v1/dictionary/all', [\App\Http\Controllers\Api\DizionarioApiController::class, 'getTerms']);
 
     // Exam Module Public Routes
     Route::get('/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
@@ -815,6 +808,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'total_videos'        => \App\Models\LectureClass::count(),
             'total_live_sessions' => \App\Models\LiveClass::count(),
             'total_sliders'       => \App\Models\Slider::count(),
+            'total_manuales'      => \App\Models\Manuale::count(),
             'total_users'         => \App\Models\User::count(),
         ]);
     });
@@ -877,6 +871,32 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             ->selectRaw('MAX(created_at) as last_activity')
             ->groupBy('session_id')
             ->get();
+
+        // Preload active licenses to prevent N+1 queries
+        $activeLicenses = \App\Models\License::where('status', 'active')
+            ->where(function($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->get()
+            ->keyBy('user_id');
+
+        // Preload recent messages (latest 500) to map latest message in-memory
+        $recentMessages = \App\Models\Message::orderBy('id', 'desc')->limit(500)->get();
+        $messagesBySession = [];
+        $messagesBySender = [];
+        $messagesByConvo = [];
+
+        foreach ($recentMessages as $msg) {
+            if ($msg->session_id && !isset($messagesBySession[$msg->session_id])) {
+                $messagesBySession[$msg->session_id] = $msg;
+            }
+            if ($msg->sender_id && !isset($messagesBySender[$msg->sender_id])) {
+                $messagesBySender[$msg->sender_id] = $msg;
+            }
+            if ($msg->conversation_id && !isset($messagesByConvo[$msg->conversation_id])) {
+                $messagesByConvo[$msg->conversation_id] = $msg;
+            }
+        }
 
         $buckets = [];
 
@@ -968,17 +988,14 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             }
 
             if (!$foundKey) {
-                $hasUserMsg = \App\Models\Message::where('session_id', $sId)->where('sender', 'user')->exists();
-                if ($hasUserMsg) {
-                    $key = 'session:' . $sId;
-                    $buckets[$key] = [
-                        'user'        => null,
-                        'client'      => null,
-                        'phone'       => null,
-                        'session_ids' => [$sId],
-                        'last_activity' => $m->last_activity,
-                    ];
-                }
+                $key = 'session:' . $sId;
+                $buckets[$key] = [
+                    'user'        => null,
+                    'client'      => null,
+                    'phone'       => null,
+                    'session_ids' => [$sId],
+                    'last_activity' => $m->last_activity,
+                ];
             }
         }
 
@@ -993,7 +1010,28 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $phone = $data['phone'] ?: ($client ? $client->phone : ($user ? $user->phone : null));
             if ($phone === 'N/A') $phone = null;
 
-            $latestMsg = \App\Models\Message::whereIn('session_id', $sessionIds)->orderBy('id', 'desc')->first();
+            // Find latest message in-memory from preloaded messages
+            $latestMsg = null;
+            foreach ($sessionIds as $sId) {
+                if (isset($messagesBySession[$sId])) {
+                    if (!$latestMsg || $messagesBySession[$sId]->id > $latestMsg->id) {
+                        $latestMsg = $messagesBySession[$sId];
+                    }
+                }
+                if (isset($messagesBySender[$sId])) {
+                    if (!$latestMsg || $messagesBySender[$sId]->id > $latestMsg->id) {
+                        $latestMsg = $messagesBySender[$sId];
+                    }
+                }
+            }
+
+            // Fallback DB lookup ONLY if not found in memory
+            if (!$latestMsg && count($sessionIds) > 0) {
+                $latestMsg = \App\Models\Message::where(function($q) use ($sessionIds) {
+                    $q->whereIn('session_id', $sessionIds)
+                      ->orWhereIn('sender_id', $sessionIds);
+                })->orderBy('id', 'desc')->first();
+            }
 
             if (!$latestMsg && !$user && (!$client || empty($client->phone) || $client->phone === 'N/A')) {
                 continue;
@@ -1009,11 +1047,8 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             }
 
             $hasActiveLicense = false;
-            if ($user && $user->uuid) {
-                $license = \App\Models\License::where('user_id', $user->uuid)->latest()->first();
-                if ($license && $license->status === 'active' && (!$license->expires_at || $license->expires_at->isFuture())) {
-                    $hasActiveLicense = true;
-                }
+            if ($user && $user->uuid && isset($activeLicenses[$user->uuid])) {
+                $hasActiveLicense = true;
             }
             if (!$hasActiveLicense && $client && $client->is_active) {
                 if (!$client->expires_at || $client->expires_at->isFuture()) {
@@ -1225,18 +1260,30 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         if ($phone && $phone !== 'N/A') {
             $cleanPhone = preg_replace('/\D/', '', $phone);
             if (!empty($cleanPhone)) {
-                $cIds = \App\Models\AppClient::whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])->pluck('session_id');
-                $uIds = \App\Models\User::whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])->pluck('uuid');
+                $cIds = \App\Models\AppClient::where('phone', $phone)
+                    ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                    ->pluck('session_id');
+                $uIds = \App\Models\User::where('phone', $phone)
+                    ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone])
+                    ->pluck('uuid');
                 $sessionIds = $sessionIds->concat($cIds)->concat($uIds);
             }
         }
 
         $allSessionIds = $sessionIds->filter()->unique()->values()->all();
+        $convoIds = \App\Models\Conversation::whereIn('user_id', $allSessionIds)->pluck('id')->all();
 
-        $messages = \App\Models\Message::whereIn('session_id', $allSessionIds)
-            ->orderBy('created_at', 'asc')
-            ->orderBy('id', 'asc')
-            ->get();
+        $messages = \App\Models\Message::where(function($q) use ($allSessionIds, $convoIds) {
+            $q->whereIn('session_id', $allSessionIds)
+              ->orWhereIn('sender_id', $allSessionIds);
+            if (!empty($convoIds)) {
+                $q->orWhereIn('conversation_id', $convoIds);
+            }
+        })
+        ->orderBy('created_at', 'asc')
+        ->orderBy('id', 'asc')
+        ->get();
+
         return response()->json($messages);
     });
 
@@ -2145,6 +2192,9 @@ Route::get('/api/manuale', function () {
         'data' => $items
     ]);
 });
+Route::get('/api/v1/manuale/chapters', [\App\Http\Controllers\Api\ManualeApiController::class, 'getChapters']);
+Route::get('/api/v1/manuale/pages/{chapterId}', [\App\Http\Controllers\Api\ManualeApiController::class, 'getPages']);
+Route::get('/api/v1/manuale/page/{id}', [\App\Http\Controllers\Api\ManualeApiController::class, 'getPageContent']);
 
 // Admin Manuale API Endpoints
 Route::get('/api/admin/manuale', function () {
@@ -2224,6 +2274,7 @@ $saveManualeHandler = function (Request $request, $id = null) {
         }
 
         $manuale->save();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
 
         return response()->json([
             'status' => 'success',
@@ -2247,11 +2298,13 @@ Route::post('/admin/api/manuale/update/{id}', $saveManualeHandler);
 Route::post('/api/admin/manuale/delete/{id}', function ($id) {
     $manuale = \App\Models\Manuale::findOrFail($id);
     $manuale->delete();
+    \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
     return response()->json(['status' => 'success', 'message' => 'ম্যানুয়াল থিওরি মুছে ফেলা হয়েছে!']);
 });
 Route::post('/admin/api/manuale/delete/{id}', function ($id) {
     $manuale = \App\Models\Manuale::findOrFail($id);
     $manuale->delete();
+    \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
     return response()->json(['status' => 'success', 'message' => 'ম্যানুয়াল থিওরি মুছে ফেলা হয়েছে!']);
 });
 
@@ -2259,17 +2312,22 @@ Route::post('/api/admin/manuale/toggle-status/{id}', function ($id) {
     $manuale = \App\Models\Manuale::findOrFail($id);
     $manuale->status = !$manuale->status;
     $manuale->save();
+    \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
     return response()->json(['status' => 'success', 'message' => 'স্ট্যাটাস আপডেট করা হয়েছে!']);
 });
 Route::post('/admin/api/manuale/toggle-status/{id}', function ($id) {
     $manuale = \App\Models\Manuale::findOrFail($id);
     $manuale->status = !$manuale->status;
     $manuale->save();
+    \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
     return response()->json(['status' => 'success', 'message' => 'স্ট্যাটাস আপডেট করা হয়েছে!']);
 });
 
 // Dizionario Public API (outside license middleware so dict images always load)
 Route::get('/api/dizionario', [\App\Http\Controllers\DizionarioController::class, 'getDictionary']);
+Route::get('/api/dizionario/search', [\App\Http\Controllers\DizionarioController::class, 'searchVocabulary']);
+Route::get('/api/dictionary/search', [\App\Http\Controllers\DizionarioController::class, 'searchVocabulary']);
+Route::get('/api/dictionary/all', [\App\Http\Controllers\DizionarioController::class, 'searchVocabulary']);
 
 // ==========================================
 // mbanglapatenteb (Community Feed) API
@@ -2501,94 +2559,14 @@ Route::post('/api/social/posts/comments/store', function (Request $request) {
 // ==========================================
 // Translation & Pronunciation API
 // ==========================================
-Route::post('/api/translate', function (Request $request) {
-    $text = trim((string)$request->input('text', ''));
-    $fromLang = strtolower(trim((string)$request->input('from_lang', 'bn')));
-    $toLang = strtolower(trim((string)$request->input('to_lang', 'it')));
-
-    if (empty($text)) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'অনুবাদ করার জন্য কিছু লিখুন।'
-        ], 422);
-    }
-
-    // 1. Check cached translations DB
-    $cached = \App\Models\Translation::where('source_text', $text)
-        ->where('from_lang', $fromLang)
-        ->where('to_lang', $toLang)
-        ->first();
-
-    if ($cached) {
-        $cached->increment('search_count');
-        return response()->json([
-            'status' => 'success',
-            'translated_text' => $cached->translated_text,
-            'source_text' => $text,
-            'from_lang' => $fromLang,
-            'to_lang' => $toLang,
-            'cached' => true
-        ]);
-    }
-
-    // 2. Check Dizionario DB if translating a word
-    if ($fromLang === 'it' && $toLang === 'bn') {
-        $dict = \App\Models\Dizionario::where('word', 'like', $text)->first();
-        if ($dict && !empty($dict->bn)) {
-            $transText = $dict->bn;
-            \App\Models\Translation::create([
-                'source_text' => $text,
-                'translated_text' => $transText,
-                'from_lang' => $fromLang,
-                'to_lang' => $toLang
-            ]);
-            return response()->json([
-                'status' => 'success',
-                'translated_text' => $transText,
-                'source_text' => $text,
-                'from_lang' => $fromLang,
-                'to_lang' => $toLang
-            ]);
-        }
-    }
-
-    // 3. Fallback to MyMemory Free Translation API
-    $pair = ($fromLang === 'bn' ? 'bn' : 'it') . '|' . ($toLang === 'it' ? 'it' : 'bn');
-    $url = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . $pair;
-
-    $transText = null;
-    try {
-        $response = @file_get_contents($url);
-        if ($response) {
-            $json = json_decode($response, true);
-            if (isset($json['responseData']['translatedText'])) {
-                $transText = $json['responseData']['translatedText'];
-            }
-        }
-    } catch (\Throwable $e) {
-        // Ignore network exception
-    }
-
-    if (empty($transText)) {
-        $transText = $text; // Fallback
-    }
-
-    // Cache translation
-    \App\Models\Translation::create([
-        'source_text' => $text,
-        'translated_text' => $transText,
-        'from_lang' => $fromLang,
-        'to_lang' => $toLang
-    ]);
-
-    return response()->json([
-        'status' => 'success',
-        'translated_text' => $transText,
-        'source_text' => $text,
-        'from_lang' => $fromLang,
-        'to_lang' => $toLang
-    ]);
-});
+Route::get('/api/translate', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
+Route::post('/api/translate', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
+Route::get('/api/v1/translate', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
+Route::post('/api/v1/translate', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
+Route::get('/api/translation', [\App\Http\Controllers\Api\TranslationApiController::class, 'getQuestionTranslation']);
+Route::post('/api/translation', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
+Route::get('/api/v1/translation', [\App\Http\Controllers\Api\TranslationApiController::class, 'getQuestionTranslation']);
+Route::post('/api/v1/translation', [\App\Http\Controllers\Api\TranslationApiController::class, 'translate']);
 
 
 
@@ -2631,61 +2609,49 @@ Route::get('/api/chat/messages', function (Request $request) {
     $sessionId = $request->query('session_id') ?: $request->input('session_id') ?: session()->getId();
     $phone     = $request->query('phone') ?: $request->input('phone');
 
-    $identifiers = collect([$sessionId])->filter();
+    if (empty($sessionId) && empty($phone)) {
+        return response()->json([]);
+    }
+
     $cleanPhone = $phone ? preg_replace('/\D/', '', $phone) : null;
-    $last10 = ($cleanPhone && strlen($cleanPhone) >= 10) ? substr($cleanPhone, -10) : $cleanPhone;
+    $last10 = ($cleanPhone && strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
 
-    $cQuery = \App\Models\AppClient::query();
-    if ($sessionId) {
-        $cQuery->where('session_id', $sessionId)->orWhere('id', $sessionId);
-    }
-    if ($phone) {
-        $cQuery->orWhere('phone', $phone);
-        if (!empty($last10)) {
-            $cQuery->orWhere('phone', 'like', "%{$last10}%");
-        }
-    }
-    $clients = $cQuery->get();
+    $clients = collect([]);
+    $users = collect([]);
 
-    $uQuery = \App\Models\User::query();
-    if ($sessionId) {
-        $uQuery->where('uuid', $sessionId)->orWhere('id', $sessionId);
-    }
-    if ($phone) {
-        $uQuery->orWhere('phone', $phone);
-        if (!empty($last10)) {
-            $uQuery->orWhere('phone', 'like', "%{$last10}%");
-        }
-    }
-    $users = $uQuery->get();
-
-    if (empty($phone)) {
-        foreach ($clients as $c) {
-            if ($c->phone && $c->phone !== 'N/A') { $phone = $c->phone; break; }
-        }
-        if (empty($phone)) {
-            foreach ($users as $u) {
-                if ($u->phone && $u->phone !== 'N/A') { $phone = $u->phone; break; }
+    if ($sessionId || $phone) {
+        $cQuery = \App\Models\AppClient::query();
+        $cQuery->where(function($q) use ($sessionId, $phone, $cleanPhone, $last10) {
+            if ($sessionId) $q->where('session_id', $sessionId);
+            if ($phone) {
+                $q->orWhere('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
             }
-        }
-        if ($phone) {
-            $cleanPhone = preg_replace('/\D/', '', $phone);
-            $last10 = ($cleanPhone && strlen($cleanPhone) >= 10) ? substr($cleanPhone, -10) : $cleanPhone;
-            $extraClients = \App\Models\AppClient::where('phone', $phone);
-            if (!empty($last10)) {
-                $extraClients->orWhere('phone', 'like', "%{$last10}%");
-            }
-            $clients = $clients->concat($extraClients->get())->unique('id');
+        });
+        $clients = $cQuery->get();
 
-            $extraUsers = \App\Models\User::where('phone', $phone);
-            if (!empty($last10)) {
-                $extraUsers->orWhere('phone', 'like', "%{$last10}%");
+        $uQuery = \App\Models\User::query();
+        $uQuery->where(function($q) use ($sessionId, $phone, $cleanPhone, $last10) {
+            if ($sessionId) $q->where('uuid', $sessionId);
+            if ($phone) {
+                $q->orWhere('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
             }
-            $users = $users->concat($extraUsers->get())->unique('id');
-        }
+        });
+        $users = $uQuery->get();
     }
 
-    $allIdentifiers = $identifiers
+    $allIdentifiers = collect([$sessionId])
         ->concat($clients->pluck('session_id'))
         ->concat($clients->pluck('id'))
         ->concat($users->pluck('uuid'))
@@ -2695,6 +2661,10 @@ Route::get('/api/chat/messages', function (Request $request) {
         ->unique()
         ->values()
         ->all();
+
+    if (empty($allIdentifiers)) {
+        return response()->json([]);
+    }
 
     $convos = \App\Models\Conversation::whereIn('user_id', $allIdentifiers)->pluck('id')->all();
 
@@ -2877,3 +2847,8 @@ Route::get('/admin/customers/{uuid}', [\App\Http\Controllers\Admin\CustomerAdmin
 Route::post('/admin/customers/{uuid}/assign-license', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'assignLicense'])->name('admin.customers.assignLicense');
 Route::post('/admin/licenses/{id}/status', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'updateLicenseStatus'])->name('admin.licenses.updateStatus');
 Route::post('/admin/customers/{uuid}/send-message', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'sendMessage'])->name('admin.customers.sendMessage');
+
+// Global SPA Frontend Fallback Route
+Route::fallback(function () {
+    return view('frontend.home', getFrontendViewData());
+});

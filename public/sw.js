@@ -1,5 +1,5 @@
 // Italy Bangla Patente App - Service Worker for Mobile PWA
-const CACHE_NAME = 'patente-app-v45';
+const CACHE_NAME = 'patente-app-v48';
 const ASSETS_TO_CACHE = [
   '/',
   '/app',
@@ -49,18 +49,30 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
+  if (url.pathname.startsWith('/data/user/') || url.pathname.startsWith('/data/data/') || url.pathname.includes('scaled_IMG') || url.pathname.includes('com.example.')) {
+    event.respondWith(new Response(null, { status: 204, statusText: 'No Content' }));
+    return;
+  }
+
   const isNavigation = event.request.mode === 'navigate' ||
     (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
 
   event.respondWith(
     fetch(event.request)
-      .then((networkResponse) => {
+      .then(async (networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
+          return networkResponse;
         }
+
+        if (isNavigation && (!networkResponse || networkResponse.status === 404)) {
+          const appShell = (await caches.match('/')) || (await caches.match('/app'));
+          if (appShell) return appShell;
+        }
+
         return networkResponse;
       })
       .catch(async () => {
@@ -70,7 +82,7 @@ self.addEventListener('fetch', (event) => {
         }
 
         if (isNavigation) {
-          const appShell = (await caches.match('/app')) || (await caches.match('/'));
+          const appShell = (await caches.match('/')) || (await caches.match('/app'));
           if (appShell) {
             return appShell;
           }

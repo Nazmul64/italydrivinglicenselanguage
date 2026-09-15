@@ -38,33 +38,36 @@ class WebQrGate
         }
         $isProtectionEnabled = $setting ? (bool)$setting->qr_protection_enabled : false;
 
-        $sessionId  = session()->getId();
+        $sessionId        = session()->getId();
+        $cookieSessionId  = $request->cookie('qr_session_id');
+        $cookieAppPhone   = $request->cookie('app_client_phone');
+        $cookieAppSession = $request->cookie('app_client_session_id');
 
         $isUnlocked = session('qr_unlocked') === true
             || Cache::get('qr_unlocked_' . $sessionId) === true
-            || $request->query('qr_unlocked') === '1';
+            || ($cookieSessionId && Cache::get('qr_unlocked_' . $cookieSessionId) === true)
+            || ($cookieAppPhone && Cache::get('qr_unlocked_' . $cookieAppPhone) === true)
+            || ($cookieAppSession && Cache::get('qr_unlocked_' . $cookieAppSession) === true);
 
         if ($isUnlocked) {
             session(['qr_unlocked' => true]);
+            if ($cookieAppPhone) session(['app_client_phone' => $cookieAppPhone]);
             session()->save();
+            Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
         }
 
         if ($isProtectionEnabled && !$isUnlocked) {
             $currentHost = $request->getSchemeAndHttpHost();
+            $isLocal = str_contains($currentHost, '127.0.0.1') || str_contains($currentHost, 'localhost');
 
-            // When hosted on a live domain (not localhost/127.0.0.1), always use current website domain
-            if (!str_contains($currentHost, '127.0.0.1') && !str_contains($currentHost, 'localhost')) {
+            if (!$isLocal) {
                 $baseUrl = $currentHost;
-            } elseif ($setting && $setting->qr_target_mode === 'live' && !empty($setting->qr_live_url)) {
-                $baseUrl = rtrim($setting->qr_live_url, '/');
-            } elseif ($setting && !empty($setting->qr_local_url) && !str_contains($setting->qr_local_url, '10.0.2.2') && !str_contains($setting->qr_local_url, '127.0.0.1') && !str_contains($setting->qr_local_url, 'localhost')) {
+            } elseif ($setting && !empty($setting->qr_local_url) && !str_contains($setting->qr_local_url, '127.0.0.1') && !str_contains($setting->qr_local_url, 'localhost')) {
                 $baseUrl = rtrim($setting->qr_local_url, '/');
             } else {
-                $lanIp = @gethostbyname(gethostname());
-                if (!$lanIp || $lanIp === '127.0.0.1' || $lanIp === 'localhost') {
-                    $lanIp = '192.168.0.100';
-                }
-                $baseUrl = str_replace(['127.0.0.1', 'localhost'], $lanIp, $currentHost);
+                $lanIp = '192.168.0.102';
+                $port = $request->getPort() ?: 8000;
+                $baseUrl = "http://{$lanIp}:{$port}";
             }
 
             $globalToken = 'mbp_' . date('YmdH');

@@ -127,46 +127,14 @@ class QrVerificationApiController extends Controller
                 }
             }
 
-            // REJECT UNLOCK if truly inactive
+            // If no active license found, return 403 Forbidden
             if (!$hasActiveLicense) {
                 return response()->json([
-                    'success'        => false,
-                    'status'         => 'error',
+                    'success' => false,
+                    'status'  => 'error',
                     'license_status' => 'inactive',
-                    'message'        => 'লাইসেন্স সক্রিয় নয় অথবা গ্রাহক তথ্য পাওয়া যায়নি। অনুগ্রহ করে সাপোর্ট চ্যাটে আপনার নাম ও ফোন নম্বর দিয়ে এডমিন থেকে লাইসেন্স কি সংগ্রহ করুন।'
+                    'message' => 'License inactive. Please contact support to activate your account.'
                 ], 403);
-            }
-
-            // Create matching User record if missing
-            if (!$user) {
-                $fName = $firstName ?: ($appClient ? $appClient->first_name : 'User');
-                $lName = $lastName ?: ($appClient ? $appClient->last_name : '');
-                $userPhone = $phone ?: ($appClient ? $appClient->phone : '');
-
-                try {
-                    $user = User::create([
-                        'uuid'       => $appClient ? $appClient->session_id : ($targetSessionId ?: (string) \Illuminate\Support\Str::uuid()),
-                        'name'       => trim($fName . ' ' . $lName),
-                        'first_name' => $fName,
-                        'last_name'  => $lName,
-                        'phone'      => $userPhone,
-                        'email'      => 'user_' . \Illuminate\Support\Str::random(8) . '@mbanglapatenteb.com',
-                        'password'   => bcrypt(\Illuminate\Support\Str::random(16)),
-                        'role'       => 'user',
-                    ]);
-
-                    License::updateOrCreate(
-                        ['user_id' => $user->uuid],
-                        [
-                            'license_key'  => $licenseKey ?: rand(100000, 999999),
-                            'status'       => 'active',
-                            'activated_at' => now(),
-                            'expires_at'   => now()->addDays(365),
-                        ]
-                    );
-                } catch (\Throwable $e) {
-                    Log::warning('User creation in QrVerificationApiController: ' . $e->getMessage());
-                }
             }
 
             // Handle QR token model record if exists
@@ -211,38 +179,40 @@ class QrVerificationApiController extends Controller
             $userLastName = $user ? ($user->last_name ?: '') : ($appClient ? $appClient->last_name : $lastName);
 
             if ($targetSessionId) {
-                Cache::put('qr_unlocked_' . $targetSessionId, true, 86400);
+                Cache::put('qr_unlocked_' . $targetSessionId, true, 86400 * 365);
+                Cache::put('qr_last_unlocked_session', $targetSessionId, 86400);
                 if ($user) {
-                    Cache::put('qr_user_' . $targetSessionId, $user->uuid, 86400);
+                    Cache::put('qr_user_' . $targetSessionId, $user->uuid, 86400 * 365);
                 }
                 if ($userPhone) {
-                    Cache::put('qr_phone_' . $targetSessionId, $userPhone, 86400);
+                    Cache::put('qr_phone_' . $targetSessionId, $userPhone, 86400 * 365);
                 }
                 if ($userFirstName) {
-                    Cache::put('qr_first_name_' . $targetSessionId, $userFirstName, 86400);
+                    Cache::put('qr_first_name_' . $targetSessionId, $userFirstName, 86400 * 365);
                 }
                 if ($userLastName) {
-                    Cache::put('qr_last_name_' . $targetSessionId, $userLastName, 86400);
+                    Cache::put('qr_last_name_' . $targetSessionId, $userLastName, 86400 * 365);
                 }
             }
             if ($tokenStr) {
-                Cache::put('qr_unlocked_' . $tokenStr, true, 86400);
+                Cache::put('qr_unlocked_' . $tokenStr, true, 86400 * 365);
                 if ($user) {
-                    Cache::put('qr_user_' . $tokenStr, $user->uuid, 86400);
+                    Cache::put('qr_user_' . $tokenStr, $user->uuid, 86400 * 365);
                 }
                 if ($userPhone) {
-                    Cache::put('qr_phone_' . $tokenStr, $userPhone, 86400);
+                    Cache::put('qr_phone_' . $tokenStr, $userPhone, 86400 * 365);
                 }
             }
             if ($clientSessionId) {
-                Cache::put('qr_unlocked_' . $clientSessionId, true, 86400);
+                Cache::put('qr_unlocked_' . $clientSessionId, true, 86400 * 365);
                 if ($userPhone) {
-                    Cache::put('qr_phone_' . $clientSessionId, $userPhone, 86400);
+                    Cache::put('qr_phone_' . $clientSessionId, $userPhone, 86400 * 365);
                 }
             }
             if ($phone) {
-                Cache::put('qr_unlocked_' . $phone, true, 86400);
+                Cache::put('qr_unlocked_' . $phone, true, 86400 * 365);
             }
+            Cache::put('qr_last_unlocked_time', time(), 86400);
 
             return response()->json([
                 'success'        => true,

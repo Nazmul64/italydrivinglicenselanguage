@@ -3,16 +3,48 @@
 // ==============================
 // BANNER SLIDERS MANAGEMENT CRUD
 // ==============================
+function previewSliderImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewImg = document.getElementById('slider-preview-img');
+            const previewContainer = document.getElementById('slider-image-preview');
+            if (previewImg && previewContainer) {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+window.previewSliderImage = previewSliderImage;
+
+let slidersCurrentPage = 1;
+
 function fetchSliders() {
     const tbody = document.getElementById('sliders-table-body');
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px;">Loading sliders...</td></tr>`;
 
-    fetch('/admin/api/sliders')
+    const search = document.getElementById('sliders-search')?.value || '';
+    const perPage = document.getElementById('sliders-per-page')?.value || 10;
+
+    fetch(`/admin/api/sliders?search=${encodeURIComponent(search)}&per_page=${perPage}&page=${slidersCurrentPage}`)
         .then(res => res.json())
         .then(data => {
             tbody.innerHTML = '';
             const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+
+            const paginationStatus = document.getElementById('sliders-pagination-status');
+            if (paginationStatus) {
+                const total = data.total !== undefined ? data.total : list.length;
+                paginationStatus.textContent = `Showing ${list.length} of ${total} entries`;
+            }
+
+            const statSliders = document.getElementById('stat-sliders');
+            if (statSliders) {
+                statSliders.textContent = data.total !== undefined ? data.total : list.length;
+            }
 
             if (list.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 30px;">No sliders found.</td></tr>`;
@@ -21,14 +53,16 @@ function fetchSliders() {
 
             list.forEach(slider => {
                 const tr = document.createElement('tr');
+                const imgTag = slider.image_url
+                    ? `<img src="${slider.image_url}" style="width: 80px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); background: #f1f5f9;" onerror="this.style.display='none'">`
+                    : `<span style="font-size: 11px; color: var(--text-secondary);">No image</span>`;
+
                 tr.innerHTML = `
-                    <td>${slider.id}</td>
-                    <td style="text-align: center;">
-                        <img src="${slider.image_url}" style="width: 80px; height: 45px; object-fit: cover; border-radius: 6px;">
-                    </td>
-                    <td style="font-weight: bold; color: var(--text-primary);">${slider.title}</td>
-                    <td>${slider.subtitle || ''}</td>
-                    <td><code>${slider.link_url || ''}</code></td>
+                    <td><strong>#${slider.id}</strong></td>
+                    <td style="text-align: center;">${imgTag}</td>
+                    <td style="font-weight: bold; color: var(--text-primary);">${slider.title || 'Untitled'}</td>
+                    <td style="color: var(--text-secondary); font-size: 12px;">${slider.subtitle || '-'}</td>
+                    <td><code style="font-size: 11px;">${slider.link_url || '-'}</code></td>
                     <td style="text-align: right;">
                         <button class="btn btn-secondary btn-sm" onclick="openEditSliderModal(${JSON.stringify(slider).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteSlider(${slider.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
@@ -43,45 +77,77 @@ function fetchSliders() {
         });
 }
 
+function prevSlidersPage() {
+    if (slidersCurrentPage > 1) {
+        slidersCurrentPage--;
+        fetchSliders();
+    }
+}
+window.prevSlidersPage = prevSlidersPage;
+
+function nextSlidersPage() {
+    slidersCurrentPage++;
+    fetchSliders();
+}
+window.nextSlidersPage = nextSlidersPage;
+
 function openAddSliderModal() {
-    document.getElementById('slider-modal-title').textContent = 'Add Banner Slider';
-    document.getElementById('form-slider-id').value = '';
-    document.getElementById('form-slider-title').value = '';
-    document.getElementById('form-slider-subtitle').value = '';
-    document.getElementById('form-slider-link').value = '';
-    document.getElementById('form-slider-image').value = '';
-    document.getElementById('slider-image-preview').style.display = 'none';
-    document.getElementById('slider-modal').style.display = 'flex';
+    const titleEl = document.getElementById('slider-modal-title');
+    if (titleEl) titleEl.textContent = 'Add Banner Slider';
+    const idEl = document.getElementById('form-slider-id');
+    if (idEl) idEl.value = '';
+    const formTitle = document.getElementById('form-slider-title');
+    if (formTitle) formTitle.value = '';
+    const formSubtitle = document.getElementById('form-slider-subtitle');
+    if (formSubtitle) formSubtitle.value = '';
+    const formLink = document.getElementById('form-slider-link');
+    if (formLink) formLink.value = '';
+    const formImg = document.getElementById('form-slider-image');
+    if (formImg) formImg.value = '';
+    const previewEl = document.getElementById('slider-image-preview');
+    if (previewEl) previewEl.style.display = 'none';
+    const modalEl = document.getElementById('slider-modal');
+    if (modalEl) modalEl.style.display = 'flex';
 }
 
 function openEditSliderModal(slider) {
-    document.getElementById('slider-modal-title').textContent = 'Edit Banner Slider';
-    document.getElementById('form-slider-id').value = slider.id;
-    document.getElementById('form-slider-title').value = slider.title;
-    document.getElementById('form-slider-subtitle').value = slider.subtitle || '';
-    document.getElementById('form-slider-link').value = slider.link_url || '';
-    document.getElementById('form-slider-image').value = '';
+    const titleEl = document.getElementById('slider-modal-title');
+    if (titleEl) titleEl.textContent = 'Edit Banner Slider';
+    const idEl = document.getElementById('form-slider-id');
+    if (idEl) idEl.value = slider.id;
+    const formTitle = document.getElementById('form-slider-title');
+    if (formTitle) formTitle.value = slider.title || '';
+    const formSubtitle = document.getElementById('form-slider-subtitle');
+    if (formSubtitle) formSubtitle.value = slider.subtitle || '';
+    const formLink = document.getElementById('form-slider-link');
+    if (formLink) formLink.value = slider.link_url || '';
+    const formImg = document.getElementById('form-slider-image');
+    if (formImg) formImg.value = '';
 
-    if (slider.image_url) {
-        document.getElementById('slider-preview-img').src = slider.image_url;
-        document.getElementById('slider-image-preview').style.display = 'block';
-    } else {
-        document.getElementById('slider-image-preview').style.display = 'none';
+    const previewEl = document.getElementById('slider-image-preview');
+    const previewImg = document.getElementById('slider-preview-img');
+    if (slider.image_url && previewImg && previewEl) {
+        previewImg.src = slider.image_url;
+        previewEl.style.display = 'block';
+    } else if (previewEl) {
+        previewEl.style.display = 'none';
     }
-    document.getElementById('slider-modal').style.display = 'flex';
+    const modalEl = document.getElementById('slider-modal');
+    if (modalEl) modalEl.style.display = 'flex';
 }
 
 function closeSliderModal() {
-    document.getElementById('slider-modal').style.display = 'none';
+    const modalEl = document.getElementById('slider-modal');
+    if (modalEl) modalEl.style.display = 'none';
 }
 
 function saveSlider(e) {
     e.preventDefault();
-    const id = document.getElementById('form-slider-id').value;
-    const title = document.getElementById('form-slider-title').value;
-    const subtitle = document.getElementById('form-slider-subtitle').value;
-    const linkUrl = document.getElementById('form-slider-link').value;
-    const imageFile = document.getElementById('form-slider-image').files[0];
+    const id = document.getElementById('form-slider-id')?.value || '';
+    const title = document.getElementById('form-slider-title')?.value || '';
+    const subtitle = document.getElementById('form-slider-subtitle')?.value || '';
+    const linkUrl = document.getElementById('form-slider-link')?.value || '';
+    const imageFile = document.getElementById('form-slider-image')?.files?.[0];
 
     const formData = new FormData();
     formData.append('title', title);
