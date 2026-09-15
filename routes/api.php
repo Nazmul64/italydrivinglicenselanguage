@@ -68,28 +68,14 @@ Route::prefix('v1')->group(function () {
             'data' => $cards
         ]);
     });
-    Route::get('/v1/home-cards', function () {
-        $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
-        return response()->json([
-            'status' => 'success',
-            'total' => $cards->count(),
-            'data' => $cards
-        ]);
-    });
-    Route::post('/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'storeHomeCard']);
-    Route::post('/v1/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'storeHomeCard']);
-    Route::match(['post', 'put'], '/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
-    Route::match(['post', 'put'], '/v1/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
-    Route::match(['post', 'put'], '/v1/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
-    Route::match(['post', 'delete'], '/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
-    Route::match(['post', 'delete'], '/v1/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
-    Route::match(['post', 'delete'], '/v1/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
-    Route::post('/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus']);
-    Route::post('/v1/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus']);
     Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
-    Route::post('/v1/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
     Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
-    Route::post('/v1/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+    Route::post('/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'storeHomeCard']);
+    Route::match(['post', 'put'], '/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard'])->whereNumber('id');
+    Route::match(['post', 'put'], '/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard'])->whereNumber('id');
+    Route::match(['post', 'delete'], '/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard'])->whereNumber('id');
+    Route::match(['post', 'delete'], '/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard'])->whereNumber('id');
+    Route::post('/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus'])->whereNumber('id');
 
     // 📖 DICTIONARY & VOCABULARY API (Fast cached multi-source search)
     Route::get('/words', [DizionarioApiController::class, 'getTerms']);
@@ -357,3 +343,13 @@ Route::get('/client/status', [DynamicContentController::class, 'getClientStatus'
 Route::get('/support/messages', [SupportApiController::class, 'index']);
 Route::get('/noted-mcqs', [NotedMcqsApiController::class, 'index']);
 Route::get('/v1/noted-mcqs', [NotedMcqsApiController::class, 'index']);
+Route::get('/home-cards', function () {
+    $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'total' => $cards->count(),
+        'data' => $cards
+    ]);
+});
+Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
