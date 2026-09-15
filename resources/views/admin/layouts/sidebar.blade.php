@@ -104,11 +104,12 @@
             </span>
         </div>
 
-        <div class="menu-item" onclick="switchPanel('home-cards')" id="menu-home-cards">
+        <div class="menu-item" onclick="switchPanel('home-cards')" id="menu-home-cards" style="display: flex; justify-content: space-between; align-items: center;">
             <span class="menu-link-group">
-                <i class="fa-solid fa-shapes"></i>
-                <span>Home Cards (Icons)</span>
+                <i class="fa-solid fa-up-down-left-right" style="color: #6366f1;"></i>
+                <span>Home Cards (Drag & Drop)</span>
             </span>
+            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px;">Live Drag</span>
         </div>
 
         <div class="menu-item" onclick="switchPanel('classes')" id="menu-classes">
@@ -134,6 +135,12 @@
             <i class="fa-solid fa-chevron-down dropdown-arrow" id="arrow-cartelli-dropdown" style="font-size: 11px; transition: transform 0.3s ease;"></i>
         </div>
         <div class="sidebar-dropdown-container" id="cartelli-dropdown" style="display: none; padding-left: 10px; border-left: 2px solid #34d399; margin: 4px 0 8px 16px;">
+            <div class="menu-item" onclick="switchPanel('cartelli-categories')" id="menu-cartelli-categories">
+                <span class="menu-link-group">
+                    <i class="fa-solid fa-list-ul" style="color: #34d399; font-size: 12px;"></i>
+                    <span style="font-size: 13px;">Manage Categories (অধ্যায়)</span>
+                </span>
+            </div>
             <div class="menu-item" onclick="switchPanel('cartelli-mcqs')" id="menu-cartelli-mcqs">
                 <span class="menu-link-group">
                     <i class="fa-solid fa-database" style="color: #fbbf24; font-size: 12px;"></i>
