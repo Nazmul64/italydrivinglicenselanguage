@@ -59,7 +59,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
     Route::get('/cartelli/chapter-mcqs/{chapterId}', [CartelliApiController::class, 'getChapterMcqs']);
 
-    // 🎴 HOME NAVIGATION CARDS API (Ordered by order_index ASC)
+    // 🎴 HOME NAVIGATION CARDS RESTFUL API (Ordered by order_index ASC)
     Route::get('/home-cards', function () {
         $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
         return response()->json([
@@ -76,6 +76,16 @@ Route::prefix('v1')->group(function () {
             'data' => $cards
         ]);
     });
+    Route::post('/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'storeHomeCard']);
+    Route::post('/v1/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'storeHomeCard']);
+    Route::match(['post', 'put'], '/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
+    Route::match(['post', 'put'], '/v1/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
+    Route::match(['post', 'put'], '/v1/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
+    Route::match(['post', 'delete'], '/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
+    Route::match(['post', 'delete'], '/v1/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
+    Route::match(['post', 'delete'], '/v1/home-cards/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
+    Route::post('/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus']);
+    Route::post('/v1/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus']);
     Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
     Route::post('/v1/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
     Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
