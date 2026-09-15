@@ -18,9 +18,20 @@ class SavedMcqsApiController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : $request->query("user_id");
-        $phone = $request->query("phone") ?? $request->header("X-Client-Phone") ?? ($user ? $user->phone : session("app_client_phone"));
-        $sessionId = $request->query("session_id") ?: $request->header("X-Session-ID") ?: session()->getId();
+        $userId = $user ? $user->id : ($request->query("user_id") ?: $request->input("user_id"));
+        $phone = $request->query("phone") 
+            ?? $request->query("user_phone") 
+            ?? $request->input("phone") 
+            ?? $request->input("user_phone") 
+            ?? $request->header("X-Client-Phone") 
+            ?? ($user ? $user->phone : session("app_client_phone"));
+            
+        $sessionId = $request->query("session_id") 
+            ?? $request->query("sessionId") 
+            ?? $request->input("session_id") 
+            ?? $request->input("sessionId") 
+            ?? $request->header("X-Session-ID") 
+            ?? session()->getId();
 
         $sessionIds = array_filter([$sessionId]);
 
@@ -32,6 +43,18 @@ class SavedMcqsApiController extends Controller
                 $userBySession = User::where("uuid", $sessionId)->first();
                 if ($userBySession && $userBySession->phone) {
                     $phone = $userBySession->phone;
+                }
+            }
+        }
+
+        if (!$phone && !$userId) {
+            $activeClient = AppClient::where("is_active", true)->latest()->first();
+            if ($activeClient && $activeClient->phone) {
+                $phone = $activeClient->phone;
+            } else {
+                $latestUser = User::whereNotNull("phone")->latest()->first();
+                if ($latestUser) {
+                    $phone = $latestUser->phone;
                 }
             }
         }
@@ -77,11 +100,6 @@ class SavedMcqsApiController extends Controller
         }
 
         $savedList = $query->orderBy("created_at", "desc")->get();
-
-        // If no saved items for this specific session, fallback to all saved items
-        if ($savedList->isEmpty()) {
-            $savedList = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"])->orderBy("created_at", "desc")->get();
-        }
 
         $result = $savedList->map(function ($item) {
             if ($item->type === "cartelli" || (!$item->question && $item->cartelloQuestion)) {
@@ -139,15 +157,34 @@ class SavedMcqsApiController extends Controller
      */
     public function toggle(Request $request)
     {
-        $request->validate([
-            "question_id" => "required",
-        ]);
+        $questionId = $request->input("question_id") 
+            ?? $request->input("id") 
+            ?? $request->input("questionId") 
+            ?? $request->input("mcq_id");
+
+        if (!$questionId) {
+            return response()->json([
+                "status" => "error",
+                "message" => "Question ID is required"
+            ], 422);
+        }
 
         $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : $request->input("user_id");
-        $phone = $request->input("phone") ?? $request->input("user_phone") ?? $request->header("X-Client-Phone") ?? ($user ? $user->phone : session("app_client_phone"));
-        $sessionId = $request->input("session_id") ?: $request->header("X-Session-ID") ?: session()->getId();
-        $questionId = $request->input("question_id");
+        $userId = $user ? $user->id : ($request->input("user_id") ?: $request->query("user_id"));
+        $phone = $request->input("phone") 
+            ?? $request->input("user_phone") 
+            ?? $request->query("phone") 
+            ?? $request->query("user_phone") 
+            ?? $request->header("X-Client-Phone") 
+            ?? ($user ? $user->phone : session("app_client_phone"));
+            
+        $sessionId = $request->input("session_id") 
+            ?? $request->input("sessionId") 
+            ?? $request->query("session_id") 
+            ?? $request->query("sessionId") 
+            ?? $request->header("X-Session-ID") 
+            ?? session()->getId();
+
         $type = $request->input("type", "argomenti");
 
         if ($phone && $sessionId) {

@@ -1067,22 +1067,69 @@ class ArgomentiController extends Controller
      */
     public function logUserMcqResults(Request $request)
     {
-        $request->validate([
-            'results' => 'required|array',
-            'results.*.question_id' => 'required|integer',
-            'results.*.user_answer' => 'nullable|string',
-            'results.*.is_correct' => 'required|boolean'
-        ]);
+        $rawResults = $request->input('results') 
+            ?? $request->input('data') 
+            ?? $request->input('answers') 
+            ?? $request->all();
+
+        // If a single MCQ object was sent directly
+        if (isset($rawResults['question_id']) || isset($rawResults['id'])) {
+            $rawResults = [$rawResults];
+        }
+
+        if (!is_array($rawResults) || empty($rawResults)) {
+            return response()->json([
+                'status' => 'error',
+                'success' => false,
+                'message' => 'No MCQ results provided'
+            ], 422);
+        }
 
         $user = auth()->user() ?: $request->user();
-        $sessionId = $request->input('session_id') ?: session()->getId();
-        $userId = $user ? $user->id : $request->input('user_id');
-        $phone = $request->input('phone') ?? $request->header('X-Client-Phone') ?? ($user ? $user->phone : session('app_client_phone'));
+        $sessionId = $request->input('session_id') 
+            ?? $request->input('sessionId') 
+            ?? $request->header('X-Session-ID') 
+            ?? session()->getId();
+            
+        $userId = $user ? $user->id : ($request->input('user_id') ?: $request->query('user_id'));
+        $phone = $request->input('phone') 
+            ?? $request->input('user_phone') 
+            ?? $request->query('phone') 
+            ?? $request->query('user_phone') 
+            ?? $request->header('X-Client-Phone') 
+            ?? ($user ? $user->phone : session('app_client_phone'));
+
+        if (!$phone && $sessionId) {
+            $clientBySession = \App\Models\AppClient::where("session_id", $sessionId)->first();
+            if ($clientBySession && $clientBySession->phone) {
+                $phone = $clientBySession->phone;
+            }
+        }
+
+        if (!$phone && !$userId) {
+            $activeClient = \App\Models\AppClient::where("is_active", true)->latest()->first();
+            if ($activeClient && $activeClient->phone) {
+                $phone = $activeClient->phone;
+            }
+        }
 
         $sessionIds = array_filter([$sessionId]);
         if ($phone) {
-            $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
-            $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $clientSessions = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->pluck('session_id')->filter()->toArray();
+
+            $userSessions = \App\Models\User::where(function($q) use ($phone, $cleanPhone) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                }
+            })->pluck('uuid')->filter()->toArray();
+
             $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
             if (!$userId) {
                 $userObj = \App\Models\User::where('phone', $phone)->first();
@@ -1091,8 +1138,20 @@ class ArgomentiController extends Controller
         }
 
         $logged = [];
-        foreach ($request->input('results') as $res) {
-            $qIdNum = (int)$res['question_id'];
+        foreach ($rawResults as $res) {
+            if (!is_array($res)) continue;
+
+            $qIdNum = isset($res['question_id']) ? (int)$res['question_id'] : (isset($res['id']) ? (int)$res['id'] : null);
+            if (!$qIdNum) continue;
+
+            $isCorrectRaw = $res['is_correct'] ?? ($res['isCorrect'] ?? ($res['correct'] ?? 0));
+            $isCorrect = ($isCorrectRaw === true || $isCorrectRaw === 1 || $isCorrectRaw === '1' || $isCorrectRaw === 'true' || strtolower((string)$isCorrectRaw) === 'vero');
+
+            $userAns = $res['user_answer'] ?? ($res['userAnswer'] ?? ($res['answer'] ?? null));
+            if (is_bool($userAns)) {
+                $userAns = $userAns ? 'V' : 'F';
+            }
+
             $question = Question::find($qIdNum);
             $pageId = null;
             $chapterId = null;
@@ -1138,8 +1197,8 @@ class ArgomentiController extends Controller
                 'session_id' => $sessionId,
                 'user_id' => $userId,
                 'question_id' => $qIdNum,
-                'user_answer' => $res['user_answer'] ?? null,
-                'is_correct' => $res['is_correct'],
+                'user_answer' => $userAns,
+                'is_correct' => $isCorrect ? 1 : 0,
                 'category_id' => $categoryId,
                 'chapter_id' => $chapterId,
                 'page_id' => $pageId,
@@ -1153,7 +1212,12 @@ class ArgomentiController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'count' => count($logged)]);
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'count' => count($logged),
+            'logged' => $logged
+        ]);
     }
 
     /**

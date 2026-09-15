@@ -360,6 +360,26 @@ Route::get('/client/status', [DynamicContentController::class, 'getClientStatus'
 Route::get('/support/messages', [SupportApiController::class, 'index']);
 Route::get('/noted-mcqs', [NotedMcqsApiController::class, 'index']);
 Route::get('/v1/noted-mcqs', [NotedMcqsApiController::class, 'index']);
+Route::post('/noted-mcqs/save', [NotedMcqsApiController::class, 'save']);
+Route::post('/noted-mcqs', [NotedMcqsApiController::class, 'save']);
+Route::get('/notes', [NotedMcqsApiController::class, 'index']);
+Route::post('/notes', [NotedMcqsApiController::class, 'save']);
+Route::delete('/noted-mcqs/{id}', [NotedMcqsApiController::class, 'delete']);
+Route::delete('/notes/{id}', [NotedMcqsApiController::class, 'delete']);
+
+Route::get('/saved-mcqs', [SavedMcqsApiController::class, 'index']);
+Route::post('/saved-mcqs/toggle', [SavedMcqsApiController::class, 'toggle']);
+Route::post('/saved-mcqs', [SavedMcqsApiController::class, 'toggle']);
+Route::get('/bookmarks', [SavedMcqsApiController::class, 'index']);
+Route::post('/bookmarks/toggle', [SavedMcqsApiController::class, 'toggle']);
+Route::post('/bookmarks', [SavedMcqsApiController::class, 'toggle']);
+
+Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
+Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
+Route::post('/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+Route::post('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+Route::get('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+
 Route::get('/home-cards', function () {
     $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
     return response()->json([
@@ -370,3 +390,4 @@ Route::get('/home-cards', function () {
 });
 Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
 Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+
