@@ -1082,6 +1082,8 @@ function renderDetailResultsList() {
             badgeHtml = `<span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-check"></i> Correct ✔</span>`;
         } else {
             badgeHtml = `<span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Incorrect ✘</span>`;
+        }
+
         const isArgSaved = (JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]')).includes(q.id);
         const isCartSaved = (JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]')).includes(q.id);
         const isSaved = isArgSaved || isCartSaved;

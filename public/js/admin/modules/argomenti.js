@@ -984,18 +984,6 @@ function nextPageTab() {
     }
 }
 
-function previewArgomentiPageImage(input) {
-    const previewContainer = document.getElementById('form-page-image-preview-container');
-    const previewImg = document.getElementById('form-page-image-preview');
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            if (previewImg) previewImg.src = e.target.result;
-            if (previewContainer) previewContainer.style.display = 'block';
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
 
 function openAddPageModal() {
     const form = document.getElementById('page-form');
