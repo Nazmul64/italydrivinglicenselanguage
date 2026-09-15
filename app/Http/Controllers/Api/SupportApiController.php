@@ -176,31 +176,76 @@ class SupportApiController extends Controller
         ]);
     }
 
+    public function uploadImage(Request $request)
+    {
+        $attachmentPath = \App\Helpers\ChatAttachmentHelper::processUpload($request);
+        if (!$attachmentPath) {
+            return response()->json([
+                'status' => 'error',
+                'success' => false,
+                'message' => 'No image file uploaded or invalid format. Please upload JPG, PNG, WEBP, or GIF image.'
+            ], 422);
+        }
+
+        $fullUrl = url($attachmentPath);
+
+        return response()->json([
+            'status'          => 'success',
+            'success'         => true,
+            'message'         => 'Image uploaded successfully.',
+            'image_url'       => $attachmentPath,
+            'attachment_path' => $attachmentPath,
+            'url'             => $fullUrl
+        ]);
+    }
+
     public function store(Request $request)
     {
         $user = $request->user();
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        $sessionId = $request->input('session_id') ?: ($user ? $user->uuid : session()->getId());
+        $phone = $request->input('phone') ?: ($user ? $user->phone : null);
+        $messageText = trim($request->input('message') ?: $request->input('text') ?: '');
+        
+        $attachmentPath = \App\Helpers\ChatAttachmentHelper::processUpload($request);
+
+        if (empty($messageText) && empty($attachmentPath)) {
+            return response()->json([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'Message text or image attachment is required.'
+            ], 422);
         }
 
-        $request->validate([
-            'message' => 'required|string',
-        ]);
+        if (empty($messageText) && !empty($attachmentPath)) {
+            $messageText = 'ছবি পাঠানো হয়েছে';
+        }
 
-        $conversation = Conversation::firstOrCreate(['user_id' => $user->uuid]);
+        $senderName = 'Guest User';
+        if ($user) {
+            $senderName = trim(($user->first_name ?: $user->name) . ' ' . ($user->last_name ?: ''));
+        } elseif ($request->input('sender_name') || $request->input('first_name')) {
+            $senderName = trim($request->input('sender_name') ?: ($request->input('first_name') . ' ' . $request->input('last_name')));
+        }
+
+        $conversationId = null;
+        if ($user) {
+            $conversation = Conversation::firstOrCreate(['user_id' => $user->uuid]);
+            $conversationId = $conversation->id;
+        }
 
         $msg = Message::create([
-            'conversation_id' => $conversation->id,
-            'session_id'      => $user->uuid,
+            'conversation_id' => $conversationId,
+            'session_id'      => $sessionId,
             'sender'          => 'user',
             'sender_type'     => 'user',
-            'sender_id'       => $user->uuid,
-            'sender_name'     => trim(($user->first_name ?: $user->name) . ' ' . ($user->last_name ?: '')),
-            'message'         => trim($request->input('message')),
-            'attachment_path' => $request->input('attachment_path'),
+            'sender_id'       => $user ? $user->uuid : $sessionId,
+            'sender_name'     => $senderName,
+            'message'         => $messageText,
+            'attachment_path' => $attachmentPath,
         ]);
 
         return response()->json([
+            'status'  => 'success',
             'success' => true,
             'message' => 'Message sent successfully.',
             'data'    => $msg

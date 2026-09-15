@@ -147,25 +147,35 @@ function renderGuestChatMessages(messages) {
             `;
         } else {
             bubble.className = `chat-bubble ${msg.sender === 'user' ? 'user' : 'admin'}`;
-            if (msg.attachment_path) {
+            const attachUrl = msg.attachment_path || msg.image_url || msg.image || msg.attachment;
+            if (attachUrl) {
+                let cleanSrc = attachUrl;
+                if (!cleanSrc.startsWith('http') && !cleanSrc.startsWith('/') && !cleanSrc.startsWith('data:')) {
+                    cleanSrc = '/' + cleanSrc;
+                }
                 const img = document.createElement('img');
-                img.src = msg.attachment_path;
+                img.src = cleanSrc;
+                img.alt = 'ছবি';
                 img.style.maxWidth = '100%';
-                img.style.maxHeight = '200px';
+                img.style.maxHeight = '240px';
                 img.style.borderRadius = '12px';
                 img.style.display = 'block';
                 img.style.cursor = 'pointer';
-                img.onclick = () => window.open(msg.attachment_path, '_blank');
+                img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                img.onclick = () => window.open(cleanSrc, '_blank');
+                img.onerror = function() {
+                    this.style.display = 'none';
+                };
                 bubble.appendChild(img);
 
-                if (msg.message) {
+                if (msg.message && msg.message !== 'ছবি পাঠানো হয়েছে' && msg.message !== 'Photo sent') {
                     const text = document.createElement('div');
                     text.innerText = msg.message;
                     text.style.marginTop = '6px';
                     bubble.appendChild(text);
                 }
             } else {
-                bubble.innerText = msg.message;
+                bubble.innerText = msg.message || '';
             }
         }
 

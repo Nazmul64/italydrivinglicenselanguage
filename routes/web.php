@@ -1294,13 +1294,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'file'       => 'nullable|max:20480',
         ]);
 
-        $attachmentPath = $request->input('attachment_path');
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $fileName = 'admin_chat_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('uploads/attachments'), $fileName);
-            $attachmentPath = '/uploads/attachments/' . $fileName;
-        }
+        $attachmentPath = \App\Helpers\ChatAttachmentHelper::processUpload($request);
 
         if (empty($request->message) && !$attachmentPath) {
             return response()->json(['error' => 'Message or image required'], 422);
@@ -2690,17 +2684,15 @@ Route::post('/api/chat/messages', function (Request $request) {
     $sessionId = $request->input('session_id') ?: session()->getId();
     $phone     = $request->input('phone');
     $text      = trim($request->input('message', ''));
-    $attachment = $request->input('attachment_path');
-
-    if ($request->hasFile('file')) {
-        $file = $request->file('file');
-        $fileName = 'chat_client_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
-        $file->move(public_path('uploads/attachments'), $fileName);
-        $attachment = '/uploads/attachments/' . $fileName;
-    }
+    
+    $attachment = \App\Helpers\ChatAttachmentHelper::processUpload($request);
 
     if (empty($text) && empty($attachment)) {
         return response()->json(['success' => false, 'message' => 'বার্তা বা ছবি প্রদান করুন'], 422);
+    }
+
+    if (empty($text) && !empty($attachment)) {
+        $text = 'ছবি পাঠানো হয়েছে';
     }
 
     $client = null;

@@ -248,18 +248,35 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    Route::post('/chat/upload-image', [SupportApiController::class, 'uploadImage']);
+    Route::post('/support/upload-image', [SupportApiController::class, 'uploadImage']);
+    Route::post('/support/messages', [SupportApiController::class, 'store']);
+
     Route::post('/chat/messages', function (Request $request) {
         $sessionId = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID') ?: session()->getId();
         $phone = $request->input('phone') ?: $request->input('phoneNumber') ?: $request->input('phone_number') ?: $request->header('X-Client-Phone');
         $firstName = trim($request->input('first_name') ?: $request->input('firstName') ?: '');
         $lastName = trim($request->input('last_name') ?: $request->input('lastName') ?: '');
         $messageText = trim($request->input('message') ?: $request->input('text') ?: '');
-        $attachmentPath = $request->input('attachment_path') ?: $request->input('attachment');
+        
+        $attachmentPath = \App\Helpers\ChatAttachmentHelper::processUpload($request);
+
+        if (empty($messageText) && empty($attachmentPath)) {
+            return response()->json([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'বার্তা বা ছবি প্রদান করুন'
+            ], 422);
+        }
+
+        if (empty($messageText) && !empty($attachmentPath)) {
+            $messageText = 'ছবি পাঠানো হয়েছে';
+        }
 
         $user = $phone ? \App\Models\User::where('phone', $phone)->first() : null;
         $client = $phone ? \App\Models\AppClient::where('phone', $phone)->first() : null;
 
-        $senderName = trim(($firstName . ' ' . $lastName)) ?: ($user ? $user->name : ($client ? $client->first_name : 'Customer'));
+        $senderName = trim(($firstName . ' ' . $lastName)) ?: ($user ? ($user->name ?: $user->first_name) : ($client ? $client->first_name : 'Customer'));
         $senderId = $user ? $user->uuid : ($client ? $client->session_id : $sessionId);
 
         $convo = null;
@@ -279,9 +296,9 @@ Route::prefix('v1')->group(function () {
         ]);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'success' => true,
-            'data' => $msg
+            'data'    => $msg
         ]);
     });
 
