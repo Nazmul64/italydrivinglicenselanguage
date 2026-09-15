@@ -424,6 +424,21 @@ function toggleSavedMcq(questionId, btnElement, type) {
                 icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
             });
 
+            if (btnElement) {
+                const icon = btnElement.querySelector('i');
+                if (icon) {
+                    icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                    icon.style.color = isNowSaved ? '#ffffff' : '#10b981';
+                }
+                const span = btnElement.querySelector('span');
+                if (span) {
+                    span.style.color = isNowSaved ? '#ffffff' : '#10b981';
+                }
+                btnElement.style.background = isNowSaved ? '#0284c7' : '#ecfdf5';
+                btnElement.style.borderColor = isNowSaved ? '#0284c7' : '#10b981';
+                btnElement.style.color = isNowSaved ? '#ffffff' : '#10b981';
+            }
+
             // Update modal bookmark icon if open for this exact question and type
             if (typeof currentDictTerm !== 'undefined' && currentDictTerm && currentDictTerm.questionId == questionId && (currentDictTerm.questionType || 'argomenti') === qType) {
                 const saveBtn = document.getElementById('dict-modal-save-btn');

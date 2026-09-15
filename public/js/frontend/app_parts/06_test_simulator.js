@@ -1082,7 +1082,17 @@ function renderDetailResultsList() {
             badgeHtml = `<span style="background-color: rgba(76, 175, 80, 0.1); color: #4CAF50; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(76, 175, 80, 0.2);"><i class="fa-solid fa-circle-check"></i> Correct ✔</span>`;
         } else {
             badgeHtml = `<span style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.2);"><i class="fa-solid fa-circle-xmark"></i> Incorrect ✘</span>`;
-        }
+        const isArgSaved = (JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]')).includes(q.id);
+        const isCartSaved = (JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]')).includes(q.id);
+        const isSaved = isArgSaved || isCartSaved;
+
+        const argNotes = JSON.parse(localStorage.getItem('argomenti_notes') || '{}');
+        const cartNotes = JSON.parse(localStorage.getItem('cartelli_notes') || '{}');
+        const isNoted = Boolean(argNotes[q.id] || cartNotes[q.id]);
+
+        card.id = `argomenti-q-card-${q.id}`;
+        card.dataset.qid = q.id;
+        card.dataset.qtype = 'argomenti';
 
         const qThumbImage = q.image || (typeof activePageDetails !== 'undefined' && activePageDetails && (activePageDetails.image || activePageDetails.img)) || (typeof cartelliActivePageMainImage !== 'undefined' ? cartelliActivePageMainImage : null);
 
@@ -1104,14 +1114,14 @@ function renderDetailResultsList() {
                         <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #fff;">italiano</span>
                     </button>
 
-                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this)" style="background: #ecfdf5; border: 1px solid #10b981; color: #10b981;" title="Bookmark">
-                        <i class="fa-regular fa-bookmark" style="font-size: 12px;"></i>
-                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #10b981;">সেভ</span>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this, 'argomenti')" style="${isSaved ? 'background: #0284c7; border: 1px solid #0284c7; color: #ffffff;' : 'background: #ecfdf5; border: 1px solid #10b981; color: #10b981;'}" title="Bookmark">
+                        <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark" style="font-size: 12px; ${isSaved ? 'color: #ffffff;' : ''}"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: ${isSaved ? '#ffffff' : '#10b981'};">সেভ</span>
                     </button>
 
-                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '')" style="background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;" title="Add Note">
-                        <i class="fa-regular fa-note-sticky" style="font-size: 12px;"></i>
-                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #3b82f6;">নোট</span>
+                    <button class="test-ctrl-btn" onclick="openNotesModal(null, ${q.id}, null, '', 'argomenti')" style="${isNoted ? 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff;' : 'background: #eff6ff; border: 1px solid #3b82f6; color: #3b82f6;'}" title="Add Note">
+                        <i class="${isNoted ? 'fa-solid' : 'fa-regular'} fa-note-sticky" style="font-size: 12px; ${isNoted ? 'color: #ffffff;' : ''}"></i>
+                        <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: ${isNoted ? '#ffffff' : '#3b82f6'};">নোট</span>
                     </button>
 
                     <button class="test-ctrl-btn" onclick="toggleGuestChat(true)" style="background: #fff8f0; border: 1.5px solid #d97706;" title="Live Chat Support">
