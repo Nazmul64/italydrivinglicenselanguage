@@ -2104,6 +2104,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::post('/admin/api/home-cards/update/{id}', [\App\Http\Controllers\DynamicContentController::class, 'updateHomeCard']);
     Route::post('/admin/api/home-cards/toggle-status/{id}', [\App\Http\Controllers\DynamicContentController::class, 'toggleHomeCardStatus']);
     Route::post('/admin/api/home-cards/delete/{id}', [\App\Http\Controllers\DynamicContentController::class, 'deleteHomeCard']);
+    Route::post('/admin/api/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
 
     // Admin File Manager CRUD
     Route::get('/admin/api/media', [\App\Http\Controllers\FileManagerController::class, 'index']);

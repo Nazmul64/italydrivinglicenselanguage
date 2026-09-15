@@ -677,42 +677,58 @@
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
                 <div>
                     <h2 class="welcome-title">Home Navigation Cards</h2>
-                    <p class="welcome-subtitle">Manage homepage service card icons, titles, screen mappings and colors.</p>
+                    <p class="welcome-subtitle">Manage homepage service card icons, titles, screen mappings, colors, and live drag & drop reordering.</p>
                 </div>
-                <button class="btn btn-primary" onclick="openAddHomeCardModal()">
-                    <i class="fa-solid fa-plus"></i> Add Home Card
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="badge" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); padding: 8px 14px; font-size: 12px; border-radius: 8px; font-weight: 700;">
+                        <i class="fa-solid fa-up-down-left-right" style="margin-right: 4px;"></i> Drag & Drop Active
+                    </span>
+                    <button class="btn btn-primary" onclick="openAddHomeCardModal()">
+                        <i class="fa-solid fa-plus"></i> Add Home Card
+                    </button>
+                </div>
             </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="text" class="form-control" id="home-cards-search" placeholder="Search cards..." oninput="fetchHomeCards()" style="width: 200px; height: 38px;">
-                <select class="form-control" id="home-cards-per-page" onchange="fetchHomeCards()" style="width: 80px; height: 38px;">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
+                <input type="text" class="form-control" id="home-cards-search" placeholder="Search cards..." oninput="fetchHomeCards()" style="width: 220px; height: 38px;">
+                <select class="form-control" id="home-cards-per-page" onchange="fetchHomeCards()" style="width: 110px; height: 38px;">
+                    <option value="50" selected>Show 50</option>
+                    <option value="10">Show 10</option>
+                    <option value="25">Show 25</option>
+                    <option value="100">Show 100</option>
+                    <option value="all">Show All</option>
                 </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="home-cards-reorder-indicator" style="display: none; font-size: 13px; color: var(--accent-orange); font-weight: 700; background: rgba(245, 158, 11, 0.1); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(245, 158, 11, 0.2);">
+                    <i class="fa-solid fa-spinner fa-spin"></i> সেভ হচ্ছে...
+                </span>
+                <span style="font-size: 12px; color: var(--text-secondary);">
+                    <i class="fa-solid fa-circle-info"></i> কার্ডের অবস্থান পরিবর্তন করতে <i class="fa-solid fa-grip-vertical"></i> হ্যান্ডেল ধরে টেনে উপরে বা নিচে নামান।
+                </span>
             </div>
         </div>
 
         <div class="data-table-container">
-            <table class="data-table">
+            <table class="data-table" id="home-cards-table">
                 <thead>
                     <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th style="width: 80px; text-align: center;">Order</th>
-                        <th style="width: 100px; text-align: center;">Icon</th>
+                        <th style="width: 48px; text-align: center;"><i class="fa-solid fa-grip-vertical" title="Drag to reorder"></i></th>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 75px; text-align: center;">Order</th>
+                        <th style="width: 80px; text-align: center;">Icon</th>
                         <th>Title</th>
-                        <th>Description</th>
-                        <th>Target/Link</th>
-                        <th style="width: 90px; text-align: center;">Color</th>
-                        <th style="width: 100px; text-align: center;">Status</th>
+                        <th>Subtitle / Desc</th>
+                        <th>Target / Screen Key</th>
+                        <th style="width: 80px; text-align: center;">Color</th>
+                        <th style="width: 90px; text-align: center;">Status</th>
                         <th style="width: 180px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="home-cards-table-body">
-                    <!-- Home Cards injected dynamically -->
+                    <!-- Home Cards injected dynamically with Drag & Drop -->
                 </tbody>
             </table>
         </div>

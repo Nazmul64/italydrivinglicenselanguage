@@ -199,19 +199,20 @@ function deleteSlider(id) {
 }
 
 // ==============================
-// HOME NAVIGATION CARDS CRUD
+// HOME NAVIGATION CARDS CRUD & DRAG & DROP
 let homeCardsCurrentPage = 1;
+let draggedHomeCardRow = null;
 
 function fetchHomeCards(page = 1) {
     homeCardsCurrentPage = page;
     const tbody = document.getElementById('home-cards-table-body');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading cards...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 30px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading cards...</td></tr>`;
 
     const searchInput = document.getElementById('home-cards-search');
     const perPageSelect = document.getElementById('home-cards-per-page');
-    const search = searchInput ? searchInput.value : '';
-    const perPage = perPageSelect ? perPageSelect.value : 10;
+    const search = searchInput ? searchInput.value.trim() : '';
+    const perPage = perPageSelect ? perPageSelect.value : '50';
 
     let url = `/admin/api/home-cards?page=${homeCardsCurrentPage}&per_page=${perPage}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -223,40 +224,63 @@ function fetchHomeCards(page = 1) {
             const items = Array.isArray(data) ? data : (data.data || []);
 
             if (items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 30px;">No cards found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">No cards found.</td></tr>`;
                 return;
             }
 
-            items.forEach(card => {
+            items.forEach((card, idx) => {
                 const tr = document.createElement('tr');
+                tr.className = 'draggable-row';
+                tr.setAttribute('draggable', 'true');
+                tr.setAttribute('data-id', card.id);
+                tr.setAttribute('data-order', card.order_index);
+
                 const colorVal = card.color || card.icon_color || '#3B82F6';
                 const statusBadge = card.status ? '<span class="status-badge active">Active</span>' : '<span class="status-badge inactive">Inactive</span>';
 
                 tr.innerHTML = `
-                    <td>${card.id}</td>
-                    <td style="text-align: center; font-weight: 800; color: var(--accent-orange);">${card.order_index}</td>
+                    <td style="text-align: center; width: 48px;">
+                        <span class="drag-handle-btn" title="Drag to reorder">
+                            <i class="fa-solid fa-grip-vertical"></i>
+                        </span>
+                    </td>
+                    <td style="font-weight: 600; color: var(--text-secondary);">${card.id}</td>
+                    <td style="text-align: center;">
+                        <span class="order-index-badge">${card.order_index}</span>
+                    </td>
                     <td style="text-align: center;">
                         <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background-color: ${colorVal}1a; color: ${colorVal}; font-size: 16px;">
                             <i class="${card.icon_class || 'fa-solid fa-shapes'}"></i>
                         </div>
                     </td>
                     <td style="font-weight: bold; color: var(--text-primary);">${card.title}</td>
-                    <td>${card.subtitle || ''}</td>
+                    <td style="color: var(--text-secondary); font-size: 12.5px;">${card.subtitle || card.description || ''}</td>
                     <td><span class="badge" style="background-color: var(--bg-content); color: var(--text-secondary); border: 1px solid var(--border-color); font-weight: bold;">${card.screen_key}</span></td>
-                    <td style="text-align: center;"><div style="width: 24px; height: 24px; border-radius: 6px; background-color: ${colorVal}; margin: 0 auto;"></div></td>
-                    <td style="text-align: center;">${statusBadge}</td>
-                    <td style="text-align: right;">
-                        <button class="btn btn-secondary btn-sm" onclick="openEditHomeCardModal(${JSON.stringify(card).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteHomeCard(${card.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i> Delete</button>
+                    <td style="text-align: center;"><div style="width: 22px; height: 22px; border-radius: 6px; background-color: ${colorVal}; margin: 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div></td>
+                    <td style="text-align: center;">
+                        <button onclick="toggleHomeCardStatus(${card.id})" style="background: none; border: none; cursor: pointer;" title="Click to toggle status">
+                            ${statusBadge}
+                        </button>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 4px; align-items: center;">
+                            <button class="btn-reorder-move" onclick="moveHomeCardRow(this, -1)" title="Move Up"><i class="fa-solid fa-arrow-up"></i></button>
+                            <button class="btn-reorder-move" onclick="moveHomeCardRow(this, 1)" title="Move Down"><i class="fa-solid fa-arrow-down"></i></button>
+                            <button class="btn btn-secondary btn-sm" onclick="openEditHomeCardModal(${JSON.stringify(card).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteHomeCard(${card.id})" style="padding: 4px 8px; font-size: 11px;"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
 
+            // Initialize Drag & Drop listeners on rows
+            initHomeCardsDragAndDrop(tbody);
+
             if (!Array.isArray(data)) {
                 const total = data.total || items.length;
-                const from = (data.current_page - 1) * perPage + 1;
-                const to = Math.min(data.current_page * perPage, total);
+                const from = (data.current_page - 1) * (parseInt(perPage) || 50) + 1;
+                const to = Math.min(data.current_page * (parseInt(perPage) || 50), total);
                 const status = document.getElementById('home-cards-pagination-status');
                 if (status) status.textContent = `Showing ${total > 0 ? from : 0} to ${to} of ${total} entries`;
 
@@ -264,12 +288,166 @@ function fetchHomeCards(page = 1) {
                 const nextBtn = document.getElementById('btn-home-cards-next');
                 if (prevBtn) prevBtn.disabled = data.current_page === 1;
                 if (nextBtn) nextBtn.disabled = data.current_page >= data.last_page;
+            } else {
+                const status = document.getElementById('home-cards-pagination-status');
+                if (status) status.textContent = `Showing all ${items.length} entries (Drag & Drop enabled)`;
             }
         })
         .catch(err => {
             console.error("Error loading cards: ", err);
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--accent-red); padding: 30px;">Error loading cards.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--accent-red); padding: 30px;">Error loading cards.</td></tr>`;
         });
+}
+
+/**
+ * Initialize HTML5 Drag & Drop on Home Cards Table Rows
+ */
+function initHomeCardsDragAndDrop(tbody) {
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr.draggable-row');
+
+    rows.forEach(row => {
+        row.addEventListener('dragstart', function(e) {
+            draggedHomeCardRow = this;
+            this.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-id'));
+        });
+
+        row.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!draggedHomeCardRow || draggedHomeCardRow === this) return;
+
+            const rect = this.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+
+            rows.forEach(r => {
+                r.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+
+            if (e.clientY < midpoint) {
+                this.classList.add('drag-over-top');
+            } else {
+                this.classList.add('drag-over-bottom');
+            }
+        });
+
+        row.addEventListener('dragleave', function(e) {
+            this.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+
+        row.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over-top', 'drag-over-bottom');
+
+            if (!draggedHomeCardRow || draggedHomeCardRow === this) return;
+
+            const rect = this.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+
+            if (e.clientY < midpoint) {
+                tbody.insertBefore(draggedHomeCardRow, this);
+            } else {
+                tbody.insertBefore(draggedHomeCardRow, this.nextSibling);
+            }
+
+            persistHomeCardsOrder();
+        });
+
+        row.addEventListener('dragend', function(e) {
+            this.classList.remove('is-dragging');
+            rows.forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom', 'is-dragging'));
+            draggedHomeCardRow = null;
+        });
+    });
+}
+
+/**
+ * Live Move Up / Down helper for clicking arrows
+ */
+function moveHomeCardRow(btn, direction) {
+    const row = btn.closest('tr.draggable-row');
+    if (!row) return;
+    const tbody = row.parentElement;
+
+    if (direction === -1 && row.previousElementSibling) {
+        tbody.insertBefore(row, row.previousElementSibling);
+        persistHomeCardsOrder();
+    } else if (direction === 1 && row.nextElementSibling) {
+        tbody.insertBefore(row.nextElementSibling, row);
+        persistHomeCardsOrder();
+    }
+}
+
+/**
+ * Persist the new sequence of cards to the server via AJAX
+ */
+function persistHomeCardsOrder() {
+    const tbody = document.getElementById('home-cards-table-body');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+    if (rows.length === 0) return;
+
+    const cardIds = [];
+    rows.forEach((row, idx) => {
+        const id = parseInt(row.getAttribute('data-id'));
+        if (id) {
+            cardIds.push(id);
+            // Update visual badge immediately
+            const badge = row.querySelector('.order-index-badge');
+            if (badge) badge.textContent = idx + 1;
+            row.setAttribute('data-order', idx + 1);
+        }
+    });
+
+    const indicator = document.getElementById('home-cards-reorder-indicator');
+    if (indicator) indicator.style.display = 'inline-flex';
+
+    fetch('/admin/api/home-cards/reorder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({ orders: cardIds })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (indicator) indicator.style.display = 'none';
+        if (res.status === 'success' || res.success) {
+            showToast('হোম কার্ডের অবস্থান সফলভাবে পরিবর্তন করা হয়েছে');
+        } else {
+            showToast('কার্ড ক্রম পরিবর্তন করতে সমস্যা হয়েছে');
+        }
+    })
+    .catch(err => {
+        console.error("Failed to reorder home cards: ", err);
+        if (indicator) indicator.style.display = 'none';
+        showToast('কার্ড ক্রম সংরক্ষণ ব্যর্থ হয়েছে');
+    });
+}
+
+function toggleHomeCardStatus(id) {
+    fetch(`/admin/api/home-cards/toggle-status/${id}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        showToast('কার্ড স্ট্যাটাস আপডেট করা হয়েছে');
+        fetchHomeCards(homeCardsCurrentPage);
+    })
+    .catch(err => {
+        console.error("Error toggling card status: ", err);
+        showToast('স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে');
+    });
 }
 
 function prevHomeCardsPage() {

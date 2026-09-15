@@ -20,7 +20,7 @@ class DynamicContentController extends Controller
     {
         $user = auth()->user();
         if (!$user) return; // Allow if authentication is disabled or in debug mode
-        if ($user->role === 'super_admin') return;
+        if ($user->role === 'super_admin' || $user->role === 'admin') return;
 
         if ($user->role === 'staff') {
             $permissions = json_decode($user->permissions, true) ?: [];
@@ -435,7 +435,7 @@ class DynamicContentController extends Controller
     public function getHomeCards(Request $request)
     {
         $search = $request->query('search');
-        $perPage = $request->query('per_page', 10);
+        $perPage = $request->query('per_page', 50);
 
         $query = HomeCard::query();
 
@@ -447,13 +447,20 @@ class DynamicContentController extends Controller
             });
         }
 
-        $cards = $query->orderBy('order_index', 'asc')->paginate($perPage);
+        if ($perPage === 'all' || (int)$perPage === -1) {
+            $cards = $query->orderBy('order_index', 'asc')->get();
+            return response()->json($cards);
+        }
+
+        $cards = $query->orderBy('order_index', 'asc')->paginate((int)$perPage);
         return response()->json($cards);
     }
 
     public function storeHomeCard(Request $request)
     {
-        $this->checkPermission('home_cards');
+        if (auth()->check()) {
+            $this->checkPermission('home_cards');
+        }
 
         $request->validate([
             'title'       => 'required|string|max:255',
@@ -485,12 +492,16 @@ class DynamicContentController extends Controller
         }
 
         $card = HomeCard::create($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('home_cards_list');
         return response()->json($card);
     }
 
     public function updateHomeCard(Request $request, $id)
     {
-        $this->checkPermission('home_cards');
+        if (auth()->check()) {
+            $this->checkPermission('home_cards');
+        }
         $card = HomeCard::findOrFail($id);
 
         $request->validate([
@@ -525,26 +536,111 @@ class DynamicContentController extends Controller
         }
 
         $card->update($data);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('home_cards_list');
         return response()->json($card);
     }
 
     public function toggleHomeCardStatus($id)
     {
-        $this->checkPermission('home_cards');
+        if (auth()->check()) {
+            $this->checkPermission('home_cards');
+        }
         $card = HomeCard::findOrFail($id);
         $card->update(['status' => !$card->status]);
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('home_cards_list');
         return response()->json($card);
     }
 
     public function deleteHomeCard($id)
     {
-        $this->checkPermission('home_cards');
+        if (auth()->check()) {
+            $this->checkPermission('home_cards');
+        }
         $card = HomeCard::findOrFail($id);
         if ($card->icon_url && file_exists(public_path($card->icon_url))) {
             @unlink(public_path($card->icon_url));
         }
         $card->delete();
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('home_cards_list');
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Reorder Home Navigation Cards via Drag & Drop
+     * Supports:
+     * - { "orders": [3, 1, 5, 2] }
+     * - { "card_ids": [3, 1, 5, 2] }
+     * - { "items": [ {"id": 3, "order_index": 1}, {"id": 1, "order_index": 2} ] }
+     * - Array of IDs: [3, 1, 5, 2]
+     */
+    public function reorderHomeCards(Request $request)
+    {
+        if (auth()->check()) {
+            $this->checkPermission('home_cards');
+        }
+
+        $orders = $request->input('orders') ?? $request->input('card_ids');
+        $items = $request->input('items');
+
+        if (!$orders && !$items && is_array($request->all())) {
+            $all = $request->all();
+            if (isset($all[0])) {
+                if (is_numeric($all[0]) || is_string($all[0])) {
+                    $orders = $all;
+                } elseif (is_array($all[0]) && isset($all[0]['id'])) {
+                    $items = $all;
+                }
+            }
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            if ($items && is_array($items)) {
+                foreach ($items as $index => $item) {
+                    $id = $item['id'] ?? null;
+                    $orderIndex = isset($item['order_index']) ? (int)$item['order_index'] : ($index + 1);
+                    if ($id) {
+                        HomeCard::where('id', $id)->update(['order_index' => $orderIndex]);
+                    }
+                }
+            } elseif ($orders && is_array($orders)) {
+                foreach ($orders as $index => $id) {
+                    if ($id) {
+                        HomeCard::where('id', $id)->update(['order_index' => $index + 1]);
+                    }
+                }
+            } else {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid order data provided. Please provide an array of card IDs (orders) or items with order_index.'
+                ], 422);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            // Clear cache so frontend website and API update immediately
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('home_cards_list');
+
+            $updatedCards = HomeCard::orderBy('order_index', 'asc')->get();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Home cards reordered successfully',
+                'total' => $updatedCards->count(),
+                'data' => $updatedCards
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to reorder home cards: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // ==============================

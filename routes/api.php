@@ -59,13 +59,27 @@ Route::prefix('v1')->group(function () {
     Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
     Route::get('/cartelli/chapter-mcqs/{chapterId}', [CartelliApiController::class, 'getChapterMcqs']);
 
+    // 🎴 HOME NAVIGATION CARDS API (Ordered by order_index ASC)
     Route::get('/home-cards', function () {
         $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
         return response()->json([
             'status' => 'success',
+            'total' => $cards->count(),
             'data' => $cards
         ]);
     });
+    Route::get('/v1/home-cards', function () {
+        $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
+        return response()->json([
+            'status' => 'success',
+            'total' => $cards->count(),
+            'data' => $cards
+        ]);
+    });
+    Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+    Route::post('/v1/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+    Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
+    Route::post('/v1/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
 
     // 📖 DICTIONARY & VOCABULARY API (Fast cached multi-source search)
     Route::get('/words', [DizionarioApiController::class, 'getTerms']);

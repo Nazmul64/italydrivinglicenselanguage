@@ -1244,3 +1244,71 @@ select {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* ======================================================== */
+/* LIVE DRAG AND DROP REORDERING STYLES                     */
+/* ======================================================== */
+.draggable-row {
+    transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.draggable-row:hover {
+    background-color: rgba(59, 130, 246, 0.04) !important;
+}
+.draggable-row.is-dragging {
+    opacity: 0.45;
+    background-color: rgba(59, 130, 246, 0.12) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.draggable-row.drag-over-top {
+    border-top: 3px solid #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.06) !important;
+}
+.draggable-row.drag-over-bottom {
+    border-bottom: 3px solid #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.06) !important;
+}
+.drag-handle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: grab;
+    color: var(--text-secondary);
+    background: transparent;
+    transition: all 0.2s ease;
+}
+.drag-handle-btn:hover {
+    color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.15);
+}
+.drag-handle-btn:active {
+    cursor: grabbing;
+}
+.order-index-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent-orange);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    min-width: 28px;
+    text-align: center;
+}
+.btn-reorder-move {
+    background: none;
+    border: none;
+    padding: 2px 5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 11px;
+    transition: all 0.15s;
+}
+.btn-reorder-move:hover {
+    color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.1);
+}
