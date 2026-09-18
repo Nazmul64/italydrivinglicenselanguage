@@ -391,3 +391,29 @@ Route::get('/home-cards', function () {
 Route::post('/home-cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
 Route::post('/dashboard/cards/reorder', [\App\Http\Controllers\DynamicContentController::class, 'reorderHomeCards']);
 
+// Root-level Aliases for Mobile & Web clients
+Route::get('/chapters', [ArgomentiApiController::class, 'getChapters']);
+Route::get('/chapters/{id}/pages', [ArgomentiApiController::class, 'getChapterPages']);
+Route::get('/pages/all', [ArgomentiApiController::class, 'getAllPages']);
+Route::get('/pages/{id}', [ArgomentiApiController::class, 'getPageDetails']);
+
+Route::get('/questions/chapter/{chapter}', function ($chapter) {
+    $questions = \App\Models\Question::where(function($q) use ($chapter) {
+        $q->where('chapter', $chapter)
+          ->orWhereIn('page_id', \App\Models\Page::where('chapter_id', $chapter)->pluck('id'));
+    })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'data' => $questions
+    ]);
+});
+
+Route::get('/questions/page/{page}', function ($page) {
+    $questions = \App\Models\Question::where('page_id', $page)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+    return response()->json([
+        'status' => 'success',
+        'data' => $questions
+    ]);
+});
+
+

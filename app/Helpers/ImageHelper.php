@@ -157,4 +157,111 @@ class ImageHelper
             return '/' . rtrim($destinationPath, '/') . '/' . $fallbackFileName;
         }
     }
+
+    /**
+     * Format an image path into a fully qualified HTTPS URL.
+     * Handles local paths, relative paths, external URLs, and filters out bad device paths.
+     *
+     * @param mixed $path
+     * @return string
+     */
+    public static function formatImageUrl($path)
+    {
+        if (empty($path) || !is_string($path)) {
+            return '';
+        }
+        $path = trim($path);
+        if (empty($path)) {
+            return '';
+        }
+
+        // Filter out bad mobile local device / emulator paths
+        if (
+            str_starts_with($path, '/data/user/') ||
+            str_starts_with($path, '/data/data/') ||
+            str_starts_with($path, 'file://') ||
+            str_starts_with($path, '/storage/emulated/') ||
+            str_contains($path, 'scaled_IMG') ||
+            str_contains($path, 'com.example.')
+        ) {
+            return '';
+        }
+
+        // Check if already an absolute URL
+        if (preg_match('/^https?:\/\//i', $path)) {
+            // If it contains localhost or 127.0.0.1 or http://mbanglapatenteb.com, normalize to active app URL
+            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1') || str_starts_with($path, 'http://mbanglapatenteb.com')) {
+                $parsed = parse_url($path);
+                $rel = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
+                if (!empty($rel)) {
+                    return url($rel);
+                }
+            }
+            return $path;
+        }
+
+        // If it's a relative path e.g. "uploads/chapters/..." or "/uploads/..."
+        $clean = ltrim($path, '/');
+        return url($clean);
+    }
+
+    /**
+     * Format audio or video media path into fully qualified URL.
+     *
+     * @param mixed $path
+     * @return string
+     */
+    public static function formatMediaUrl($path)
+    {
+        if (empty($path) || !is_string($path)) {
+            return '';
+        }
+        $path = trim($path);
+        if (empty($path)) {
+            return '';
+        }
+
+        if (
+            str_starts_with($path, '/data/user/') ||
+            str_starts_with($path, '/data/data/') ||
+            str_starts_with($path, 'file://') ||
+            str_starts_with($path, '/storage/emulated/')
+        ) {
+            return '';
+        }
+
+        // YouTube or external URLs
+        if (preg_match('/^https?:\/\//i', $path)) {
+            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1')) {
+                $parsed = parse_url($path);
+                $rel = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
+                if (!empty($rel)) {
+                    return url($rel);
+                }
+            }
+            return $path;
+        }
+
+        $clean = ltrim($path, '/');
+        return url($clean);
+    }
+
+    /**
+     * Format vocabulary array items so image paths are full URLs.
+     *
+     * @param mixed $vocab
+     * @return array
+     */
+    public static function formatVocabulary($vocab)
+    {
+        $arr = is_array($vocab) ? $vocab : (is_string($vocab) ? (json_decode($vocab, true) ?: []) : []);
+        if (!empty($arr) && is_array($arr)) {
+            foreach ($arr as &$item) {
+                if (is_array($item) && !empty($item['image'])) {
+                    $item['image'] = self::formatImageUrl($item['image']);
+                }
+            }
+        }
+        return $arr;
+    }
 }

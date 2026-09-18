@@ -21,6 +21,30 @@ class Chapter extends Model
         'status',
     ];
 
+    protected $casts = [
+        'status' => 'boolean',
+        'video_status' => 'boolean',
+    ];
+
+    public function getImageAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
+    public function getCoverImageAttribute($value)
+    {
+        $formatted = \App\Helpers\ImageHelper::formatImageUrl($value);
+        if (empty($formatted) && !empty($this->attributes['image'])) {
+            return \App\Helpers\ImageHelper::formatImageUrl($this->attributes['image']);
+        }
+        return $formatted;
+    }
+
+    public function getVideoUrlAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
@@ -28,7 +52,7 @@ class Chapter extends Model
 
     public function pages()
     {
-        return $this->hasMany(Page::class, 'chapter_id')->orderBy('id', 'asc');
+        return $this->hasMany(Page::class, 'chapter_id')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
     }
 
     public function questions()

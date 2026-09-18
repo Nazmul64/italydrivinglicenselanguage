@@ -41,16 +41,23 @@ class ArgomentiController extends Controller
     /**
      * Get all active chapters list.
      */
+    /**
+     * Get all active chapters list.
+     */
     public function getChapters(Request $request)
     {
         $categoryId = $request->query('category_id');
-        $query = Chapter::withCount('pages')->where('status', true);
+        $query = Chapter::where('status', true);
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
-        $chapters = $query->orderBy('id', 'asc')->get();
+        $chapters = $query->withCount(['pages', 'questions'])
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
         foreach ($chapters as $ch) {
-            $ch->question_count = Question::where('chapter', $ch->id)->count();
+            $ch->question_count = $ch->questions_count ?? 0;
         }
         return response()->json($chapters);
     }
@@ -60,11 +67,21 @@ class ArgomentiController extends Controller
      */
     public function getChapterPages($chapterId)
     {
-        $pages = Page::withCount('questions')
-            ->where('chapter_id', $chapterId)
+        $pages = Page::where('status', true)
+            ->where(function ($query) use ($chapterId) {
+                $query->where('chapter_id', $chapterId)
+                    ->orWhereHas('chapter', function ($q) use ($chapterId) {
+                        $q->where('chapter_number', $chapterId);
+                    });
+            })
+            ->withCount('questions')
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
+
+        foreach ($pages as $p) {
+            $p->question_count = $p->questions_count ?? 0;
+        }
         return response()->json($pages);
     }
 
@@ -75,7 +92,15 @@ class ArgomentiController extends Controller
     {
         $page = Page::with(['chapter', 'questions' => function ($q) {
             $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
-        }])->findOrFail($pageId);
+        }])->find($pageId);
+
+        if (!$page) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Page not found',
+                'data' => null
+            ], 404);
+        }
         
         return response()->json($page);
     }
@@ -85,7 +110,11 @@ class ArgomentiController extends Controller
      */
     public function getAllPages()
     {
-        $pages = Page::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        $pages = Page::where('status', true)
+            ->withCount('questions')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
         return response()->json($pages);
     }
 

@@ -18,6 +18,15 @@ class CartelloChapter extends Model
         'status',
     ];
 
+    protected $casts = [
+        'status' => 'boolean',
+    ];
+
+    public function getImageAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
     public function category()
     {
         return $this->belongsTo(CartelloCategory::class, 'category_id');
@@ -25,6 +34,6 @@ class CartelloChapter extends Model
 
     public function pages()
     {
-        return $this->hasMany(CartelloPage::class, 'chapter_id')->orderBy('sort_order', 'asc');
+        return $this->hasMany(CartelloPage::class, 'chapter_id')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
     }
 }

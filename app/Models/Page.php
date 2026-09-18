@@ -26,8 +26,35 @@ class Page extends Model
     ];
 
     protected $casts = [
-        'vocabulary' => 'array',
+        'vocabulary'   => 'array',
+        'status'       => 'boolean',
+        'video_status' => 'boolean',
     ];
+
+    public function getImageAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
+    public function getAudioAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVideoAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getPdfPathAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVocabularyAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatVocabulary($value);
+    }
 
     public function chapter()
     {
@@ -36,6 +63,6 @@ class Page extends Model
 
     public function questions()
     {
-        return $this->hasMany(Question::class, 'page_id');
+        return $this->hasMany(Question::class, 'page_id')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
     }
 }

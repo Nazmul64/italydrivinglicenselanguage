@@ -154,11 +154,15 @@ if (!function_exists('getFrontendViewData')) {
             $popupPromo = \App\Models\PopupPromo::where('is_active', true)->first();
             $setting = \App\Models\Setting::first();
             $dictionaryTerms = \App\Models\Dizionario::orderBy('word', 'asc')->get();
-            $argomentiChapters = \App\Models\Chapter::with(['pages.questions'])->orderBy('id', 'asc')->get();
-            $cartelliChapters = \App\Models\CartelloChapter::where('status', true)->with(['pages.mcqs'])->orderBy('sort_order', 'asc')->get();
-            $manualeChapters = \App\Models\Manuale::orderBy('order_index', 'asc')->get();
+            $argomentiChapters = \App\Models\Chapter::where('status', true)->with(['pages' => function($q) {
+                $q->where('status', true)->withCount('questions')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }])->withCount(['pages', 'questions'])->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+            $cartelliChapters = \App\Models\CartelloChapter::where('status', true)->with(['pages' => function($q) {
+                $q->where('status', true)->withCount('mcqs')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }])->orderBy('sort_order', 'asc')->get();
+            $manualeChapters = \App\Models\Manuale::where('status', true)->orderBy('order_index', 'asc')->get();
             if ($manualeChapters->isEmpty()) {
-                $manualeChapters = \App\Models\Manuale::all();
+                $manualeChapters = \App\Models\Manuale::orderBy('order_index', 'asc')->get();
             }
 
             return compact(
@@ -181,7 +185,7 @@ Route::get('/', function () {
     return view('frontend.home', getFrontendViewData());
 });
 
-Route::get('/{screen}', function ($screen) {
+Route::get('/{screen}/{sub?}', function ($screen) {
     return view('frontend.home', getFrontendViewData());
 })->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|dictionary|words|word|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
@@ -471,7 +475,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     });
 
     Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
-        $questions = \App\Models\Question::where('chapter', $chapter)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+        $questions = \App\Models\Question::where(function($q) use ($chapter) {
+            $q->where('chapter', $chapter)
+              ->orWhereIn('page_id', \App\Models\Page::where('chapter_id', $chapter)->pluck('id'));
+        })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
         return response()->json($questions);
     });
 

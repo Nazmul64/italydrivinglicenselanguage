@@ -29,6 +29,30 @@ class CartelloMcq extends Model
         'status'     => 'boolean',
     ];
 
+    public function getImageAttribute($value)
+    {
+        $formatted = \App\Helpers\ImageHelper::formatImageUrl($value);
+        if (empty($formatted) && $this->relationLoaded('page') && $this->page && !empty($this->page->image)) {
+            return $this->page->image;
+        }
+        return $formatted;
+    }
+
+    public function getVoiceAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVideoAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVocabularyAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatVocabulary($value);
+    }
+
     public function page()
     {
         return $this->belongsTo(CartelloPage::class, 'page_id');

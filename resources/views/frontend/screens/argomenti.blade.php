@@ -18,7 +18,10 @@
         @if(isset($argomentiChapters) && $argomentiChapters->count() > 0)
             @foreach($argomentiChapters as $ch)
                 @php
-                    $coverImage = $ch->cover_image ?? $ch->image ?? 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60';
+                    $coverImage = \App\Helpers\ImageHelper::formatImageUrl($ch->cover_image ?: $ch->image);
+                    if (empty($coverImage)) {
+                        $coverImage = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60';
+                    }
                     $chapNum = $ch->chapter_number ?? $ch->sort_order ?? $ch->id;
                 @endphp
                 <div class="chapter-image-card" data-chapter-id="{{ $ch->id }}" onclick="handleArgomentiChapterCardClick({{ $ch->id }})">
@@ -53,8 +56,8 @@
                 id: {{ $ch->id }},
                 name: @json($ch->name ?? ''),
                 chapter_number: {{ $ch->chapter_number ?? $ch->id }},
-                cover_image: @json($ch->cover_image ?? $ch->image ?? ''),
-                pages_count: {{ $ch->pages_count ?? 0 }}
+                cover_image: @json(\App\Helpers\ImageHelper::formatImageUrl($ch->cover_image ?: $ch->image)),
+                pages_count: {{ $ch->pages_count ?? ($ch->pages ? $ch->pages->count() : 0) }}
             },
             @endforeach
         @endif

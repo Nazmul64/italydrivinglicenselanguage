@@ -28,10 +28,31 @@
 window.sanitizeAppImageUrl = function (url) {
     if (!url || typeof url !== 'string') return '';
     url = url.trim();
-    if (url.startsWith('/data/user/') || url.startsWith('/data/data/') || url.startsWith('file://') || url.startsWith('/storage/emulated/') || url.includes('scaled_IMG') || url.includes('com.example.')) {
+    if (
+        url.startsWith('/data/user/') ||
+        url.startsWith('/data/data/') ||
+        url.startsWith('file://') ||
+        url.startsWith('/storage/emulated/') ||
+        url.includes('scaled_IMG') ||
+        url.includes('com.example.')
+    ) {
         return '';
     }
-    return url;
+    // If it's already an absolute HTTP/HTTPS URL
+    if (/^https?:\/\//i.test(url)) {
+        if (url.includes('localhost') || url.includes('127.0.0.1')) {
+            try {
+                const u = new URL(url);
+                return window.location.origin + u.pathname + u.search;
+            } catch (e) {}
+        }
+        return url;
+    }
+    // If it's a relative path, ensure it always prepends current window origin
+    if (url.startsWith('/')) {
+        return window.location.origin + url;
+    }
+    return window.location.origin + '/' + url;
 };
 
 // Auto-clean bad local device image paths from ALL browser localStorage and sessionStorage keys

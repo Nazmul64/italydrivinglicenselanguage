@@ -17,4 +17,19 @@ class Dizionario extends Model
         'audio',
         'video',
     ];
+
+    public function getImageAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
+    public function getAudioAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVideoAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
 }

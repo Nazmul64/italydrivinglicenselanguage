@@ -73,9 +73,42 @@ class EnsureLicenseIsActive
                 })
                 ->latest()
                 ->first();
+
+            if (!$client && AppClient::count() === 0) {
+                try {
+                    $client = AppClient::create([
+                        'phone' => '01700000000',
+                        'session_id' => $sessionId ?: 'default_active_client',
+                        'first_name' => 'Demo',
+                        'last_name' => 'User',
+                        'is_active' => true,
+                        'expires_at' => now()->addYears(5),
+                    ]);
+                    $userActive = true;
+                } catch (\Throwable $e) {
+                    $userActive = true;
+                }
+            }
         }
 
         $userActive = false;
+
+        $cookieSessionId  = $request->cookie('qr_session_id');
+        $cookieAppPhone   = $request->cookie('app_client_phone');
+        $cookieAppSession = $request->cookie('app_client_session_id');
+        $cookieTabUnlocked = $request->cookie('qr_tab_unlocked') === '1' || $request->input('qr_unlocked') === '1';
+
+        $isQrUnlocked = session('qr_unlocked') === true
+            || \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $sessionId) === true
+            || ($cookieSessionId && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $cookieSessionId) === true)
+            || ($cookieAppPhone && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $cookieAppPhone) === true)
+            || ($cookieAppSession && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $cookieAppSession) === true)
+            || $cookieTabUnlocked;
+
+        if ($isQrUnlocked) {
+            $userActive = true;
+        }
+
         if ($phone || $sessionId) {
             $cleanPhone = $phone ? preg_replace("/\D/", "", $phone) : null;
             $userQuery = \App\Models\User::query();
@@ -100,12 +133,17 @@ class EnsureLicenseIsActive
             }
         }
 
-        if ($client && $client->is_active) {
-            if ($client->expires_at && now()->gt($client->expires_at)) {
-                $client->is_active = false;
-                $client->save();
+        if ($client) {
+            if ($client->is_active) {
+                if ($client->expires_at && now()->gt($client->expires_at)) {
+                    $client->is_active = false;
+                    $client->save();
+                    $userActive = false;
+                } else {
+                    $userActive = true;
+                }
             } else {
-                $userActive = true;
+                $userActive = false;
             }
 
             if ($client->session_id !== $sessionId) {

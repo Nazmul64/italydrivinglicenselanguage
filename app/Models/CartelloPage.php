@@ -29,6 +29,21 @@ class CartelloPage extends Model
         'status'  => 'boolean',
     ];
 
+    public function getImageAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
+    public function getVoiceAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVideoAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
     public function chapter()
     {
         return $this->belongsTo(CartelloChapter::class, 'chapter_id');

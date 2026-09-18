@@ -24,5 +24,26 @@ class Manuale extends Model
 
     protected $casts = [
         'vocabulary' => 'array',
+        'status'     => 'boolean',
     ];
+
+    public function getImagePathAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $this->image_path;
+    }
+
+    public function getAudioPathAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatMediaUrl($value);
+    }
+
+    public function getVocabularyAttribute($value)
+    {
+        return \App\Helpers\ImageHelper::formatVocabulary($value);
+    }
 }
