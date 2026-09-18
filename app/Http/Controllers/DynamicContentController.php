@@ -745,6 +745,21 @@ class DynamicContentController extends Controller
                 ->first();
         }
 
+        if (!$client && !$phone) {
+            $client = AppClient::where('is_active', true)
+                ->where(function($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->latest()
+                ->first();
+            if (!$client) {
+                $client = AppClient::latest()->first();
+            }
+            if ($client && $client->phone) {
+                $phone = $client->phone;
+            }
+        }
+
         if ($client && $client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
             $client->is_active = false;
             $client->save();

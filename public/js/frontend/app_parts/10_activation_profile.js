@@ -28,9 +28,17 @@ function checkClientActivation() {
             }
 
             if (data.phone) {
+                const prevPhone = savedPhone;
                 currentClientPhone = data.phone;
                 localStorage.setItem('app_client_phone', data.phone);
                 document.cookie = "app_client_phone=" + encodeURIComponent(data.phone) + "; path=/; SameSite=Lax";
+                if (!prevPhone && prevPhone !== data.phone) {
+                    const activeScreenId = (typeof screenHistory !== 'undefined' && screenHistory.length > 0) ? screenHistory[screenHistory.length - 1] : null;
+                    if (activeScreenId === 'noted-mcqs' && typeof loadNotedMcqsScreen === 'function') loadNotedMcqsScreen();
+                    else if (activeScreenId === 'saved-mcqs' && typeof loadSavedMcqsScreen === 'function') loadSavedMcqsScreen();
+                    else if (activeScreenId === 'wrong-mcqs' && typeof loadWrongMcqsList === 'function') loadWrongMcqsList();
+                    else if (activeScreenId === 'correct-mcqs' && typeof loadCorrectMcqsList === 'function') loadCorrectMcqsList();
+                }
             }
             if (data.session_id) {
                 currentClientSessionId = data.session_id;

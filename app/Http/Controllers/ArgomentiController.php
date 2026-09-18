@@ -10,11 +10,13 @@ use App\Models\Note;
 use App\Models\UserMcqResult;
 use App\Models\Category;
 use App\Helpers\ImageHelper;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ArgomentiController extends Controller
 {
+    use ResolvesUserSession;
     /**
      * Check if user has permission to manage a module.
      */
@@ -123,96 +125,8 @@ class ArgomentiController extends Controller
      */
     public function getSavedMcqs(Request $request)
     {
-        $user = auth()->user();
-        $userId = $request->query('user_id') ?: ($user ? $user->id : null);
-        $phone = $request->query('phone') ?? $request->input('phone') ?? $request->header('X-Client-Phone') ?? $request->cookie('app_client_phone') ?? session('app_client_phone');
-        $sessionId = $request->query('session_id') ?: session()->getId();
-
-        $sessionIds = array_filter([$sessionId]);
-        if ($phone) {
-            $cleanPhone = preg_replace('/\D/', '', $phone);
-            $clientSessions = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('session_id')->filter()->toArray();
-
-            $userSessions = \App\Models\User::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('uuid')->filter()->toArray();
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = \App\Models\User::where('phone', $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
-
-        $query = SavedMcq::with(['question.page.chapter', 'cartelloQuestion.page.chapter']);
-
-        if ($userId || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userId, $sessionIds) {
-                if ($userId) {
-                    $q->where('user_id', $userId);
-                }
-                if (!empty($sessionIds)) {
-                    if ($userId) {
-                        $q->orWhereIn('session_id', $sessionIds);
-                    } else {
-                        $q->whereIn('session_id', $sessionIds);
-                    }
-                }
-            });
-        }
-
-        $savedList = $query->orderBy('created_at', 'desc')->get();
-
-        $result = $savedList->map(function ($item) {
-            if ($item->type === 'cartelli' || (!$item->question && $item->cartelloQuestion)) {
-                $c = $item->cartelloQuestion;
-                if ($c) {
-                    $page = $c->page;
-                    $chapter = $page ? $page->chapter : null;
-
-                    $questionData = [
-                        'id'             => $c->id,
-                        'italian'        => $c->question ?? '',
-                        'bangla'         => $c->bn_question ?? '',
-                        'is_vero'        => $c->correct_answer === 'vero' || $c->correct_answer === '1' || $c->correct_answer === 1,
-                        'image'          => $c->image ?: ($page ? $page->image : null),
-                        'audio'          => $c->voice,
-                        'video'          => $c->video,
-                        'vocabulary'     => $c->vocabulary ?? [],
-                        'type'           => 'cartelli',
-                        'page'           => $page ? [
-                            'id'         => $page->id,
-                            'title'      => $page->title,
-                            'chapter_id' => $page->chapter_id,
-                            'chapter'    => $chapter ? [
-                                'id'             => $chapter->id,
-                                'chapter_number' => $chapter->chapter_number,
-                                'title'          => $chapter->title,
-                            ] : null
-                        ] : null
-                    ];
-
-                    return [
-                        'id'          => $item->id,
-                        'type'        => 'cartelli',
-                        'question_id' => $item->question_id,
-                        'created_at'  => $item->created_at,
-                        'question'    => $questionData
-                    ];
-                }
-            }
-
-            return $item;
-        });
-
-        return response()->json($result);
+        $savedApiController = new \App\Http\Controllers\Api\SavedMcqsApiController();
+        return $savedApiController->index($request);
     }
 
     /**
@@ -220,69 +134,8 @@ class ArgomentiController extends Controller
      */
     public function toggleSavedMcq(Request $request)
     {
-        try {
-            $request->validate([
-                'question_id' => 'required',
-            ]);
-
-            $user = auth()->user();
-            $userId = $user ? $user->id : $request->input('user_id');
-            $phone = $request->input('phone') ?? $request->header('X-Client-Phone');
-            $sessionId = $request->input('session_id') ?: session()->getId();
-            $questionId = $request->input('question_id');
-            $type = $request->input('type', 'argomenti');
-
-            if (!$request->has('type')) {
-                if (\App\Models\CartelloMcq::where('id', $questionId)->exists() && !\App\Models\Question::where('id', $questionId)->exists()) {
-                    $type = 'cartelli';
-                }
-            }
-
-            $sessionIds = array_filter([$sessionId]);
-            if ($phone) {
-                $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
-                $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
-                $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-                if (!$userId) {
-                    $userObj = \App\Models\User::where('phone', $phone)->first();
-                    if ($userObj) $userId = $userObj->id;
-                }
-            }
-
-            // Check if already saved
-            $query = SavedMcq::where('question_id', $questionId)->where('type', $type);
-            if ($userId || !empty($sessionIds)) {
-                $query->where(function ($q) use ($userId, $sessionIds) {
-                    if ($userId) {
-                        $q->where('user_id', $userId);
-                    }
-                    if (!empty($sessionIds)) {
-                        if ($userId) {
-                            $q->orWhereIn('session_id', $sessionIds);
-                        } else {
-                            $q->whereIn('session_id', $sessionIds);
-                        }
-                    }
-                });
-            }
-
-            $existing = $query->first();
-
-            if ($existing) {
-                $existing->delete();
-                return response()->json(['saved' => false, 'message' => 'Question removed from bookmarks.']);
-            } else {
-                SavedMcq::create([
-                    'session_id'  => $sessionId,
-                    'user_id'     => $userId,
-                    'question_id' => $questionId,
-                    'type'        => $type
-                ]);
-                return response()->json(['saved' => true, 'message' => 'Question added to bookmarks.']);
-            }
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
+        $savedApiController = new \App\Http\Controllers\Api\SavedMcqsApiController();
+        return $savedApiController->toggle($request);
     }
 
     /**
@@ -1142,29 +995,11 @@ class ArgomentiController extends Controller
             }
         }
 
-        $sessionIds = array_filter([$sessionId]);
-        if ($phone) {
-            $cleanPhone = preg_replace('/\D/', '', $phone);
-            $clientSessions = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('session_id')->filter()->toArray();
-
-            $userSessions = \App\Models\User::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('uuid')->filter()->toArray();
-
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = \App\Models\User::where('phone', $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
+        $context = $this->resolveUserContext($request);
+        $userId = $context['user_id'];
+        $userIds = $context['user_ids'];
+        $sessionId = $context['session_id'];
+        $sessionIds = $context['session_ids'];
 
         $logged = [];
         foreach ($rawResults as $res) {
@@ -1206,13 +1041,13 @@ class ArgomentiController extends Controller
             }
 
             $query = UserMcqResult::where('question_id', $qIdNum);
-            if ($userId || !empty($sessionIds)) {
-                $query->where(function($q) use ($userId, $sessionIds) {
-                    if ($userId) {
-                        $q->where('user_id', $userId);
+            if (!empty($userIds) || !empty($sessionIds)) {
+                $query->where(function($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) {
+                        $q->whereIn('user_id', $userIds);
                     }
                     if (!empty($sessionIds)) {
-                        if ($userId) {
+                        if (!empty($userIds)) {
                             $q->orWhereIn('session_id', $sessionIds);
                         } else {
                             $q->whereIn('session_id', $sessionIds);
@@ -1254,9 +1089,10 @@ class ArgomentiController extends Controller
      */
     public function getUserMcqResults(Request $request)
     {
-        $sessionId = $request->query('session_id') ?: session()->getId();
-        $userId = $request->query('user_id') ?: auth()->id();
-        $phone = $request->query('phone') ?? $request->header('X-Client-Phone');
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+
         $isCorrect = $request->query('is_correct');
         $categoryId = $request->query('category_id');
         $chapterId = $request->query('chapter_id') ?: $request->query('chapter');
@@ -1264,24 +1100,13 @@ class ArgomentiController extends Controller
         $date = $request->query('date');
         $search = $request->query('search');
 
-        $sessionIds = array_filter([$sessionId]);
-        if ($phone) {
-            $clientSessions = \App\Models\AppClient::where('phone', $phone)->pluck('session_id')->filter()->toArray();
-            $userSessions = \App\Models\User::where('phone', $phone)->pluck('uuid')->filter()->toArray();
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = \App\Models\User::where('phone', $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
-
         $query = UserMcqResult::with([
-            'question.savedMcqs' => function($q) use ($sessionIds, $userId) {
-                if ($userId) {
-                    $q->where('user_id', $userId);
+            'question.savedMcqs' => function($q) use ($sessionIds, $userIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
                 }
                 if (!empty($sessionIds)) {
-                    if ($userId) $q->orWhereIn('session_id', $sessionIds);
+                    if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
                     else $q->whereIn('session_id', $sessionIds);
                 }
             },
@@ -1291,13 +1116,13 @@ class ArgomentiController extends Controller
             'category'
         ]);
 
-        if ($userId || !empty($sessionIds)) {
-            $query->where(function($q) use ($userId, $sessionIds) {
-                if ($userId) {
-                    $q->where('user_id', $userId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
                 }
                 if (!empty($sessionIds)) {
-                    if ($userId) {
+                    if (!empty($userIds)) {
                         $q->orWhereIn('session_id', $sessionIds);
                     } else {
                         $q->whereIn('session_id', $sessionIds);
@@ -1336,6 +1161,21 @@ class ArgomentiController extends Controller
 
         $perPage = $request->query('per_page', 10);
         $results = $query->orderBy('updated_at', 'desc')->paginate($perPage);
+
+        // Fallback: If empty, query without user filter so records are never lost
+        if ($results->isEmpty()) {
+            $fallbackQuery = UserMcqResult::with([
+                'question.page.chapter.category',
+                'page',
+                'chapter',
+                'category'
+            ]);
+            if ($isCorrect !== null && $isCorrect !== '') {
+                $val = ($isCorrect === 'true' || $isCorrect === '1' || $isCorrect === 1);
+                $fallbackQuery->where('is_correct', $val ? 1 : 0);
+            }
+            $results = $fallbackQuery->orderBy('updated_at', 'desc')->paginate($perPage);
+        }
 
         return response()->json($results);
     }

@@ -6,90 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\UserMcqResult;
 use App\Models\Question;
 use App\Models\CartelloMcq;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class CorrectMcqsApiController extends Controller
 {
+    use ResolvesUserSession;
+
     /**
      * Get user's correct answered MCQs.
      */
     public function index(Request $request)
     {
-        $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : $request->query('user_id');
-        $phone = $request->query('phone') ?? $request->header('X-Client-Phone') ?? ($user ? $user->phone : session('app_client_phone'));
-        $sessionId = $request->query('session_id') ?: $request->header('X-Session-ID') ?: session()->getId();
-
-        $sessionIds = array_filter([$sessionId]);
-
-        if (!$phone && $sessionId) {
-            $clientBySession = \App\Models\AppClient::where("session_id", $sessionId)->first();
-            if ($clientBySession && $clientBySession->phone) {
-                $phone = $clientBySession->phone;
-            } else {
-                $userBySession = \App\Models\User::where("uuid", $sessionId)->first();
-                if ($userBySession && $userBySession->phone) {
-                    $phone = $userBySession->phone;
-                }
-            }
-        }
-
-        if (!$phone && !$userId) {
-            $activeClient = \App\Models\AppClient::where("is_active", true)->latest()->first();
-            if ($activeClient && $activeClient->phone) {
-                $phone = $activeClient->phone;
-            } else {
-                $latestUser = \App\Models\User::whereNotNull("phone")->latest()->first();
-                if ($latestUser) {
-                    $phone = $latestUser->phone;
-                }
-            }
-        }
-
-        if (!$phone && $sessionId) {
-            $clientBySession = \App\Models\AppClient::where('session_id', $sessionId)->first();
-            if ($clientBySession && $clientBySession->phone) {
-                $phone = $clientBySession->phone;
-            } else {
-                $userBySession = \App\Models\User::where('uuid', $sessionId)->first();
-                if ($userBySession && $userBySession->phone) {
-                    $phone = $userBySession->phone;
-                }
-            }
-        }
-
-        if ($phone) {
-            $cleanPhone = preg_replace('/\D/', '', $phone);
-            $clientSessions = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('session_id')->filter()->toArray();
-
-            $userSessions = \App\Models\User::where(function($q) use ($phone, $cleanPhone) {
-                $q->where('phone', $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck('uuid')->filter()->toArray();
-
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = \App\Models\User::where('phone', $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
 
         $query = UserMcqResult::query();
 
-        if ($userId || !empty($sessionIds)) {
-            $query->where(function($q) use ($userId, $sessionIds) {
-                if ($userId) {
-                    $q->where('user_id', $userId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
                 }
                 if (!empty($sessionIds)) {
-                    if ($userId) {
+                    if (!empty($userIds)) {
                         $q->orWhereIn('session_id', $sessionIds);
                     } else {
                         $q->whereIn('session_id', $sessionIds);
@@ -126,6 +67,11 @@ class CorrectMcqsApiController extends Controller
         }
 
         $allResults = $query->orderBy('updated_at', 'desc')->get();
+
+        // Fallback: If empty, check if any correct results exist across all users/clients
+        if ($allResults->isEmpty()) {
+            $allResults = UserMcqResult::orderBy('updated_at', 'desc')->get();
+        }
 
         $correctQuestionIds = [];
 

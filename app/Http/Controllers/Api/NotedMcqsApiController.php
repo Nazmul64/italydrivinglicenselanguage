@@ -6,83 +6,33 @@ use App\Http\Controllers\Controller;
 use App\Models\Note;
 use App\Models\Question;
 use App\Models\CartelloMcq;
-use App\Models\AppClient;
-use App\Models\User;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class NotedMcqsApiController extends Controller
 {
+    use ResolvesUserSession;
+
     /**
      * Get user's noted MCQs (both Argomenti and Cartelli).
      */
     public function index(Request $request)
     {
-        $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : ($request->query("user_id") ?: $request->input("user_id"));
-        $phone = $request->query("phone") 
-            ?? $request->query("user_phone") 
-            ?? $request->input("phone") 
-            ?? $request->input("user_phone") 
-            ?? $request->header("X-Client-Phone") 
-            ?? ($user ? $user->phone : session("app_client_phone"));
-            
-        $sessionId = $request->query("session_id") 
-            ?? $request->query("sessionId") 
-            ?? $request->input("session_id") 
-            ?? $request->input("sessionId") 
-            ?? $request->header("X-Session-ID") 
-            ?? session()->getId();
-
-        $sessionIds = array_filter([$sessionId]);
-
-        if (!$phone && $sessionId) {
-            $clientBySession = AppClient::where("session_id", $sessionId)->first();
-            if ($clientBySession && $clientBySession->phone) {
-                $phone = $clientBySession->phone;
-            } else {
-                $userBySession = User::where("uuid", $sessionId)->first();
-                if ($userBySession && $userBySession->phone) {
-                    $phone = $userBySession->phone;
-                }
-            }
-        }
-
-        if ($phone) {
-            $cleanPhone = preg_replace("/\D/", "", $phone);
-            $clientSessions = AppClient::where(function($q) use ($phone, $cleanPhone) {
-                $q->where("phone", $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck("session_id")->filter()->toArray();
-
-            $userSessions = User::where(function($q) use ($phone, $cleanPhone) {
-                $q->where("phone", $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck("uuid")->filter()->toArray();
-
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = User::where("phone", $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
 
         $query = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
             ->whereNotNull('note_text')
             ->where('note_text', '!=', '');
 
-        $hasUserFilter = false;
-        if ($userId || !empty($sessionIds)) {
-            $hasUserFilter = true;
-            $query->where(function ($q) use ($userId, $sessionIds) {
-                if ($userId) {
-                    $q->where("user_id", $userId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn("user_id", $userIds);
                 }
                 if (!empty($sessionIds)) {
-                    if ($userId) {
+                    if (!empty($userIds)) {
                         $q->orWhereIn("session_id", $sessionIds);
                     } else {
                         $q->whereIn("session_id", $sessionIds);
@@ -93,8 +43,8 @@ class NotedMcqsApiController extends Controller
 
         $notesList = $query->orderBy("updated_at", "desc")->get();
 
-        // If user didn't specify any session/user filter at all, or if empty fallback
-        if ($notesList->isEmpty() && !$hasUserFilter) {
+        // Fallback: If empty, load all available active notes
+        if ($notesList->isEmpty()) {
             $notesList = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
                 ->whereNotNull('note_text')
                 ->where('note_text', '!=', '')
@@ -219,18 +169,11 @@ class NotedMcqsApiController extends Controller
      */
     public function save(Request $request)
     {
-        $user = auth()->user() ?: $request->user();
-        $userId = $user ? $user->id : ($request->input("user_id") ?: $request->input("userId"));
-        $phone = $request->input("phone") 
-            ?? $request->input("user_phone") 
-            ?? $request->input("phoneNumber") 
-            ?? $request->header("X-Client-Phone") 
-            ?? ($user ? $user->phone : session("app_client_phone"));
-            
-        $sessionId = $request->input("session_id") 
-            ?? $request->input("sessionId") 
-            ?? $request->header("X-Session-ID") 
-            ?? session()->getId();
+        $context = $this->resolveUserContext($request);
+        $userId = $context['user_id'];
+        $userIds = $context['user_ids'];
+        $sessionId = $context['session_id'];
+        $sessionIds = $context['session_ids'];
 
         $questionId = $request->input("question_id") ?? $request->input("questionId") ?? $request->input("id");
         $pageId = $request->input("page_id") ?? $request->input("pageId");
@@ -255,31 +198,6 @@ class NotedMcqsApiController extends Controller
         }
         $type = $type ?: "argomenti";
 
-        $sessionIds = array_filter([$sessionId]);
-
-        if ($phone) {
-            $cleanPhone = preg_replace("/\D/", "", $phone);
-            $clientSessions = AppClient::where(function($q) use ($phone, $cleanPhone) {
-                $q->where("phone", $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck("session_id")->filter()->toArray();
-
-            $userSessions = User::where(function($q) use ($phone, $cleanPhone) {
-                $q->where("phone", $phone);
-                if (!empty($cleanPhone)) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->pluck("uuid")->filter()->toArray();
-
-            $sessionIds = array_unique(array_merge($sessionIds, $clientSessions, $userSessions));
-            if (!$userId) {
-                $userObj = User::where("phone", $phone)->first();
-                if ($userObj) $userId = $userObj->id;
-            }
-        }
-
         if (!$questionId && !$pageId) {
             return response()->json([
                 'status' => 'error',
@@ -294,13 +212,13 @@ class NotedMcqsApiController extends Controller
             $query->where("page_id", $pageId);
         }
 
-        if ($userId || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userId, $sessionIds) {
-                if ($userId) {
-                    $q->where("user_id", $userId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn("user_id", $userIds);
                 }
                 if (!empty($sessionIds)) {
-                    if ($userId) {
+                    if (!empty($userIds)) {
                         $q->orWhereIn("session_id", $sessionIds);
                     } else {
                         $q->whereIn("session_id", $sessionIds);
