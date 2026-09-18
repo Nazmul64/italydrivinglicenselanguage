@@ -8,11 +8,124 @@ let playingPageSpeechIndex = null;
 let pageSpeechInterval = null;
 let isPlayAllActive = false;
 
+window.pageDetailsCache = window.pageDetailsCache || {};
+window.cachedSavedIds = window.cachedSavedIds || [];
+window.cachedNotesList = window.cachedNotesList || [];
+
+function renderPageDetailsUI(page) {
+    if (!page || !page.id) return;
+    activePageDetails = page;
+
+    const container = document.getElementById('page-questions-list-container');
+    const chapterName = page.chapter?.name || '';
+    const chapterNum = page.chapter?.chapter_number || page.chapter?.id || page.chapter_id;
+    const chapterLabel = chapterName ? `Capitolo ${chapterNum}) ${chapterName}` : `Capitolo ${chapterNum}`;
+    const chapLblEl = document.getElementById('page-details-chapter-label');
+    if (chapLblEl) chapLblEl.innerText = chapterLabel;
+    
+    const pageNum = page.sort_order || page.page_number || page.id;
+    const pageLblEl = document.getElementById('page-details-page-label');
+    if (pageLblEl) pageLblEl.innerText = `Pagina ${pageNum}) ${page.title || ''}`;
+
+    const descEl = document.getElementById('page-details-content-text');
+    if (descEl) descEl.innerText = page.content || '';
+
+    const mediaCont = document.getElementById('page-details-media-container');
+    if (mediaCont) mediaCont.style.display = 'none';
+
+    // Video display logic
+    const videoContainer = document.getElementById('page-details-video-container');
+    const videoWrapper = document.getElementById('page-video-player-wrapper');
+
+    if (videoContainer && videoWrapper) {
+        if (page.video) {
+            videoContainer.style.display = 'block';
+
+            if (page.video.includes('youtube.com') || page.video.includes('youtu.be')) {
+                let videoId = '';
+                if (page.video.includes('youtu.be/')) {
+                    videoId = page.video.split('youtu.be/')[1].split(/[?#]/)[0];
+                } else if (page.video.includes('v=')) {
+                    videoId = page.video.split('v=')[1].split(/[&?#]/)[0];
+                } else if (page.video.includes('embed/')) {
+                    videoId = page.video.split('embed/')[1].split(/[?#]/)[0];
+                }
+
+                videoWrapper.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top:0; left:0; width:100%; height:100%; border:none; border-radius: 16px;" allowfullscreen></iframe>`;
+            } else {
+                videoWrapper.innerHTML = `
+                    <video id="page-details-video" src="${page.video}" style="width: 100%; height: 100%; object-fit: contain;" playsinline></video>
+                    
+                    <div id="video-play-overlay" onclick="togglePageVideoPlay()" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: background 0.3s;">
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="fa-solid fa-play" id="video-overlay-icon" style="font-size: 20px; margin-left: 4px;"></i>
+                        </div>
+                    </div>
+                    
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 10px 16px; display: flex; align-items: center; gap: 12px; color: white; z-index: 10;">
+                        <i class="fa-solid fa-rotate-left" onclick="seekPageVideo(-15)" style="cursor: pointer; font-size: 14px;"></i>
+                        <i class="fa-solid fa-play" id="video-ctrl-play" onclick="togglePageVideoPlay()" style="cursor: pointer; font-size: 14px; width: 14px;"></i>
+                        <i class="fa-solid fa-rotate-right" onclick="seekPageVideo(15)" style="cursor: pointer; font-size: 14px;"></i>
+                        
+                        <span id="video-time-current" style="font-size: 11px; font-weight: bold;">00:00</span>
+                        <input type="range" id="video-seek-slider" min="0" max="100" value="0" style="flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); outline: none; cursor: pointer;" oninput="onVideoSeekSliderInput(this.value)">
+                        <span id="video-time-duration" style="font-size: 11px; font-weight: bold;">00:00</span>
+                        
+                        <i class="fa-solid fa-volume-high" id="video-ctrl-volume" onclick="togglePageVideoMute()" style="cursor: pointer; font-size: 14px;"></i>
+                    </div>
+                `;
+
+                setTimeout(() => {
+                    const video = document.getElementById('page-details-video');
+                    const slider = document.getElementById('video-seek-slider');
+                    const currentTxt = document.getElementById('video-time-current');
+                    const durationTxt = document.getElementById('video-time-duration');
+
+                    if (video) {
+                        video.addEventListener('loadedmetadata', () => {
+                            durationTxt.innerText = formatVideoTime(video.duration);
+                        });
+                        video.addEventListener('timeupdate', () => {
+                            currentTxt.innerText = formatVideoTime(video.currentTime);
+                            if (video.duration) {
+                                slider.value = (video.currentTime / video.duration) * 100;
+                            }
+                            if (video.ended) {
+                                const overlayIcon = document.getElementById('video-overlay-icon');
+                                if (overlayIcon) overlayIcon.className = 'fa-solid fa-play';
+                                const playOverlay = document.getElementById('video-play-overlay');
+                                if (playOverlay) playOverlay.style.display = 'flex';
+                                const ctrlPlay = document.getElementById('video-ctrl-play');
+                                if (ctrlPlay) ctrlPlay.className = 'fa-solid fa-play';
+                            }
+                        });
+                    }
+                }, 50);
+            }
+        } else {
+            videoContainer.style.display = 'none';
+            videoWrapper.innerHTML = '';
+        }
+    }
+
+    const pageAudio = document.getElementById('page-native-audio');
+    if (page.audio) {
+        if (pageAudio) pageAudio.src = page.audio;
+    } else {
+        if (pageAudio) pageAudio.src = '';
+    }
+
+    const slider = document.getElementById('page-audio-slider');
+    if (slider) slider.value = 0;
+    const timeLbl = document.getElementById('page-audio-time-label');
+    if (timeLbl) timeLbl.innerText = '0:00 / 0:00';
+
+    // Render questions immediately (0 delay)
+    renderPageQuestionsList(page.questions || [], window.cachedSavedIds || [], window.cachedNotesList || []);
+}
+
 function openPageDetailsScreen(pageId) {
     const container = document.getElementById('page-questions-list-container');
-    if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento dettagli pagina...</div>`;
-    }
 
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -41,134 +154,57 @@ function openPageDetailsScreen(pageId) {
     // Save state for F5 reload restore
     try { sessionStorage.setItem('activePageDetailsId', pageId); } catch(e) {}
 
+    // 1. Instant Cache Path: Render immediately if previously loaded
+    if (window.pageDetailsCache[pageId]) {
+        renderPageDetailsUI(window.pageDetailsCache[pageId]);
+    } else if (container) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento domande...</div>`;
+    }
+
+    // 2. Fast single-endpoint fetch for page data
     fetch(`/api/pages/${pageId}`)
         .then(res => res.json())
         .then(resData => {
             const page = (resData && resData.data) ? resData.data : resData;
-            activePageDetails = page;
-
             if (!page || !page.id) {
                 if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Pagina non trovata.</div>`;
                 return;
             }
 
-            const chapterName = page.chapter?.name || '';
-            const chapterNum = page.chapter?.chapter_number || page.chapter?.id || page.chapter_id;
-            const chapterLabel = chapterName ? `Capitolo ${chapterNum}) ${chapterName}` : `Capitolo ${chapterNum}`;
-            document.getElementById('page-details-chapter-label').innerText = chapterLabel;
-            const pageNum = page.sort_order || page.page_number || page.id;
-            document.getElementById('page-details-page-label').innerText = `Pagina ${pageNum}) ${page.title}`;
+            window.pageDetailsCache[pageId] = page;
+            renderPageDetailsUI(page);
 
-            const descEl = document.getElementById('page-details-content-text');
-            if (descEl) descEl.innerText = page.content || '';
-
-            const mediaCont = document.getElementById('page-details-media-container');
-            if (mediaCont) mediaCont.style.display = 'none';
-
-            // Video display logic
-            const videoContainer = document.getElementById('page-details-video-container');
-            const videoWrapper = document.getElementById('page-video-player-wrapper');
-
-            if (videoContainer && videoWrapper) {
-                if (page.video) {
-                    videoContainer.style.display = 'block';
-
-                    if (page.video.includes('youtube.com') || page.video.includes('youtu.be')) {
-                        let videoId = '';
-                        if (page.video.includes('youtu.be/')) {
-                            videoId = page.video.split('youtu.be/')[1].split(/[?#]/)[0];
-                        } else if (page.video.includes('v=')) {
-                            videoId = page.video.split('v=')[1].split(/[&?#]/)[0];
-                        } else if (page.video.includes('embed/')) {
-                            videoId = page.video.split('embed/')[1].split(/[?#]/)[0];
-                        }
-
-                        videoWrapper.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top:0; left:0; width:100%; height:100%; border:none; border-radius: 16px;" allowfullscreen></iframe>`;
-                    } else {
-                        videoWrapper.innerHTML = `
-                            <video id="page-details-video" src="${page.video}" style="width: 100%; height: 100%; object-fit: contain;" playsinline></video>
-                            
-                            <div id="video-play-overlay" onclick="togglePageVideoPlay()" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); cursor: pointer; transition: background 0.3s;">
-                                <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(0,0,0,0.6); border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white;">
-                                    <i class="fa-solid fa-play" id="video-overlay-icon" style="font-size: 20px; margin-left: 4px;"></i>
-                                </div>
-                            </div>
-                            
-                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 10px 16px; display: flex; align-items: center; gap: 12px; color: white; z-index: 10;">
-                                <i class="fa-solid fa-rotate-left" onclick="seekPageVideo(-15)" style="cursor: pointer; font-size: 14px;"></i>
-                                <i class="fa-solid fa-play" id="video-ctrl-play" onclick="togglePageVideoPlay()" style="cursor: pointer; font-size: 14px; width: 14px;"></i>
-                                <i class="fa-solid fa-rotate-right" onclick="seekPageVideo(15)" style="cursor: pointer; font-size: 14px;"></i>
-                                
-                                <span id="video-time-current" style="font-size: 11px; font-weight: bold;">00:00</span>
-                                <input type="range" id="video-seek-slider" min="0" max="100" value="0" style="flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); outline: none; cursor: pointer;" oninput="onVideoSeekSliderInput(this.value)">
-                                <span id="video-time-duration" style="font-size: 11px; font-weight: bold;">00:00</span>
-                                
-                                <i class="fa-solid fa-volume-high" id="video-ctrl-volume" onclick="togglePageVideoMute()" style="cursor: pointer; font-size: 14px;"></i>
-                            </div>
-                        `;
-
-                        setTimeout(() => {
-                            const video = document.getElementById('page-details-video');
-                            const slider = document.getElementById('video-seek-slider');
-                            const currentTxt = document.getElementById('video-time-current');
-                            const durationTxt = document.getElementById('video-time-duration');
-
-                            if (video) {
-                                video.addEventListener('loadedmetadata', () => {
-                                    durationTxt.innerText = formatVideoTime(video.duration);
-                                });
-                                video.addEventListener('timeupdate', () => {
-                                    currentTxt.innerText = formatVideoTime(video.currentTime);
-                                    if (video.duration) {
-                                        slider.value = (video.currentTime / video.duration) * 100;
-                                    }
-                                    if (video.ended) {
-                                        const overlayIcon = document.getElementById('video-overlay-icon');
-                                        if (overlayIcon) overlayIcon.className = 'fa-solid fa-play';
-                                        const playOverlay = document.getElementById('video-play-overlay');
-                                        if (playOverlay) playOverlay.style.display = 'flex';
-                                        const ctrlPlay = document.getElementById('video-ctrl-play');
-                                        if (ctrlPlay) ctrlPlay.className = 'fa-solid fa-play';
-                                    }
-                                });
-                            }
-                        }, 100);
-                    }
-                } else {
-                    videoContainer.style.display = 'none';
-                    videoWrapper.innerHTML = '';
-                }
-            }
-
-            if (page.audio) {
-                if (pageAudio) pageAudio.src = page.audio;
-            } else {
-                if (pageAudio) pageAudio.src = '';
-            }
-
-            const slider = document.getElementById('page-audio-slider');
-            if (slider) slider.value = 0;
-            const timeLbl = document.getElementById('page-audio-time-label');
-            if (timeLbl) timeLbl.innerText = '0:00 / 0:00';
-
+            // 3. Refresh user bookmarks & notes in background without blocking
             Promise.all([
-                fetch('/api/saved-mcqs').then(r => r.json()),
-                fetch(`/api/notes?page_id=${page.id}`).then(r => r.json())
-            ])
-                .then(([savedList, notesList]) => {
-                    const savedArr = Array.isArray(savedList) ? savedList : (savedList && Array.isArray(savedList.data) ? savedList.data : []);
-                    const savedIds = savedArr.map(s => s.question_id || s.id);
-                    const notesArr = Array.isArray(notesList) ? notesList : (notesList && Array.isArray(notesList.data) ? notesList.data : []);
-                    renderPageQuestionsList(page.questions, savedIds, notesArr);
-                })
-                .catch(err => {
-                    console.error("Error fetching bookmarks or notes: ", err);
-                    renderPageQuestionsList(page.questions, [], []);
-                });
+                fetch('/api/saved-mcqs').then(r => r.json()).catch(() => []),
+                fetch(`/api/notes?page_id=${page.id}`).then(r => r.json()).catch(() => [])
+            ]).then(([savedList, notesList]) => {
+                const savedArr = Array.isArray(savedList) ? savedList : (savedList && Array.isArray(savedList.data) ? savedList.data : []);
+                window.cachedSavedIds = savedArr.map(s => s.question_id || s.id);
+                const notesArr = Array.isArray(notesList) ? notesList : (notesList && Array.isArray(notesList.data) ? notesList.data : []);
+                window.cachedNotesList = notesArr;
+
+                // Seamlessly update bookmark icons on rendered cards
+                if (Array.isArray(page.questions)) {
+                    page.questions.forEach(q => {
+                        const isSaved = window.cachedSavedIds.includes(q.id);
+                        const card = document.getElementById(`argomenti-q-card-${q.id}`);
+                        if (card) {
+                            const bookmarkIcon = card.querySelector('.fa-bookmark');
+                            if (bookmarkIcon) {
+                                bookmarkIcon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                                bookmarkIcon.style.color = isSaved ? 'var(--accent-green)' : '';
+                            }
+                        }
+                    });
+                }
+            });
         })
         .catch(err => {
             console.error("Error fetching page details: ", err);
-            if (container) container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore.</div>`;
+            if (!window.pageDetailsCache[pageId] && container) {
+                container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento.</div>`;
+            }
         });
 }
 

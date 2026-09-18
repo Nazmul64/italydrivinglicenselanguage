@@ -608,44 +608,53 @@ let activeChapterQuestions = [];
 let activeChapterPages = [];
 let activeSheetIndex = null;
 
+window.chapterPagesCache = window.chapterPagesCache || {};
+
 function openChapterSheetsScreen(chapterId) {
     activeChapterId = chapterId;
 
     const labelEl = document.getElementById('selected-chapter-display-label');
-    if (labelEl) labelEl.innerText = `Caricamento...`;
 
-    populateChapterDropdownOptions();
-
-    const container = document.getElementById('argomenti-schede-list');
-    if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento pagine...</div>`;
+    // Instantly set chapter label from in-memory chapters list if available
+    if (window.allArgomentiChapters && Array.isArray(window.allArgomentiChapters)) {
+        const ch = window.allArgomentiChapters.find(c => c.id == chapterId);
+        if (ch && labelEl) {
+            labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
+        }
+    } else if (labelEl) {
+        labelEl.innerText = `Capitolo ${chapterId}`;
     }
 
+    populateChapterDropdownOptions();
     openScreen('argomenti-schede', 'Scegli Scheda');
 
-    Promise.all([
-        fetch(`/api/questions/chapter/${chapterId}`).then(res => res.json()),
-        fetch(`/api/chapters/${chapterId}/pages`).then(res => res.json())
-    ])
-        .then(([questionsData, pagesData]) => {
-            const questions = Array.isArray(questionsData) ? questionsData : (questionsData && Array.isArray(questionsData.data) ? questionsData.data : []);
+    const container = document.getElementById('argomenti-schede-list');
+
+    // 1. Instant Fast-Path: Use in-memory cache if available
+    if (window.chapterPagesCache[chapterId] && window.chapterPagesCache[chapterId].length > 0) {
+        activeChapterPages = window.chapterPagesCache[chapterId];
+        selectedSheets = [];
+        isSchedeSelectMode = false;
+        updateSheetsQuizButtonVisibility();
+        updateArgomentiPillStates();
+        renderSheetsList();
+        return;
+    }
+
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento pagine...</div>`;
+    }
+
+    // 2. Fetch only chapter's pages directly (lightweight & ultra-fast)
+    fetch(`/api/chapters/${chapterId}/pages`)
+        .then(res => res.json())
+        .then(pagesData => {
             const pages = Array.isArray(pagesData) ? pagesData : (pagesData && Array.isArray(pagesData.data) ? pagesData.data : []);
-
-            activeChapterQuestions = questions;
             activeChapterPages = pages;
-
-            fetch('/api/chapters')
-                .then(r => r.json())
-                .then(chData => {
-                    const chaptersList = Array.isArray(chData) ? chData : (chData && Array.isArray(chData.data) ? chData.data : []);
-                    const ch = chaptersList.find(c => c.id === chapterId || c.id == chapterId);
-                    if (ch && labelEl) {
-                        labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
-                    }
-                });
+            window.chapterPagesCache[chapterId] = pages;
 
             if (pages.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna pagina trovata per questo capitolo.</div>`;
+                if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna pagina trovata per questo capitolo.</div>`;
                 return;
             }
 
@@ -653,7 +662,6 @@ function openChapterSheetsScreen(chapterId) {
             isSchedeSelectMode = false;
             updateSheetsQuizButtonVisibility();
             updateArgomentiPillStates();
-
             renderSheetsList();
         })
         .catch(err => {
