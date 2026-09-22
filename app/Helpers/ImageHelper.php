@@ -189,12 +189,13 @@ class ImageHelper
 
         // Check if already an absolute URL
         if (preg_match('/^https?:\/\//i', $path)) {
-            // If it contains localhost or 127.0.0.1 or http://mbanglapatenteb.com, normalize to active app URL
-            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1') || str_starts_with($path, 'http://mbanglapatenteb.com')) {
+            // If it contains localhost or 127.0.0.1 or mbanglapatenteb.com, normalize to active app URL
+            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1') || str_contains($path, 'mbanglapatenteb.com')) {
                 $parsed = parse_url($path);
                 $rel = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
                 if (!empty($rel)) {
-                    return url($rel);
+                    $root = app()->runningInConsole() ? url('/') : request()->getSchemeAndHttpHost();
+                    return rtrim($root, '/') . '/' . $rel;
                 }
             }
             return $path;
@@ -202,7 +203,8 @@ class ImageHelper
 
         // If it's a relative path e.g. "uploads/chapters/..." or "/uploads/..."
         $clean = ltrim($path, '/');
-        return url($clean);
+        $root = app()->runningInConsole() ? url('/') : request()->getSchemeAndHttpHost();
+        return rtrim($root, '/') . '/' . $clean;
     }
 
     /**
@@ -232,18 +234,20 @@ class ImageHelper
 
         // YouTube or external URLs
         if (preg_match('/^https?:\/\//i', $path)) {
-            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1')) {
+            if (str_contains($path, 'localhost') || str_contains($path, '127.0.0.1') || str_contains($path, 'mbanglapatenteb.com')) {
                 $parsed = parse_url($path);
                 $rel = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
                 if (!empty($rel)) {
-                    return url($rel);
+                    $root = app()->runningInConsole() ? url('/') : request()->getSchemeAndHttpHost();
+                    return rtrim($root, '/') . '/' . $rel;
                 }
             }
             return $path;
         }
 
         $clean = ltrim($path, '/');
-        return url($clean);
+        $root = app()->runningInConsole() ? url('/') : request()->getSchemeAndHttpHost();
+        return rtrim($root, '/') . '/' . $clean;
     }
 
     /**

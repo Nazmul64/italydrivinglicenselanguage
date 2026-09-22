@@ -51,9 +51,18 @@
             <div class="nav-card {{ $sk == 'support' ? 'support-nav-card' : '' }}" onclick="{{ $onClickAttr }}">
                 <div class="illustration-box {{ $card->media_type === 'image' ? 'illustration-box-image' : ($card->media_type === 'lottie' ? 'illustration-box-lottie' : '') }}">
                     @if($card->media_type === 'lottie' && !empty($card->lottie_url))
-                        <lottie-player src="{{ $card->lottie_url }}" background="transparent" speed="1" style="width: 100%; height: 100%; max-width: 130px; max-height: 130px; margin: 0 auto; display: block;" loop autoplay></lottie-player>
+                        @php 
+                            $lottiePath = parse_url($card->lottie_url, PHP_URL_PATH);
+                            $lottieSrc = $lottiePath ? asset(ltrim($lottiePath, '/')) : $card->lottie_url;
+                        @endphp
+                        <lottie-player src="{{ $lottieSrc }}" background="transparent" speed="1" style="width: 100%; height: 130px; margin: 0 auto; display: block;" loop autoplay></lottie-player>
                     @elseif($card->media_type === 'image' && (!empty($card->image_url) || !empty($card->icon_url)))
-                        <img src="{{ $card->image_url ?: $card->icon_url }}" alt="{{ $card->title }}" class="card-custom-image">
+                        @php 
+                            $rawImg = $card->image_url ?: $card->icon_url;
+                            $imgPath = parse_url($rawImg, PHP_URL_PATH);
+                            $imgSrc = $imgPath ? asset(ltrim($imgPath, '/')) : $rawImg;
+                        @endphp
+                        <img src="{{ $imgSrc }}" alt="{{ $card->title }}" class="card-custom-image">
                     @elseif($sk == 'lezioni' || $sk == 'tutorials')
                         {{-- Teacher / Video Class --}}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">

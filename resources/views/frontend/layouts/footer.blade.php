@@ -553,7 +553,7 @@
 
     <!-- External JavaScript Separated Asset -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <script defer src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <script src="{{ asset('js/vendor/lottie-player.js') }}"></script>
     <script>
         window.APP_SETTINGS = @json($setting ?? null);
         window.openDictTermModal = function(word, bn, desc_it, image, audio, video) {
