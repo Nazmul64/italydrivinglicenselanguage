@@ -15,5 +15,7 @@
     
     <!-- External CSS Separated Asset -->
     <link rel="stylesheet" href="{{ asset('css/admin/style.css') }}">
+    <!-- Lottie Player for animated cards preview -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 </head>
 <body>

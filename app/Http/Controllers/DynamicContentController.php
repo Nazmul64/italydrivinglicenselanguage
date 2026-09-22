@@ -463,32 +463,60 @@ class DynamicContentController extends Controller
         }
 
         $request->validate([
-            'title'       => 'required|string|max:255',
-            'subtitle'    => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'screen_key'  => 'nullable|string|max:255',
-            'link'        => 'nullable|string|max:255',
-            'icon_class'  => 'nullable|string|max:255',
-            'color'       => 'nullable|string|max:7',
-            'order_index' => 'required|integer',
-            'icon_file'   => 'nullable|max:20480',
+            'title'        => 'required|string|max:255',
+            'subtitle'     => 'nullable|string|max:255',
+            'description'  => 'nullable|string',
+            'screen_key'   => 'nullable|string|max:255',
+            'media_type'   => 'nullable|string|in:icon,image,lottie',
+            'link'         => 'nullable|string|max:255',
+            'icon_class'   => 'nullable|string|max:255',
+            'icon_color'   => 'nullable|string|max:20',
+            'color'        => 'nullable|string|max:20',
+            'order_index'  => 'required|integer',
+            'image_url'    => 'nullable|string|max:500',
+            'lottie_url'   => 'nullable|string|max:500',
+            'icon_file'    => 'nullable|max:20480',
+            'image_file'   => 'nullable|max:20480',
+            'lottie_file'  => 'nullable|max:20480',
         ]);
+
+        $mediaType = $request->media_type ?: 'icon';
+        $iconColor = $request->icon_color ?: $request->color ?: '#3B82F6';
 
         $data = [
             'title'       => $request->title,
             'subtitle'    => $request->subtitle,
             'description' => $request->description,
             'screen_key'  => $request->screen_key ?: 'custom',
+            'media_type'  => $mediaType,
             'link'        => $request->link,
             'icon_class'  => $request->icon_class ?? 'fa-solid fa-shapes',
-            'color'       => $request->color ?? '#3B82F6',
+            'icon_color'  => $iconColor,
+            'color'       => $iconColor,
             'order_index' => $request->order_index,
+            'image_url'   => $request->image_url,
+            'lottie_url'  => $request->lottie_url,
             'status'      => $request->status ?? true,
         ];
 
-        if ($request->hasFile('icon_file')) {
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('icon_file'), 'uploads/cards', 'card_icon', 300, 90);
+        // Handle Image upload
+        $imgFile = $request->file('image_file') ?: $request->file('icon_file');
+        if ($imgFile) {
+            $uploadedPath = ImageHelper::uploadAndOptimize($imgFile, 'uploads/cards', 'card_img', 600, 90);
+            $data['image_url'] = $uploadedPath ?: '';
             $data['icon_url'] = $uploadedPath ?: '';
+        }
+
+        // Handle Lottie file upload (.json or .lottie)
+        if ($request->hasFile('lottie_file')) {
+            $file = $request->file('lottie_file');
+            $filename = 'lottie_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+            $dest = public_path('uploads/cards/lottie');
+            if (!file_exists($dest)) {
+                mkdir($dest, 0777, true);
+            }
+            $file->move($dest, $filename);
+            $data['lottie_url'] = '/uploads/cards/lottie/' . $filename;
         }
 
         $card = HomeCard::create($data);
@@ -505,34 +533,74 @@ class DynamicContentController extends Controller
         $card = HomeCard::findOrFail($id);
 
         $request->validate([
-            'title'       => 'required|string|max:255',
-            'subtitle'    => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'screen_key'  => 'nullable|string|max:255',
-            'link'        => 'nullable|string|max:255',
-            'icon_class'  => 'nullable|string|max:255',
-            'color'       => 'nullable|string|max:7',
-            'order_index' => 'required|integer',
-            'icon_file'   => 'nullable|max:20480',
+            'title'        => 'required|string|max:255',
+            'subtitle'     => 'nullable|string|max:255',
+            'description'  => 'nullable|string',
+            'screen_key'   => 'nullable|string|max:255',
+            'media_type'   => 'nullable|string|in:icon,image,lottie',
+            'link'         => 'nullable|string|max:255',
+            'icon_class'   => 'nullable|string|max:255',
+            'icon_color'   => 'nullable|string|max:20',
+            'color'        => 'nullable|string|max:20',
+            'order_index'  => 'required|integer',
+            'image_url'    => 'nullable|string|max:500',
+            'lottie_url'   => 'nullable|string|max:500',
+            'icon_file'    => 'nullable|max:20480',
+            'image_file'   => 'nullable|max:20480',
+            'lottie_file'  => 'nullable|max:20480',
         ]);
+
+        $mediaType = $request->media_type ?: ($card->media_type ?: 'icon');
+        $iconColor = $request->icon_color ?: $request->color ?: ($card->icon_color ?: $card->color ?: '#3B82F6');
 
         $data = [
             'title'       => $request->title,
             'subtitle'    => $request->subtitle,
             'description' => $request->description,
             'screen_key'  => $request->screen_key ?: $card->screen_key,
+            'media_type'  => $mediaType,
             'link'        => $request->link,
             'icon_class'  => $request->icon_class ?? $card->icon_class,
-            'color'       => $request->color ?? $card->color,
+            'icon_color'  => $iconColor,
+            'color'       => $iconColor,
             'order_index' => $request->order_index,
         ];
 
-        if ($request->hasFile('icon_file')) {
-            if ($card->icon_url && file_exists(public_path($card->icon_url))) {
-                @unlink(public_path($card->icon_url));
+        if ($request->filled('image_url')) {
+            $data['image_url'] = $request->image_url;
+            $data['icon_url'] = $request->image_url;
+        }
+
+        if ($request->filled('lottie_url')) {
+            $data['lottie_url'] = $request->lottie_url;
+        }
+
+        // Handle Image upload
+        $imgFile = $request->file('image_file') ?: $request->file('icon_file');
+        if ($imgFile) {
+            $oldImg = $card->getRawOriginal('image_url') ?: $card->getRawOriginal('icon_url');
+            if ($oldImg && file_exists(public_path($oldImg))) {
+                @unlink(public_path($oldImg));
             }
-            $uploadedPath = ImageHelper::uploadAndOptimize($request->file('icon_file'), 'uploads/cards', 'card_icon', 300, 90);
+            $uploadedPath = ImageHelper::uploadAndOptimize($imgFile, 'uploads/cards', 'card_img', 600, 90);
+            $data['image_url'] = $uploadedPath ?: '';
             $data['icon_url'] = $uploadedPath ?: '';
+        }
+
+        // Handle Lottie file upload
+        if ($request->hasFile('lottie_file')) {
+            $oldLottie = $card->getRawOriginal('lottie_url');
+            if ($oldLottie && file_exists(public_path($oldLottie))) {
+                @unlink(public_path($oldLottie));
+            }
+            $file = $request->file('lottie_file');
+            $filename = 'lottie_' . time() . '_' . rand(100, 999) . '.' . $file->getClientOriginalExtension();
+            $dest = public_path('uploads/cards/lottie');
+            if (!file_exists($dest)) {
+                mkdir($dest, 0777, true);
+            }
+            $file->move($dest, $filename);
+            $data['lottie_url'] = '/uploads/cards/lottie/' . $filename;
         }
 
         $card->update($data);

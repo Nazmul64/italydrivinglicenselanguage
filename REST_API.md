@@ -236,3 +236,53 @@ The backend automatically resolves user context from:
 ### 9. 📖 Dictionary & Translation
 - **Dictionary Search**: `GET /api/v1/dictionary/search?q=autostrada`
 - **Translate Text**: `POST /api/v1/translate` (Body: `{"text": "strada", "from_lang": "it", "to_lang": "bn"}`)
+
+---
+
+### 10. 🎴 Home Navigation Cards API (হোম সার্ভিসেস কার্ড)
+Supports 3 dynamic media formats: **Icon** (FontAwesome), **Image** (PNG/JPG/SVG URL or uploaded file), and **Lottie Animation** (JSON URL or uploaded file).
+
+- **Get Active Home Cards (Ordered by `order_index` ASC)**: `GET /api/v1/home-cards`
+  - **Response**:
+    ```json
+    {
+      "status": "success",
+      "total": 18,
+      "data": [
+        {
+          "id": 1,
+          "title": "Lezioni",
+          "subtitle": "ক্লাস ভিডিও",
+          "screen_key": "lezioni",
+          "media_type": "icon",
+          "icon_class": "fa-solid fa-video",
+          "icon_color": "#3B82F6",
+          "color": "#3B82F6",
+          "image_url": null,
+          "lottie_url": null,
+          "order_index": 1,
+          "status": true
+        },
+        {
+          "id": 2,
+          "title": "Test",
+          "subtitle": "অনুশীলন টেস্ট",
+          "screen_key": "test",
+          "media_type": "lottie",
+          "icon_class": "fa-solid fa-laptop-code",
+          "icon_color": "#3B82F6",
+          "color": "#3B82F6",
+          "image_url": null,
+          "lottie_url": "https://mbanglapatenteb.com/uploads/cards/lottie/test_anim.json",
+          "order_index": 2,
+          "status": true
+        }
+      ]
+    }
+    ```
+- **Reorder Cards**: `POST /api/v1/home-cards/reorder` (Body: `{"orders": [2, 1, 3, 4]}`)
+- **Create Card**: `POST /api/v1/home-cards`
+- **Update Card**: `POST /api/v1/home-cards/update/{id}` or `PUT /api/v1/home-cards/{id}`
+- **Toggle Status**: `POST /api/v1/home-cards/toggle-status/{id}`
+- **Delete Card**: `DELETE /api/v1/home-cards/{id}` or `POST /api/v1/home-cards/delete/{id}`
+

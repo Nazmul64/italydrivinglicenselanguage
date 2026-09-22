@@ -49,8 +49,12 @@
                 }
             @endphp
             <div class="nav-card {{ $sk == 'support' ? 'support-nav-card' : '' }}" onclick="{{ $onClickAttr }}">
-                <div class="illustration-box">
-                    @if($sk == 'lezioni' || $sk == 'tutorials')
+                <div class="illustration-box {{ $card->media_type === 'image' ? 'illustration-box-image' : ($card->media_type === 'lottie' ? 'illustration-box-lottie' : '') }}">
+                    @if($card->media_type === 'lottie' && !empty($card->lottie_url))
+                        <lottie-player src="{{ $card->lottie_url }}" background="transparent" speed="1" style="width: 100%; height: 100%; max-width: 130px; max-height: 130px; margin: 0 auto; display: block;" loop autoplay></lottie-player>
+                    @elseif($card->media_type === 'image' && (!empty($card->image_url) || !empty($card->icon_url)))
+                        <img src="{{ $card->image_url ?: $card->icon_url }}" alt="{{ $card->title }}" class="card-custom-image">
+                    @elseif($sk == 'lezioni' || $sk == 'tutorials')
                         {{-- Teacher / Video Class --}}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
                           <rect x="10" y="20" width="80" height="52" rx="8" fill="#4A90D9"/>

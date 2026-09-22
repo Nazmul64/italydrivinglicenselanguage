@@ -249,8 +249,21 @@ function fetchHomeCards(page = 1) {
                         <span class="order-index-badge">${card.order_index}</span>
                     </td>
                     <td style="text-align: center;">
-                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background-color: ${colorVal}1a; color: ${colorVal}; font-size: 16px;">
-                            <i class="${card.icon_class || 'fa-solid fa-shapes'}"></i>
+                        ${card.media_type === 'lottie' && card.lottie_url ? `
+                            <div style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 8px; background-color: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); overflow: hidden;" title="Lottie Animation">
+                                <lottie-player src="${card.lottie_url}" background="transparent" speed="1" style="width: 36px; height: 36px;" loop autoplay></lottie-player>
+                            </div>
+                        ` : (card.media_type === 'image' && (card.image_url || card.icon_url) ? `
+                            <div style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 8px; background: #fff; border: 1px solid var(--border-color); overflow: hidden; padding: 2px;" title="Image">
+                                <img src="${card.image_url || card.icon_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">
+                            </div>
+                        ` : `
+                            <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background-color: ${colorVal}1a; color: ${colorVal}; font-size: 16px;" title="Icon">
+                                <i class="${card.icon_class || 'fa-solid fa-shapes'}"></i>
+                            </div>
+                        `)}
+                        <div style="font-size: 9px; font-weight: 800; color: var(--text-secondary); margin-top: 2px; text-transform: uppercase;">
+                            ${card.media_type || 'icon'}
                         </div>
                     </td>
                     <td style="font-weight: bold; color: var(--text-primary);">${card.title}</td>
@@ -458,6 +471,88 @@ function nextHomeCardsPage() {
     fetchHomeCards(homeCardsCurrentPage + 1);
 }
 
+function toggleHomeCardMediaType(type) {
+    const iconSec = document.getElementById('home-card-media-icon-sec');
+    const imgSec = document.getElementById('home-card-media-image-sec');
+    const lottieSec = document.getElementById('home-card-media-lottie-sec');
+
+    if (iconSec) iconSec.style.display = (type === 'icon') ? 'block' : 'none';
+    if (imgSec) imgSec.style.display = (type === 'image') ? 'block' : 'none';
+    if (lottieSec) lottieSec.style.display = (type === 'lottie') ? 'block' : 'none';
+
+    // Set radio checked
+    const radio = document.querySelector(`input[name="home_card_media_type"][value="${type}"]`);
+    if (radio) radio.checked = true;
+}
+
+function updateHomeCardIconPreview() {
+    const iconClass = document.getElementById('form-home-card-icon')?.value || 'fa-solid fa-shapes';
+    const color = document.getElementById('form-home-card-color')?.value || '#3B82F6';
+    const box = document.getElementById('home-card-icon-preview-box');
+    if (box) {
+        box.style.backgroundColor = `${color}1a`;
+        box.style.color = color;
+        box.style.borderColor = `${color}33`;
+        box.innerHTML = `<i class="${iconClass}"></i>`;
+    }
+}
+
+function previewHomeCardImage(input) {
+    const container = document.getElementById('home-card-image-preview-container');
+    const preview = document.getElementById('home-card-image-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (preview && container) {
+                preview.src = e.target.result;
+                container.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function updateHomeCardImageFromUrl(url) {
+    const container = document.getElementById('home-card-image-preview-container');
+    const preview = document.getElementById('home-card-image-preview');
+    if (url && url.trim()) {
+        if (preview && container) {
+            preview.src = url.trim();
+            container.style.display = 'block';
+        }
+    } else if (container && !document.getElementById('form-home-card-image-file')?.files?.length) {
+        container.style.display = 'none';
+    }
+}
+
+function previewHomeCardLottie(input) {
+    const container = document.getElementById('home-card-lottie-preview-container');
+    const preview = document.getElementById('home-card-lottie-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (preview && container) {
+                preview.load(e.target.result);
+                container.style.display = 'block';
+            }
+        };
+        reader.readAsText(input.files[0]);
+    }
+}
+
+function updateHomeCardLottieFromUrl(url) {
+    const container = document.getElementById('home-card-lottie-preview-container');
+    const preview = document.getElementById('home-card-lottie-preview');
+    if (url && url.trim()) {
+        if (preview && container) {
+            preview.load(url.trim());
+            container.style.display = 'block';
+        }
+    } else if (container && !document.getElementById('form-home-card-lottie-file')?.files?.length) {
+        container.style.display = 'none';
+    }
+}
+
 function openAddHomeCardModal() {
     document.getElementById('home-card-modal-title').textContent = 'Add Home Card';
     document.getElementById('form-home-card-id').value = '';
@@ -467,6 +562,24 @@ function openAddHomeCardModal() {
     document.getElementById('form-home-card-icon').value = 'fa-solid fa-video';
     document.getElementById('form-home-card-color').value = '#3B82F6';
     document.getElementById('form-home-card-order').value = '0';
+
+    const imgFile = document.getElementById('form-home-card-image-file');
+    if (imgFile) imgFile.value = '';
+    const imgUrl = document.getElementById('form-home-card-image-url');
+    if (imgUrl) imgUrl.value = '';
+    const imgCont = document.getElementById('home-card-image-preview-container');
+    if (imgCont) imgCont.style.display = 'none';
+
+    const lottieFile = document.getElementById('form-home-card-lottie-file');
+    if (lottieFile) lottieFile.value = '';
+    const lottieUrl = document.getElementById('form-home-card-lottie-url');
+    if (lottieUrl) lottieUrl.value = '';
+    const lottieCont = document.getElementById('home-card-lottie-preview-container');
+    if (lottieCont) lottieCont.style.display = 'none';
+
+    toggleHomeCardMediaType('icon');
+    updateHomeCardIconPreview();
+
     document.getElementById('home-card-modal').style.display = 'flex';
 }
 
@@ -474,11 +587,42 @@ function openEditHomeCardModal(card) {
     document.getElementById('home-card-modal-title').textContent = 'Edit Home Card';
     document.getElementById('form-home-card-id').value = card.id;
     document.getElementById('form-home-card-title').value = card.title;
-    document.getElementById('form-home-card-subtitle').value = card.subtitle || '';
+    document.getElementById('form-home-card-subtitle').value = card.subtitle || card.description || '';
     document.getElementById('form-home-card-screen').value = card.screen_key;
-    document.getElementById('form-home-card-icon').value = card.icon_class;
-    document.getElementById('form-home-card-color').value = card.icon_color || '#3B82F6';
+    document.getElementById('form-home-card-icon').value = card.icon_class || 'fa-solid fa-shapes';
+    document.getElementById('form-home-card-color').value = card.icon_color || card.color || '#3B82F6';
     document.getElementById('form-home-card-order').value = card.order_index;
+
+    const imgFile = document.getElementById('form-home-card-image-file');
+    if (imgFile) imgFile.value = '';
+    const imgUrl = document.getElementById('form-home-card-image-url');
+    if (imgUrl) imgUrl.value = card.image_url || card.icon_url || '';
+    const imgCont = document.getElementById('home-card-image-preview-container');
+    const imgPrev = document.getElementById('home-card-image-preview');
+    if (imgCont && imgPrev && (card.image_url || card.icon_url)) {
+        imgPrev.src = card.image_url || card.icon_url;
+        imgCont.style.display = 'block';
+    } else if (imgCont) {
+        imgCont.style.display = 'none';
+    }
+
+    const lottieFile = document.getElementById('form-home-card-lottie-file');
+    if (lottieFile) lottieFile.value = '';
+    const lottieUrl = document.getElementById('form-home-card-lottie-url');
+    if (lottieUrl) lottieUrl.value = card.lottie_url || '';
+    const lottieCont = document.getElementById('home-card-lottie-preview-container');
+    const lottiePrev = document.getElementById('home-card-lottie-preview');
+    if (lottieCont && lottiePrev && card.lottie_url) {
+        lottiePrev.load(card.lottie_url);
+        lottieCont.style.display = 'block';
+    } else if (lottieCont) {
+        lottieCont.style.display = 'none';
+    }
+
+    const mediaType = card.media_type || (card.lottie_url ? 'lottie' : ((card.image_url || card.icon_url) ? 'image' : 'icon'));
+    toggleHomeCardMediaType(mediaType);
+    updateHomeCardIconPreview();
+
     document.getElementById('home-card-modal').style.display = 'flex';
 }
 
@@ -496,22 +640,45 @@ function saveHomeCard(e) {
     const iconColor = document.getElementById('form-home-card-color').value;
     const orderIndex = document.getElementById('form-home-card-order').value;
 
+    const mediaTypeRadio = document.querySelector('input[name="home_card_media_type"]:checked');
+    const mediaType = mediaTypeRadio ? mediaTypeRadio.value : 'icon';
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('subtitle', subtitle);
+    formData.append('screen_key', screenKey);
+    formData.append('media_type', mediaType);
+    formData.append('icon_class', iconClass);
+    formData.append('icon_color', iconColor);
+    formData.append('color', iconColor);
+    formData.append('order_index', orderIndex);
+
+    const imgUrlInput = document.getElementById('form-home-card-image-url');
+    if (imgUrlInput && imgUrlInput.value) {
+        formData.append('image_url', imgUrlInput.value.trim());
+    }
+    const imgFileInput = document.getElementById('form-home-card-image-file');
+    if (imgFileInput && imgFileInput.files[0]) {
+        formData.append('image_file', imgFileInput.files[0]);
+    }
+
+    const lottieUrlInput = document.getElementById('form-home-card-lottie-url');
+    if (lottieUrlInput && lottieUrlInput.value) {
+        formData.append('lottie_url', lottieUrlInput.value.trim());
+    }
+    const lottieFileInput = document.getElementById('form-home-card-lottie-file');
+    if (lottieFileInput && lottieFileInput.files[0]) {
+        formData.append('lottie_file', lottieFileInput.files[0]);
+    }
+
     const url = id ? `/admin/api/home-cards/update/${id}` : '/admin/api/home-cards/store';
 
     fetch(url, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken
         },
-        body: JSON.stringify({
-            title: title,
-            subtitle: subtitle,
-            screen_key: screenKey,
-            icon_class: iconClass,
-            icon_color: iconColor,
-            order_index: orderIndex
-        })
+        body: formData
     })
         .then(res => res.json())
         .then(data => {

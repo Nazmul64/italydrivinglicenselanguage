@@ -417,14 +417,69 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-home-card-icon">FontAwesome Icon Class</label>
-                    <input type="text" class="form-control" id="form-home-card-icon" required placeholder="e.g. fa-solid fa-video">
-                </div>
+                <!-- 🌟 Media Type Selection (Icon / Image / Lottie) -->
+                <div class="form-group" style="background: var(--bg-page); padding: 12px; border-radius: 12px; border: 1.5px solid var(--border-card);">
+                    <label class="form-label" style="font-weight: 800; font-size: 13px; color: var(--text-primary); margin-bottom: 8px; display: block;">
+                        হোম কার্ড ডিসপ্লে মোড (Display Type)
+                    </label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                            <input type="radio" name="home_card_media_type" value="icon" checked onchange="toggleHomeCardMediaType('icon')">
+                            <i class="fa-solid fa-icons" style="color: #3B82F6;"></i> Icon (ছোট)
+                        </label>
+                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                            <input type="radio" name="home_card_media_type" value="image" onchange="toggleHomeCardMediaType('image')">
+                            <i class="fa-regular fa-image" style="color: #10B981;"></i> Image (বড়)
+                        </label>
+                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                            <input type="radio" name="home_card_media_type" value="lottie" onchange="toggleHomeCardMediaType('lottie')">
+                            <i class="fa-solid fa-film" style="color: #F59E0B;"></i> Lottie (অ্যানিমেশন)
+                        </label>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="form-home-card-color">Icon Theme Color (Hex)</label>
-                    <input type="color" class="form-control" id="form-home-card-color" value="#3B82F6" style="height: 40px; padding: 2px;">
+                    <!-- 1. ICON SECTION -->
+                    <div id="home-card-media-icon-sec" style="display: block;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div style="flex: 1;">
+                                <label class="form-label" style="font-size: 11px;">FontAwesome Icon Class</label>
+                                <input type="text" class="form-control" id="form-home-card-icon" placeholder="e.g. fa-solid fa-file-pen" oninput="updateHomeCardIconPreview()">
+                            </div>
+                            <div style="width: 80px;">
+                                <label class="form-label" style="font-size: 11px;">Color</label>
+                                <input type="color" class="form-control" id="form-home-card-color" value="#3B82F6" style="height: 38px; padding: 2px; cursor: pointer;" onchange="updateHomeCardIconPreview()">
+                            </div>
+                            <div id="home-card-icon-preview-box" style="width: 44px; height: 44px; border-radius: 50%; background: rgba(59, 130, 246, 0.1); color: #3B82F6; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid rgba(59, 130, 246, 0.2); margin-top: 14px; flex-shrink: 0;">
+                                <i class="fa-solid fa-file-pen"></i>
+                            </div>
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে গোল ছোট আইকন বক্সে সুন্দরভাবে বসবে।</span>
+                    </div>
+
+                    <!-- 2. IMAGE SECTION -->
+                    <div id="home-card-media-image-sec" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Image Upload / URL</label>
+                            <input type="file" class="form-control" id="form-home-card-image-file" accept="image/*" onchange="previewHomeCardImage(this)">
+                            <input type="text" class="form-control" id="form-home-card-image-url" placeholder="or direct image URL (https://...)" oninput="updateHomeCardImageFromUrl(this.value)">
+                            <div id="home-card-image-preview-container" style="display: none; text-align: center; margin-top: 6px; padding: 8px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-card);">
+                                <img id="home-card-image-preview" src="" style="max-height: 90px; max-width: 100%; object-fit: contain; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে বড় ফ্রেম জুড়ে চমৎকারভাবে বসবে।</span>
+                    </div>
+
+                    <!-- 3. LOTTIE SECTION -->
+                    <div id="home-card-media-lottie-sec" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Lottie JSON File Upload / URL</label>
+                            <input type="file" class="form-control" id="form-home-card-lottie-file" accept=".json,.lottie" onchange="previewHomeCardLottie(this)">
+                            <input type="text" class="form-control" id="form-home-card-lottie-url" placeholder="or Lottie JSON URL (https://assets.lottiefiles.com/...)" oninput="updateHomeCardLottieFromUrl(this.value)">
+                            <div id="home-card-lottie-preview-container" style="display: none; text-align: center; margin-top: 6px; padding: 8px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-card);">
+                                <lottie-player id="home-card-lottie-preview" src="" background="transparent" speed="1" style="height: 100px; width: 100%; max-width: 200px; margin: 0 auto;" loop autoplay></lottie-player>
+                            </div>
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে মোশন অ্যানিমেশন আকারে বড় করে বসবে।</span>
+                    </div>
                 </div>
 
                 <div class="form-group">

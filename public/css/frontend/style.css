@@ -604,6 +604,46 @@ body.dark-mode .illustration-box {
     border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
+.illustration-box.illustration-box-image,
+.illustration-box.illustration-box-lottie {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    overflow: visible;
+}
+
+body.dark-mode .illustration-box.illustration-box-image,
+body.dark-mode .illustration-box.illustration-box-lottie {
+    box-shadow: none;
+    border: none;
+}
+
+.illustration-box img.card-custom-image {
+    width: 100%;
+    max-width: 130px;
+    height: 120px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.08));
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-card:hover .illustration-box img.card-custom-image {
+    transform: scale(1.08) translateY(-3px);
+}
+
+.illustration-box lottie-player {
+    width: 100%;
+    max-width: 130px;
+    height: 120px;
+    margin: 0 auto;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-card:hover .illustration-box lottie-player {
+    transform: scale(1.08) translateY(-3px);
+}
+
 /* Distinct Icon Backgrounds & Colors for Premium Aesthetic */
 .lezioni-box {
     background-color: rgba(59, 130, 246, 0.1);
