@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="dictGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0D9488"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </linearGradient>
+    <filter id="dictShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F766E" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <circle cx="300" cy="210" r="170" fill="#CCFBF1" opacity="0.6"/>
+
+  <!-- Dictionary Book Body -->
+  <rect x="170" y="60" width="260" height="280" rx="24" fill="#FFFFFF" filter="url(#dictShadow)"/>
+  
+  <!-- Header -->
+  <rect x="170" y="60" width="260" height="65" rx="24" fill="url(#dictGrad)"/>
+  <rect x="170" y="95" width="260" height="30" fill="url(#dictGrad)"/>
+  <text x="300" y="102" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="18" fill="#FFFFFF" letter-spacing="3">DIZIONARIO A-Z</text>
+
+  <!-- Alphabet Search Bar -->
+  <rect x="195" y="145" width="210" height="36" rx="18" fill="#F0FDFA" stroke="#99F6E4"/>
+  <text x="215" y="168" font-size="16">🔍</text>
+  <text x="240" y="168" font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="14" fill="#0D9488">Cerca parola...</text>
+
+  <!-- Word Entries -->
+  <g transform="translate(195, 200)">
+    <rect x="0" y="0" width="210" height="38" rx="10" fill="#F8FAFC"/>
+    <text x="12" y="24" font-family="'Segoe UI', Arial, sans-serif" font-weight="800" font-size="14" fill="#0F172A">A • Autostrada</text>
+    <text x="195" y="24" text-anchor="end" font-size="13" fill="#0D9488">হাইওয়ে</text>
+    
+    <rect x="0" y="48" width="210" height="38" rx="10" fill="#F8FAFC"/>
+    <text x="12" y="72" font-family="'Segoe UI', Arial, sans-serif" font-weight="800" font-size="14" fill="#0F172A">B • Banchina</text>
+    <text x="195" y="72" text-anchor="end" font-size="13" fill="#0D9488">রাস্তার ধার</text>
+
+    <rect x="0" y="96" width="210" height="38" rx="10" fill="#F8FAFC"/>
+    <text x="12" y="120" font-family="'Segoe UI', Arial, sans-serif" font-weight="800" font-size="14" fill="#0F172A">C • Corsia</text>
+    <text x="195" y="120" text-anchor="end" font-size="13" fill="#0D9488">লেন</text>
+  </g>
+</svg>

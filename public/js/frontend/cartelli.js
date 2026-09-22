@@ -370,8 +370,8 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
                 if (cleanPageImg) {
                     const imgSrc = (cleanPageImg.startsWith('http') || cleanPageImg.startsWith('/')) ? cleanPageImg : `/storage/${cleanPageImg}`;
                     pageImgHTML = `
-                        <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
-                            <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="schede-page-img" alt="${rawTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                        <div class="page-image-frame">
+                            <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="schede-page-img" alt="${rawTitle}">
                         </div>
                     `;
                 }

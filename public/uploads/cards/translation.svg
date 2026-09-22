@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="transGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+    <filter id="transShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0284C7" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <circle cx="300" cy="210" r="170" fill="#E0F2FE" opacity="0.6"/>
+
+  <!-- Left Bubble (Italian) -->
+  <g transform="translate(130, 90)">
+    <rect x="0" y="0" width="160" height="150" rx="24" fill="#FFFFFF" filter="url(#transShadow)"/>
+    <rect x="0" y="0" width="160" height="50" rx="24" fill="#22C55E"/>
+    <rect x="0" y="30" width="160" height="20" fill="#22C55E"/>
+    <text x="80" y="32" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="16" fill="#FFFFFF">🇮🇹 ITALIANO</text>
+    <text x="80" y="95" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="28" fill="#1E293B">Patente</text>
+    <text x="80" y="125" text-anchor="middle" font-size="18">🔊 [পা-তেন-তে]</text>
+  </g>
+
+  <!-- Exchange Arrows in Middle -->
+  <circle cx="300" cy="180" r="32" fill="url(#transGrad)" filter="url(#transShadow)"/>
+  <path d="M 285,170 L 315,170 M 310,165 L 315,170 L 310,175" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 315,190 L 285,190 M 290,185 L 285,190 L 290,195" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Right Bubble (Bangla) -->
+  <g transform="translate(310, 150)">
+    <rect x="0" y="0" width="160" height="150" rx="24" fill="#FFFFFF" filter="url(#transShadow)"/>
+    <rect x="0" y="0" width="160" height="50" rx="24" fill="#EF4444"/>
+    <rect x="0" y="30" width="160" height="20" fill="#EF4444"/>
+    <text x="80" y="32" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="16" fill="#FFFFFF">🇧🇩 BANGLA</text>
+    <text x="80" y="95" text-anchor="middle" font-family="'Kalpurush', 'Hind Siliguri', sans-serif" font-weight="900" font-size="24" fill="#1E293B">ড্রাইভিং লাইসেন্স</text>
+    <text x="80" y="125" text-anchor="middle" font-size="14" fill="#059669">✓ সঠিক উচ্চারণ</text>
+  </g>
+</svg>

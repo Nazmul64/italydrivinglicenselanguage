@@ -961,8 +961,8 @@ function renderSheetsList() {
         if (page.image) {
             const imgSrc = (page.image.startsWith('http') || page.image.startsWith('/')) ? page.image : `/storage/${page.image}`;
             pageImgHTML = `
-                <div class="page-image-frame" style="width: 100%; min-width: 100%; align-self: stretch; height: auto; display: block; margin: 10px 0; background: transparent; border-radius: 14px; padding: 0; box-shadow: none; overflow: hidden;">
-                    <img src="${imgSrc}" class="schede-page-img" alt="${displaySheetTitle}" style="width: 100%; min-width: 100%; height: auto; border-radius: 14px; background: transparent; display: block; object-fit: cover;">
+                <div class="page-image-frame">
+                    <img src="${imgSrc}" class="schede-page-img" alt="${displaySheetTitle}">
                 </div>
             `;
         }

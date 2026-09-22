@@ -475,7 +475,7 @@
                             <input type="file" class="form-control" id="form-home-card-lottie-file" accept=".json,.lottie" onchange="previewHomeCardLottie(this)">
                             <input type="text" class="form-control" id="form-home-card-lottie-url" placeholder="or Lottie JSON URL (https://assets.lottiefiles.com/...)" oninput="updateHomeCardLottieFromUrl(this.value)">
                             <div id="home-card-lottie-preview-container" style="display: none; text-align: center; margin-top: 6px; padding: 8px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-card);">
-                                <lottie-player id="home-card-lottie-preview" src="" background="transparent" speed="1" style="height: 100px; width: 100%; max-width: 200px; margin: 0 auto;" loop autoplay></lottie-player>
+                                <div id="home-card-lottie-preview" style="height: 100px; width: 100%; max-width: 200px; margin: 0 auto; display: flex; align-items: center; justify-content: center;"></div>
                             </div>
                         </div>
                         <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে মোশন অ্যানিমেশন আকারে বড় করে বসবে।</span>

@@ -52,10 +52,10 @@
                 <div class="illustration-box {{ $card->media_type === 'image' ? 'illustration-box-image' : ($card->media_type === 'lottie' ? 'illustration-box-lottie' : '') }}">
                     @if($card->media_type === 'lottie' && !empty($card->lottie_url))
                         @php 
-                            $lottiePath = parse_url($card->lottie_url, PHP_URL_PATH);
-                            $lottieSrc = $lottiePath ? asset(ltrim($lottiePath, '/')) : $card->lottie_url;
+                            $parsedLottie = parse_url($card->lottie_url, PHP_URL_PATH);
+                            $lottieRel = $parsedLottie ? '/' . ltrim($parsedLottie, '/') : $card->lottie_url;
                         @endphp
-                        <lottie-player src="{{ $lottieSrc }}" background="transparent" speed="1" style="width: 100%; height: 130px; margin: 0 auto; display: block;" loop autoplay></lottie-player>
+                        <div class="lottie-animation-box" data-lottie-url="{{ $lottieRel }}" style="width: 100%; height: 140px; display: flex; align-items: center; justify-content: center; overflow: visible;"></div>
                     @elseif($card->media_type === 'image' && (!empty($card->image_url) || !empty($card->icon_url)))
                         @php 
                             $rawImg = $card->image_url ?: $card->icon_url;
@@ -338,12 +338,102 @@
                         </div>
                     @endif
                 </div>
-                <h3 class="card-title" style="font-weight: 800; font-size: 16px; margin: 10px 0 2px 0; color: var(--text-primary, #1e293b); text-align: center;">{{ $card->title }}</h3>
-                @php $subText = $card->subtitle ?: $card->description; @endphp
-                @if($subText)
-                    <p class="card-subtitle" style="font-size: 13px; font-weight: 500; color: var(--text-secondary, #64748b); opacity: 0.9; margin: 0; text-align: center;">{{ $subText }}</p>
-                @endif
+                <div class="card-title-group">
+                    <h3 class="card-title" style="font-weight: 800; font-size: 16px; margin: 0; color: var(--text-primary, #1e293b); text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">{{ $card->title }}</h3>
+                    @php $subText = $card->subtitle ?: $card->description; @endphp
+                    @if($subText)
+                        <p class="card-subtitle" style="font-size: 13px; font-weight: 500; color: var(--text-secondary, #64748b); opacity: 0.9; margin: 2px 0 0 0; text-align: center;">{{ $subText }}</p>
+                    @endif
+                </div>
             </div>
         @endforeach
     </section>
+
+    <script>
+        (function() {
+            window.homeLottieCache = window.homeLottieCache || {};
+
+            function loadAndPlayLottie(el, url) {
+                if (!url) return;
+                // Normalize URL to current origin if relative or same domain
+                var fetchUrl = url;
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    try {
+                        var parsed = new URL(url);
+                        fetchUrl = parsed.pathname;
+                    } catch(e) {}
+                }
+
+                if (window.homeLottieCache[fetchUrl]) {
+                    try {
+                        lottie.loadAnimation({
+                            container: el,
+                            renderer: 'svg',
+                            loop: true,
+                            autoplay: true,
+                            animationData: window.homeLottieCache[fetchUrl]
+                        });
+                    } catch(e) {
+                        console.error("Lottie render cache error:", fetchUrl, e);
+                    }
+                    return;
+                }
+
+                fetch(fetchUrl)
+                    .then(function(res) {
+                        if (!res.ok) throw new Error("HTTP " + res.status);
+                        return res.json();
+                    })
+                    .then(function(json) {
+                        window.homeLottieCache[fetchUrl] = json;
+                        lottie.loadAnimation({
+                            container: el,
+                            renderer: 'svg',
+                            loop: true,
+                            autoplay: true,
+                            animationData: json
+                        });
+                    })
+                    .catch(function(err) {
+                        console.error("Failed to load Lottie JSON:", fetchUrl, err);
+                        try {
+                            lottie.loadAnimation({
+                                container: el,
+                                renderer: 'svg',
+                                loop: true,
+                                autoplay: true,
+                                path: fetchUrl
+                            });
+                        } catch(e2) {}
+                    });
+            }
+
+            function runLottie() {
+                if (typeof lottie === 'undefined') {
+                    setTimeout(runLottie, 50);
+                    return;
+                }
+                var boxes = document.querySelectorAll('#screen-home .lottie-animation-box[data-lottie-url]');
+                boxes.forEach(function(el) {
+                    if (el.getAttribute('data-lottie-rendered') === 'true') return;
+                    var url = el.getAttribute('data-lottie-url');
+                    if (url) {
+                        el.setAttribute('data-lottie-rendered', 'true');
+                        loadAndPlayLottie(el, url);
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', runLottie);
+            } else {
+                runLottie();
+            }
+            window.addEventListener('load', runLottie);
+            setTimeout(runLottie, 50);
+            setTimeout(runLottie, 200);
+            setTimeout(runLottie, 600);
+            setTimeout(runLottie, 1200);
+        })();
+    </script>
 </div>

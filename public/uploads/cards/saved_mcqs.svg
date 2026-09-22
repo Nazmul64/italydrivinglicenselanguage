@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bookmarkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#EAB308"/>
+    </linearGradient>
+    <filter id="savedShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#1E40AF" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <circle cx="300" cy="210" r="170" fill="#DBEAFE" opacity="0.6"/>
+  
+  <!-- Card Base -->
+  <rect x="180" y="60" width="240" height="300" rx="24" fill="#FFFFFF" filter="url(#savedShadow)"/>
+  
+  <!-- Header -->
+  <rect x="180" y="60" width="240" height="65" rx="24" fill="url(#bookmarkGrad)"/>
+  <rect x="180" y="95" width="240" height="30" fill="url(#bookmarkGrad)"/>
+  <text x="300" y="102" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="18" fill="#FFFFFF" letter-spacing="2">SAVED MCQS</text>
+  
+  <!-- Bookmark Graphic Ribbons -->
+  <path d="M 230,145 L 290,145 L 290,265 L 260,240 L 230,265 Z" fill="#EF4444" filter="url(#savedShadow)"/>
+  <path d="M 310,145 L 370,145 L 370,265 L 340,240 L 310,265 Z" fill="url(#starGrad)" filter="url(#savedShadow)"/>
+
+  <!-- Star Icon -->
+  <polygon points="340,175 346,192 364,192 350,203 355,220 340,209 325,220 330,203 316,192 334,192" fill="#FFFFFF"/>
+  <polygon points="260,175 266,192 284,192 270,203 275,220 260,209 245,220 250,203 236,192 254,192" fill="#FFFFFF"/>
+
+  <!-- Notes Lines -->
+  <rect x="220" y="295" width="160" height="12" rx="6" fill="#CBD5E1"/>
+  <rect x="220" y="320" width="110" height="12" rx="6" fill="#E2E8F0"/>
+</svg>

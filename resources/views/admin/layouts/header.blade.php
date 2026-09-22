@@ -16,6 +16,6 @@
     <!-- External CSS Separated Asset -->
     <link rel="stylesheet" href="{{ asset('css/admin/style.css') }}">
     <!-- Lottie Player for animated cards preview -->
-    <script src="{{ asset('js/vendor/lottie-player.js') }}"></script>
+    <script src="{{ asset('js/vendor/lottie.min.js') }}"></script>
 </head>
 <body>

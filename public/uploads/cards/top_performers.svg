@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="podium1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="podium2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#94A3B8"/>
+      <stop offset="100%" stop-color="#64748B"/>
+    </linearGradient>
+    <linearGradient id="podium3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <filter id="podiumShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <circle cx="300" cy="210" r="170" fill="#FEF3C7" opacity="0.6"/>
+
+  <!-- Podium 2 (Left) -->
+  <rect x="130" y="210" width="105" height="150" rx="14" fill="url(#podium2)" filter="url(#podiumShadow)"/>
+  <text x="182" y="270" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="36" fill="#FFFFFF">2</text>
+  <circle cx="182" cy="160" r="32" fill="#E2E8F0" filter="url(#podiumShadow)"/>
+  <text x="182" y="172" text-anchor="middle" font-size="28">🥈</text>
+
+  <!-- Podium 3 (Right) -->
+  <rect x="365" y="240" width="105" height="120" rx="14" fill="url(#podium3)" filter="url(#podiumShadow)"/>
+  <text x="417" y="300" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="36" fill="#FFFFFF">3</text>
+  <circle cx="417" cy="190" r="32" fill="#FED7AA" filter="url(#podiumShadow)"/>
+  <text x="417" y="202" text-anchor="middle" font-size="28">🥉</text>
+
+  <!-- Podium 1 (Center) -->
+  <rect x="240" y="160" width="120" height="200" rx="16" fill="url(#podium1)" filter="url(#podiumShadow)"/>
+  <text x="300" y="240" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="48" fill="#FFFFFF">1</text>
+  
+  <!-- Crown & Winner Avatar -->
+  <circle cx="300" cy="100" r="40" fill="#FEF08A" filter="url(#podiumShadow)"/>
+  <text x="300" y="114" text-anchor="middle" font-size="36">👑</text>
+</svg>

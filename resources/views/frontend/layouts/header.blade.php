@@ -214,10 +214,33 @@
             box-shadow: 12px 12px 26px var(--custom-shadow-dark), -12px -12px 26px var(--custom-shadow-light) !important;
         }
 
-        .nav-card .illustration-box,
+        .nav-card .illustration-box:not(.illustration-box-lottie):not(.illustration-box-image),
         .nav-card .fallback-icon-box {
             width: var(--home-icon-size-desk) !important;
             height: var(--home-icon-size-desk) !important;
+        }
+
+        .nav-card .illustration-box.illustration-box-lottie,
+        .nav-card .illustration-box.illustration-box-image {
+            width: 100% !important;
+            height: 145px !important;
+            min-height: 145px !important;
+            max-height: 145px !important;
+            margin-bottom: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .nav-card .illustration-box img.card-custom-image {
+            width: 100% !important;
+            height: 140px !important;
+            max-width: 100% !important;
+            max-height: 140px !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            display: block !important;
+            margin: 0 auto !important;
         }
 
         .nav-card .card-title {
@@ -287,15 +310,16 @@
             width: 100% !important;
             min-width: 100% !important;
             align-self: stretch !important;
-            height: auto !important;
-            min-height: unset !important;
-            max-height: unset !important;
-            display: block !important;
+            height: 160px !important;
+            max-height: 175px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             margin: 10px 0 !important;
-            background: transparent !important;
-            padding: 0 !important;
+            background: rgba(0, 0, 0, 0.02) !important;
+            padding: 4px !important;
             overflow: hidden !important;
-            border-radius: 14px !important;
+            border-radius: 12px !important;
             box-shadow: none !important;
         }
 
@@ -303,14 +327,13 @@
         #screen-cartelli-schede .schede-page-img,
         #screen-argomenti-schede .content-card img,
         #screen-argomenti-schede .schede-page-img {
-            max-height: none !important;
-            min-height: unset !important;
-            height: auto !important;
+            max-height: 155px !important;
+            height: 100% !important;
             width: 100% !important;
-            min-width: 100% !important;
+            min-width: unset !important;
             max-width: 100% !important;
-            object-fit: cover !important;
-            border-radius: 14px !important;
+            object-fit: contain !important;
+            border-radius: 10px !important;
             display: block !important;
             background: transparent !important;
         }
@@ -440,10 +463,16 @@
                 grid-template-columns: repeat(var(--schede-mob-cols), 1fr) !important;
             }
 
-            .nav-card .illustration-box,
+            .nav-card .illustration-box:not(.illustration-box-lottie):not(.illustration-box-image),
             .nav-card .fallback-icon-box {
                 width: var(--home-icon-size-mob) !important;
                 height: var(--home-icon-size-mob) !important;
+            }
+
+            .nav-card .illustration-box.illustration-box-lottie,
+            .nav-card .illustration-box.illustration-box-image {
+                width: 100% !important;
+                height: 115px !important;
             }
 
             .nav-card .card-title {
@@ -536,16 +565,23 @@
                 font-size: var(--argomenti-page-title-mob) !important;
             }
 
+            #screen-cartelli-schede .page-image-frame,
+            #screen-argomenti-schede .page-image-frame {
+                height: 140px !important;
+                max-height: 150px !important;
+            }
+
+            #screen-cartelli-schede .content-card img,
+            #screen-cartelli-schede .schede-page-img,
             #screen-argomenti-schede .content-card img,
             #screen-argomenti-schede .schede-page-img {
-                max-height: none !important;
-                min-height: unset !important;
-                height: auto !important;
+                max-height: 135px !important;
+                height: 100% !important;
                 width: 100% !important;
-                min-width: 100% !important;
+                min-width: unset !important;
                 max-width: 100% !important;
-                object-fit: cover !important;
-                border-radius: 14px !important;
+                object-fit: contain !important;
+                border-radius: 10px !important;
                 display: block !important;
             }
 
@@ -577,5 +613,8 @@
             }
         }
     </style>
+    <!-- Lottie Web Animation Engine -->
+    <script src="/js/vendor/lottie.min.js"></script>
+    <script>if(typeof lottie==='undefined'){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"><\/script>');}</script>
 </head>
 <body>

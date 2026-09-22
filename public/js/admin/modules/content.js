@@ -541,15 +541,52 @@ function updateHomeCardImageFromUrl(url) {
     }
 }
 
-function previewHomeCardLottie(input) {
+let activeModalLottieAnim = null;
+
+function renderModalLottiePreview(dataOrPath, isJsonObj = false) {
     const container = document.getElementById('home-card-lottie-preview-container');
-    const preview = document.getElementById('home-card-lottie-preview');
+    const previewDiv = document.getElementById('home-card-lottie-preview');
+    if (!container || !previewDiv) return;
+
+    if (activeModalLottieAnim) {
+        try { activeModalLottieAnim.destroy(); } catch(e) {}
+        activeModalLottieAnim = null;
+    }
+    previewDiv.innerHTML = '';
+
+    if (!dataOrPath) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    try {
+        const animConfig = {
+            container: previewDiv,
+            renderer: 'svg',
+            loop: true,
+            autoplay: true
+        };
+        if (isJsonObj) {
+            animConfig.animationData = dataOrPath;
+        } else {
+            animConfig.path = dataOrPath;
+        }
+        activeModalLottieAnim = lottie.loadAnimation(animConfig);
+    } catch(err) {
+        console.error("Error loading lottie preview: ", err);
+    }
+}
+
+function previewHomeCardLottie(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            if (preview && container) {
-                preview.load(e.target.result);
-                container.style.display = 'block';
+            try {
+                const jsonObj = JSON.parse(e.target.result);
+                renderModalLottiePreview(jsonObj, true);
+            } catch(err) {
+                console.error("Invalid Lottie JSON file");
             }
         };
         reader.readAsText(input.files[0]);
@@ -557,15 +594,10 @@ function previewHomeCardLottie(input) {
 }
 
 function updateHomeCardLottieFromUrl(url) {
-    const container = document.getElementById('home-card-lottie-preview-container');
-    const preview = document.getElementById('home-card-lottie-preview');
     if (url && url.trim()) {
-        if (preview && container) {
-            preview.load(url.trim());
-            container.style.display = 'block';
-        }
-    } else if (container && !document.getElementById('form-home-card-lottie-file')?.files?.length) {
-        container.style.display = 'none';
+        renderModalLottiePreview(url.trim(), false);
+    } else if (!document.getElementById('form-home-card-lottie-file')?.files?.length) {
+        renderModalLottiePreview(null);
     }
 }
 
@@ -590,10 +622,9 @@ function openAddHomeCardModal() {
     if (lottieFile) lottieFile.value = '';
     const lottieUrl = document.getElementById('form-home-card-lottie-url');
     if (lottieUrl) lottieUrl.value = '';
-    const lottieCont = document.getElementById('home-card-lottie-preview-container');
-    if (lottieCont) lottieCont.style.display = 'none';
+    renderModalLottiePreview(null);
 
-    toggleHomeCardMediaType('icon');
+    toggleHomeCardMediaType('lottie');
     updateHomeCardIconPreview();
 
     document.getElementById('home-card-modal').style.display = 'flex';
@@ -626,13 +657,11 @@ function openEditHomeCardModal(card) {
     if (lottieFile) lottieFile.value = '';
     const lottieUrl = document.getElementById('form-home-card-lottie-url');
     if (lottieUrl) lottieUrl.value = card.lottie_url || '';
-    const lottieCont = document.getElementById('home-card-lottie-preview-container');
-    const lottiePrev = document.getElementById('home-card-lottie-preview');
-    if (lottieCont && lottiePrev && card.lottie_url) {
-        lottiePrev.load(card.lottie_url);
-        lottieCont.style.display = 'block';
-    } else if (lottieCont) {
-        lottieCont.style.display = 'none';
+    
+    if (card.lottie_url) {
+        renderModalLottiePreview(card.lottie_url, false);
+    } else {
+        renderModalLottiePreview(null);
     }
 
     const mediaType = card.media_type || (card.lottie_url ? 'lottie' : ((card.image_url || card.icon_url) ? 'image' : 'icon'));

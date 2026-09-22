@@ -494,6 +494,23 @@ body {
         font-size: 32px !important;
     }
 
+    .illustration-box.illustration-box-image,
+    .illustration-box.illustration-box-lottie {
+        width: 100% !important;
+        height: 95px !important;
+        min-height: 95px !important;
+        max-height: 95px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .illustration-box img.card-custom-image {
+        width: 100% !important;
+        height: 90px !important;
+        max-width: 100% !important;
+        max-height: 90px !important;
+        object-fit: contain !important;
+    }
+
     .illustration-box svg {
         width: 48px !important;
         height: 48px !important;
@@ -524,13 +541,17 @@ body {
     box-shadow:
         9px 9px 18px #d1d9e6,
         -9px -9px 18px #ffffff;
-    padding: 44px 24px;
+    padding: 24px 18px 20px 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: space-between;
+    min-height: 236px;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
 }
 
 .nav-card:hover {
@@ -575,7 +596,7 @@ body.dark-mode .nav-card:active {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     font-size: 60px;
     transition: all 0.3s ease;
     box-shadow:
@@ -606,51 +627,79 @@ body.dark-mode .illustration-box {
 
 .illustration-box.illustration-box-image,
 .illustration-box.illustration-box-lottie {
-    width: 100%;
-    max-width: 100%;
-    height: 135px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    margin-bottom: 12px;
-    overflow: visible;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 145px !important;
+    min-height: 145px !important;
+    max-height: 145px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin-bottom: 12px !important;
+    overflow: hidden;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 body.dark-mode .illustration-box.illustration-box-image,
 body.dark-mode .illustration-box.illustration-box-lottie {
-    box-shadow: none;
-    border: none;
-    background: transparent;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
 }
 
 .illustration-box img.card-custom-image {
-    width: 100%;
-    max-width: 100%;
-    height: 130px;
-    object-fit: contain;
-    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.08));
+    width: 100% !important;
+    height: 140px !important;
+    max-width: 100% !important;
+    max-height: 140px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.08));
     transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: block !important;
+    margin: 0 auto !important;
 }
 
 .nav-card:hover .illustration-box img.card-custom-image {
-    transform: scale(1.06) translateY(-4px);
+    transform: scale(1.06) translateY(-3px);
 }
 
+.illustration-box .lottie-animation-box,
 .illustration-box lottie-player {
-    width: 100%;
-    max-width: 100%;
-    height: 130px;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 140px !important;
     margin: 0 auto;
-    display: block;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.illustration-box .lottie-animation-box svg {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 140px !important;
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.06));
+}
+
+.nav-card:hover .illustration-box .lottie-animation-box,
 .nav-card:hover .illustration-box lottie-player {
-    transform: scale(1.06) translateY(-4px);
+    transform: scale(1.06) translateY(-3px);
+}
+
+.card-title-group {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding-top: 4px;
 }
 
 /* Distinct Icon Backgrounds & Colors for Premium Aesthetic */
@@ -2375,33 +2424,31 @@ body.dark-mode .detail-speed-popover-menu {
     transform: scale(0.95) !important;
 }
 
-/* Schede & Page Card Image Responsive Sizing without empty space */
 .page-image-frame {
     width: 100% !important;
     min-width: 100% !important;
     align-self: stretch !important;
-    height: auto !important;
-    min-height: unset !important;
-    max-height: unset !important;
-    display: block !important;
+    height: 160px !important;
+    max-height: 175px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     margin: 10px 0 !important;
-    background: transparent !important;
-    border-radius: 14px !important;
-    padding: 0 !important;
+    background: rgba(0, 0, 0, 0.02) !important;
+    border-radius: 12px !important;
+    padding: 4px !important;
     overflow: hidden !important;
 }
 
 .schede-page-img,
 .page-image-frame img {
     width: 100% !important;
-    min-width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: unset !important;
-    border-radius: 14px !important;
+    height: 100% !important;
+    max-height: 155px !important;
+    border-radius: 10px !important;
     display: block !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
 }
 
 .content-card {
@@ -3338,23 +3385,27 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         min-width: 100% !important;
         align-self: stretch !important;
-        height: auto !important;
-        min-height: unset !important;
-        max-height: unset !important;
-        display: block !important;
+        height: 140px !important;
+        max-height: 150px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         margin: 10px 0 !important;
+        background: rgba(0, 0, 0, 0.02) !important;
+        border-radius: 12px !important;
+        padding: 4px !important;
+        overflow: hidden !important;
     }
 
     .schede-page-img,
     .page-image-frame img {
         width: 100% !important;
-        min-width: 100% !important;
         max-width: 100% !important;
-        height: auto !important;
-        max-height: none !important;
-        min-height: unset !important;
-        object-fit: cover !important;
+        height: 100% !important;
+        max-height: 135px !important;
+        border-radius: 10px !important;
         display: block !important;
+        object-fit: contain !important;
     }
 }
 
@@ -3389,23 +3440,27 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         min-width: 100% !important;
         align-self: stretch !important;
-        height: auto !important;
-        min-height: unset !important;
-        max-height: unset !important;
-        display: block !important;
-        margin: 10px 0 !important;
+        height: 130px !important;
+        max-height: 140px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 8px 0 !important;
+        background: rgba(0, 0, 0, 0.02) !important;
+        border-radius: 10px !important;
+        padding: 2px !important;
+        overflow: hidden !important;
     }
 
     .schede-page-img,
     .page-image-frame img {
         width: 100% !important;
-        min-width: 100% !important;
         max-width: 100% !important;
-        height: auto !important;
-        max-height: none !important;
-        min-height: unset !important;
-        object-fit: cover !important;
+        height: 100% !important;
+        max-height: 125px !important;
+        border-radius: 8px !important;
         display: block !important;
+        object-fit: contain !important;
     }
 }
 
