@@ -61,8 +61,8 @@
                                             {{ $displayTitle }}
                                         </div>
                                         @if(!empty($pageImage))
-                                        <div class="chapter-card-img-wrapper" style="width: 100%; max-width: 460px; height: 210px; min-height: 180px; display: flex; align-items: center; justify-content: center; margin: 10px auto; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
-                                            <img src="{{ $pageImage }}" onerror="this.parentElement.style.display='none'" class="chapter-card-img" alt="{{ $displayTitle }}" style="height: 100%; width: 90%; max-height: 210px; max-width: 440px; object-fit: cover; object-position: center; border-radius: 14px; background: transparent; display: block;">
+                                        <div class="chapter-card-img-wrapper" style="width: 100%; height: 230px; min-height: 180px; display: flex; align-items: center; justify-content: center; margin: 10px auto; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                                            <img src="{{ $pageImage }}" onerror="this.parentElement.style.display='none'" class="chapter-card-img" alt="{{ $displayTitle }}" style="height: 100%; width: 100%; max-height: 230px; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
                                         </div>
                                         @endif
                                         <div style="width: 100%; margin-top: 14px;">

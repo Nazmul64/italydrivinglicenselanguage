@@ -310,11 +310,11 @@
         #screen-cartelli-schede .chapter-card-img-wrapper,
         #screen-argomenti-schede .chapter-card-img-wrapper {
             width: 100% !important;
-            max-width: 460px !important;
+            max-width: 100% !important;
             align-self: center !important;
-            height: 210px !important;
+            height: 230px !important;
             min-height: 180px !important;
-            max-height: 240px !important;
+            max-height: 250px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -330,12 +330,11 @@
         #screen-cartelli-schede .chapter-card-img,
         #screen-argomenti-schede .chapter-image-card img,
         #screen-argomenti-schede .chapter-card-img {
-            max-height: 210px !important;
+            max-height: 230px !important;
             height: 100% !important;
-            width: 90% !important;
-            max-width: 440px !important;
-            object-fit: cover !important;
-            object-position: center !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            object-fit: contain !important;
             border-radius: 14px !important;
             display: block !important;
             margin: 0 auto !important;
@@ -347,12 +346,11 @@
         #screen-cartelli-schede .schede-page-img,
         #screen-argomenti-schede .content-card img,
         #screen-argomenti-schede .schede-page-img {
-            max-height: 210px !important;
+            max-height: 230px !important;
             height: 100% !important;
-            width: 90% !important;
-            max-width: 440px !important;
-            object-fit: cover !important;
-            object-position: center !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            object-fit: contain !important;
             border-radius: 14px !important;
             display: block !important;
             margin: 0 auto !important;
@@ -605,12 +603,11 @@
             #screen-cartelli-schede .schede-page-img,
             #screen-argomenti-schede .content-card img,
             #screen-argomenti-schede .schede-page-img {
-                max-height: 180px !important;
+                max-height: 190px !important;
                 height: 100% !important;
-                width: 92% !important;
+                width: 100% !important;
                 max-width: 100% !important;
-                object-fit: cover !important;
-                object-position: center !important;
+                object-fit: contain !important;
                 border-radius: 12px !important;
                 display: block !important;
                 margin: 0 auto !important;
