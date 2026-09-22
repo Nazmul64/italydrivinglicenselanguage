@@ -1,5 +1,5 @@
 // Italy Bangla Patente App - Service Worker for Mobile PWA
-const CACHE_NAME = 'patente-app-v50';
+const CACHE_NAME = 'patente-app-v51';
 const ASSETS_TO_CACHE = [
   '/',
   '/app',

@@ -306,12 +306,15 @@
         }
 
         #screen-cartelli-schede .page-image-frame,
-        #screen-argomenti-schede .page-image-frame {
+        #screen-argomenti-schede .page-image-frame,
+        #screen-cartelli-schede .chapter-card-img-wrapper,
+        #screen-argomenti-schede .chapter-card-img-wrapper {
             width: 100% !important;
-            max-width: 480px !important;
+            max-width: 460px !important;
             align-self: center !important;
-            height: 180px !important;
-            max-height: 200px !important;
+            height: 210px !important;
+            min-height: 180px !important;
+            max-height: 240px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -319,20 +322,38 @@
             background: transparent !important;
             padding: 0 !important;
             overflow: hidden !important;
-            border-radius: 12px !important;
+            border-radius: 14px !important;
             box-shadow: none !important;
+        }
+
+        #screen-cartelli-schede .chapter-image-card img,
+        #screen-cartelli-schede .chapter-card-img,
+        #screen-argomenti-schede .chapter-image-card img,
+        #screen-argomenti-schede .chapter-card-img {
+            max-height: 210px !important;
+            height: 100% !important;
+            width: 90% !important;
+            max-width: 440px !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            border-radius: 14px !important;
+            display: block !important;
+            margin: 0 auto !important;
+            background: transparent !important;
+            transform: none !important;
         }
 
         #screen-cartelli-schede .content-card img,
         #screen-cartelli-schede .schede-page-img,
         #screen-argomenti-schede .content-card img,
         #screen-argomenti-schede .schede-page-img {
-            max-height: 180px !important;
-            height: auto !important;
-            width: auto !important;
-            max-width: 100% !important;
-            object-fit: contain !important;
-            border-radius: 10px !important;
+            max-height: 210px !important;
+            height: 100% !important;
+            width: 90% !important;
+            max-width: 440px !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            border-radius: 14px !important;
             display: block !important;
             margin: 0 auto !important;
             background: transparent !important;
@@ -566,24 +587,31 @@
             }
 
             #screen-cartelli-schede .page-image-frame,
-            #screen-argomenti-schede .page-image-frame {
-                height: 160px !important;
-                max-height: 170px !important;
+            #screen-argomenti-schede .page-image-frame,
+            #screen-cartelli-schede .chapter-card-img-wrapper,
+            #screen-argomenti-schede .chapter-card-img-wrapper {
+                height: 180px !important;
+                max-height: 200px !important;
                 background: transparent !important;
                 padding: 0 !important;
                 margin: 8px auto !important;
             }
 
+            #screen-cartelli-schede .chapter-image-card img,
+            #screen-cartelli-schede .chapter-card-img,
+            #screen-argomenti-schede .chapter-image-card img,
+            #screen-argomenti-schede .chapter-card-img,
             #screen-cartelli-schede .content-card img,
             #screen-cartelli-schede .schede-page-img,
             #screen-argomenti-schede .content-card img,
             #screen-argomenti-schede .schede-page-img {
-                max-height: 160px !important;
-                height: auto !important;
-                width: auto !important;
+                max-height: 180px !important;
+                height: 100% !important;
+                width: 92% !important;
                 max-width: 100% !important;
-                object-fit: contain !important;
-                border-radius: 8px !important;
+                object-fit: cover !important;
+                object-position: center !important;
+                border-radius: 12px !important;
                 display: block !important;
                 margin: 0 auto !important;
                 background: transparent !important;
