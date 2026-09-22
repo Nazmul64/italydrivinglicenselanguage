@@ -458,14 +458,14 @@
                     <!-- 2. IMAGE SECTION -->
                     <div id="home-card-media-image-sec" style="display: none;">
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <label class="form-label" style="font-size: 11px;">Image Upload / URL</label>
-                            <input type="file" class="form-control" id="form-home-card-image-file" accept="image/*" onchange="previewHomeCardImage(this)">
+                            <label class="form-label" style="font-size: 11px;">Image Upload / URL (SVG, WebP, PNG, JPG, GIF)</label>
+                            <input type="file" class="form-control" id="form-home-card-image-file" accept="image/*,.svg,.png,.jpg,.jpeg,.webp,.gif,.ico,.avif" onchange="previewHomeCardImage(this)">
                             <input type="text" class="form-control" id="form-home-card-image-url" placeholder="or direct image URL (https://...)" oninput="updateHomeCardImageFromUrl(this.value)">
                             <div id="home-card-image-preview-container" style="display: none; text-align: center; margin-top: 6px; padding: 8px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-card);">
                                 <img id="home-card-image-preview" src="" style="max-height: 90px; max-width: 100%; object-fit: contain; border-radius: 6px;">
                             </div>
                         </div>
-                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে বড় ফ্রেম জুড়ে চমৎকারভাবে বসবে।</span>
+                        <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">হোমপেজের কার্ডে বড় ফ্রেম জুড়ে চমৎকারভাবে বসবে (SVG, WebP, PNG, JPG সাপোর্টেড)।</span>
                     </div>
 
                     <!-- 3. LOTTIE SECTION -->

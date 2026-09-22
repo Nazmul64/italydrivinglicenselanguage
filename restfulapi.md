@@ -28,22 +28,55 @@ The backend automatically resolves the user identity across platforms via the `R
 > **⚠️ CRITICAL DEVELOPER INSTRUCTION**: 
 > অ্যাপের প্রতিটি স্ক্রিন ট্রানজিশন যেন **১ সেকেন্ডের অর্ধেক সময়ে ( < 500ms )** ইনস্ট্যান্টলি লোড হয়।
 > 1. **Local State / Hive / SharedPreferences Caching**: পূর্বের ফেচ করা ডাটা লোকাল মেমোরি থেকে সাথে সাথে স্ক্রিনে রেন্ডার করবেন, ব্যাকগ্রাউন্ডে API কল করে লোকাল ডাটা রিফ্রেশ করবেন (Stale-While-Revalidate প্যাটার্ন)।
-> 2. **🚫 NO DUMMY / RANDOM IMAGES**: কোনো প্রশ্নে ইমেজ ফিল্ড `null` বা খালি `""` থাকলে বা `/data/user/` লোকাল পাথ থাকলে ইমেজ কন্টেইনার সম্পূর্ণ হাইড (`Visibility(visible: hasValidImage)`) রাখবেন। ভুলেও কোনো ডামি বা আন্দাজে ছবি দেখাবেন না।
+> 2. **🚫 NO DUMMY / RANDOM IMAGES IN MCQS & RESULT SCREENS**:
+>    - কোনো প্রশ্নে ইমেজ ফিল্ড `null` বা খালি `""` থাকলে বা `/data/user/` লোকাল পাথ থাকলে ইমেজ কন্টেইনার সম্পূর্ণ হাইড (`Visibility(visible: hasValidImage)`) রাখবেন বা `const SizedBox.shrink()` রিটার্ন করবেন।
+>    - **কুইজ প্র্যাকটিস স্ক্রিন (`quiz_practice_screen.dart`), টেস্ট স্ক্রিন এবং রেজাল্ট স্ক্রিন (`bocciato`/`promosso`)—কোনো স্ক্রিনেই কোনো ডামি বা আন্দাজে ছবি দেখাবেন না।**
 
 ---
 
-## 🎴 1. Home Navigation Cards API (হোম সার্ভিসেস কার্ড / আইকন / ইমেজ / Lottie JSON)
+## 🎴 1. Home Navigation Cards API (হোম সার্ভিসেস কার্ড / SVG / WebP / Lottie JSON)
 
-Admin প্যানেল থেকে হোম পেজের কার্ডগুলোর নাম, আইকন, ছবি, Lottie অ্যানিমেশন JSON বা ক্রম পরিবর্তন করলে Flutter অ্যাপেও যেন স্বয়ংক্রিয়ভাবে রিয়েল-টাইমে আপডেট হয়ে যায়।
+Admin প্যানেল থেকে হোম পেজের কার্ডগুলোর নাম, আইকন, ছবি (SVG, WebP, PNG, JPG, GIF), Lottie অ্যানিমেশন JSON বা ক্রম পরিবর্তন করলে Flutter অ্যাপেও যেন স্বয়ংক্রিয়ভাবে রিয়েল-টাইমে আপডেট হয়ে যায়।
 
 ### ⚠️ IMPORTANT INSTRUCTIONS FOR FLUTTER DEVELOPER:
-1. **🚫 NO CIRCLE AVATARS / NO CIRCULAR BORDERS (গোল দাগ বা সার্কেল বাদ দিন)**:
+1. **🖼️ SVG & Multi-format Support in Flutter**:
+   - ব্যাকএন্ড থেকে কার্ডের ছবিতে `.svg` ফাইল আসতে পারে (যেমন: `/uploads/cards/sfida.svg`, `/uploads/cards/scheda_esame.svg`, ইত্যাদি)।
+   - Flutter-এর সাধারণ `Image.network()` কিন্তু `.svg` লোড করতে পারে না। তাই `flutter_svg` প্যাকেজ ব্যবহার করুন (`SvgPicture.network`)।
+   - **কোড স্যাম্পল**:
+   ```dart
+   import 'package:flutter_svg/flutter_svg.dart';
+   import 'package:lottie/lottie.dart';
+
+   Widget buildHomeCardMedia(HomeCard card) {
+     final imageUrl = card.imageUrl ?? '';
+     if (card.mediaType == 'image' && imageUrl.isNotEmpty) {
+       if (imageUrl.toLowerCase().endsWith('.svg')) {
+         return SvgPicture.network(
+           imageUrl,
+           height: 80,
+           width: 80,
+           fit: BoxFit.contain,
+           placeholderBuilder: (context) => const SizedBox(height: 80, width: 80),
+         );
+       } else {
+         return Image.network(
+           imageUrl,
+           height: 80,
+           width: 80,
+           fit: BoxFit.contain,
+           errorBuilder: (context, error, stackTrace) => const SizedBox(height: 80, width: 80),
+         );
+       }
+     } else if (card.mediaType == 'lottie' && (card.lottieUrl ?? '').isNotEmpty) {
+       return Lottie.network(card.lottieUrl!, height: 80, fit: BoxFit.contain);
+     } else {
+       return FaIcon(getFontAwesomeIcon(card.iconClass), color: hexToColor(card.iconColor), size: 50);
+     }
+   }
+   ```
+2. **🚫 NO CIRCLE AVATARS / NO CIRCULAR BORDERS (গোল দাগ বা সার্কেল বাদ দিন)**:
    - কার্ডের ছবি বা আইকনকে কোনো `CircleAvatar` বা গোলাকার বৃত্তের (Circle Container) মধ্যে রাখবেন না।
    - ছবি সরাসরি কার্ডের মাঝে বড় এবং সুস্পষ্টভাবে দেখান (`fit: BoxFit.contain`, `height: 80` বা `90`, `BorderRadius.circular(12)` দিয়ে স্কয়ার/রেক্টাঙ্গুলার আকারে)।
-2. **🖼️ Dynamic Media Type Rendering**:
-   - `media_type == "image"`: `Image.network(card.imageUrl, fit: BoxFit.contain, height: 80)`
-   - `media_type == "lottie"`: `Lottie.network(card.lottieUrl, height: 80, fit: BoxFit.contain)`
-   - `media_type == "icon"`: `FaIcon(getIcon(card.iconClass), color: hexToColor(card.iconColor), size: 50)`
 
 ### 📡 Get Active Home Cards
 - **Endpoint**: `GET /api/v1/home-cards` (or `GET /api/home-cards`)
@@ -70,33 +103,43 @@ Admin প্যানেল থেকে হোম পেজের কার্�
       "status": true
     },
     {
-      "id": 2,
-      "title": "Test",
-      "subtitle": "অনুশীলন টেস্ট",
-      "screen_key": "test",
+      "id": 5,
+      "title": "Sfida",
+      "subtitle": "চ্যালেঞ্জ",
+      "screen_key": "sfida",
       "media_type": "image",
-      "icon_class": "fa-solid fa-laptop-code",
-      "icon_color": "#3B82F6",
-      "color": "#3B82F6",
+      "icon_class": "fa-solid fa-trophy",
+      "icon_color": "#F59E0B",
+      "color": "#F59E0B",
       "icon_url": null,
-      "image_url": "https://mbanglapatenteb.com/uploads/cards/card_img_1790055113_489.webp",
-      "lottie_url": "https://mbanglapatenteb.com/uploads/cards/lottie/lottie_test.json",
-      "order_index": 2,
+      "image_url": "https://mbanglapatenteb.com/uploads/cards/sfida.svg",
+      "order_index": 5,
       "status": true
     },
     {
-      "id": 3,
-      "title": "Argomenti",
-      "subtitle": "অধ্যায়সমূহ",
-      "screen_key": "argomenti",
+      "id": 9,
+      "title": "Saved MCQs",
+      "subtitle": "সেভ করা এমসিকিউ",
+      "screen_key": "saved-mcqs",
       "media_type": "image",
-      "icon_class": "fa-solid fa-book-open",
+      "icon_class": "fa-solid fa-bookmark",
+      "icon_color": "#EF4444",
+      "color": "#EF4444",
+      "image_url": "https://mbanglapatenteb.com/uploads/cards/saved_mcqs.svg",
+      "order_index": 9,
+      "status": true
+    },
+    {
+      "id": 10,
+      "title": "Noted MCQs",
+      "subtitle": "নোট করা এমসিকিউ",
+      "screen_key": "noted-mcqs",
+      "media_type": "image",
+      "icon_class": "fa-regular fa-note-sticky",
       "icon_color": "#10B981",
       "color": "#10B981",
-      "icon_url": null,
-      "image_url": "https://mbanglapatenteb.com/uploads/cards/card_img_1790055395_599.webp",
-      "lottie_url": "https://mbanglapatenteb.com/uploads/cards/lottie/lottie_argomenti.json",
-      "order_index": 3,
+      "image_url": "https://mbanglapatenteb.com/uploads/cards/card_img_1790055889_674.webp",
+      "order_index": 10,
       "status": true
     }
   ]
@@ -188,14 +231,43 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 
 ---
 
+## 🚫 2.1 MCQ Image Rendering Rule (Quiz, Practice, Test, Argomenti, Result Screen)
+> **⚠️ STRICT NO-DUMMY IMAGE RULE FOR FLUTTER DEVELOPER**:
+> যখন কোনো প্রশ্নে ইমেজ আপলোড করা থাকে না (`image == null` বা `image.isEmpty` বা `image.contains('/data/user/')`), তখন:
+> - **কোনো ডামি বা আন্দাজে Freepik ইলাস্ট্রেশন দেখাবেন না।**
+> - ইমেজ উইজেটটিকে সম্পূর্ণ কলাপ্স (`SizedBox.shrink()`) করবেন।
+> 
+> ```dart
+> Widget buildQuestionImage(String? imageUrl) {
+>   if (imageUrl == null || imageUrl.trim().isEmpty || imageUrl.contains('/data/user/')) {
+>     return const SizedBox.shrink(); // No image, collapse completely
+>   }
+>   return Padding(
+>     padding: const EdgeInsets.only(bottom: 12.0),
+>     child: ClipRRect(
+>       borderRadius: BorderRadius.circular(12),
+>       child: Image.network(
+>         imageUrl,
+>         height: 140,
+>         width: double.infinity,
+>         fit: BoxFit.contain,
+>         errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+>       ),
+>     ),
+>   );
+> }
+> ```
+
+---
+
 ## 🔖 3. Saved / Bookmarked MCQs (সেভ / বুকমার্ক করা প্রশ্ন)
-> **⚠️ STRICT DISTINCTION**:
-> - **Save/Bookmark Button (বুকমার্ক আইকন)**: প্রশ্নটি ভবিষ্যতের জন্য বুকমার্ক করতে এই এন্ডপয়েন্ট ব্যবহার করুন।
-> - **নোটের সাথে কোনো সম্পর্ক নেই**: নোটে ক্লিক করলে সেভ বাটনের কোনো API কল করা যাবে না।
+> **⚠️ STRICT SEPARATION FROM NOTES**:
+> - **Save/Bookmark Button (বুকমার্ক আইকন)**: প্রশ্নটি বুকমার্ক করার জন্য এই এন্ডপয়েন্ট ব্যবহার করুন।
+> - **হোম কার্ড রাউটিং**: `screen_key == "saved-mcqs"` হলে **`SavedQuestionsScreen`**-এ নেভিগেট করবেন।
 
 - **Get Saved MCQs**: `GET /api/v1/saved-mcqs` (or `GET /api/saved-mcqs`, `GET /api/v1/bookmarks`)
 - **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
-- **Toggle Save/Unsave**: `POST /api/v1/saved-mcqs/toggle` (or `POST /api/saved-mcqs/toggle`, `POST /api/v1/bookmarks/toggle`)
+- **Toggle Save/Unsave**: `POST /api/v1/saved-mcqs/toggle`
   - **Body Payload**:
 ```json
 {
@@ -221,13 +293,13 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 
 ---
 
-## 📝 4. Noted MCQs API (নোট করা প্রশ্ন — সম্পূর্ণ আলাদা ফিচার)
+## 📝 4. Noted MCQs API (নোট করা প্রশ্ন — সম্পূর্ণ আলাদা স্ক্রিন ও ফিচার)
 > **⚠️ CRITICAL WARNING FOR FLUTTER DEVELOPER**:
-> MCQ কার্ডের **"নোট" (Note)** বাটনে ক্লিক করলে:
-> 1. একটি Note Dialog / BottomSheet খুলবে যেখানে ইউজার নোট লিখতে পারবেন।
-> 2. সেভ চাপলে `POST /api/v1/notes` অথবা `POST /api/v1/noted-mcqs/save` এন্ডপয়েন্টে পাঠাবেন।
-> 3. ❌ ভুলেও নোটে ক্লিক করলে `Saved MCQs` এর toggle API কল করবেন না বা লোকাল BookmarkManager-এ সেভ করবেন না!
-> 4. নোটকৃত প্রশ্নগুলো হোমপেজের **"Noted MCQs"** স্ক্রিন থেকে `GET /api/v1/noted-mcqs` দিয়ে লোড হবে।
+> 1. **হোম কার্ড রাউটিং**: `screen_key == "noted-mcqs"` হলে **`NotedQuestionsScreen`**-এ নেভিগেট করবেন (❌ ভুলেও `SavedQuestionsScreen`-এ পাঠাবেন না!)।
+> 2. **নোট বাটন অ্যাকশন**: MCQ কার্ডের **"নোট" (Note)** বাটনে ক্লিক করলে:
+>    - একটি Note Dialog / BottomSheet খুলবে যেখানে ইউজারের আগের নোট (যদি থাকে) লোড হবে এবং ইউজার নতুন নোট লিখতে পারবেন।
+>    - সেভ বাটনে চাপ দিলে `POST /api/v1/notes` অথবা `POST /api/v1/noted-mcqs/save` এন্ডপয়েন্টে পাঠাবেন।
+> 3. **নোট প্রদর্শন**: `NotedQuestionsScreen`-এ প্রতিটি প্রশ্নের নিচে ইউজারের নোট করা লেখা (`note_text`) স্পষ্ট হলুদ বা সবুজ বক্সে দেখাবেন।
 
 ### 📡 Get All Noted MCQs
 - **Endpoint**: `GET /api/v1/noted-mcqs` (or `GET /api/v1/notes`, `GET /api/notes`)
@@ -245,7 +317,7 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
       "question_id": 1,
       "page_id": 1,
       "type": "argomenti",
-      "note_text": "এই প্রশ্নটিতে খেয়াল রাখবেন: হাইওয়েতে স্পিড ১৩০ কিমি/ঘণ্টা।",
+      "note_text": "নাজমুল হুসাইন - মনে রাখতে হবে এই প্রশ্নের উত্তর সর্বদা Vero",
       "created_at": "2026-09-22T10:00:00.000000Z",
       "updated_at": "2026-09-22T10:00:00.000000Z",
       "question": {
@@ -260,7 +332,7 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
         "video": "",
         "type": "argomenti",
         "note_id": 1,
-        "note_text": "এই প্রশ্নটিতে খেয়াল রাখবেন: হাইওয়েতে স্পিড ১৩০ কিমি/ঘণ্টা।"
+        "note_text": "নাজমুল হুসাইন - মনে রাখতে হবে এই প্রশ্নের উত্তর সর্বদা Vero"
       }
     }
   ]
@@ -276,7 +348,7 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
   "question_id": 1,
   "page_id": 1,
   "type": "argomenti",
-  "note_text": "এই প্রশ্নটিতে খেয়াল রাখবেন: হাইওয়েতে স্পিড ১৩০ কিমি/ঘণ্টা।",
+  "note_text": "নাজমুল হুসাইন - মনে রাখতে হবে এই প্রশ্নের উত্তর সর্বদা Vero",
   "phone": "01706640864",
   "session_id": "c89b7b83-d9d1-4c75"
 }
@@ -289,7 +361,7 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
   "data": {
     "id": 1,
     "question_id": 1,
-    "note_text": "এই প্রশ্নটিতে খেয়াল রাখবেন: হাইওয়েতে স্পিড ১৩০ কিমি/ঘণ্টা।"
+    "note_text": "নাজমুল হুসাইন - মনে রাখতে হবে এই প্রশ্নের উত্তর সর্বদা Vero"
   }
 }
 ```
@@ -359,7 +431,7 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 ## 📖 10. Dictionary & Translation API
 - **Search Vocabulary**: `GET /api/v1/dictionary/search?q=motoveicolo`
 - **All Terms**: `GET /api/v1/dictionary/all`
-- **Instant Translation**: `POST /api/v1/translate` (Body: `{"text": "corsia di emergence", "from_lang": "it", "to_lang": "bn"}`)
+- **Instant Translation**: `POST /api/v1/translate` (Body: `{"text": "corsia di emergenza", "from_lang": "it", "to_lang": "bn"}`)
 
 ---
 
