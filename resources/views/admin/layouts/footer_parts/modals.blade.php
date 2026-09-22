@@ -423,15 +423,15 @@
                         হোম কার্ড ডিসপ্লে মোড (Display Type)
                     </label>
                     <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                        <label id="home-card-media-tab-icon" style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 8px; border: 1.5px solid #3B82F6; background: rgba(59, 130, 246, 0.12); cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.2s ease;">
                             <input type="radio" name="home_card_media_type" value="icon" checked onchange="toggleHomeCardMediaType('icon')">
                             <i class="fa-solid fa-icons" style="color: #3B82F6;"></i> Icon (ছোট)
                         </label>
-                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                        <label id="home-card-media-tab-image" style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.2s ease;">
                             <input type="radio" name="home_card_media_type" value="image" onchange="toggleHomeCardMediaType('image')">
                             <i class="fa-regular fa-image" style="color: #10B981;"></i> Image (বড়)
                         </label>
-                        <label style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700;">
+                        <label id="home-card-media-tab-lottie" style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border-card); background: var(--bg-card); cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.2s ease;">
                             <input type="radio" name="home_card_media_type" value="lottie" onchange="toggleHomeCardMediaType('lottie')">
                             <i class="fa-solid fa-film" style="color: #F59E0B;"></i> Lottie (অ্যানিমেশন)
                         </label>

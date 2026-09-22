@@ -483,6 +483,22 @@ function toggleHomeCardMediaType(type) {
     // Set radio checked
     const radio = document.querySelector(`input[name="home_card_media_type"][value="${type}"]`);
     if (radio) radio.checked = true;
+
+    // Highlight active label tab
+    ['icon', 'image', 'lottie'].forEach(t => {
+        const lbl = document.getElementById(`home-card-media-tab-${t}`);
+        if (lbl) {
+            if (t === type) {
+                lbl.style.borderColor = (t === 'icon') ? '#3B82F6' : (t === 'image' ? '#10B981' : '#F59E0B');
+                lbl.style.background = (t === 'icon') ? 'rgba(59, 130, 246, 0.12)' : (t === 'image' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)');
+                lbl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+            } else {
+                lbl.style.borderColor = 'var(--border-card)';
+                lbl.style.background = 'var(--bg-card)';
+                lbl.style.boxShadow = 'none';
+            }
+        }
+    });
 }
 
 function updateHomeCardIconPreview() {
