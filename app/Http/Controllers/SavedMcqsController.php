@@ -4,27 +4,56 @@ namespace App\Http\Controllers;
 
 use App\Models\SavedMcq;
 use App\Models\Question;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class SavedMcqsController extends Controller
 {
+    use ResolvesUserSession;
+
     /**
      * Get bookmarked / saved MCQs list.
      */
     public function index(Request $request)
     {
-        $userId = auth()->id() ?? 1;
-        $savedIds = SavedMcq::where('user_id', $userId)->pluck('question_id');
-        $questions = Question::whereIn('id', $savedIds)->get();
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+
+        $query = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"]);
+
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn("user_id", $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn("session_id", $sessionIds);
+                    } else {
+                        $q->whereIn("session_id", $sessionIds);
+                    }
+                }
+            });
+        }
+
+        $savedList = $query->orderBy("created_at", "desc")->get();
+
+        if ($savedList->isEmpty()) {
+            $savedList = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
+                ->orderBy("created_at", "desc")
+                ->get();
+        }
 
         if ($request->wantsJson() || $request->is('api/*')) {
             return response()->json([
+                'status' => 'success',
                 'success' => true,
-                'data' => $questions
+                'data' => $savedList
             ]);
         }
 
-        return view('frontend.screens.saved_mcqs', compact('questions'));
+        return view('frontend.screens.saved_mcqs', compact('savedList'));
     }
 
     /**
@@ -32,34 +61,6 @@ class SavedMcqsController extends Controller
      */
     public function toggle(Request $request)
     {
-        $request->validate([
-            'question_id' => 'required|integer'
-        ]);
-
-        $userId = auth()->id() ?? 1;
-        $questionId = $request->input('question_id');
-
-        $existing = SavedMcq::where('user_id', $userId)
-            ->where('question_id', $questionId)
-            ->first();
-
-        if ($existing) {
-            $existing->delete();
-            return response()->json([
-                'success' => true,
-                'saved' => false,
-                'message' => 'Bookmark removed'
-            ]);
-        } else {
-            SavedMcq::create([
-                'user_id' => $userId,
-                'question_id' => $questionId
-            ]);
-            return response()->json([
-                'success' => true,
-                'saved' => true,
-                'message' => 'Question bookmarked'
-            ]);
-        }
+        return app(\App\Http\Controllers\Api\SavedMcqsApiController::class)->toggle($request);
     }
 }
