@@ -308,18 +308,18 @@
         #screen-cartelli-schede .page-image-frame,
         #screen-argomenti-schede .page-image-frame {
             width: 100% !important;
-            min-width: 100% !important;
-            align-self: stretch !important;
-            height: 210px !important;
-            max-height: 225px !important;
+            max-width: 480px !important;
+            align-self: center !important;
+            height: 180px !important;
+            max-height: 200px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            margin: 10px 0 !important;
+            margin: 10px auto !important;
             background: transparent !important;
             padding: 0 !important;
             overflow: hidden !important;
-            border-radius: 14px !important;
+            border-radius: 12px !important;
             box-shadow: none !important;
         }
 
@@ -327,14 +327,14 @@
         #screen-cartelli-schede .schede-page-img,
         #screen-argomenti-schede .content-card img,
         #screen-argomenti-schede .schede-page-img {
-            max-height: 220px !important;
-            height: 100% !important;
-            width: 100% !important;
-            min-width: 100% !important;
+            max-height: 180px !important;
+            height: auto !important;
+            width: auto !important;
             max-width: 100% !important;
-            object-fit: cover !important;
-            border-radius: 12px !important;
+            object-fit: contain !important;
+            border-radius: 10px !important;
             display: block !important;
+            margin: 0 auto !important;
             background: transparent !important;
         }
 
@@ -567,24 +567,25 @@
 
             #screen-cartelli-schede .page-image-frame,
             #screen-argomenti-schede .page-image-frame {
-                height: 175px !important;
-                max-height: 185px !important;
+                height: 160px !important;
+                max-height: 170px !important;
                 background: transparent !important;
                 padding: 0 !important;
+                margin: 8px auto !important;
             }
 
             #screen-cartelli-schede .content-card img,
             #screen-cartelli-schede .schede-page-img,
             #screen-argomenti-schede .content-card img,
             #screen-argomenti-schede .schede-page-img {
-                max-height: 180px !important;
-                height: 100% !important;
-                width: 100% !important;
-                min-width: 100% !important;
+                max-height: 160px !important;
+                height: auto !important;
+                width: auto !important;
                 max-width: 100% !important;
-                object-fit: cover !important;
-                border-radius: 10px !important;
+                object-fit: contain !important;
+                border-radius: 8px !important;
                 display: block !important;
+                margin: 0 auto !important;
                 background: transparent !important;
             }
 

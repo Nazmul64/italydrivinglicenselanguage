@@ -640,6 +640,9 @@ window.chapterPagesCache = window.chapterPagesCache || {};
 
 function openChapterSheetsScreen(chapterId) {
     activeChapterId = chapterId;
+    try {
+        sessionStorage.setItem('activeArgomentiChapId', chapterId);
+    } catch(e) {}
 
     const labelEl = document.getElementById('selected-chapter-display-label');
 
@@ -1010,6 +1013,39 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         }
     } else if (screenId === 'argomenti') {
         renderArgomentiList();
+    } else if (screenId === 'argomenti-schede') {
+        const savedChapId = sessionStorage.getItem('activeArgomentiChapId');
+        if (typeof activeChapterId !== 'undefined' && activeChapterId) {
+            openChapterSheetsScreen(activeChapterId);
+        } else if (savedChapId) {
+            openChapterSheetsScreen(parseInt(savedChapId));
+        } else {
+            fetch('/api/chapters')
+                .then(res => res.json())
+                .then(chapters => {
+                    if (chapters && chapters.length > 0) {
+                        window.allArgomentiChapters = chapters;
+                        openChapterSheetsScreen(chapters[0].id);
+                    }
+                })
+                .catch(err => console.error("Error loading chapters: ", err));
+        }
+    } else if (screenId === 'cartelli-schede') {
+        const savedCartelliChapId = sessionStorage.getItem('activeCartelliChapId');
+        if (typeof cartelliActiveChapterId !== 'undefined' && cartelliActiveChapterId) {
+            if (typeof openCartelliSchedeScreen === 'function') openCartelliSchedeScreen(cartelliActiveChapterId);
+        } else if (savedCartelliChapId && typeof openCartelliSchedeScreen === 'function') {
+            openCartelliSchedeScreen(parseInt(savedCartelliChapId));
+        } else {
+            fetch('/api/cartelli/chapters')
+                .then(res => res.json())
+                .then(chapters => {
+                    if (chapters && chapters.length > 0 && typeof openCartelliSchedeScreen === 'function') {
+                        openCartelliSchedeScreen(chapters[0].id);
+                    }
+                })
+                .catch(err => console.error("Error loading cartelli chapters: ", err));
+        }
     } else if (screenId === 'social') {
         if (typeof initSocialModule === 'function') initSocialModule();
     } else if (screenId === 'translation') {
@@ -1229,6 +1265,39 @@ function restoreScreenFromUrl() {
             openScreen('dictionary', 'Dizionario', true);
             if (typeof initDictionaryScreen === 'function') {
                 initDictionaryScreen();
+            }
+        } else if (path === 'argomenti-schede') {
+            const savedChapId = sessionStorage.getItem('activeArgomentiChapId');
+            if (savedChapId) {
+                openChapterSheetsScreen(parseInt(savedChapId));
+            } else {
+                fetch('/api/chapters')
+                    .then(res => res.json())
+                    .then(chapters => {
+                        if (chapters && chapters.length > 0) {
+                            window.allArgomentiChapters = chapters;
+                            openChapterSheetsScreen(chapters[0].id);
+                        } else {
+                            openScreen('argomenti-schede', 'Scegli Scheda', true);
+                        }
+                    })
+                    .catch(() => openScreen('argomenti-schede', 'Scegli Scheda', true));
+            }
+        } else if (path === 'cartelli-schede') {
+            const savedCartelliChapId = sessionStorage.getItem('activeCartelliChapId');
+            if (savedCartelliChapId && typeof openCartelliSchedeScreen === 'function') {
+                openCartelliSchedeScreen(parseInt(savedCartelliChapId));
+            } else {
+                fetch('/api/cartelli/chapters')
+                    .then(res => res.json())
+                    .then(chapters => {
+                        if (chapters && chapters.length > 0 && typeof openCartelliSchedeScreen === 'function') {
+                            openCartelliSchedeScreen(chapters[0].id);
+                        } else {
+                            openScreen('cartelli-schede', 'Scegli Scheda', true);
+                        }
+                    })
+                    .catch(() => openScreen('cartelli-schede', 'Scegli Scheda', true));
             }
         } else if (path === 'words' || path === 'word') {
             openScreen('dizionario', 'Word', true);

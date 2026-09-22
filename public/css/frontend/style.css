@@ -2426,29 +2426,30 @@ body.dark-mode .detail-speed-popover-menu {
 
 .page-image-frame {
     width: 100% !important;
-    min-width: 100% !important;
-    align-self: stretch !important;
-    height: 210px !important;
-    max-height: 225px !important;
+    max-width: 480px !important;
+    align-self: center !important;
+    height: 180px !important;
+    max-height: 200px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    margin: 10px 0 !important;
+    margin: 10px auto !important;
     background: transparent !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     padding: 0 !important;
     overflow: hidden !important;
 }
 
 .schede-page-img,
 .page-image-frame img {
-    width: 100% !important;
+    width: auto !important;
     max-width: 100% !important;
-    height: 100% !important;
-    max-height: 220px !important;
-    border-radius: 12px !important;
+    height: auto !important;
+    max-height: 180px !important;
+    border-radius: 10px !important;
     display: block !important;
-    object-fit: cover !important;
+    margin: 0 auto !important;
+    object-fit: contain !important;
     background: transparent !important;
 }
 
@@ -3384,14 +3385,14 @@ body.dark-mode .pill-btn:active {
 
     .page-image-frame {
         width: 100% !important;
-        min-width: 100% !important;
-        align-self: stretch !important;
-        height: 175px !important;
-        max-height: 185px !important;
+        max-width: 480px !important;
+        align-self: center !important;
+        height: 160px !important;
+        max-height: 170px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        margin: 10px 0 !important;
+        margin: 8px auto !important;
         background: transparent !important;
         border-radius: 12px !important;
         padding: 0 !important;
@@ -3400,13 +3401,14 @@ body.dark-mode .pill-btn:active {
 
     .schede-page-img,
     .page-image-frame img {
-        width: 100% !important;
+        width: auto !important;
         max-width: 100% !important;
-        height: 100% !important;
-        max-height: 180px !important;
+        height: auto !important;
+        max-height: 160px !important;
         border-radius: 10px !important;
         display: block !important;
-        object-fit: cover !important;
+        margin: 0 auto !important;
+        object-fit: contain !important;
         background: transparent !important;
     }
 }
@@ -3440,14 +3442,14 @@ body.dark-mode .pill-btn:active {
 
     .page-image-frame {
         width: 100% !important;
-        min-width: 100% !important;
-        align-self: stretch !important;
-        height: 160px !important;
-        max-height: 170px !important;
+        max-width: 100% !important;
+        align-self: center !important;
+        height: 150px !important;
+        max-height: 160px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        margin: 8px 0 !important;
+        margin: 6px auto !important;
         background: transparent !important;
         border-radius: 10px !important;
         padding: 0 !important;
@@ -3456,13 +3458,14 @@ body.dark-mode .pill-btn:active {
 
     .schede-page-img,
     .page-image-frame img {
-        width: 100% !important;
+        width: auto !important;
         max-width: 100% !important;
-        height: 100% !important;
-        max-height: 165px !important;
+        height: auto !important;
+        max-height: 150px !important;
         border-radius: 8px !important;
         display: block !important;
-        object-fit: cover !important;
+        margin: 0 auto !important;
+        object-fit: contain !important;
         background: transparent !important;
     }
 }

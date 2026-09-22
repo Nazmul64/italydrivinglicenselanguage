@@ -7,14 +7,20 @@
     <!-- Dropdown Selector Wrapper -->
     <div style="position: relative; margin-bottom: 16px;">
         <div class="chapter-selector-trigger" onclick="toggleArgomentiSchedeChapterDropdown()">
-            <span id="selected-chapter-display-label">Capitolo...</span>
+            <span id="selected-chapter-display-label">
+                @if(isset($argomentiChapters) && count($argomentiChapters) > 0)
+                    Capitolo {{ $argomentiChapters[0]->chapter_number ?: $argomentiChapters[0]->id }}) {{ $argomentiChapters[0]->name }}
+                @else
+                    Capitolo...
+                @endif
+            </span>
             <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-secondary);"></i>
         </div>
         <!-- Dropdown Panel -->
         <div class="chapter-dropdown-list-panel" id="chapter-dropdown-list-panel" style="display: none; position: absolute; width: 100%; z-index: 100;">
             @if(isset($argomentiChapters))
                 @foreach($argomentiChapters as $ch)
-                    <div class="chapter-dropdown-item" onclick="openChapterSheetsScreen({{ $ch->id }})">
+                    <div class="chapter-dropdown-item {{ $loop->first ? 'active' : '' }}" onclick="openChapterSheetsScreen({{ $ch->id }})">
                         Capitolo {{ $ch->chapter_number ?: $ch->id }}) {{ $ch->name }}
                     </div>
                 @endforeach
@@ -32,7 +38,7 @@
     <div id="argomenti-schede-list" class="argomenti-schede-grid" style="padding-bottom: 80px; width: 100%;">
         @if(isset($argomentiChapters))
             @foreach($argomentiChapters as $ch)
-                <div id="argomenti-chapter-schede-{{ $ch->id }}" class="argomenti-chapter-schede-box" style="display: none; width: 100%; grid-column: 1 / -1;">
+                <div id="argomenti-chapter-schede-{{ $ch->id }}" class="argomenti-chapter-schede-box" style="display: {{ $loop->first ? 'block' : 'none' }}; width: 100%; grid-column: 1 / -1;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
                         @if($ch->pages && $ch->pages->count() > 0)
                             @foreach($ch->pages as $page)
