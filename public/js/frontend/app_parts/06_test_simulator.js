@@ -1111,8 +1111,8 @@ function renderDetailResultsList() {
                         <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: #fff;">italiano</span>
                     </button>
 
-                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this, 'argomenti')" style="${isSaved ? 'background: #0284c7; border: 1px solid #0284c7; color: #ffffff;' : 'background: #ecfdf5; border: 1px solid #10b981; color: #10b981;'}" title="Bookmark">
-                        <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark" style="font-size: 12px; ${isSaved ? 'color: #ffffff;' : ''}"></i>
+                    <button class="test-ctrl-btn" onclick="toggleSavedMcq(${q.id}, this, 'argomenti')" style="${isSaved ? 'background: #10b981; border: 1px solid #10b981; color: #ffffff;' : 'background: #ecfdf5; border: 1px solid #10b981; color: #10b981;'}" title="Bookmark">
+                        <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark" style="font-size: 12px; ${isSaved ? 'color: #ffffff;' : 'color: #10b981;'}"></i>
                         <span style="font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap; color: ${isSaved ? '#ffffff' : '#10b981'};">সেভ</span>
                     </button>
 

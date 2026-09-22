@@ -77,30 +77,64 @@
     </div>
 
     <!-- Pre-rendered Schede list for each chapter -->
-    <div id="cartelli-schede-list" class="argomenti-schede-grid" style="padding-bottom: 80px; width: 100%;">
+    <div id="cartelli-schede-list" style="padding-bottom: 80px; width: 100%;">
         @if(isset($cartelliChapters))
             @foreach($cartelliChapters as $ch)
-                <div id="cartelli-chapter-schede-{{ $ch->id }}" class="cartelli-chapter-schede-box" style="display: none; width: 100%; grid-column: 1 / -1;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; width: 100%;">
+                <div id="cartelli-chapter-schede-{{ $ch->id }}" class="cartelli-chapter-schede-box" style="display: none; width: 100%;">
+                    <div class="argomenti-grid" style="width: 100%;">
                         @if($ch->pages && $ch->pages->count() > 0)
-                            @foreach($ch->pages as $page)
+                            @foreach($ch->pages as $index => $page)
                                 @php
-                                    $pNum = $page->sort_order ?: ($page->page_number ?: $page->id);
+                                    $pNum = $page->sort_order ?: ($page->page_number ?: ($index + 1));
+                                    $rawTitle = preg_replace('/^pagina\s*\d+[\s\.\)\-]*/i', '', $page->title ?: '');
+                                    $rawTitle = preg_replace('/^\d+[\s\.\)\-]+/', '', $rawTitle);
+                                    $rawTitle = trim($rawTitle);
+                                    $displayTitle = !empty($rawTitle) ? "Pagina {$pNum}) {$rawTitle}" : "Pagina {$pNum}";
+                                    $pageImage = \App\Helpers\ImageHelper::formatImageUrl($page->image);
                                     $mcqCount = $page->mcqs ? $page->mcqs->count() : 0;
+                                    $pSafeTotal = $mcqCount > 0 ? $mcqCount : 1;
                                 @endphp
-                                <div class="content-card scheda-item-card" data-cartelli-page-id="{{ $page->id }}" data-chapter-id="{{ $ch->id }}" onclick="handleCartelliSchedaCardClick({{ $ch->id }}, {{ $page->id }})" style="padding: 16px; border-radius: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-card); transition: all 0.15s ease;">
-                                    <div>
-                                        <div style="font-size: 15px; font-weight: 800; color: var(--text-primary);">Pagina {{ $pNum }}) {{ $page->title }}</div>
-                                        @if($page->bn_title)
-                                            <div style="font-size: 12px; color: var(--accent-green); font-weight: 700; margin-top: 2px;">{{ $page->bn_title }}</div>
+                                <div class="chapter-image-card scheda-item-card" data-cartelli-page-id="{{ $page->id }}" data-chapter-id="{{ $ch->id }}" onclick="handleCartelliSchedaCardClick({{ $ch->id }}, {{ $page->id }})">
+                                    <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
+                                        <div class="chapter-card-title" style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
+                                            {{ $displayTitle }}
+                                        </div>
+                                        @if(!empty($pageImage))
+                                        <div class="chapter-card-img-wrapper" style="width: 100%; height: 220px; min-height: 180px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                                            <img src="{{ $pageImage }}" onerror="this.parentElement.style.display='none'" class="chapter-card-img" alt="{{ $displayTitle }}" style="height: 100%; width: 100%; max-height: 220px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                                        </div>
                                         @endif
-                                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">{{ $mcqCount }} Domande (MCQs)</div>
+                                        <div style="width: 100%; margin-top: 14px;">
+                                            <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Progresso</div>
+                                            <div style="display: flex; justify-content: space-between; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                                                <div>
+                                                    <div>Corrette</div>
+                                                    <div style="font-weight: 700; color: #4CAF50; margin-top: 2px;">0</div>
+                                                </div>
+                                                <div>
+                                                    <div>Errori</div>
+                                                    <div style="font-weight: 700; color: #ef4444; margin-top: 2px;">0</div>
+                                                </div>
+                                                <div>
+                                                    <div>Non risposte</div>
+                                                    <div style="font-weight: 700; color: var(--text-secondary); margin-top: 2px;">{{ $mcqCount }}</div>
+                                                </div>
+                                                <div>
+                                                    <div>Totale</div>
+                                                    <div style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">{{ $mcqCount }}</div>
+                                                </div>
+                                            </div>
+                                            <div style="height: 12px; background-color: #e5e7eb; border-radius: 999px; display: flex; overflow: hidden; border: 1.5px solid #d1d5db; padding: 1px;">
+                                                <div style="background-color: #22c55e; width: 0%; border-radius: 999px 0 0 999px; transition: width 0.3s;"></div>
+                                                <div style="background-color: #ef4444; width: 0%; transition: width 0.3s;"></div>
+                                                <div style="background-color: transparent; flex: 1;"></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <i class="fa-solid fa-chevron-right" style="color: var(--text-secondary);"></i>
                                 </div>
                             @endforeach
                         @else
-                            <div style="text-align: center; color: var(--text-secondary); padding: 30px; grid-column: 1 / -1;">এই অধ্যায়ে কোনো পেজ পাওয়া যায়নি।</div>
+                            <div style="text-align: center; color: var(--text-secondary); padding: 30px; grid-column: 1 / -1;">Nessuna pagina trovata per questo capitolo.</div>
                         @endif
                     </div>
                 </div>

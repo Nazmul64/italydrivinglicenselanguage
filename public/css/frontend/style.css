@@ -658,13 +658,14 @@ body.dark-mode .illustration-box.illustration-box-lottie {
     object-fit: contain !important;
     object-position: center !important;
     filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.08));
-    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     display: block !important;
     margin: 0 auto !important;
+    transform: none !important;
+    transition: none !important;
 }
 
 .nav-card:hover .illustration-box img.card-custom-image {
-    transform: scale(1.06) translateY(-3px);
+    transform: none !important;
 }
 
 .illustration-box .lottie-animation-box,
@@ -676,7 +677,8 @@ body.dark-mode .illustration-box.illustration-box-lottie {
     display: flex !important;
     align-items: center;
     justify-content: center;
-    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: none !important;
+    transition: none !important;
 }
 
 .illustration-box .lottie-animation-box svg {
@@ -684,11 +686,12 @@ body.dark-mode .illustration-box.illustration-box-lottie {
     height: 100% !important;
     max-height: 140px !important;
     filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.06));
+    transform: none !important;
 }
 
 .nav-card:hover .illustration-box .lottie-animation-box,
 .nav-card:hover .illustration-box lottie-player {
-    transform: scale(1.06) translateY(-3px);
+    transform: none !important;
 }
 
 .card-title-group {
@@ -744,7 +747,7 @@ body.dark-mode .illustration-box.illustration-box-lottie {
 }
 
 .nav-card:hover .illustration-box {
-    transform: scale(1.08) rotate(3deg);
+    transform: none !important;
 }
 
 .card-title {
@@ -2523,13 +2526,13 @@ body.dark-mode .detail-q-card.selected-q-card {
     max-width: 92%;
     object-fit: contain;
     border-radius: 14px;
-    transition: transform 0.3s ease;
     background: transparent !important;
     display: block;
+    transform: none !important;
 }
 
 .chapter-image-card:hover .chapter-card-img {
-    transform: scale(1.04);
+    transform: none !important;
 }
 
 .chapter-card-body {

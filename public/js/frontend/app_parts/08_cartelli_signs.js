@@ -434,8 +434,8 @@ function toggleSavedMcq(questionId, btnElement, type) {
                 if (span) {
                     span.style.color = isNowSaved ? '#ffffff' : '#10b981';
                 }
-                btnElement.style.background = isNowSaved ? '#0284c7' : '#ecfdf5';
-                btnElement.style.borderColor = isNowSaved ? '#0284c7' : '#10b981';
+                btnElement.style.background = isNowSaved ? '#10b981' : 'var(--bg-page)';
+                btnElement.style.borderColor = isNowSaved ? '#10b981' : 'var(--border-card)';
                 btnElement.style.color = isNowSaved ? '#ffffff' : '#10b981';
             }
 

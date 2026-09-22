@@ -194,6 +194,8 @@ function openPageDetailsScreen(pageId) {
                             if (bookmarkIcon) {
                                 bookmarkIcon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
                                 bookmarkIcon.style.color = isSaved ? 'var(--accent-green)' : '';
+                                const span = bookmarkIcon.closest('button')?.querySelector('span');
+                                if (span) span.style.color = isSaved ? 'var(--accent-green)' : 'var(--text-secondary)';
                             }
                         }
                     });

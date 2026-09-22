@@ -142,13 +142,11 @@ function updateArgomentiPillStates() {
         selectPill.style.display = isSchedeSelectMode ? 'none' : 'inline-block';
     }
 
-    const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
-    const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('.scheda-item-card');
+    const cards = document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
     const totalCount = cards.length;
 
     if (!isSchedeSelectMode && selectedSheets.length === 0) {
         if (unselectPill) unselectPill.classList.add('active');
-    } else if (totalCount > 0 && selectedSheets.length >= totalCount) {
         if (selectAllPill) selectAllPill.classList.add('active');
     } else if (isSchedeSelectMode) {
         if (selectPill) selectPill.classList.add('active');
@@ -638,65 +636,88 @@ let activeSheetIndex = null;
 
 window.chapterPagesCache = window.chapterPagesCache || {};
 
+let isOpeningChapterSheets = false;
 function openChapterSheetsScreen(chapterId) {
-    activeChapterId = chapterId;
+    if (isOpeningChapterSheets) return;
+    isOpeningChapterSheets = true;
     try {
-        sessionStorage.setItem('activeArgomentiChapId', chapterId);
-    } catch(e) {}
+        chapterId = parseInt(chapterId);
+        activeChapterId = chapterId;
+        try {
+            sessionStorage.setItem('activeArgomentiChapId', chapterId);
+        } catch(e) {}
 
-    const labelEl = document.getElementById('selected-chapter-display-label');
+        const labelEl = document.getElementById('selected-chapter-display-label');
 
-    // Instantly set chapter label from in-memory chapters list if available
-    if (window.allArgomentiChapters && Array.isArray(window.allArgomentiChapters)) {
-        const ch = window.allArgomentiChapters.find(c => c.id == chapterId);
-        if (ch && labelEl) {
-            labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
-        }
-    } else if (labelEl) {
-        labelEl.innerText = `Capitolo ${chapterId}`;
-    }
-
-    populateChapterDropdownOptions();
-    openScreen('argomenti-schede', 'Scegli Scheda');
-
-    const container = document.getElementById('argomenti-schede-list');
-
-    // 1. Instant Fast-Path: Use in-memory cache if available
-    if (window.chapterPagesCache[chapterId] && window.chapterPagesCache[chapterId].length > 0) {
-        activeChapterPages = window.chapterPagesCache[chapterId];
-        selectedSheets = [];
-        isSchedeSelectMode = false;
-        updateSheetsQuizButtonVisibility();
-        updateArgomentiPillStates();
-        renderSheetsList();
-        return;
-    }
-
-    // 2. Fetch only chapter's pages directly (lightweight & ultra-fast)
-    fetch(`/api/chapters/${chapterId}/pages`)
-        .then(res => res.json())
-        .then(pagesData => {
-            const pages = Array.isArray(pagesData) ? pagesData : (pagesData && Array.isArray(pagesData.data) ? pagesData.data : []);
-            activeChapterPages = pages;
-            window.chapterPagesCache[chapterId] = pages;
-
-            if (pages.length === 0) {
-                if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna pagina trovata per questo capitolo.</div>`;
-                return;
+        // Instantly set chapter label from in-memory chapters list if available
+        if (window.allArgomentiChapters && Array.isArray(window.allArgomentiChapters)) {
+            const ch = window.allArgomentiChapters.find(c => c.id == chapterId);
+            if (ch && labelEl) {
+                labelEl.innerText = `Capitolo ${ch.chapter_number || ch.id}) ${ch.name}`;
             }
+        } else if (labelEl) {
+            labelEl.innerText = `Capitolo ${chapterId}`;
+        }
 
+        // Toggle pre-rendered chapter schede box if present in DOM
+        const allBoxes = document.querySelectorAll('.argomenti-chapter-schede-box');
+        if (allBoxes.length > 0) {
+            allBoxes.forEach(box => box.style.display = 'none');
+            const activeBox = document.getElementById(`argomenti-chapter-schede-${chapterId}`);
+            if (activeBox) {
+                activeBox.style.display = 'block';
+            }
+        }
+
+        populateChapterDropdownOptions();
+        openScreen('argomenti-schede', 'Scegli Scheda');
+
+        const container = document.getElementById('argomenti-schede-list');
+        const hasBoxes = document.getElementById(`argomenti-chapter-schede-${chapterId}`);
+        if (hasBoxes) {
+            updateArgomentiPillStates();
+            return;
+        }
+
+        // 1. Instant Fast-Path: Use in-memory cache if available
+        if (window.chapterPagesCache[chapterId] && window.chapterPagesCache[chapterId].length > 0) {
+            activeChapterPages = window.chapterPagesCache[chapterId];
             selectedSheets = [];
             isSchedeSelectMode = false;
             updateSheetsQuizButtonVisibility();
             updateArgomentiPillStates();
             renderSheetsList();
-        })
-        .catch(err => {
-            console.error("Error loading chapter pages: ", err);
-            if (container) {
-                container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle pagine.</div>`;
-            }
-        });
+            return;
+        }
+
+        // 2. Fetch only chapter's pages directly (lightweight & ultra-fast)
+        fetch(`/api/chapters/${chapterId}/pages`)
+            .then(res => res.json())
+            .then(pagesData => {
+                const pages = Array.isArray(pagesData) ? pagesData : (pagesData && Array.isArray(pagesData.data) ? pagesData.data : []);
+                activeChapterPages = pages;
+                window.chapterPagesCache[chapterId] = pages;
+
+                if (pages.length === 0) {
+                    if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna pagina trovata per questo capitolo.</div>`;
+                    return;
+                }
+
+                selectedSheets = [];
+                isSchedeSelectMode = false;
+                updateSheetsQuizButtonVisibility();
+                updateArgomentiPillStates();
+                renderSheetsList();
+            })
+            .catch(err => {
+                console.error("Error loading chapter pages: ", err);
+                if (container) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle pagine.</div>`;
+                }
+            });
+    } finally {
+        isOpeningChapterSheets = false;
+    }
 }
 
 function renderSheetsList() {
@@ -726,18 +747,16 @@ function renderSheetsList() {
         const unanswered = Math.max(0, total - correct - wrong);
         const isSelected = selectedSheets.includes(page.id);
 
-        const pageTitleText = page.title || page.bn_title || getSheetName(activeChapterId, index);
-        const displaySheetTitle = pageTitleText.startsWith(`${index + 1}`) ? pageTitleText : `${index + 1}) ${pageTitleText}`;
+        const pageNum = page.sort_order || page.page_number || (index + 1);
+        let rawTitle = page.title || page.name || '';
+        rawTitle = rawTitle.replace(/^pagina\s*\d+[\s\.\)\-]*/i, '').replace(/^\d+[\s\.\)\-]+/, '').trim();
+        const displaySheetTitle = rawTitle ? `Pagina ${pageNum}) ${rawTitle}` : `Pagina ${pageNum}`;
 
         const card = document.createElement('div');
-        card.className = `content-card scheda-item-card ${isSelected ? 'selected-sheet-card' : ''}`;
+        card.className = `chapter-image-card scheda-item-card ${isSelected ? 'selected-sheet-card' : ''}`;
         card.setAttribute('data-page-id', page.id);
         card.setAttribute('data-chapter-id', activeChapterId);
         card.style.cursor = 'pointer';
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        card.style.gap = '10px';
-        card.style.padding = '16px';
         card.onclick = () => {
             if (isSchedeSelectMode) {
                 toggleSheetSelectionById(page.id);
@@ -747,38 +766,50 @@ function renderSheetsList() {
         };
 
         let pageImgHTML = '';
-        const cleanPageImg = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(page.image) : page.image;
+        const cleanPageImg = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(page.image) : (page.image && !page.image.includes('/data/user/') && !page.image.includes('scaled_IMG') ? page.image : '');
         if (cleanPageImg) {
             const imgSrc = (cleanPageImg.startsWith('http') || cleanPageImg.startsWith('/')) ? cleanPageImg : `/storage/${cleanPageImg}`;
             pageImgHTML = `
-                <div class="page-image-frame">
-                    <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="schede-page-img" alt="${displaySheetTitle}">
+                <div class="chapter-card-img-wrapper" style="width: 100%; height: 220px; min-height: 180px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                    <img src="${imgSrc}" onerror="this.parentElement.style.display='none'" class="chapter-card-img" alt="${displaySheetTitle}" style="height: 100%; width: 100%; max-height: 220px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
                 </div>
             `;
         }
 
         card.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span class="schede-page-title" style="font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-book-open-reader" style="color: var(--accent-green);"></i>
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
+                <div class="chapter-card-title" style="text-align: center; font-size: 16px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                     ${displaySheetTitle}
-                </span>
-                <i class="fa-solid fa-chevron-right" style="font-size: 10px; color: var(--text-secondary);"></i>
-            </div>
+                </div>
 
-            ${pageImgHTML}
+                ${pageImgHTML}
 
-            <div class="schede-card-footer" style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-secondary);">
-                <span>Corrette: <strong style="color: #4CAF50;">${correct}</strong></span>
-                <span>Errori: <strong style="color: #ef4444;">${wrong}</strong></span>
-                <span>Non risposte: <strong style="color: #f59e0b;">${unanswered}</strong></span>
-                <span>Totale: <strong>${total}</strong></span>
-            </div>
-
-            <div style="height: 8px; background-color: var(--border-card); border-radius: 4px; display: flex; overflow: hidden;">
-                <div style="background-color: #4CAF50; width: ${(correct / safeTotal) * 100}%;"></div>
-                <div style="background-color: #ef4444; width: ${(wrong / safeTotal) * 100}%;"></div>
-                <div style="background-color: #f59e0b; width: ${(unanswered / safeTotal) * 100}%;"></div>
+                <div style="width: 100%; margin-top: 14px;">
+                    <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Progresso</div>
+                    <div style="display: flex; justify-content: space-between; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                        <div>
+                            <div>Corrette</div>
+                            <div style="font-weight: 700; color: #4CAF50; margin-top: 2px;">${correct}</div>
+                        </div>
+                        <div>
+                            <div>Errori</div>
+                            <div style="font-weight: 700; color: #ef4444; margin-top: 2px;">${wrong}</div>
+                        </div>
+                        <div>
+                            <div>Non risposte</div>
+                            <div style="font-weight: 700; color: var(--text-secondary); margin-top: 2px;">${unanswered}</div>
+                        </div>
+                        <div>
+                            <div>Totale</div>
+                            <div style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">${total}</div>
+                        </div>
+                    </div>
+                    <div style="height: 12px; background-color: #e5e7eb; border-radius: 999px; display: flex; overflow: hidden; border: 1.5px solid #d1d5db; padding: 1px;">
+                        <div style="background-color: #22c55e; width: ${(correct / safeTotal) * 100}%; border-radius: 999px 0 0 999px; transition: width 0.3s;"></div>
+                        <div style="background-color: #ef4444; width: ${(wrong / safeTotal) * 100}%; transition: width 0.3s;"></div>
+                        <div style="background-color: transparent; flex: 1;"></div>
+                    </div>
+                </div>
             </div>
         `;
         container.appendChild(card);
@@ -1014,38 +1045,9 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
     } else if (screenId === 'argomenti') {
         renderArgomentiList();
     } else if (screenId === 'argomenti-schede') {
-        const savedChapId = sessionStorage.getItem('activeArgomentiChapId');
-        if (typeof activeChapterId !== 'undefined' && activeChapterId) {
-            openChapterSheetsScreen(activeChapterId);
-        } else if (savedChapId) {
-            openChapterSheetsScreen(parseInt(savedChapId));
-        } else {
-            fetch('/api/chapters')
-                .then(res => res.json())
-                .then(chapters => {
-                    if (chapters && chapters.length > 0) {
-                        window.allArgomentiChapters = chapters;
-                        openChapterSheetsScreen(chapters[0].id);
-                    }
-                })
-                .catch(err => console.error("Error loading chapters: ", err));
-        }
+        updateArgomentiPillStates();
     } else if (screenId === 'cartelli-schede') {
-        const savedCartelliChapId = sessionStorage.getItem('activeCartelliChapId');
-        if (typeof cartelliActiveChapterId !== 'undefined' && cartelliActiveChapterId) {
-            if (typeof openCartelliSchedeScreen === 'function') openCartelliSchedeScreen(cartelliActiveChapterId);
-        } else if (savedCartelliChapId && typeof openCartelliSchedeScreen === 'function') {
-            openCartelliSchedeScreen(parseInt(savedCartelliChapId));
-        } else {
-            fetch('/api/cartelli/chapters')
-                .then(res => res.json())
-                .then(chapters => {
-                    if (chapters && chapters.length > 0 && typeof openCartelliSchedeScreen === 'function') {
-                        openCartelliSchedeScreen(chapters[0].id);
-                    }
-                })
-                .catch(err => console.error("Error loading cartelli chapters: ", err));
-        }
+        if (typeof updateCartelliSchedePillStates === 'function') updateCartelliSchedePillStates();
     } else if (screenId === 'social') {
         if (typeof initSocialModule === 'function') initSocialModule();
     } else if (screenId === 'translation') {
