@@ -22,7 +22,7 @@ class SchedaEsameApiController extends Controller
                 'italian' => $q->italian,
                 'bangla' => $q->bangla,
                 'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero',
-                'image' => $q->image,
+                'image' => !empty($q->image) ? \App\Helpers\ImageHelper::formatImageUrl($q->image) : null,
                 'audio' => $q->audio,
                 'video' => $q->video,
                 'vocabulary' => $q->vocabulary ?? []
@@ -36,7 +36,7 @@ class SchedaEsameApiController extends Controller
                 'italian' => $q->question,
                 'bangla' => $q->bn_question,
                 'is_vero' => strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
-                'image' => $q->image,
+                'image' => !empty($q->image) ? \App\Helpers\ImageHelper::formatImageUrl($q->image) : null,
                 'audio' => $q->voice,
                 'video' => $q->video,
                 'vocabulary' => $q->vocabulary ?? []

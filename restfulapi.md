@@ -28,6 +28,15 @@ The backend automatically resolves the user identity across platforms via the `R
 
 Admin প্যানেল থেকে হোম পেজের কার্ডগুলোর নাম, আইকন, ছবি, Lottie অ্যানিমেশন JSON বা ক্রম পরিবর্তন করলে Flutter অ্যাপেও যেন স্বয়ংক্রিয়ভাবে রিয়েল-টাইমে আপডেট হয়ে যায়।
 
+### ⚠️ IMPORTANT INSTRUCTIONS FOR FLUTTER DEVELOPER:
+1. **🚫 NO CIRCLE AVATARS / NO CIRCULAR BORDERS (গোল দাগ বা সার্কেল বাদ দিন)**:
+   - কার্ডের ছবি বা আইকনকে কোনো `CircleAvatar` বা গোলাকার বৃত্তের (Circle Container) মধ্যে রাখবেন না।
+   - ছবি সরাসরি কার্ডের মাঝে বড় এবং সুস্পষ্টভাবে দেখান (`fit: BoxFit.contain`, `height: 80` বা `90`, `BorderRadius.circular(12)` দিয়ে স্কয়ার/রেক্টাঙ্গুলার আকারে)।
+2. **🖼️ Dynamic Media Type Rendering**:
+   - `media_type == "image"`: `Image.network(card.imageUrl, fit: BoxFit.contain, height: 80)`
+   - `media_type == "lottie"`: `Lottie.network(card.lottieUrl, height: 80, fit: BoxFit.contain)`
+   - `media_type == "icon"`: `FaIcon(getIcon(card.iconClass), color: hexToColor(card.iconColor), size: 50)`
+
 ### 📡 Get Active Home Cards
 - **Endpoint**: `GET /api/v1/home-cards` (or `GET /api/home-cards`)
 - **Method**: `GET`
@@ -88,9 +97,43 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ---
 
+## 🖼️ 1.1 Home Banner Sliders API (হোম পেজ ব্যানার স্লাইডার)
+
+হোম পেজের শীর্ষ ব্যানার স্লাইডারগুলো ডাইনামিকভাবে লোড করার জন্য এই API ব্যবহার করা হয়।
+
+### 📡 Get Active Sliders
+- **Endpoint**: `GET /api/v1/sliders` (or `GET /api/sliders`, `GET /api/v1/dashboard/banners`)
+- **Method**: `GET`
+- **Response Format**:
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "title": "Patente B Official Course 2026",
+      "subtitle": "সম্পূর্ণ বাংলায় ইতালিয়ান ড্রাইভিং লাইসেন্স প্রস্তুতি",
+      "image_url": "https://mbanglapatenteb.com/uploads/sliders/slider_1790045000_102.webp",
+      "link_type": "screen",
+      "link_value": "argomenti",
+      "order_index": 1,
+      "status": 1
+    }
+  ]
+}
+```
+
+---
+
 ## 📚 2. Argomenti (Chapters & Pages with User Statistics & Real-time Progress)
 
 Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং **"Scegli Scheda"** (Pages List) স্ক্রিনের প্রতিটি চ্যাপ্টার ও পেজ কার্ডে ব্যবহারকারীর রিয়েল-টাইম প্রোগ্রেস স্ট্যাটিস্টিকস প্রদর্শনের জন্য নিচের API গুলো ব্যবহৃত হয়।
+
+### ⚠️ IMPORTANT FOR FLUTTER DEVELOPER (MCQ IMAGE & EMPTY STATE):
+1. **🚫 NO DUMMY/RANDOM IMAGE FOR MCQs (আন্দাজে ইমেজ দেখানো যাবে না)**:
+   - যদি কোনো MCQ প্রশ্নে ছবি আপলোড না করা থাকে (`image` ফিল্ড `null` বা খালি `""`), তবে কোনো ডিফল্ট বা স্যাম্পল ছবি দেখাবেন না। ইমেজ বক্সটি সম্পূর্ণ হাইড (`Visibility(visible: question.image != null && question.image!.isNotEmpty)`) রাখুন।
+2. **🚫 NO FAKE QUESTIONS ON EMPTY PAGES**:
+   - যদি কোনো চ্যাপ্টার বা পেজে কোনো প্রশ্ন না থাকে (`questions` খালি `[]`), তবে খালি প্লেসহোল্ডার ("Nessuna domanda trovata") দেখান, কোনো ডামি বা আন্দাজে প্রশ্ন ইনজেক্ট করবেন না।
 
 ### 📊 Progress Card UI Data Mapping (স্ক্রিনশটের মতো):
 - **Corrette**: ব্যবহারকারীর সঠিক দেওয়া উত্তরের সংখ্যা (`corrette`).
