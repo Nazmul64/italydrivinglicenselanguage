@@ -2428,15 +2428,15 @@ body.dark-mode .detail-speed-popover-menu {
     width: 100% !important;
     min-width: 100% !important;
     align-self: stretch !important;
-    height: 160px !important;
-    max-height: 175px !important;
+    height: 210px !important;
+    max-height: 225px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     margin: 10px 0 !important;
-    background: rgba(0, 0, 0, 0.02) !important;
-    border-radius: 12px !important;
-    padding: 4px !important;
+    background: transparent !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
     overflow: hidden !important;
 }
 
@@ -2445,10 +2445,11 @@ body.dark-mode .detail-speed-popover-menu {
     width: 100% !important;
     max-width: 100% !important;
     height: 100% !important;
-    max-height: 155px !important;
-    border-radius: 10px !important;
+    max-height: 220px !important;
+    border-radius: 12px !important;
     display: block !important;
-    object-fit: contain !important;
+    object-fit: cover !important;
+    background: transparent !important;
 }
 
 .content-card {
@@ -3385,15 +3386,15 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         min-width: 100% !important;
         align-self: stretch !important;
-        height: 140px !important;
-        max-height: 150px !important;
+        height: 175px !important;
+        max-height: 185px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         margin: 10px 0 !important;
-        background: rgba(0, 0, 0, 0.02) !important;
+        background: transparent !important;
         border-radius: 12px !important;
-        padding: 4px !important;
+        padding: 0 !important;
         overflow: hidden !important;
     }
 
@@ -3402,10 +3403,11 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         max-width: 100% !important;
         height: 100% !important;
-        max-height: 135px !important;
+        max-height: 180px !important;
         border-radius: 10px !important;
         display: block !important;
-        object-fit: contain !important;
+        object-fit: cover !important;
+        background: transparent !important;
     }
 }
 
@@ -3440,15 +3442,15 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         min-width: 100% !important;
         align-self: stretch !important;
-        height: 130px !important;
-        max-height: 140px !important;
+        height: 160px !important;
+        max-height: 170px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         margin: 8px 0 !important;
-        background: rgba(0, 0, 0, 0.02) !important;
+        background: transparent !important;
         border-radius: 10px !important;
-        padding: 2px !important;
+        padding: 0 !important;
         overflow: hidden !important;
     }
 
@@ -3457,10 +3459,11 @@ body.dark-mode .pill-btn:active {
         width: 100% !important;
         max-width: 100% !important;
         height: 100% !important;
-        max-height: 125px !important;
+        max-height: 165px !important;
         border-radius: 8px !important;
         display: block !important;
-        object-fit: contain !important;
+        object-fit: cover !important;
+        background: transparent !important;
     }
 }
 
