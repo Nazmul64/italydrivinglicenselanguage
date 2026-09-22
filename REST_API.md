@@ -88,19 +88,28 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ---
 
-## 📚 2. Argomenti (Chapters & Pages with User Statistics)
+## 📚 2. Argomenti (Chapters & Pages with User Statistics & Real-time Progress)
 
-### 📖 Get All Chapters with Statistics
+Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং **"Scegli Scheda"** (Pages List) স্ক্রিনের প্রতিটি চ্যাপ্টার ও পেজ কার্ডে ব্যবহারকারীর রিয়েল-টাইম প্রোগ্রেস স্ট্যাটিস্টিকস প্রদর্শনের জন্য নিচের API গুলো ব্যবহৃত হয়।
+
+### 📊 Progress Card UI Data Mapping (স্ক্রিনশটের মতো):
+- **Corrette**: ব্যবহারকারীর সঠিক দেওয়া উত্তরের সংখ্যা (`corrette`).
+- **Errori**: ব্যবহারকারীর ভুল দেওয়া উত্তরের সংখ্যা (`errori`).
+- **Non risposte**: এখনও উত্তর না দেওয়া বাকি প্রশ্নের সংখ্যা (`non_risposte = totale - corrette - errori`).
+- **Totale**: চ্যাপ্টার বা পেজের মোট MCQ সংখ্যা (`totale` বা `questions_count`).
+- **Progress Bar**: সবুজ অংশ = `(corrette / totale) * 100%`, লাল অংশ = `(errori / totale) * 100%`, ধূসর অংশ = বাকি প্রশ্ন।
+
+### 📖 Get All Chapters with User Statistics
 - **Endpoint**: `GET /api/v1/chapters` (or `GET /api/chapters`)
 - **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
-- **Response**:
+- **Response Format**:
 ```json
 [
   {
     "id": 1,
     "chapter_number": 1,
-    "name": "Italian Driving Licence Quiz 2026 with official",
-    "bn_name": "একেবারে নিচ পর্যন্ত নেমে যাও",
+    "name": "DOVERI NELL'USO DELLA STRADA",
+    "bn_name": "রাস্তা ব্যবহারের নিয়মাবলী",
     "image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783335_739.webp",
     "cover_image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783335_739.webp",
     "question_count": 535,
@@ -109,22 +118,36 @@ Admin প্যানেল থেকে হোম পেজের কার্�
     "corrette": 149,
     "errori": 40,
     "non_risposte": 346
+  },
+  {
+    "id": 2,
+    "chapter_number": 2,
+    "name": "SEGNALI DI PERICOLO",
+    "bn_name": "বিপদ সংকেতসমূহ",
+    "image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783336_740.webp",
+    "cover_image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783336_740.webp",
+    "question_count": 662,
+    "questions_count": 662,
+    "totale": 662,
+    "corrette": 174,
+    "errori": 29,
+    "non_risposte": 459
   }
 ]
 ```
 
-### 📄 Get Pages for a Chapter
-- **Endpoint**: `GET /api/v1/chapters/{id}/pages`
+### 📄 Get Pages for a Specific Chapter with Statistics
+- **Endpoint**: `GET /api/v1/chapters/{id}/pages` (or `GET /api/chapters/{id}/pages`)
 - **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
-- **Response**:
+- **Response Format**:
 ```json
 [
   {
     "id": 1,
     "chapter_id": 1,
     "sort_order": 1,
-    "title": "theory and real Ministry questions",
-    "bn_title": "নিচ পর্যন্ত যাও, তারপর ডান দিকে ঘুরো",
+    "title": "THEORY AND REAL MINISTRY QUESTIONS",
+    "bn_title": "থিওরি ও মন্ত্রণালয়ের অফিসিয়াল প্রশ্নসমূহ",
     "image": "https://mbanglapatenteb.com/uploads/pages/images/page_img_1_1790056046_178.webp",
     "questions_count": 25,
     "totale": 25,
