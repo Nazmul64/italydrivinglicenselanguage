@@ -550,14 +550,14 @@ function renderChaptersTable(chapters, from = 1) {
     chapters.forEach((ch, index) => {
         const serialNo = (from || 1) + index;
         const tr = document.createElement('tr');
-        const coverImg = ch.image || ch.cover_image || 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=100&auto=format&fit=crop&q=60';
+        const coverImg = ch.image || ch.cover_image || '';
         const isStatusActive = ch.status === 1 || ch.status === true || ch.status === '1';
 
         tr.innerHTML = `
             <td style="text-align: center;"><input type="checkbox" class="select-chapter-checkbox" value="${ch.id}" onchange="updateBulkDeleteButton('chapters')"></td>
             <td><strong>#${serialNo}</strong></td>
             <td style="text-align: center;"><span style="font-weight: 800; color: var(--accent-orange);">Ch #${ch.chapter_number || ch.id}</span></td>
-            <td style="text-align: center;"><img src="${coverImg}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px;" onerror="this.src='https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=100&auto=format&fit=crop&q=60'"></td>
+            <td style="text-align: center;">${coverImg ? `<img src="${coverImg}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px;" onerror="this.style.display='none'">` : '<span style="color: var(--text-secondary); font-size: 11px;">N/A</span>'}</td>
             <td><div style="font-weight: bold; color: var(--text-primary);">${ch.name}</div></td>
             <td><div style="font-weight: 500; color: var(--text-secondary);">${ch.bn_name || ''}</div></td>
             <td style="text-align: center;"><span style="font-weight:bold; background-color: var(--bg-content); padding: 2px 8px; border-radius: 10px; font-size:11px; border:1px solid var(--border-color);">${ch.question_count || 0} MCQs</span></td>

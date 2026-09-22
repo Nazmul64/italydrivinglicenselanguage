@@ -178,27 +178,92 @@ class TranslationApiController extends Controller
             // Ignore if concurrency cache insert fails
         }
 
-        return response()->json([
+        $payload = [
             'status' => 'success',
             'translated_text' => $transText,
             'translation' => $transText,
             'source_text' => $text,
             'from_lang' => $fromLang,
             'to_lang' => $toLang,
-            'cached' => false
-        ]);
+            'cached' => false,
+            'data' => [
+                'term' => $text,
+                'word' => $text,
+                'italian' => $toLang === 'it' ? $transText : $text,
+                'bangla' => $toLang === 'bn' ? $transText : $text,
+                'translated_text' => $transText,
+                'translation' => $transText,
+            ]
+        ];
+
+        return response()->json($payload);
     }
 
     /**
-     * Fast online translation provider fallback.
+     * Fast online translation provider fallback with multiple robust engines.
      */
     protected function fetchOnlineTranslation($text, $fromLang, $toLang)
     {
-        // 1. Try Google Translate Free Endpoint
+        $headers = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n";
+
+        // 1. Google Translate Dict Chrome Extension API (very reliable and fast)
+        try {
+            $gtDictUrl = "https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl={$fromLang}&tl={$toLang}&q=" . urlencode($text);
+            $ctx = stream_context_create([
+                'http' => [
+                    'timeout' => 3.0,
+                    'ignore_errors' => true,
+                    'header' => $headers
+                ],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+            ]);
+            $resp = @file_get_contents($gtDictUrl, false, $ctx);
+            if ($resp) {
+                $arr = json_decode($resp, true);
+                if (is_array($arr) && isset($arr[0]) && is_string($arr[0]) && !empty(trim($arr[0]))) {
+                    return trim($arr[0]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Skip to next provider
+        }
+
+        // 2. MyMemory Free Translation API
+        try {
+            $pair = "{$fromLang}|{$toLang}";
+            $mmUrl = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . urlencode($pair);
+            $ctx = stream_context_create([
+                'http' => [
+                    'timeout' => 3.5,
+                    'ignore_errors' => true,
+                    'header' => $headers
+                ],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+            ]);
+            $resp = @file_get_contents($mmUrl, false, $ctx);
+            if ($resp) {
+                $json = json_decode($resp, true);
+                if (isset($json['responseData']['translatedText']) && !empty($json['responseData']['translatedText'])) {
+                    $clean = trim($json['responseData']['translatedText']);
+                    // Exclude error responses from MyMemory
+                    if (!str_contains($clean, 'MYMEMORY WARNING:') && !str_contains($clean, 'QUERY LENGTH LIMIT EXCEEDED')) {
+                        return $clean;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Skip to next provider
+        }
+
+        // 3. Fallback to Google Translate Single GTX Endpoint
         try {
             $gtUrl = "https://translate.googleapis.com/translate_a/single?client=gtx&sl={$fromLang}&tl={$toLang}&dt=t&q=" . urlencode($text);
             $ctx = stream_context_create([
-                'http' => ['timeout' => 2.5, 'ignore_errors' => true],
+                'http' => [
+                    'timeout' => 3.0,
+                    'ignore_errors' => true,
+                    'header' => $headers
+                ],
                 'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
             ]);
             $resp = @file_get_contents($gtUrl, false, $ctx);
@@ -214,25 +279,6 @@ class TranslationApiController extends Controller
                     if (!empty(trim($result))) {
                         return trim($result);
                     }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Skip to next provider
-        }
-
-        // 2. Fallback to MyMemory Free Translation API
-        try {
-            $pair = "{$fromLang}|{$toLang}";
-            $mmUrl = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . urlencode($pair);
-            $ctx = stream_context_create([
-                'http' => ['timeout' => 2.5, 'ignore_errors' => true],
-                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
-            ]);
-            $resp = @file_get_contents($mmUrl, false, $ctx);
-            if ($resp) {
-                $json = json_decode($resp, true);
-                if (isset($json['responseData']['translatedText']) && !empty($json['responseData']['translatedText'])) {
-                    return trim($json['responseData']['translatedText']);
                 }
             }
         } catch (\Throwable $e) {

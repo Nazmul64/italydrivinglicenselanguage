@@ -53,13 +53,23 @@ class ArgomentiController extends Controller
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
-        $chapters = $query->withCount(['pages', 'questions'])
+        $chapters = $query->withCount(['pages'])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
         foreach ($chapters as $ch) {
-            $ch->question_count = $ch->questions_count ?? 0;
+            $pageIds = Page::where('chapter_id', $ch->id)->pluck('id');
+            $qCount = Question::where(function ($q) use ($ch, $pageIds) {
+                $q->where('chapter', $ch->id)
+                  ->orWhere('chapter', $ch->chapter_number)
+                  ->orWhereIn('page_id', $pageIds);
+            })->count();
+
+            $ch->question_count = $qCount;
+            $ch->questions_count = $qCount;
+            $ch->totale = $qCount;
+            $ch->total = $qCount;
         }
         return response()->json($chapters);
     }
@@ -82,7 +92,11 @@ class ArgomentiController extends Controller
             ->get();
 
         foreach ($pages as $p) {
-            $p->question_count = $p->questions_count ?? 0;
+            $qCount = Question::where('page_id', $p->id)->count();
+            $p->question_count = $qCount;
+            $p->questions_count = $qCount;
+            $p->totale = $qCount;
+            $p->total = $qCount;
         }
         return response()->json($pages);
     }

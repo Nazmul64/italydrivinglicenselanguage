@@ -7,7 +7,7 @@
 ---
 
 ## 🔒 Cross-Platform Synchronization & User Identity Architecture
-All user activities (Noted MCQs, Saved/Bookmarked MCQs, Wrong/Incorrect MCQs, Correct MCQs, Support Chat Messages) are 100% seamlessly synchronized between the **Flutter Mobile App** and the **Web Browser PWA**.
+All user activities (Noted MCQs, Saved/Bookmarked MCQs, Wrong/Incorrect MCQs, Correct MCQs, Support Chat Messages, Progress Stats) are 100% seamlessly synchronized between the **Flutter Mobile App** and the **Web Browser PWA**.
 
 ### 📱 User Identification Priority
 The backend automatically resolves user context from:
@@ -25,9 +25,62 @@ The backend automatically resolves user context from:
 
 ---
 
-## 📖 Endpoints Quick Reference
+## 📖 Endpoints Reference
 
-### 1. 📝 Noted MCQs (নোট করা প্রশ্ন)
+### 1. 📚 Chapters & Pages with Progress Statistics (চ্যাপ্টার এবং প্রোগ্রেস ডাটা)
+- **Get All Chapters with Full Progress Stats**: `GET /api/v1/chapters`
+  - **Headers**: `X-Client-Phone: 01706640864`, `X-Session-ID: <session_id>`
+  - **Query Params**: `?phone=01706640864&session_id=<session_id>`
+  - **Response**:
+    ```json
+    {
+      "status": "success",
+      "data": [
+        {
+          "id": 1,
+          "chapter_number": 1,
+          "name": "DOVERI NELL'USO DELLA STRADA",
+          "bn_name": "রাস্তা ব্যবহারের নিয়মাবলী",
+          "cover_image": "https://mbanglapatenteb.com/uploads/chapters/...",
+          "pages_count": 12,
+          "question_count": 535,
+          "questions_count": 535,
+          "totale": 535,
+          "corrette": 149,
+          "errori": 40,
+          "non_risposte": 346
+        }
+      ]
+    }
+    ```
+- **Get Pages for Chapter with Progress**: `GET /api/v1/chapters/{id}/pages`
+  - **Headers**: `X-Client-Phone: 01706640864`, `X-Session-ID: <session_id>`
+  - **Response**:
+    ```json
+    {
+      "status": "success",
+      "data": [
+        {
+          "id": 1,
+          "chapter_id": 1,
+          "title": "DEFINIZIONE DI STRADA",
+          "bn_title": "রাস্তার সংজ্ঞা",
+          "image": "https://mbanglapatenteb.com/uploads/pages/...",
+          "questions_count": 25,
+          "question_count": 25,
+          "totale": 25,
+          "corrette": 15,
+          "errori": 2,
+          "non_risposte": 8
+        }
+      ]
+    }
+    ```
+- **Get Page Details with Questions**: `GET /api/v1/pages/{id}`
+
+---
+
+### 2. 📝 Noted MCQs (নোট করা প্রশ্ন)
 - **Get Noted MCQs**: `GET /api/v1/noted-mcqs`
   - **Headers**: `X-Client-Phone: 01706640864`, `X-Session-ID: <session_id>`
   - **Query Params**: `?phone=01706640864&session_id=<session_id>`
@@ -73,7 +126,7 @@ The backend automatically resolves user context from:
 
 ---
 
-### 2. 🔖 Saved / Bookmarked MCQs (সেভ করা প্রশ্ন)
+### 3. 🔖 Saved / Bookmarked MCQs (সেভ করা প্রশ্ন)
 - **Get Bookmarks**: `GET /api/v1/saved-mcqs`
   - **Headers**: `X-Client-Phone: 01706640864`
   - **Query Params**: `?phone=01706640864&session_id=<session_id>`
@@ -93,13 +146,13 @@ The backend automatically resolves user context from:
       "status": "success",
       "saved": true,
       "message": "Question added to bookmarks",
-      "data": { ... }
+      "data": { }
     }
     ```
 
 ---
 
-### 3. ❌ Wrong MCQs (ভুল উত্তরের প্রশ্ন)
+### 4. ❌ Wrong MCQs (ভুল উত্তরের প্রশ্ন)
 - **Get Wrong MCQs**: `GET /api/v1/wrong-mcqs`
   - **Headers**: `X-Client-Phone: 01706640864`
   - **Query Params**: `?phone=01706640864&chapter_id=&page_id=&date=&search=`
@@ -124,14 +177,14 @@ The backend automatically resolves user context from:
 
 ---
 
-### 4. ✔ Correct MCQs (সঠিক উত্তরের প্রশ্ন)
+### 5. ✔ Correct MCQs (সঠিক উত্তরের প্রশ্ন)
 - **Get Correct MCQs**: `GET /api/v1/correct-mcqs`
   - **Headers**: `X-Client-Phone: 01706640864`
   - **Query Params**: `?phone=01706640864&chapter_id=&page_id=&date=&search=`
 
 ---
 
-### 5. 📊 Submit Quiz / MCQ Results (লগ রেজাল্ট)
+### 6. 📊 Submit Quiz / MCQ Results (লগ রেজাল্ট)
 - **Log MCQ Results**: `POST /api/v1/user-mcq-results/log`
   - **Body**:
     ```json
@@ -155,7 +208,7 @@ The backend automatically resolves user context from:
 
 ---
 
-### 6. 📱 Client Registration & Status
+### 7. 📱 Client Registration & Status
 - **Customer Registration**: `POST /api/v1/support/register`
   - **Body**:
     ```json
@@ -171,16 +224,15 @@ The backend automatically resolves user context from:
 
 ---
 
-### 7. 📚 Argomenti & Cartelli
-- `GET /api/v1/chapters`
-- `GET /api/v1/chapters/{id}/pages`
-- `GET /api/v1/pages/{id}`
+### 8. 🚸 Cartelli (Road Signs) API
 - `GET /api/v1/cartelli/categories`
 - `GET /api/v1/cartelli/chapters/{categoryId?}`
 - `GET /api/v1/cartelli/pages/{chapterId}`
+- `GET /api/v1/cartelli/page-mcqs/{pageId}`
+- `GET /api/v1/cartelli/chapter-mcqs/{chapterId}`
 
 ---
 
-### 8. 📖 Dictionary & Translation
+### 9. 📖 Dictionary & Translation
 - **Dictionary Search**: `GET /api/v1/dictionary/search?q=autostrada`
 - **Translate Text**: `POST /api/v1/translate` (Body: `{"text": "strada", "from_lang": "it", "to_lang": "bn"}`)

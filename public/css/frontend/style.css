@@ -2298,14 +2298,14 @@ body.dark-mode .detail-speed-popover-menu {
 /* Floating QUIZ Button */
 .floating-quiz-btn {
     position: fixed !important;
-    bottom: 125px !important;
+    bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 82px)) !important;
     right: 20px !important;
     z-index: 1001 !important;
     background-color: var(--accent-green) !important;
     color: white !important;
     font-weight: 800 !important;
-    font-size: 15px !important;
-    padding: 12px 28px !important;
+    font-size: 14px !important;
+    padding: 10px 24px !important;
     border-radius: 30px !important;
     border: none !important;
     box-shadow: 0 6px 20px rgba(76, 175, 80, 0.45) !important;
@@ -2313,6 +2313,7 @@ body.dark-mode .detail-speed-popover-menu {
     align-items: center !important;
     gap: 8px !important;
     cursor: pointer !important;
+    white-space: nowrap !important;
     transition: all 0.2s ease-in-out !important;
 }
 
@@ -3277,7 +3278,7 @@ body.dark-mode .pill-btn:active {
     }
 
     .floating-quiz-btn {
-        bottom: 125px !important;
+        bottom: max(110px, calc(env(safe-area-inset-bottom, 0px) + 90px)) !important;
         right: 16px !important;
         padding: 10px 22px !important;
         font-size: 13.5px !important;
@@ -3327,11 +3328,12 @@ body.dark-mode .pill-btn:active {
     }
 
     .floating-quiz-btn {
-        bottom: 120px !important;
+        bottom: max(82px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
         right: 14px !important;
-        padding: 9px 20px !important;
+        padding: 9px 18px !important;
         font-size: 13px !important;
         z-index: 1001 !important;
+        white-space: nowrap !important;
     }
 
     .page-image-frame {

@@ -5,9 +5,6 @@
 
 function loadArgomentiModule() {
     const container = document.getElementById('argomenti-list');
-    if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
-    }
 
     return fetch('/api/v1/chapters')
         .then(res => res.json())

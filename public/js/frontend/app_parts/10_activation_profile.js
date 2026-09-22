@@ -398,14 +398,8 @@ function openQuestionTranslationModal(itText, bnText, vocabularyList, imageUrl) 
             ? highlightDictionaryTerms(itText || '', vocabularyList || [])
             : (itText || '');
     }
-    // Determine image: main question image or fallback to vocabulary image if present
+    // Determine image: main question image
     let targetImg = imageUrl || '';
-    if (!targetImg && Array.isArray(vocabularyList) && vocabularyList.length > 0) {
-        const vocabWithImg = vocabularyList.find(v => v && (v.image || v.img));
-        if (vocabWithImg) {
-            targetImg = vocabWithImg.image || vocabWithImg.img;
-        }
-    }
 
     if (targetImg && imgContainer && imgEl) {
         imgEl.src = targetImg;

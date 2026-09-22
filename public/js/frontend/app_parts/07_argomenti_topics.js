@@ -263,8 +263,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
-        const rawVocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
-        const rawQImage = q.image || q.img || rawVocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
+        const rawQImage = q.image || q.img || null;
         const cleanQImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : (rawQImage && !rawQImage.includes('/data/user/') && !rawQImage.includes('scaled_IMG') ? rawQImage : '');
 
         const hasImage = !!cleanQImage;
@@ -585,8 +584,7 @@ function togglePageTranslation(qId) {
     if (!q) return;
 
     if (typeof openQuestionTranslationModal === 'function') {
-        const rawVocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
-        const rawQImage = q.image || q.img || rawVocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : '');
+        const rawQImage = q.image || q.img || '';
         const cleanQImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : rawQImage;
         openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], cleanQImage);
     }

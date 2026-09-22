@@ -19,9 +19,6 @@
             @foreach($argomentiChapters as $ch)
                 @php
                     $coverImage = \App\Helpers\ImageHelper::formatImageUrl($ch->cover_image ?: $ch->image);
-                    if (empty($coverImage)) {
-                        $coverImage = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60';
-                    }
                     $chapNum = $ch->chapter_number ?? $ch->sort_order ?? $ch->id;
                 @endphp
                 <div class="chapter-image-card" data-chapter-id="{{ $ch->id }}" onclick="handleArgomentiChapterCardClick({{ $ch->id }})">
@@ -29,8 +26,44 @@
                         <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             {{ $chapNum }}) {{ $ch->name }}
                         </div>
+                        @if(!empty($coverImage))
                         <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
-                            <img src="{{ $coverImage }}" class="chapter-card-img" alt="{{ $ch->name }}" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                            <img src="{{ $coverImage }}" onerror="this.parentElement.style.display='none'" class="chapter-card-img" alt="{{ $ch->name }}" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                        </div>
+                        @endif
+
+                        @php
+                            $chTotal = $ch->questions_count ?? ($ch->questions ? $ch->questions->count() : 0);
+                            $chCorrect = $ch->corrette ?? 0;
+                            $chWrong = $ch->errori ?? 0;
+                            $chUnanswered = max(0, $chTotal - $chCorrect - $chWrong);
+                            $chSafeTotal = $chTotal > 0 ? $chTotal : 1;
+                        @endphp
+                        <div style="width: 100%; margin-top: 14px;">
+                            <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Progresso</div>
+                            <div style="display: flex; justify-content: space-between; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                                <div>
+                                    <div>Corrette</div>
+                                    <div style="font-weight: 700; color: #4CAF50; margin-top: 2px;">{{ $chCorrect }}</div>
+                                </div>
+                                <div>
+                                    <div>Errori</div>
+                                    <div style="font-weight: 700; color: #ef4444; margin-top: 2px;">{{ $chWrong }}</div>
+                                </div>
+                                <div>
+                                    <div>Non risposte</div>
+                                    <div style="font-weight: 700; color: var(--text-secondary); margin-top: 2px;">{{ $chUnanswered }}</div>
+                                </div>
+                                <div>
+                                    <div>Totale</div>
+                                    <div style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">{{ $chTotal }}</div>
+                                </div>
+                            </div>
+                            <div style="height: 12px; background-color: #e5e7eb; border-radius: 999px; display: flex; overflow: hidden; border: 1.5px solid #d1d5db; padding: 1px;">
+                                <div style="background-color: #22c55e; width: {{ ($chCorrect / $chSafeTotal) * 100 }}%; border-radius: 999px 0 0 999px; transition: width 0.3s;"></div>
+                                <div style="background-color: #ef4444; width: {{ ($chWrong / $chSafeTotal) * 100 }}%; transition: width 0.3s;"></div>
+                                <div style="background-color: transparent; flex: 1;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

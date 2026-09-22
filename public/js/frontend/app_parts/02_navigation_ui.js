@@ -525,8 +525,6 @@ function renderArgomentiList() {
         return;
     }
 
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
-
     const userStats = getUserQuestionStats();
 
     fetch('/api/chapters')
@@ -564,6 +562,7 @@ function renderArgomentiList() {
                 }
 
                 const unanswered = Math.max(0, total - correct - wrong);
+                const safeTotal = total > 0 ? total : 1;
                 const isSelected = selectedChapters.includes(ch.id);
 
                 const card = document.createElement('div');
@@ -579,15 +578,44 @@ function renderArgomentiList() {
 
                 const rawCover = ch.cover_image || ch.image;
                 const cleanCover = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(rawCover) : rawCover;
-                const coverImage = cleanCover || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
+                const coverImage = cleanCover || '';
 
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
                         <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
+                        ${coverImage ? `
                         <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" onerror="this.src='https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60'" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" onerror="this.parentElement.style.display='none'" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                        </div>
+                        ` : ''}
+
+                        <div style="width: 100%; margin-top: 14px;">
+                            <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Progresso</div>
+                            <div style="display: flex; justify-content: space-between; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                                <div>
+                                    <div>Corrette</div>
+                                    <div style="font-weight: 700; color: #4CAF50; margin-top: 2px;">${correct}</div>
+                                </div>
+                                <div>
+                                    <div>Errori</div>
+                                    <div style="font-weight: 700; color: #ef4444; margin-top: 2px;">${wrong}</div>
+                                </div>
+                                <div>
+                                    <div>Non risposte</div>
+                                    <div style="font-weight: 700; color: var(--text-secondary); margin-top: 2px;">${unanswered}</div>
+                                </div>
+                                <div>
+                                    <div>Totale</div>
+                                    <div style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">${total}</div>
+                                </div>
+                            </div>
+                            <div style="height: 12px; background-color: #e5e7eb; border-radius: 999px; display: flex; overflow: hidden; border: 1.5px solid #d1d5db; padding: 1px;">
+                                <div style="background-color: #22c55e; width: ${(correct / safeTotal) * 100}%; border-radius: 999px 0 0 999px; transition: width 0.3s;"></div>
+                                <div style="background-color: #ef4444; width: ${(wrong / safeTotal) * 100}%; transition: width 0.3s;"></div>
+                                <div style="background-color: transparent; flex: 1;"></div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -639,10 +667,6 @@ function openChapterSheetsScreen(chapterId) {
         updateArgomentiPillStates();
         renderSheetsList();
         return;
-    }
-
-    if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento pagine...</div>`;
     }
 
     // 2. Fetch only chapter's pages directly (lightweight & ultra-fast)

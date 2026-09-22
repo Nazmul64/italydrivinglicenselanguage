@@ -8,27 +8,74 @@ use App\Models\Page;
 use App\Models\Question;
 use App\Models\SavedMcq;
 use App\Models\Note;
+use App\Models\UserMcqResult;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class ArgomentiApiController extends Controller
 {
+    use ResolvesUserSession;
+
     /**
      * Get all theory chapters with questions count and progress data.
      */
     public function getChapters(Request $request)
     {
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+        $hasUser = !empty($userIds) || !empty($sessionIds);
+
         $chapters = Chapter::where('status', true)
-            ->withCount(['pages', 'questions'])
+            ->withCount(['pages'])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
-        $chapters->transform(function ($ch) {
-            $total = $ch->questions_count;
-            $ch->corrette = 0;
-            $ch->errori = 0;
-            $ch->non_risposte = $total;
+        $chapters->transform(function ($ch) use ($userIds, $sessionIds, $hasUser) {
+            $pageIds = Page::where('chapter_id', $ch->id)->pluck('id');
+            $questionIds = Question::where(function ($q) use ($ch, $pageIds) {
+                $q->where('chapter', $ch->id)
+                  ->orWhere('chapter', $ch->chapter_number)
+                  ->orWhereIn('page_id', $pageIds);
+            })->pluck('id')->toArray();
+
+            $total = count($questionIds);
+            $correct = 0;
+            $wrong = 0;
+
+            if ($hasUser && $total > 0) {
+                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
+                    ->where(function ($q) use ($userIds, $sessionIds) {
+                        if (!empty($userIds)) {
+                            $q->whereIn('user_id', $userIds);
+                        }
+                        if (!empty($sessionIds)) {
+                            if (!empty($userIds)) {
+                                $q->orWhereIn('session_id', $sessionIds);
+                            } else {
+                                $q->whereIn('session_id', $sessionIds);
+                            }
+                        }
+                    })
+                    ->orderBy('updated_at', 'desc')
+                    ->get()
+                    ->unique('question_id');
+
+                $correct = $latestResults->where('is_correct', 1)->count();
+                $wrong = $latestResults->where('is_correct', 0)->count();
+            }
+
+            $unanswered = max(0, $total - $correct - $wrong);
+
+            $ch->questions_count = $total;
+            $ch->question_count = $total;
+            $ch->corrette = $correct;
+            $ch->errori = $wrong;
+            $ch->non_risposte = $unanswered;
             $ch->totale = $total;
+            $ch->total = $total;
+
             return $ch;
         });
 
@@ -43,6 +90,11 @@ class ArgomentiApiController extends Controller
      */
     public function getChapterPages(Request $request, $id)
     {
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+        $hasUser = !empty($userIds) || !empty($sessionIds);
+
         $pages = Page::where('status', true)
             ->where(function ($query) use ($id) {
                 $query->where('chapter_id', $id)
@@ -55,12 +107,44 @@ class ArgomentiApiController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $pages->transform(function ($p) {
-            $total = $p->questions_count;
-            $p->corrette = 0;
-            $p->errori = 0;
-            $p->non_risposte = $total;
+        $pages->transform(function ($p) use ($userIds, $sessionIds, $hasUser) {
+            $questionIds = Question::where('page_id', $p->id)->pluck('id')->toArray();
+            $total = count($questionIds);
+            $correct = 0;
+            $wrong = 0;
+
+            if ($hasUser && $total > 0) {
+                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
+                    ->where(function ($q) use ($userIds, $sessionIds) {
+                        if (!empty($userIds)) {
+                            $q->whereIn('user_id', $userIds);
+                        }
+                        if (!empty($sessionIds)) {
+                            if (!empty($userIds)) {
+                                $q->orWhereIn('session_id', $sessionIds);
+                            } else {
+                                $q->whereIn('session_id', $sessionIds);
+                            }
+                        }
+                    })
+                    ->orderBy('updated_at', 'desc')
+                    ->get()
+                    ->unique('question_id');
+
+                $correct = $latestResults->where('is_correct', 1)->count();
+                $wrong = $latestResults->where('is_correct', 0)->count();
+            }
+
+            $unanswered = max(0, $total - $correct - $wrong);
+
+            $p->questions_count = $total;
+            $p->question_count = $total;
+            $p->corrette = $correct;
+            $p->errori = $wrong;
+            $p->non_risposte = $unanswered;
             $p->totale = $total;
+            $p->total = $total;
+
             return $p;
         });
 

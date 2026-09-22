@@ -66,40 +66,31 @@ function performTranslation() {
     }
     if (resultCard) resultCard.style.display = 'block';
 
-    const formData = new FormData();
-    formData.append('text', text);
-    formData.append('from_lang', fromLang);
-    formData.append('to_lang', toLang);
+    const params = new URLSearchParams();
+    params.append('text', text);
+    params.append('from_lang', fromLang);
+    params.append('to_lang', toLang);
 
-    fetch(`/api/v1/translation?term=${encodeURIComponent(text)}`)
+    fetch(`/api/v1/translate?${params.toString()}`)
         .then(res => res.json())
         .then(data => {
-            if (data.status === 'success' && data.data) {
-                const translationResult = (toLang === 'bn') ? (data.data.bangla || data.data.definition) : (data.data.italian || data.data.term);
-                lastTranslatedText = translationResult || text;
+            let translated = '';
+            if (data.status === 'success') {
+                translated = data.translated_text || data.translation || (data.data ? (toLang === 'it' ? data.data.italian : data.data.bangla) : '');
+            }
+            if (!translated && data.data) {
+                translated = (toLang === 'bn') ? (data.data.bangla || data.data.definition) : (data.data.italian || data.data.term);
+            }
+            if (translated && translated !== text) {
+                lastTranslatedText = translated;
                 lastTargetLang = toLang;
-                if (resultTextEl) resultTextEl.innerText = translationResult || text;
+                if (resultTextEl) resultTextEl.innerText = translated;
+            } else if (translated) {
+                lastTranslatedText = translated;
+                lastTargetLang = toLang;
+                if (resultTextEl) resultTextEl.innerText = translated;
             } else {
-                fetch('/api/translate', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                    },
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data2 => {
-                    if (data2.status === 'success' && data2.translated_text) {
-                        lastTranslatedText = data2.translated_text;
-                        lastTargetLang = toLang;
-                        if (resultTextEl) resultTextEl.innerText = data2.translated_text;
-                    } else {
-                        if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
-                    }
-                })
-                .catch(() => {
-                    if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
-                });
+                if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
             }
         })
         .catch(err => {

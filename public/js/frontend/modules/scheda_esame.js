@@ -255,14 +255,15 @@ function renderSchedaCurrentQuestion() {
 
     const currentQ = questions[currentSchedaQuestionIndex];
 
-    // Underline terms in Italian question
+    // Italian question text
     const textEl = document.getElementById('scheda-quiz-question-text');
     if (textEl) {
         let itText = currentQ.italian || '';
-        // Underline terms using <u> tag
-        const words = itText.split(' ');
-        const underlined = words.map(w => `<u style="text-decoration-color: #94a3b8; text-underline-offset: 3px; cursor: pointer;">${w}</u>`).join(' ');
-        textEl.innerHTML = `${currentSchedaQuestionIndex + 1}. ${underlined}`;
+        if (typeof highlightDictionaryTerms === 'function') {
+            textEl.innerHTML = `${currentSchedaQuestionIndex + 1}. ${highlightDictionaryTerms(itText, currentQ.vocabulary, currentQ.id, 'scheda-esame')}`;
+        } else {
+            textEl.innerHTML = `${currentSchedaQuestionIndex + 1}. ${itText}`;
+        }
     }
 
     // Bangla text

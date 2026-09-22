@@ -1217,45 +1217,6 @@ class DynamicContentController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        if ($sliders->isEmpty()) {
-            $defaultSliders = [
-                [
-                    'id' => 1,
-                    'title' => 'Patente B Exam Prep',
-                    'subtitle' => 'বাংলা ভাষায় ইতালিয়ান ড্রাইভিং লাইসেন্স কোর্স',
-                    'image_url' => 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop',
-                    'link_url' => '',
-                    'button_text' => 'শুরু করুন',
-                    'order_index' => 1,
-                    'status' => true
-                ],
-                [
-                    'id' => 2,
-                    'title' => 'Live Interactive Classes',
-                    'subtitle' => 'সরাসরি শিক্ষক এর সাথে ক্লাস করুন',
-                    'image_url' => 'https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800&auto=format&fit=crop',
-                    'link_url' => '',
-                    'button_text' => 'জয়েন করুন',
-                    'order_index' => 2,
-                    'status' => true
-                ],
-                [
-                    'id' => 3,
-                    'title' => 'Cartelli Traffic Signs',
-                    'subtitle' => 'সকল ট্রাফিক সিগন্যাল ও কুইজ',
-                    'image_url' => 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop',
-                    'link_url' => '',
-                    'button_text' => 'পড়ুন',
-                    'order_index' => 3,
-                    'status' => true
-                ]
-            ];
-            return response()->json([
-                'status' => 'success',
-                'data' => $defaultSliders
-            ]);
-        }
-
         $sliders->transform(function($s) {
             $path = $s->image_url;
             if ($path && !str_starts_with($path, 'http://') && !str_starts_with($path, 'https://')) {

@@ -745,7 +745,21 @@ function startArgomentiCategoryQuiz() {
 function renderArgomentiList() {
     const container = document.getElementById('argomenti-list');
     if (!container) return;
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento capitoli...</div>`;
+
+    const cards = container.querySelectorAll('.chapter-image-card');
+    if (cards.length > 0) {
+        cards.forEach(card => {
+            const id = parseInt(card.getAttribute('data-chapter-id'));
+            if (selectedChapters.includes(id)) {
+                card.classList.add('selected-chapter-card');
+            } else {
+                card.classList.remove('selected-chapter-card');
+            }
+        });
+        updateCategoryQuizButtonVisibility();
+        updateArgomentiChapterPillStates();
+        return;
+    }
 
     const userStats = getUserQuestionStats();
 
@@ -761,7 +775,8 @@ function renderArgomentiList() {
             chapters.forEach(ch => {
                 let correct = 0;
                 let wrong = 0;
-                let total = ch.question_count || 0;
+                let total = ch.question_count || ch.questions_count || 0;
+                const safeTotal = total > 0 ? total : 1;
 
                 for (let key in userStats) {
                     let record = userStats[key];
@@ -779,6 +794,7 @@ function renderArgomentiList() {
 
                 const card = document.createElement('div');
                 card.className = `chapter-image-card ${isSelected ? 'selected-chapter-card' : ''}`;
+                card.setAttribute('data-chapter-id', ch.id);
                 card.onclick = () => {
                     if (isArgomentiSelectMode) {
                         toggleChapterSelection(ch.id);
@@ -787,15 +803,46 @@ function renderArgomentiList() {
                     }
                 };
 
-                const coverImage = ch.cover_image || ch.image || `https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500&auto=format&fit=crop&q=60`;
+                const rawCover = ch.cover_image || ch.image;
+                const cleanCover = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(rawCover) : rawCover;
+                const coverImage = cleanCover || '';
 
                 card.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: space-between; width: 100%; position: relative;">
                         <div class="chapter-card-title" style="text-align: center; font-size: 18px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; line-height: 1.3; width: 100%; margin-bottom: 10px;">
                             ${ch.chapter_number || ch.id}) ${ch.name}
                         </div>
-                        <div class="chapter-card-img-wrapper" style="width: 100%; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent;">
-                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" style="height: 100%; width: 100%; max-height: 320px; min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px;; max-width: 96%; width: auto; height: auto; object-fit: contain; border-radius: 8px;">
+                        ${coverImage ? `
+                        <div class="chapter-card-img-wrapper" style="width: 100%; height: 250px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background: transparent; overflow: hidden; border-radius: 14px; padding: 0;">
+                            <img src="${coverImage}" class="chapter-card-img" alt="${ch.name}" onerror="this.parentElement.style.display='none'" style="height: 100%; width: 100%; max-height: 250px; max-width: 92%; object-fit: contain; border-radius: 14px; background: transparent; display: block;">
+                        </div>
+                        ` : ''}
+
+                        <div style="width: 100%; margin-top: 14px;">
+                            <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Progresso</div>
+                            <div style="display: flex; justify-content: space-between; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                                <div>
+                                    <div>Corrette</div>
+                                    <div style="font-weight: 700; color: #4CAF50; margin-top: 2px;">${correct}</div>
+                                </div>
+                                <div>
+                                    <div>Errori</div>
+                                    <div style="font-weight: 700; color: #ef4444; margin-top: 2px;">${wrong}</div>
+                                </div>
+                                <div>
+                                    <div>Non risposte</div>
+                                    <div style="font-weight: 700; color: var(--text-secondary); margin-top: 2px;">${unanswered}</div>
+                                </div>
+                                <div>
+                                    <div>Totale</div>
+                                    <div style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">${total}</div>
+                                </div>
+                            </div>
+                            <div style="height: 12px; background-color: #e5e7eb; border-radius: 999px; display: flex; overflow: hidden; border: 1.5px solid #d1d5db; padding: 1px;">
+                                <div style="background-color: #22c55e; width: ${(correct / safeTotal) * 100}%; border-radius: 999px 0 0 999px; transition: width 0.3s;"></div>
+                                <div style="background-color: #ef4444; width: ${(wrong / safeTotal) * 100}%; transition: width 0.3s;"></div>
+                                <div style="background-color: transparent; flex: 1;"></div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -824,10 +871,7 @@ function openChapterSheetsScreen(chapterId) {
 
     populateChapterDropdownOptions();
 
-    const container = document.getElementById('argomenti-schede-list');
-    if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento pagine...</div>`;
-    }
+
 
     openScreen('argomenti-schede', 'Scegli Scheda');
 
@@ -1565,7 +1609,7 @@ function submitExam() {
             statusBadge.className = 'result-badge passed';
             statusBadge.innerText = 'উত্তীর্ণ (IDONEO)';
         }
-        if (resultMsg) resultMsg.innerHTML = `অভিনন্দন! আপনি ডেমো পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
+        if (resultMsg) resultMsg.innerHTML = `অভিনন্দন! আপনি ডেমো পরীক্ষায় উত্তীর্ণ হয়েছেন。<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
         playAppSound(true);
     } else {
         if (statusBadge) {
@@ -2263,8 +2307,7 @@ function showTestQuestion() {
 
     const imgContainer = document.getElementById('test-question-img-container');
     const imgEl = document.getElementById('test-question-img');
-    const pageImgFallback = (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image) ? activePageDetails.image : '';
-    let imgSrc = q ? (q.image || q.figure || q.img || q.image_url || pageImgFallback || '') : pageImgFallback;
+    let imgSrc = q ? (q.image || q.figure || q.img || q.image_url || '') : '';
 
     if (imgContainer && imgEl) {
         if (imgSrc) {
@@ -2274,19 +2317,15 @@ function showTestQuestion() {
             }
             imgEl.src = finalSrc;
             imgEl.onerror = function () {
-                if (pageImgFallback && !this.src.includes(pageImgFallback)) {
-                    let fbSrc = (pageImgFallback.startsWith('/') || pageImgFallback.startsWith('http')) ? pageImgFallback : '/' + pageImgFallback;
-                    this.src = fbSrc;
-                } else {
-                    this.src = '/images/signs/generic_pericolo.png';
-                }
+                this.style.display = 'none';
+                if (imgContainer) imgContainer.style.display = 'none';
             };
             imgEl.style.display = 'block';
             imgContainer.style.display = 'flex';
         } else {
-            imgEl.src = '/images/signs/generic_pericolo.png';
-            imgEl.style.display = 'block';
-            imgContainer.style.display = 'flex';
+            imgEl.src = '';
+            imgEl.style.display = 'none';
+            imgContainer.style.display = 'none';
         }
     }
 
@@ -3351,7 +3390,7 @@ let isPlayAllActive = false;
 function openPageDetailsScreen(pageId) {
     const container = document.getElementById('page-questions-list-container');
     if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento dettagli pagina...</div>`;
+
     }
 
     if ('speechSynthesis' in window) {
@@ -3546,8 +3585,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
         ` : '<div style="flex: 1;"></div>';
 
-        const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
-        const qImage = q.image || q.img || vocabImg || (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image ? activePageDetails.image : null);
+        const qImage = q.image || q.img || null;
 
         const topHeaderImageHtml = qImage ? `
             <div class="detail-q-top-image-wrap">
@@ -4125,7 +4163,7 @@ let isSavedMcqSelectMode = false;
 function loadSavedMcqsScreen() {
     const container = document.getElementById('saved-mcqs-list-container');
     if (!container) return;
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande salvate...</div>`;
+
 
     fetch('/api/saved-mcqs')
         .then(res => res.json())
@@ -4690,7 +4728,7 @@ let examTimeLeft = 1800; // 30 minutes in seconds
 function loadExamSheets() {
     const container = document.getElementById('exam-cards-list');
     if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
+
     }
 
     fetch('/api/exams')
@@ -5019,43 +5057,12 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId, question
 
     const hasExplicitUnderlines = /<u>[\s\S]*?<\/u>/i.test(resultText);
 
-    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
+    // Process <u>word</u> HTML tags (admin-underlined terms in questions)
     if (hasExplicitUnderlines) {
         resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
             const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
             const lowerClean = cleanWord.toLowerCase();
             return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); }">${innerWord}</span>`;
-        });
-        return resultText;
-    }
-
-    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words
-    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
-        const sortedVocab = [...questionVocabulary].sort((a, b) =>
-            (b.italian || '').length - (a.italian || '').length
-        );
-        sortedVocab.forEach(item => {
-            const word = item.italian || '';
-            if (!word) return;
-            vocabCache[word.toLowerCase()] = item;
-            const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
-            resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
-            });
-        });
-    }
-
-    // 3. Highlight global dictionary words from database
-    if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
-        const sortedTerms = [...dictionaryData].sort((a, b) => (b.word || '').length - (a.word || '').length);
-        sortedTerms.forEach(term => {
-            if (!term.word) return;
-            const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
-            resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
-            });
         });
     }
 
@@ -5862,14 +5869,8 @@ function openQuestionTranslationModal(itText, bnText, vocabularyList, imageUrl) 
             ? highlightDictionaryTerms(itText || '', vocabularyList || [])
             : (itText || '');
     }
-    // Determine image: main question image or fallback to vocabulary image if present
+    // Determine image: main question image
     let targetImg = imageUrl || '';
-    if (!targetImg && Array.isArray(vocabularyList) && vocabularyList.length > 0) {
-        const vocabWithImg = vocabularyList.find(v => v && (v.image || v.img));
-        if (vocabWithImg) {
-            targetImg = vocabWithImg.image || vocabWithImg.img;
-        }
-    }
 
     if (targetImg && imgContainer && imgEl) {
         imgEl.src = targetImg;
@@ -6089,7 +6090,7 @@ function loadCorrectMcqsList() {
     const selectedPage = document.getElementById('correct-filter-page')?.value;
     const searchQuery = document.getElementById('correct-search-input')?.value?.toLowerCase()?.trim() || '';
 
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande corrette...</div>`;
+
 
     const userStats = getUserQuestionStats();
     const correctIds = [];
@@ -6339,7 +6340,7 @@ function loadWrongMcqsList() {
     const selectedDate = document.getElementById('wrong-filter-date')?.value || '';
     const searchQuery = document.getElementById('wrong-search-input')?.value?.toLowerCase()?.trim() || '';
 
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
+
 
     const queryParams = new URLSearchParams({
         chapter_id: selectedChapter,

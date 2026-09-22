@@ -444,7 +444,7 @@ function renderCartelloPagesTable(pages) {
         if (mediaSrc && !mediaSrc.startsWith('/') && !mediaSrc.startsWith('http')) {
             mediaSrc = '/' + mediaSrc;
         }
-        const mediaHtml = mediaSrc ? `<img src="${mediaSrc}" style="width:50px; height:35px; object-fit:contain; border-radius:4px;" onerror="this.src='/images/signs/generic_pericolo.png'">` : 'N/A';
+        const mediaHtml = mediaSrc ? `<img src="${mediaSrc}" style="width:50px; height:35px; object-fit:contain; border-radius:4px;" onerror="this.style.display='none'">` : 'N/A';
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="text-align: center;"><input type="checkbox" class="select-cartello-page-checkbox" value="${p.id}" onchange="updateBulkDeleteButton('cartello-pages')"></td>

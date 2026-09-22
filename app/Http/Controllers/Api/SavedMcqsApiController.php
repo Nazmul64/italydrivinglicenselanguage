@@ -63,7 +63,7 @@ class SavedMcqsApiController extends Controller
                         "italian"        => $c->question ?? "",
                         "bangla"         => $c->bn_question ?? "",
                         "is_vero"        => $c->correct_answer === "vero" || $c->correct_answer === "1" || $c->correct_answer === 1,
-                        "image"          => $c->image ?: ($page ? $page->image : null),
+                        "image"          => $c->image ?: null,
                         "audio"          => $c->voice,
                         "video"          => $c->video,
                         "vocabulary"     => $c->vocabulary ?? [],

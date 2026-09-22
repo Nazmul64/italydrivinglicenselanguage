@@ -53,10 +53,10 @@ function renderLezioniList(lectures) {
             }
         };
 
-        const thumb = classItem.thumbnail_url || 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=300';
+        const thumb = classItem.thumbnail_url || '';
         card.innerHTML = `
-            <div class="lesson-thumbnail" style="position: relative; width: 90px; height: 60px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #000;">
-                <img src="${thumb}" alt="${classItem.title}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
+            <div class="lesson-thumbnail" style="position: relative; width: 90px; height: 60px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; justify-content: center;">
+                ${thumb ? `<img src="${thumb}" alt="${classItem.title}" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;" onerror="this.style.display='none'">` : ''}
                 <i class="fa-solid fa-circle-play" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.5);"></i>
             </div>
             <div class="lesson-info" style="flex: 1;">

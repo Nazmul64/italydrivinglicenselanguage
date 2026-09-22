@@ -342,43 +342,12 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId, question
 
     const hasExplicitUnderlines = /<u>[\s\S]*?<\/u>/i.test(resultText);
 
-    // 1. Process <u>word</u> HTML tags first (admin-underlined terms in questions)
+    // Process <u>word</u> HTML tags (admin-underlined terms in questions)
     if (hasExplicitUnderlines) {
         resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
             const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
             const lowerClean = cleanWord.toLowerCase();
             return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); }">${innerWord}</span>`;
-        });
-        return resultText;
-    }
-
-    // 2. If NO explicit <u> tags exist, highlight per-question vocabulary words
-    if (Array.isArray(questionVocabulary) && questionVocabulary.length > 0) {
-        const sortedVocab = [...questionVocabulary].sort((a, b) =>
-            (b.italian || '').length - (a.italian || '').length
-        );
-        sortedVocab.forEach(item => {
-            const word = item.italian || '';
-            if (!word) return;
-            vocabCache[word.toLowerCase()] = item;
-            const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
-            resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openVocabModal('${word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
-            });
-        });
-    }
-
-    // 3. Highlight global dictionary words from database
-    if (typeof dictionaryData !== 'undefined' && Array.isArray(dictionaryData) && dictionaryData.length > 0) {
-        const sortedTerms = [...dictionaryData].sort((a, b) => (b.word || '').length - (a.word || '').length);
-        sortedTerms.forEach(term => {
-            if (!term.word) return;
-            const escapedWord = term.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp('\\b(' + escapedWord + ')\\b', 'i');
-            resultText = resultText.replace(regex, (match) => {
-                return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); openDictionaryTermModal('${term.word.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg})">${match}</span>`;
-            });
         });
     }
 

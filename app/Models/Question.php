@@ -35,11 +35,7 @@ class Question extends Model
 
     public function getImageAttribute($value)
     {
-        $formatted = \App\Helpers\ImageHelper::formatImageUrl($value);
-        if (empty($formatted) && $this->relationLoaded('page') && $this->page && !empty($this->page->image)) {
-            return $this->page->image;
-        }
-        return $formatted;
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
     }
 
     public function getAudioAttribute($value)

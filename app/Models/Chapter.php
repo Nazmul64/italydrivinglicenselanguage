@@ -33,11 +33,7 @@ class Chapter extends Model
 
     public function getCoverImageAttribute($value)
     {
-        $formatted = \App\Helpers\ImageHelper::formatImageUrl($value);
-        if (empty($formatted) && !empty($this->attributes['image'])) {
-            return \App\Helpers\ImageHelper::formatImageUrl($this->attributes['image']);
-        }
-        return $formatted;
+        return \App\Helpers\ImageHelper::formatImageUrl($value);
     }
 
     public function getVideoUrlAttribute($value)

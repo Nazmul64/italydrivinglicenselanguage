@@ -252,8 +252,7 @@ function showTestQuestion() {
 
     const imgContainer = document.getElementById('test-question-img-container');
     const imgEl = document.getElementById('test-question-img');
-    const pageImgFallback = (typeof activePageDetails !== 'undefined' && activePageDetails && activePageDetails.image) ? activePageDetails.image : '';
-    let imgSrc = q ? (q.image || q.figure || q.img || q.image_url || pageImgFallback || '') : pageImgFallback;
+    let imgSrc = q ? (q.image || q.figure || q.img || q.image_url || '') : '';
 
     if (imgContainer && imgEl) {
         if (imgSrc) {
@@ -263,19 +262,15 @@ function showTestQuestion() {
             }
             imgEl.src = finalSrc;
             imgEl.onerror = function () {
-                if (pageImgFallback && !this.src.includes(pageImgFallback)) {
-                    let fbSrc = (pageImgFallback.startsWith('/') || pageImgFallback.startsWith('http')) ? pageImgFallback : '/' + pageImgFallback;
-                    this.src = fbSrc;
-                } else {
-                    this.src = '/images/signs/generic_pericolo.png';
-                }
+                this.style.display = 'none';
+                if (imgContainer) imgContainer.style.display = 'none';
             };
             imgEl.style.display = 'block';
             imgContainer.style.display = 'flex';
         } else {
-            imgEl.src = '/images/signs/generic_pericolo.png';
-            imgEl.style.display = 'block';
-            imgContainer.style.display = 'flex';
+            imgEl.src = '';
+            imgEl.style.display = 'none';
+            imgContainer.style.display = 'none';
         }
     }
 
