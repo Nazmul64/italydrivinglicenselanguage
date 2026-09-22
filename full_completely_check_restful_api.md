@@ -280,3 +280,73 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 - **Send Message**: `POST /api/v1/chat/messages`
   - Body: `{"phone": "01706640864", "session_id": "<session_id>", "message": "আমার লাইসেন্স সংক্রান্ত জিজ্ঞাসা"}`
 - **Upload Chat Image**: `POST /api/v1/chat/upload-image` (Multipart `image` file)
+
+---
+
+## 🛡️ 12. Free Access & License Protection Mode API (ফ্রি অ্যাক্সেস ও লাইসেন্স প্রোটেকশন)
+
+Admin প্যানেলের **"Free Access & License Protection Settings"** থেকে কন্ট্রোল করা যায় কাস্টমার রেজিস্ট্রেশন ও লাইসেন্স কি ছাড়া ফ্রিলি পড়তে পারবে, নাকি লাইসেন্স কি এবং কিউআর কোড স্ক্যান আবশ্যক।
+
+### ⚙️ Setting Modes:
+1. **🟢 Free Access Mode ON (ফ্রি অ্যাক্সেস চালু)**:
+   - এডমিন প্যানেলে চেকবক্স **টিক দেওয়া থাকলে (ON)**।
+   - কাস্টমার ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা লাইসেন্স কি ছাড়াই ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি ফ্রিলি সম্পূর্ণ অ্যাক্সেস পাবে।
+   - কোনো কিউআর কোড স্ক্যান লাগবে না।
+   
+2. **🔴 License Protection Mode ON (প্রোটেকশন লক চালু)**:
+   - এডমিন প্যানেলে চেকবক্স **টিক উঠিয়ে দিলে (OFF)**।
+   - অ্যাপে ফার্স্ট নেম, লাস্ট নেম ও ফোন নম্বর দিয়ে লাইসেন্স নেওয়া আবশ্যক।
+   - ওয়েবসাইটে অ্যাক্সেস পেতে অ্যাপ থেকে কিউআর কোড স্ক্যান করে আনলক করতে হবে।
+
+### 📡 Check License & Protection Status
+- **Endpoint**: `GET /api/v1/license/status` (or `GET /api/v1/settings`)
+- **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
+- **Response when Free Access is ON**:
+```json
+{
+  "success": true,
+  "status": "active",
+  "protection_disabled": true,
+  "license": {
+    "license_key": "FREE_ACCESS",
+    "status": "active",
+    "activated_at": "2026-09-22T00:00:00.000000Z",
+    "expires_at": "2027-09-22T00:00:00.000000Z"
+  }
+}
+```
+- **Response when Protection is ON (Unregistered / Locked User)**:
+```json
+{
+  "success": false,
+  "status": "inactive",
+  "protection_disabled": false,
+  "message": "License key is required or inactive."
+}
+```
+
+### 📱 User Registration & License Request
+- **Endpoint**: `POST /api/v1/support/register`
+- **Body Payload**:
+```json
+{
+  "first_name": "Md",
+  "last_name": "Rahim",
+  "phone": "01706640864",
+  "session_id": "<session_id>"
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "message": "Registration successful",
+  "license_key": "729104",
+  "is_active": true
+}
+```
+
+### 🔓 Admin/Client Activate License
+- **Endpoint**: `POST /api/v1/client/activate`
+- **Body**: `{"phone": "01706640864", "days": 365}`
+

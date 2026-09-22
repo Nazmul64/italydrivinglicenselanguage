@@ -1,4 +1,4 @@
-# 🚀 Italy Driving License Platform - RESTful API v1 Documentation
+# 🚀 Italy Driving License Platform - Full Completely Checked RESTful API Documentation
 
 ## 🌐 Base URL
 - **Production Base URL**: `https://mbanglapatenteb.com/api/v1`
@@ -8,29 +8,29 @@
 ---
 
 ## 🔒 Cross-Platform Synchronization & User Identity Architecture
-All user activities (**Noted MCQs**, **Saved/Bookmarked MCQs**, **Wrong/Incorrect MCQs**, **Correct MCQs**, **Support Chat Messages**, and **Progress Statistics**) are **100% seamlessly synchronized** between the **Flutter Mobile App** and the **Web Browser PWA**.
+All user activities (**Noted MCQs**, **Saved/Bookmarked MCQs**, **Wrong/Incorrect MCQs**, **Correct MCQs**, **Quiz & Exam Results**, **Support Chat Messages**, and **Progress Statistics**) are **100% seamlessly synchronized in real-time** between the **Flutter Mobile App** and the **Web Browser PWA**.
 
-### 📱 User Identification Priority
-The backend automatically resolves the user identity and syncs data across platforms using:
+### 📱 Unified User Identification Header & Context Priority
+The backend automatically resolves the user identity across platforms via the `ResolvesUserSession` trait:
 1. **Bearer Token** (`Authorization: Bearer <token>` via Laravel Sanctum)
 2. **Phone Number Headers & Parameters**:
-   - Header: `X-Client-Phone: 01706640864`
-   - Query / Body: `?phone=01706640864` or `?user_phone=01706640864`
+   - HTTP Header: `X-Client-Phone: 01706640864`
+   - Query / Body Parameter: `?phone=01706640864` or `?user_phone=01706640864`
    - Cookie / Web Session: `app_client_phone`
 3. **Session ID Headers & Parameters**:
-   - Header: `X-Session-ID: <session_id>` or `X-Client-Session-ID: <session_id>`
-   - Query / Body: `?session_id=<session_id>`
+   - HTTP Header: `X-Session-ID: <session_id>` or `X-Client-Session-ID: <session_id>`
+   - Query / Body Parameter: `?session_id=<session_id>`
    - Cookie: `app_client_session_id`, `qr_session_id`
 
 ---
 
 ## 🎴 1. Home Navigation Cards API (হোম সার্ভিসেস কার্ড / আইকন / ইমেজ / Lottie JSON)
 
-Admin প্যানেল থেকে হোম পেজের কার্ডগুলোর নাম, আইকন, ছবি, Lottie অ্যানিমেশন JSON বা ক্রম পরিবর্তন করলে Flutter অ্যাপেও যেন স্বয়ংক্রিয়ভাবে রিয়েল-টাইমে আপডেট হয়ে যায়, তার জন্য এই RESTful API ব্যবহার করা হয়।
+Admin প্যানেল থেকে হোম পেজের কার্ডগুলোর নাম, আইকন, ছবি, Lottie অ্যানিমেশন JSON বা ক্রম পরিবর্তন করলে Flutter অ্যাপেও যেন স্বয়ংক্রিয়ভাবে রিয়েল-টাইমে আপডেট হয়ে যায়।
 
 ### 📡 Get Active Home Cards
 - **Endpoint**: `GET /api/v1/home-cards` (or `GET /api/home-cards`)
-- **Ordering**: Automatically sorted by `order_index` ASC.
+- **Method**: `GET`
 - **Response Format**:
 ```json
 {
@@ -90,7 +90,7 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ## 📚 2. Argomenti (Chapters & Pages with User Statistics)
 
-### 📖 Get All Chapters
+### 📖 Get All Chapters with Statistics
 - **Endpoint**: `GET /api/v1/chapters` (or `GET /api/chapters`)
 - **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
 - **Response**:
@@ -101,8 +101,8 @@ Admin প্যানেল থেকে হোম পেজের কার্�
     "chapter_number": 1,
     "name": "Italian Driving Licence Quiz 2026 with official",
     "bn_name": "একেবারে নিচ পর্যন্ত নেমে যাও",
-    "image": "https://mbanglapatenteb.com/uploads/chapters/...",
-    "cover_image": "https://mbanglapatenteb.com/uploads/chapters/...",
+    "image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783335_739.webp",
+    "cover_image": "https://mbanglapatenteb.com/uploads/chapters/chapter_cover_1789783335_739.webp",
     "question_count": 535,
     "questions_count": 535,
     "totale": 535,
@@ -115,6 +115,7 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ### 📄 Get Pages for a Chapter
 - **Endpoint**: `GET /api/v1/chapters/{id}/pages`
+- **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
 - **Response**:
 ```json
 [
@@ -124,7 +125,7 @@ Admin প্যানেল থেকে হোম পেজের কার্�
     "sort_order": 1,
     "title": "theory and real Ministry questions",
     "bn_title": "নিচ পর্যন্ত যাও, তারপর ডান দিকে ঘুরো",
-    "image": "https://mbanglapatenteb.com/uploads/pages/images/...",
+    "image": "https://mbanglapatenteb.com/uploads/pages/images/page_img_1_1790056046_178.webp",
     "questions_count": 25,
     "totale": 25,
     "corrette": 15,
@@ -136,7 +137,36 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ### 📝 Get Page Details & Questions
 - **Endpoint**: `GET /api/v1/pages/{id}`
-- **Response**: Page object including all `questions` (italian, bangla, is_vero, audio, image, video, vocabulary).
+- **Response**:
+```json
+{
+  "id": 1,
+  "chapter_id": 1,
+  "title": "theory and real Ministry questions",
+  "image": "https://mbanglapatenteb.com/uploads/pages/images/page_img_1_1790056046_178.webp",
+  "questions": [
+    {
+      "id": 1,
+      "chapter": 1,
+      "question_type": "vero_falso",
+      "sort_order": 1,
+      "italian": "Italian Driving Licence Quiz 2026 with official",
+      "bangla": "ইতালিয়ান ড্রাইভিং লাইসেন্স কুইজ ২০২৬",
+      "is_vero": true,
+      "image": "",
+      "audio": "",
+      "video": "",
+      "vocabulary": [
+        {
+          "italian": "official",
+          "bangla": "অফিসিয়াল",
+          "image": "https://mbanglapatenteb.com/uploads/vocabulary/vocab_1790044472_476.png"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ---
 
@@ -232,8 +262,8 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ---
 
-## 🎓 9. Exam Simulation & Quiz Practice
-- **Scheda Esame (Ministerial 30 MCQs)**: `GET /api/v1/quiz/exam` (or `GET /api/quiz/exam`)
+## 🎓 9. Exam Simulation & Practice Quizzes
+- **Scheda Esame (Official 30 MCQs)**: `GET /api/v1/quiz/exam` (or `GET /api/quiz/exam`)
 - **Random Practice Quiz**: `GET /api/questions/random-test`
 
 ---
@@ -250,3 +280,73 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 - **Send Message**: `POST /api/v1/chat/messages`
   - Body: `{"phone": "01706640864", "session_id": "<session_id>", "message": "আমার লাইসেন্স সংক্রান্ত জিজ্ঞাসা"}`
 - **Upload Chat Image**: `POST /api/v1/chat/upload-image` (Multipart `image` file)
+
+---
+
+## 🛡️ 12. Free Access & License Protection Mode API (ফ্রি অ্যাক্সেস ও লাইসেন্স প্রোটেকশন)
+
+Admin প্যানেলের **"Free Access & License Protection Settings"** থেকে কন্ট্রোল করা যায় কাস্টমার রেজিস্ট্রেশন ও লাইসেন্স কি ছাড়া ফ্রিলি পড়তে পারবে, নাকি লাইসেন্স কি এবং কিউআর কোড স্ক্যান আবশ্যক।
+
+### ⚙️ Setting Modes:
+1. **🟢 Free Access Mode ON (ফ্রি অ্যাক্সেস চালু)**:
+   - এডমিন প্যানেলে চেকবক্স **টিক দেওয়া থাকলে (ON)**।
+   - কাস্টমার ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা লাইসেন্স কি ছাড়াই ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি ফ্রিলি সম্পূর্ণ অ্যাক্সেস পাবে।
+   - কোনো কিউআর কোড স্ক্যান লাগবে না।
+   
+2. **🔴 License Protection Mode ON (প্রোটেকশন লক চালু)**:
+   - এডমিন প্যানেলে চেকবক্স **টিক উঠিয়ে দিলে (OFF)**।
+   - অ্যাপে ফার্স্ট নেম, লাস্ট নেম ও ফোন নম্বর দিয়ে লাইসেন্স নেওয়া আবশ্যক।
+   - ওয়েবসাইটে অ্যাক্সেস পেতে অ্যাপ থেকে কিউআর কোড স্ক্যান করে আনলক করতে হবে।
+
+### 📡 Check License & Protection Status
+- **Endpoint**: `GET /api/v1/license/status` (or `GET /api/v1/settings`)
+- **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
+- **Response when Free Access is ON**:
+```json
+{
+  "success": true,
+  "status": "active",
+  "protection_disabled": true,
+  "license": {
+    "license_key": "FREE_ACCESS",
+    "status": "active",
+    "activated_at": "2026-09-22T00:00:00.000000Z",
+    "expires_at": "2027-09-22T00:00:00.000000Z"
+  }
+}
+```
+- **Response when Protection is ON (Unregistered / Locked User)**:
+```json
+{
+  "success": false,
+  "status": "inactive",
+  "protection_disabled": false,
+  "message": "License key is required or inactive."
+}
+```
+
+### 📱 User Registration & License Request
+- **Endpoint**: `POST /api/v1/support/register`
+- **Body Payload**:
+```json
+{
+  "first_name": "Md",
+  "last_name": "Rahim",
+  "phone": "01706640864",
+  "session_id": "<session_id>"
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "message": "Registration successful",
+  "license_key": "729104",
+  "is_active": true
+}
+```
+
+### 🔓 Admin/Client Activate License
+- **Endpoint**: `POST /api/v1/client/activate`
+- **Body**: `{"phone": "01706640864", "days": 365}`
+
