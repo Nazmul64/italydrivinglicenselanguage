@@ -2122,24 +2122,6 @@
 
                 <hr style="margin: 24px 0; border-color: var(--border-color);">
 
-                <h4 style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
-                    <span>License Key & QR Code Security Protection (লাইসেন্স কি ও কিউআর প্রোটেকশন অন/অফ)</span>
-                </h4>
-
-                <div style="background: rgba(16, 185, 129, 0.05); border: 1.5px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 20px; margin-bottom: 24px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label style="display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 15px; color: var(--text-primary); cursor: pointer;">
-                            <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" style="width: 22px; height: 22px; accent-color: #10b981; cursor: pointer;">
-                            <span>Enable License Key & QR Code Security Locket (লাইসেন্স কি এবং কিউআর লকার সিস্টেম চালু করুন)</span>
-                        </label>
-                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; margin-left: 34px; line-height: 1.6;">
-                            <strong style="color: #10b981;">🟢 টিক চিহ্ন (ON) থাকলে:</strong> ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। লাইসেন্স কি এবং পিসি মনিটরের কিউআর কোড স্ক্যান করা ছাড়া ওয়েবসাইট ও মোবাইল অ্যাপে ফুল অ্যাক্সেস পাওয়া যাবে না।<br>
-                            <strong style="color: #ef4444;">🔴 টিক উঠিয়ে দিলে (OFF):</strong> লাইসেন্স কি, ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা কিউআর কোড স্ক্যান করা ছাড়াই ইউজাররা সরাসরি ওয়েবসাইট এবং অ্যাপে সম্পূর্ণ ফ্রিলি ফুল অ্যাক্সেস করতে পারবে।
-                        </div>
-                    </div>
-                </div>
-
                 <button type="submit" class="btn btn-primary" id="save-settings-btn">
                     <i class="fa-solid fa-save"></i> Save Settings
                 </button>
@@ -2164,9 +2146,9 @@
                 @csrf
                 <div style="background: rgba(16, 185, 129, 0.06); border: 2px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px;">
                     <div style="display: flex; align-items: flex-start; gap: 16px;">
-                        <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" onchange="toggleLicenseModeUI()" style="width: 24px; height: 24px; accent-color: #10b981; cursor: pointer; margin-top: 2px;">
+                        <input type="checkbox" id="settings-license-protection-checkbox" name="qr_protection_enabled" value="1" onchange="toggleLicenseModeUI()" style="width: 24px; height: 24px; accent-color: #10b981; cursor: pointer; margin-top: 2px;">
                         <div style="flex: 1;">
-                            <label for="settings-qr-protection-enabled" style="font-weight: 800; font-size: 16px; color: var(--text-primary); cursor: pointer; display: block; margin-bottom: 8px;">
+                            <label for="settings-license-protection-checkbox" style="font-weight: 800; font-size: 16px; color: var(--text-primary); cursor: pointer; display: block; margin-bottom: 8px;">
                                 Enable License Key & QR Code Protection Mode (লাইসেন্স কি ও কিউআর কোড প্রোটেকশন মোড চালু করুন)
                             </label>
 

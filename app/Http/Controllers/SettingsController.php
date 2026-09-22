@@ -167,9 +167,9 @@ class SettingsController extends Controller
         if ($request->has('fb_pixel_id')) $setting->fb_pixel_id = $request->input('fb_pixel_id');
         if ($request->has('clarity_project_id')) $setting->clarity_project_id = $request->input('clarity_project_id');
 
-        $setting->qr_protection_enabled = $request->has('qr_protection_enabled')
-            ? filter_var($request->input('qr_protection_enabled'), FILTER_VALIDATE_BOOLEAN)
-            : false;
+        if ($request->has('qr_protection_enabled')) {
+            $setting->qr_protection_enabled = filter_var($request->input('qr_protection_enabled'), FILTER_VALIDATE_BOOLEAN);
+        }
         if ($request->has('qr_target_mode')) {
             $setting->qr_target_mode = $request->input('qr_target_mode');
         }

@@ -1103,11 +1103,11 @@ function fetchGeneralSettings() {
             };
 
             const isProtected = settings.qr_protection_enabled == 1 || settings.qr_protection_enabled === true || settings.qr_protection_enabled === '1';
-            const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
-            if (qrCheckbox) {
-                qrCheckbox.checked = isProtected;
-                toggleLicenseModeUI();
+            const licenseCheckbox = document.getElementById('settings-license-protection-checkbox') || document.getElementById('settings-qr-protection-enabled');
+            if (licenseCheckbox) {
+                licenseCheckbox.checked = isProtected;
             }
+            toggleLicenseModeUI();
 
             for (const [elemId, val] of Object.entries(fieldsMap)) {
                 const elem = document.getElementById(elemId);
@@ -1551,7 +1551,7 @@ function saveServerModeSettingsForm(e) {
 }
 
 function toggleLicenseModeUI() {
-    const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+    const qrCheckbox = document.getElementById('settings-license-protection-checkbox') || document.getElementById('settings-qr-protection-enabled');
     const statusProtected = document.getElementById('license-mode-status-protected');
     const statusFree = document.getElementById('license-mode-status-free');
 
@@ -1574,7 +1574,7 @@ function saveLicenseProtectionForm(e) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
     }
 
-    const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+    const qrCheckbox = document.getElementById('settings-license-protection-checkbox') || document.getElementById('settings-qr-protection-enabled');
     const isProtected = qrCheckbox ? qrCheckbox.checked : true;
     const qrProtectionValue = isProtected ? '1' : '0';
 
