@@ -761,7 +761,7 @@ function loadCorrectMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-                const rawQImg = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const rawQImg = q.image || q.img;
                 const qImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImg) : (rawQImg && !rawQImg.includes('/data/user/') && !rawQImg.includes('scaled_IMG') ? rawQImg : '');
 
                 const leftThumbHtml = qImage ? `
@@ -1064,7 +1064,7 @@ function loadWrongMcqsList() {
 
                 const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
                 const safeItalian = (q.italian || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-                const rawQImg = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+                const rawQImg = q.image || q.img;
                 const qImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImg) : (rawQImg && !rawQImg.includes('/data/user/') && !rawQImg.includes('scaled_IMG') ? rawQImg : '');
 
                 const leftThumbHtml = qImage ? `

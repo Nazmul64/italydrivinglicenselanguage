@@ -45,6 +45,11 @@ class SavedMcqsController extends Controller
                 ->get();
         }
 
+        // Deduplicate records by question_id and type
+        $savedList = $savedList->unique(function ($item) {
+            return ($item->type ?? 'argomenti') . '_' . $item->question_id;
+        })->values();
+
         if ($request->wantsJson() || $request->is('api/*')) {
             return response()->json([
                 'status' => 'success',

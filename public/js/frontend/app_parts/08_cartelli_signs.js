@@ -51,8 +51,7 @@ function loadSavedMcqsScreen() {
 
                 let locationBadgeHtml = '';
 
-                const vocabImg = (Array.isArray(q.vocabulary) && q.vocabulary.find(v => v && v.image && v.image.trim() !== '')) ? q.vocabulary.find(v => v && v.image && v.image.trim() !== '').image : null;
-                const rawQImage = q.image || q.img || vocabImg || (page && page.image ? page.image : null);
+                const rawQImage = q.image || q.img;
                 const cleanQImg = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : (rawQImage && !rawQImage.includes('/data/user/') && !rawQImage.includes('scaled_IMG') ? rawQImage : '');
 
                 const leftThumbHtml = cleanQImg ? `

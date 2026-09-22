@@ -67,7 +67,7 @@ function renderSavedMcqsList(savedItems) {
 
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero');
         const safeItalian = (q.italian || q.question || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-        const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+        const qImage = q.image || q.img || null;
         const imgPos = q.image_position || 'left';
         const showTopImg = qImage && (imgPos === 'top' || imgPos === 'both');
         const showLeftImg = qImage && (imgPos === 'left' || imgPos === 'both');

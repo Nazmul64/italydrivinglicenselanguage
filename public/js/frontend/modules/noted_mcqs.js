@@ -85,7 +85,7 @@ function renderNotedMcqsList(notedItems) {
         };
 
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero');
-        const qImage = q.image || q.img || (q.page && q.page.image ? q.page.image : null);
+        const qImage = q.image || q.img || null;
         const imgPos = q.image_position || 'left';
         const showTopImg = qImage && (imgPos === 'top' || imgPos === 'both');
         const showLeftImg = qImage && (imgPos === 'left' || imgPos === 'both');
@@ -201,7 +201,7 @@ function openNotedQuestionTranslation(qId) {
     const itText = targetQ.italian || targetQ.question || '';
     const bnText = targetQ.bangla || targetQ.bn_question || '';
     const vocab = targetQ.vocabulary || [];
-    const img = targetQ.image || targetQ.img || (targetQ.page ? targetQ.page.image : '');
+    const img = targetQ.image || targetQ.img || '';
 
     if (typeof openQuestionTranslationModal === 'function') {
         openQuestionTranslationModal(itText, bnText, vocab, img);
@@ -319,7 +319,7 @@ function startNotedMcqsQuiz() {
         italian: q.italian || q.question || '',
         bangla: q.bangla || q.bn_question || '',
         is_vero: q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || (q.correct_answer && q.correct_answer.toLowerCase() === 'vero'),
-        image: q.image || q.img || (q.page && q.page.image ? q.page.image : null),
+        image: q.image || q.img || null,
         audio: q.audio || q.voice,
         video: q.video,
         vocabulary: q.vocabulary || []

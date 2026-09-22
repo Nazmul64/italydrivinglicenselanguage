@@ -49,6 +49,11 @@ class SavedMcqsApiController extends Controller
                 ->get();
         }
 
+        // Deduplicate records by question_id and type to prevent duplicate cards
+        $savedList = $savedList->unique(function ($item) {
+            return ($item->type ?? 'argomenti') . '_' . $item->question_id;
+        })->values();
+
         $result = $savedList->map(function ($item) {
             if ($item->type === "cartelli" || (!$item->question && $item->cartelloQuestion)) {
                 $c = $item->cartelloQuestion;

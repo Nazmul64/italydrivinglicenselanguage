@@ -52,6 +52,11 @@ class NotedMcqsApiController extends Controller
                 ->get();
         }
 
+        // Deduplicate records by question_id and type
+        $notesList = $notesList->unique(function ($item) {
+            return ($item->type ?? 'argomenti') . '_' . $item->question_id;
+        })->values();
+
         $result = $notesList->map(function ($item) {
             if ($item->type === "cartelli" || (!$item->question && $item->cartelloQuestion)) {
                 $c = $item->cartelloQuestion;

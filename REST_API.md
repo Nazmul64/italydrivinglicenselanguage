@@ -28,9 +28,10 @@ The backend automatically resolves the user identity across platforms via the `R
 > **⚠️ CRITICAL DEVELOPER INSTRUCTION**: 
 > অ্যাপের প্রতিটি স্ক্রিন ট্রানজিশন যেন **১ সেকেন্ডের অর্ধেক সময়ে ( < 500ms )** ইনস্ট্যান্টলি লোড হয়।
 > 1. **Local State / Hive / SharedPreferences Caching**: পূর্বের ফেচ করা ডাটা লোকাল মেমোরি থেকে সাথে সাথে স্ক্রিনে রেন্ডার করবেন, ব্যাকগ্রাউন্ডে API কল করে লোকাল ডাটা রিফ্রেশ করবেন (Stale-While-Revalidate প্যাটার্ন)।
-> 2. **🚫 NO DUMMY / RANDOM IMAGES IN MCQS & RESULT SCREENS**:
->    - কোনো প্রশ্নে ইমেজ ফিল্ড `null` বা খালি `""` থাকলে বা `/data/user/` লোকাল পাথ থাকলে ইমেজ কন্টেইনার সম্পূর্ণ হাইড (`Visibility(visible: hasValidImage)`) রাখবেন বা `const SizedBox.shrink()` রিটার্ন করবেন।
->    - **কুইজ প্র্যাকটিস স্ক্রিন (`quiz_practice_screen.dart`), টেস্ট স্ক্রিন এবং রেজাল্ট স্ক্রিন (`bocciato`/`promosso`)—কোনো স্ক্রিনেই কোনো ডামি বা আন্দাজে ছবি দেখাবেন না।**
+> 2. **🚫 STRICT NO-DUMMY IMAGE RULE IN ALL SCREENS (Web & App)**:
+>    - কুইজ প্র্যাকটিস স্ক্রিন (`quiz_practice_screen.dart`), টেস্ট স্ক্রিন, রেজাল্ট স্ক্রিন (`bocciato`/`promosso`), সেভ করা প্রশ্ন, নোট করা প্রশ্ন, ভুল ও সঠিক প্রশ্ন—কোনো স্ক্রিনেই **প্রশ্নের কোনো ইমেজ না থাকলে ডামি ইমেজ (যেমন: পেন্সিল-ক্লিপবোর্ড বা বইয়ের ছবি) দেখানো যাবে না**।
+>    - প্রশ্ন যদি ইমেজ ছাড়া আপলোড করা হয় (`question.image == null` বা `image == ""`), তাহলে ইমেজ বক্সটি সম্পূর্ণ হাইড (`const SizedBox.shrink()`) রাখুন।
+>    - ❌ **MCQ প্রশ্নে কখনোই পেজের ইমেজ (`page.image`) বা ডামি প্লেসহোল্ডার অ্যাসাইন করবেন না।**
 
 ---
 
@@ -40,7 +41,7 @@ Admin প্যানেল থেকে হোম পেজের কার্�
 
 ### ⚠️ IMPORTANT INSTRUCTIONS FOR FLUTTER DEVELOPER:
 1. **🖼️ SVG & Multi-format Support in Flutter**:
-   - ব্যাকএন্ড থেকে কার্ডের ছবিতে `.svg` ফাইল আসতে পারে (যেমন: `/uploads/cards/sfida.svg`, `/uploads/cards/scheda_esame.svg`, ইত্যাদি)।
+   - ব্যাকএন্ড থেকে কার্ডের ছবিতে `.svg` ফাইল আসতে পারে (যেমন: `/uploads/cards/sfida.svg`, `/uploads/cards/scheda_esame.svg`, `/uploads/cards/word.svg`, ইত্যাদি)।
    - Flutter-এর সাধারণ `Image.network()` কিন্তু `.svg` লোড করতে পারে না। তাই `flutter_svg` প্যাকেজ ব্যবহার করুন (`SvgPicture.network`)।
    - **কোড স্যাম্পল**:
    ```dart
@@ -231,16 +232,16 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 
 ---
 
-## 🚫 2.1 MCQ Image Rendering Rule (Quiz, Practice, Test, Argomenti, Result Screen)
-> **⚠️ STRICT NO-DUMMY IMAGE RULE FOR FLUTTER DEVELOPER**:
+## 🚫 2.1 Strict MCQ Image Rule (Quiz, Practice, Test, Argomenti, Result Screen)
+> **⚠️ STRICT NO-DUMMY IMAGE RULE (Zero Placeholder)**:
 > যখন কোনো প্রশ্নে ইমেজ আপলোড করা থাকে না (`image == null` বা `image.isEmpty` বা `image.contains('/data/user/')`), তখন:
-> - **কোনো ডামি বা আন্দাজে Freepik ইলাস্ট্রেশন দেখাবেন না।**
-> - ইমেজ উইজেটটিকে সম্পূর্ণ কলাপ্স (`SizedBox.shrink()`) করবেন।
+> - **কোনো ডামি বা আন্দাজে Freepik ইলাস্ট্রেশন বা বইয়ের ছবি দেখাবেন না।**
+> - ইমেজ উইজেটটিকে সম্পূর্ণ কলাপ্স (`const SizedBox.shrink()`) করবেন।
 > 
 > ```dart
 > Widget buildQuestionImage(String? imageUrl) {
 >   if (imageUrl == null || imageUrl.trim().isEmpty || imageUrl.contains('/data/user/')) {
->     return const SizedBox.shrink(); // No image, collapse completely
+>     return const SizedBox.shrink(); // No image -> 0 height completely hidden
 >   }
 >   return Padding(
 >     padding: const EdgeInsets.only(bottom: 12.0),
@@ -261,9 +262,10 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 ---
 
 ## 🔖 3. Saved / Bookmarked MCQs (সেভ / বুকমার্ক করা প্রশ্ন)
-> **⚠️ STRICT SEPARATION FROM NOTES**:
+> **⚠️ STRICT SEPARATION & NO DUPLICATE CARDS**:
 > - **Save/Bookmark Button (বুকমার্ক আইকন)**: প্রশ্নটি বুকমার্ক করার জন্য এই এন্ডপয়েন্ট ব্যবহার করুন।
-> - **হোম কার্ড রাউটিং**: `screen_key == "saved-mcqs"` হলে **`SavedQuestionsScreen`**-এ নেভিগেট করবেন।
+> - **হোম কার্ড রাউটিং**: `screen_key == "saved-mcqs"` হলে **`SavedQuestionsScreen`**-এ নেভিগেট করবেন। হেডার টাইটেল হবে: **Saved MCQs**।
+> - **Deduplication**: ব্যাকএন্ড থেকে স্বয়ংক্রিয়ভাবে ইউনিক প্রশ্ন রিটার্ন করা হয় (একই প্রশ্ন কখনো ২ বার দেখাবে না)।
 
 - **Get Saved MCQs**: `GET /api/v1/saved-mcqs` (or `GET /api/saved-mcqs`, `GET /api/v1/bookmarks`)
 - **Headers**: `X-Client-Phone: <phone>`, `X-Session-ID: <session_id>`
@@ -295,9 +297,9 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 
 ## 📝 4. Noted MCQs API (নোট করা প্রশ্ন — সম্পূর্ণ আলাদা স্ক্রিন ও ফিচার)
 > **⚠️ CRITICAL WARNING FOR FLUTTER DEVELOPER**:
-> 1. **হোম কার্ড রাউটিং**: `screen_key == "noted-mcqs"` হলে **`NotedQuestionsScreen`**-এ নেভিগেট করবেন (❌ ভুলেও `SavedQuestionsScreen`-এ পাঠাবেন না!)।
+> 1. **হোম কার্ড রাউটিং**: `screen_key == "noted-mcqs"` হলে **`NotedQuestionsScreen`**-এ নেভিগেট করবেন। হেডার টাইটেল হবে: **Noted MCQs** (❌ ভুলেও `SavedQuestionsScreen`-এ পাঠাবেন না!)।
 > 2. **নোট বাটন অ্যাকশন**: MCQ কার্ডের **"নোট" (Note)** বাটনে ক্লিক করলে:
->    - একটি Note Dialog / BottomSheet খুলবে যেখানে ইউজারের আগের নোট (যদি থাকে) লোড হবে এবং ইউজার নতুন নোট লিখতে পারবেন।
+>    - একটি Note Dialog / BottomSheet খুলবে যেখানে ইউজারের আগের নোট লোড হবে এবং ইউজার নতুন নোট লিখতে পারবেন।
 >    - সেভ বাটনে চাপ দিলে `POST /api/v1/notes` অথবা `POST /api/v1/noted-mcqs/save` এন্ডপয়েন্টে পাঠাবেন।
 > 3. **নোট প্রদর্শন**: `NotedQuestionsScreen`-এ প্রতিটি প্রশ্নের নিচে ইউজারের নোট করা লেখা (`note_text`) স্পষ্ট হলুদ বা সবুজ বক্সে দেখাবেন।
 
