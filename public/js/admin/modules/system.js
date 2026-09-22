@@ -1106,10 +1106,6 @@ function fetchGeneralSettings() {
             const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
             if (qrCheckbox) {
                 qrCheckbox.checked = isProtected;
-            }
-            const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
-            if (freeAccessCheckbox) {
-                freeAccessCheckbox.checked = !isProtected;
                 toggleLicenseModeUI();
             }
 
@@ -1555,17 +1551,17 @@ function saveServerModeSettingsForm(e) {
 }
 
 function toggleLicenseModeUI() {
-    const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
-    const statusOn = document.getElementById('license-mode-status-on');
-    const statusOff = document.getElementById('license-mode-status-off');
+    const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+    const statusProtected = document.getElementById('license-mode-status-protected');
+    const statusFree = document.getElementById('license-mode-status-free');
 
-    if (freeAccessCheckbox && statusOn && statusOff) {
-        if (freeAccessCheckbox.checked) {
-            statusOn.style.display = 'flex';
-            statusOff.style.display = 'none';
+    if (qrCheckbox && statusProtected && statusFree) {
+        if (qrCheckbox.checked) {
+            statusProtected.style.display = 'flex';
+            statusFree.style.display = 'none';
         } else {
-            statusOn.style.display = 'none';
-            statusOff.style.display = 'flex';
+            statusProtected.style.display = 'none';
+            statusFree.style.display = 'flex';
         }
     }
 }
@@ -1578,9 +1574,9 @@ function saveLicenseProtectionForm(e) {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
     }
 
-    const freeAccessCheckbox = document.getElementById('settings-free-access-mode');
-    const isFreeAccess = freeAccessCheckbox ? freeAccessCheckbox.checked : true;
-    const qrProtectionValue = isFreeAccess ? '0' : '1';
+    const qrCheckbox = document.getElementById('settings-qr-protection-enabled');
+    const isProtected = qrCheckbox ? qrCheckbox.checked : true;
+    const qrProtectionValue = isProtected ? '1' : '0';
 
     const formData = new FormData();
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -1599,7 +1595,7 @@ function saveLicenseProtectionForm(e) {
     .then(data => {
         if (data.success) {
             if (typeof showToast === 'function') {
-                showToast("✅ Free access settings updated successfully!", "success");
+                showToast(isProtected ? "🔒 License & QR protection enabled!" : "🟢 Free access mode enabled!", "success");
             }
             if (typeof fetchGeneralSettings === 'function') {
                 fetchGeneralSettings();
@@ -1619,7 +1615,7 @@ function saveLicenseProtectionForm(e) {
     .finally(() => {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save Free Access Settings';
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save Protection Settings';
         }
     });
 }

@@ -2152,7 +2152,7 @@
         <div class="welcome-header" style="margin-bottom: 24px;">
             <h2 class="welcome-title" style="display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
-                Free Access & License Protection Settings (ফ্রি অ্যাক্সেস সেটিং)
+                License Protection & Free Access Settings (লাইসেন্স প্রোটেকশন ও ফ্রি অ্যাক্সেস সেটিং)
             </h2>
             <p class="welcome-subtitle">
                 কন্ট্রোল করুন ইউজারদের ওয়েবসাইট ও মোবাইল অ্যাপ ব্যবহারের জন্য রেজিস্ট্রেশন (ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর) এবং লাইসেন্স কি লাগবে নাকি সরাসরি ফ্রিলি ঢুকতে পারবে।
@@ -2164,32 +2164,32 @@
                 @csrf
                 <div style="background: rgba(16, 185, 129, 0.06); border: 2px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px;">
                     <div style="display: flex; align-items: flex-start; gap: 16px;">
-                        <input type="checkbox" id="settings-free-access-mode" name="free_access_mode" value="1" onchange="toggleLicenseModeUI()" style="width: 24px; height: 24px; accent-color: #10b981; cursor: pointer; margin-top: 2px;">
+                        <input type="checkbox" id="settings-qr-protection-enabled" name="qr_protection_enabled" value="1" onchange="toggleLicenseModeUI()" style="width: 24px; height: 24px; accent-color: #10b981; cursor: pointer; margin-top: 2px;">
                         <div style="flex: 1;">
-                            <label for="settings-free-access-mode" style="font-weight: 800; font-size: 16px; color: var(--text-primary); cursor: pointer; display: block; margin-bottom: 8px;">
-                                Enable Free Access Mode without Registration & License Key (রেজিস্ট্রেশন ও লাইসেন্স কি ছাড়া ফ্রি অ্যাক্সেস মোড চালু করুন)
+                            <label for="settings-qr-protection-enabled" style="font-weight: 800; font-size: 16px; color: var(--text-primary); cursor: pointer; display: block; margin-bottom: 8px;">
+                                Enable License Key & QR Code Protection Mode (লাইসেন্স কি ও কিউআর কোড প্রোটেকশন মোড চালু করুন)
                             </label>
 
-                            <div id="license-mode-status-on" style="background: #10b981; color: #ffffff; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>
-                                <span>🟢 ফ্রি অ্যাক্সেস মোড চালু (ON): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা লাইসেন্স কি লাগবে না। ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি ফ্রিলি সম্পূর্ণ অ্যাক্সেস পাওয়া যাবে।</span>
+                            <div id="license-mode-status-protected" style="background: #ef4444; color: #ffffff; padding: 12px 18px; border-radius: 10px; font-weight: 700; font-size: 13.5px; margin-top: 12px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-shield-halved" style="font-size: 18px;"></i>
+                                <span>🔴 প্রোটেকশন লক চালু (ON): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। ওয়েবসাইটে কিউআর কোড স্ক্যান এবং অ্যাপে লাইসেন্স কি ছাড়া কোনো অ্যাক্সেস পাওয়া যাবে না।</span>
                             </div>
 
-                            <div id="license-mode-status-off" style="background: #ef4444; color: #ffffff; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 12px; display: none; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-shield-halved" style="font-size: 16px;"></i>
-                                <span>🔴 প্রোটেকশন চালু (OFF): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। লাইসেন্স কি ও কিউআর স্ক্যান ছাড়া কোনো অ্যাক্সেস পাওয়া যাবে না।</span>
+                            <div id="license-mode-status-free" style="background: #10b981; color: #ffffff; padding: 12px 18px; border-radius: 10px; font-weight: 700; font-size: 13.5px; margin-top: 12px; display: none; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-circle-check" style="font-size: 18px;"></i>
+                                <span>🟢 ফ্রি অ্যাক্সেস মোড চালু (OFF): ইউজারের ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর বা লাইসেন্স কি লাগবে না। ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি ফ্রিলি সম্পূর্ণ অ্যাক্সেস পাওয়া যাবে।</span>
                             </div>
 
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 14px; line-height: 1.6;">
-                                • <strong>টিক দেওয়া থাকলে (ON):</strong> কাস্টমার অনায়াসে রেজিস্ট্রেশন ছাড়াই ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি ছাড়াই ওয়েবসাইট ও মোবাইল অ্যাপে সরাসরি পড়তে এবং এমসিকিউ প্র্যাকটিস করতে পারবে।<br>
-                                • <strong>টিক উঠিয়ে দিলে (OFF):</strong> ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর এবং লাইসেন্স কি আবশ্যক। কিউআর স্ক্যান ছাড়া ব্লক থাকবে।
+                            <div style="font-size: 12.5px; color: var(--text-secondary); margin-top: 14px; line-height: 1.6;">
+                                • <strong>টিক দেওয়া থাকলে (ON):</strong> প্রোটেকশন লক সক্রিয়। কাস্টমারকে অ্যাপসে ফার্স্ট নেম, লাস্ট নেম, ফোন নম্বর দিয়ে লাইসেন্স কি নিতে হবে এবং ওয়েবসাইট ব্যবহারের জন্য কিউআর কোড স্ক্যান করা বাধ্যতামূলক।<br>
+                                • <strong>টিক উঠিয়ে দিলে (OFF):</strong> ফ্রি অ্যাক্সেস সক্রিয়। কাস্টমার অনায়াসে কোনো রেজিস্ট্রেশন বা কিউআর কোড স্ক্যান ছাড়াই ওয়েবসাইট ও মোবাইল অ্যাপে ফ্রিতে সরাসরি পড়তে এবং এমসিকিউ প্র্যাকটিস করতে পারবে।
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="save-license-settings-btn" style="padding: 12px 24px; font-weight: 700;">
-                    <i class="fa-solid fa-save"></i> Save Free Access Settings
+                    <i class="fa-solid fa-save"></i> Save Protection Settings
                 </button>
             </form>
         </div>
