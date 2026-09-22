@@ -341,11 +341,100 @@ Flutter অ্যাপের **"Scegli Categoria"** (Capitoli List) এবং *
 
 ---
 
-## 💬 11. Support & Live Chat Messages
+## 💬 11. Support, Live Chat & Registration Workflow (লাইভ চ্যাট ও রেজিস্ট্রেশন ফ্লো)
+
+যখন এডমিন প্যানেল থেকে **License Protection ON** থাকে, তখন মোবাইল অ্যাপে নিচের ধারাবাহিক ধাপে রেজিস্ট্রেশন ও অ্যাক্টিভেশন সম্পন্ন হয়:
+
+### 📱 ধাপ ১: কাস্টমার রেজিস্ট্রেশন (First Name, Last Name, Phone Number)
+- **Endpoint**: `POST /api/v1/support/register`
+- **Method**: `POST`
+- **Body Payload**:
+```json
+{
+  "first_name": "Md",
+  "last_name": "Rahim",
+  "phone": "01706640864",
+  "session_id": "c89b7b83-d9d1-4c75"
+}
+```
+- **Response Format**:
+```json
+{
+  "success": true,
+  "user": {
+    "id": "7b2e91a0-4f51-4c28",
+    "first_name": "Md",
+    "last_name": "Rahim",
+    "phone": "01706640864"
+  },
+  "client": {
+    "id": 15,
+    "first_name": "Md",
+    "last_name": "Rahim",
+    "phone": "01706640864",
+    "is_active": false
+  },
+  "license_status": "inactive",
+  "token": "1|qXy...sanctum_token"
+}
+```
+*রেজিস্ট্রেশন করার সাথে সাথে এডমিন প্যানেলের **Manage Customers** এবং **Chat Room**-এ কাস্টমারের প্রোফাইল ও একটি স্বয়ংক্রিয় মেসেজ চলে যাবে।*
+
+---
+
+### 💬 ধাপ ২: লাইভ সাপোর্ট মেসেজ আদান-প্রদান (Chat Room)
 - **Get Messages**: `GET /api/v1/chat/messages?phone=01706640864&session_id=<session_id>`
 - **Send Message**: `POST /api/v1/chat/messages`
-  - Body: `{"phone": "01706640864", "session_id": "<session_id>", "message": "আমার লাইসেন্স সংক্রান্ত জিজ্ঞাসা"}`
+  - Body: `{"phone": "01706640864", "session_id": "<session_id>", "message": "আমার লাইসেন্স কি একটিভ করে দিন প্লিজ"}`
 - **Upload Chat Image**: `POST /api/v1/chat/upload-image` (Multipart `image` file)
+
+---
+
+### 🔓 ধাপ ৩: এডমিন দ্বারা লাইসেন্স কি অ্যাক্টিভেশন (Admin Activation)
+- এডমিন প্যানেলে **Manage Customers** বা **Chat Room** থেকে এডমিন "Active" বাটনে ক্লিক করলে বা API কল করলে:
+- **Endpoint**: `POST /api/v1/client/activate` (or `POST /admin/api/customers/activate/{id}`)
+- **Body Payload**:
+```json
+{
+  "phone": "01706640864",
+  "days": 365
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Customer activated successfully for 365 days",
+  "is_active": true
+}
+```
+
+---
+
+### 🔓 ধাপ ৪: অ্যাপে লাইসেন্স স্ট্যাটাস চেক ও আনলক (App Unlock)
+- অ্যাপ ব্যাকগ্রাউন্ডে বা ইউজার রিফ্রেশ করলে নিচের এন্ডপয়েন্টে চেক করে:
+- **Endpoint**: `GET /api/v1/license/status` (or `GET /api/v1/support/user`)
+- **Headers**: `X-Client-Phone: 01706640864`, `X-Session-ID: <session_id>`
+- **Active Response**:
+```json
+{
+  "success": true,
+  "status": "active",
+  "license_status": "active",
+  "license": {
+    "license_key": "729104",
+    "status": "active",
+    "activated_at": "2026-09-22T00:00:00.000000Z",
+    "expires_at": "2027-09-22T00:00:00.000000Z"
+  },
+  "user": {
+    "id": "7b2e91a0-4f51-4c28",
+    "name": "Md Rahim",
+    "phone": "01706640864"
+  }
+}
+```
+*`license_status == "active"` পেলে অ্যাপের সকল কন্টেন্ট (Argomenti, Test, Schede, Lezioni, ইত্যাদি) সম্পূর্ণরূপে আনলক হয়ে যাবে।*
 
 ---
 
