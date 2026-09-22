@@ -38,6 +38,8 @@
                     $onClickAttr = "openScreen('correct-mcqs', 'Correct MCQs')";
                 } elseif ($sk == 'wrong-mcqs' || $sk == 'wrong_questions') {
                     $onClickAttr = "openScreen('wrong-mcqs', 'Wrong MCQs')";
+                } elseif ($sk == 'noted-mcqs' || $sk == 'noted_questions' || $sk == 'noted' || stripos($card->title, 'noted') !== false || stripos($card->subtitle ?? '', 'নোট') !== false) {
+                    $onClickAttr = "openScreen('noted-mcqs', 'Noted MCQs')";
                 } elseif ($sk == 'saved-mcqs' || $sk == 'saved_questions') {
                     $onClickAttr = "openScreen('saved-mcqs', 'Saved MCQs')";
                 } elseif ($sk == 'patente-social' || $sk == 'patente_social' || $sk == 'social') {
