@@ -7,6 +7,31 @@
     <script>
         (function() {
             sessionStorage.setItem('tab_qr_unlocked', 'true');
+            @php
+                $backendClientPhone = session('app_client_phone') 
+                    ?: \Illuminate\Support\Facades\Cache::get('qr_phone_' . session()->getId())
+                    ?: \Illuminate\Support\Facades\Cache::get('qr_phone_' . request()->cookie('qr_session_id'))
+                    ?: request()->cookie('app_client_phone');
+                $backendClientSessionId = session('app_client_session_id') 
+                    ?: \Illuminate\Support\Facades\Cache::get('qr_user_' . session()->getId())
+                    ?: request()->cookie('app_client_session_id');
+                $backendFirstName = \Illuminate\Support\Facades\Cache::get('qr_first_name_' . session()->getId()) ?: request()->cookie('app_client_first_name');
+                $backendLastName = \Illuminate\Support\Facades\Cache::get('qr_last_name_' . session()->getId()) ?: request()->cookie('app_client_last_name');
+            @endphp
+            @if(!empty($backendClientPhone))
+                window.CURRENT_CLIENT_PHONE = "{{ $backendClientPhone }}";
+                localStorage.setItem('app_client_phone', "{{ $backendClientPhone }}");
+            @endif
+            @if(!empty($backendClientSessionId))
+                window.CURRENT_CLIENT_SESSION_ID = "{{ $backendClientSessionId }}";
+                localStorage.setItem('app_client_session_id', "{{ $backendClientSessionId }}");
+            @endif
+            @if(!empty($backendFirstName))
+                localStorage.setItem('app_client_first_name', "{{ $backendFirstName }}");
+            @endif
+            @if(!empty($backendLastName))
+                localStorage.setItem('app_client_last_name', "{{ $backendLastName }}");
+            @endif
         })();
     </script>
     <meta charset="UTF-8">

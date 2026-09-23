@@ -48,17 +48,7 @@ class DatabaseSeeder extends Seeder
             'license_message' => "Apnake license key dewa hoise, click kore active korun. thanks \n\ncall +39 351 155 4016 for info\n\n\nMaruf - M Bangla Patente Team"
         ]);
 
-        // Default Active Client for System Access
-        \App\Models\AppClient::firstOrCreate(
-            ['phone' => '01700000000'],
-            [
-                'session_id' => 'default_active_client',
-                'first_name' => 'Demo',
-                'last_name' => 'User',
-                'is_active' => true,
-                'expires_at' => now()->addYears(5),
-            ]
-        );
+
 
         // ONLY Homepage Cards Seeder
         HomeCard::truncate();
