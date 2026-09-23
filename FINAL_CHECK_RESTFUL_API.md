@@ -271,8 +271,55 @@ All user activities (**Saved MCQs**, **Noted MCQs**, **Wrong MCQs**, **Correct M
 
 ---
 
-## 💬 8. Support & License Verification Workflow
+## 🎨 9. System Settings & Unified Design / Font Tokens API
+- **Endpoint**: `GET /api/v1/settings` (or `GET /api/settings`)
+- **Method**: `GET`
+- **Purpose**: Both the **Flutter Mobile App** and the **Web PWA** MUST load and apply the exact same Typography, Theme Colors, and Exam Timers dynamically from this endpoint.
+
+### 📄 Response Format:
+```json
+{
+  "status": "success",
+  "app_name": "mbanglapatenteb",
+  "font_family": "Outfit",
+  "font_weight": "normal",
+  "text_color": "#1e293b",
+  "primary_color": "#F4F7FA",
+  "accent_color": "#4CAF50",
+  "exam_time_minutes": 20,
+  "qr_target_mode": "local",
+  "active_base_url": "http://10.0.2.2:8000"
+}
+```
+
+### 🎯 Typography & Aesthetics Rules for Flutter & Web:
+1. **Font Family**: Use Google Font `Outfit` (fallback to system sans-serif).
+2. **Primary Text Color**: Use modern Slate Charcoal `#1e293b` in light mode (NEVER use harsh pure jet black `#000000` or `#111111`).
+3. **Secondary Text Color**: `#64748b` (muted slate gray).
+4. **Underline Dictionary Terms (`<u>word</u>`)**:
+   - Text color must **INHERIT** the question color (`#1e293b` in light mode, `#f8fafc` in dark mode).
+   - Underline color: subtle accent green tint `rgba(76, 175, 80, 0.45)` with `1.5px` thickness and `3px` offset.
+   - On tap/hover: color shifts to `var(--accent-green)` (`#4CAF50`) and opens the Vocabulary Sheet.
+
+---
+
+## 🏁 10. Official Exam (30 MCQs) & Result Evaluation Flow
+1. **Fetch 30 MCQs**: Call `GET /api/v1/scheda-esame/generate` (or `GET /api/v1/quiz/exam`).
+2. **Timer**: 20 minutes countdown (`exam_time_minutes` from settings).
+3. **User Submits Exam**:
+   - Send answers to `POST /api/v1/scheda-esame/submit` (or `POST /api/v1/test/submit`).
+   - Server automatically marks each question as Correct or Wrong and logs each question into `user_mcq_results` with user's phone/session.
+4. **Result Calculation**:
+   - **0 to 3 Errors**: `IDONEO` (Passed / Promosso 🏆).
+   - **4 or more Errors**: `BOCCIATO` (Failed / Non idoneo ⚠️).
+5. **Immediate Sync**:
+   - The answered questions will immediately show up in **Correct MCQs** (`GET /api/v1/correct-mcqs`) and **Wrong MCQs** (`GET /api/v1/wrong-mcqs`) on both the App and the Web!
+
+---
+
+## 💬 11. Support & License Verification Workflow
 - **Registration**: `POST /api/v1/support/register` (Body: `{"first_name": "Md", "last_name": "Rahim", "phone": "01706640864"}`)
 - **License Status**: `GET /api/v1/license/status`
 - **Chat Messages**: `GET /api/v1/chat/messages?phone=01706640864`
 - **Send Message**: `POST /api/v1/chat/messages` (Body: `{"phone": "01706640864", "message": "আমার লাইসেন্স একটিভ করুন"}`)
+

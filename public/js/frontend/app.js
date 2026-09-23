@@ -5189,7 +5189,7 @@ function highlightDictionaryTerms(text, questionVocabulary, questionId, question
         resultText = resultText.replace(/<u>([\s\S]*?)<\/u>/gi, (match, innerWord) => {
             const cleanWord = innerWord.replace(/<[^>]*>/g, '').trim();
             const lowerClean = cleanWord.toLowerCase();
-            return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" style="text-decoration: underline; color: inherit; text-decoration-color: inherit; font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); }">${innerWord}</span>`;
+            return `<span class="dict-term-link" data-qid="${qIdVal || ''}" data-qtype="${qTypeVal}" onclick="event.stopPropagation(); if(typeof openVocabModal === 'function' && typeof vocabCache !== 'undefined' && vocabCache['${lowerClean}']){ openVocabModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); } else if(typeof openDictionaryTermModal === 'function'){ openDictionaryTermModal('${cleanWord.replace(/'/g, "\\'")}', this, ${qIdArg}, ${qTypeArg}); }">${innerWord}</span>`;
         });
     }
 

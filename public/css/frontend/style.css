@@ -3,8 +3,8 @@
     --bg-page: #F4F7FA;
     --bg-card: #FFFFFF;
     --bg-header: #4CAF50;
-    --text-primary: #1F2937;
-    --text-secondary: #6B7280;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
     --text-light: #FFFFFF;
     --border-card: #E2E8F0;
     --shadow-card: rgba(15, 23, 42, 0.05);
@@ -2650,19 +2650,20 @@ body.dark-mode .detail-q-card.selected-q-card {
 /* Interactive Dictionary Underline Links */
 .dict-term-link {
     text-decoration: underline !important;
-    text-decoration-color: #111111 !important;
-    text-decoration-thickness: 2px !important;
+    text-decoration-color: rgba(76, 175, 80, 0.45) !important;
+    text-decoration-thickness: 1.5px !important;
+    text-underline-offset: 3px !important;
     border-bottom: none !important;
     cursor: pointer;
-    transition: color 0.2s;
-    font-weight: inherit;
-    color: #111111 !important;
-    display: inline-block;
+    transition: color 0.2s, text-decoration-color 0.2s;
+    font-weight: 600;
+    color: inherit !important;
+    display: inline;
 }
 
 body.dark-mode .dict-term-link {
-    text-decoration-color: #ffffff !important;
-    color: #ffffff !important;
+    text-decoration-color: rgba(16, 185, 129, 0.5) !important;
+    color: inherit !important;
 }
 
 .dict-term-link:hover {
