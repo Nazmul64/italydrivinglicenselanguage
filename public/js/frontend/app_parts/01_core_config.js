@@ -184,18 +184,20 @@ function syncUserQuestionStatsFromBackend() {
                 const qId = item.question_id;
                 if (!qId) return;
                 const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
+                const cCount = (typeof item.correct_count === 'number') ? item.correct_count : (isCorrect ? 1 : 0);
+                const wCount = (typeof item.wrong_count === 'number') ? item.wrong_count : (isCorrect ? 0 : 1);
 
                 if (!stats[qId]) {
                     stats[qId] = {
                         state: isCorrect ? 'correct' : 'wrong',
-                        correct: isCorrect ? 1 : 0,
-                        wrong: isCorrect ? 0 : 1,
+                        correct: cCount,
+                        wrong: wCount,
                         chapter: item.chapter_id || null,
                         updated_at: item.updated_at
                     };
                 } else {
-                    if (isCorrect) stats[qId].correct = (stats[qId].correct || 0) + 1;
-                    else stats[qId].wrong = (stats[qId].wrong || 0) + 1;
+                    stats[qId].correct = Math.max(stats[qId].correct || 0, cCount);
+                    stats[qId].wrong = Math.max(stats[qId].wrong || 0, wCount);
                     if (new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
                         stats[qId].state = isCorrect ? 'correct' : 'wrong';
                         stats[qId].updated_at = item.updated_at;
@@ -206,6 +208,28 @@ function syncUserQuestionStatsFromBackend() {
         })
         .catch(err => console.error("Error syncing user question stats: ", err));
 }
+
+function applyAppFontFamily(fontFamily, fontWeight) {
+    if (!fontFamily) return;
+    fontWeight = fontWeight || 'normal';
+
+    if (!fontFamily.includes('system-ui') && !fontFamily.includes('Arial') && !fontFamily.includes('Segoe UI')) {
+        const fontNameForUrl = fontFamily.replace(/\s+/g, '+');
+        const linkId = `google-font-app-${fontNameForUrl}`;
+        if (!document.getElementById(linkId)) {
+            const link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${fontNameForUrl}:wght@300;400;500;600;700;800;900&display=swap`;
+            document.head.appendChild(link);
+        }
+    }
+
+    const appliedFont = fontFamily.includes(',') ? fontFamily : `"${fontFamily}", sans-serif`;
+    document.documentElement.style.setProperty('--app-font-family', appliedFont);
+    document.documentElement.style.setProperty('--app-font-weight', fontWeight);
+}
+window.applyAppFontFamily = applyAppFontFamily;
 
 function openImageZoomModal(imgSrc) {
     if (!imgSrc) return;

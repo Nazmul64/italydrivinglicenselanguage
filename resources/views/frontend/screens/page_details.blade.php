@@ -80,21 +80,23 @@
                                         </div>
 
                                         <!-- Body -->
-                                        <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                                            @php
-                                                $cardImg = $q->image;
-                                                if (!$cardImg && !empty($q->vocabulary) && is_array($q->vocabulary)) {
-                                                    foreach ($q->vocabulary as $vItem) {
-                                                        if (!empty($vItem['image'])) {
-                                                            $cardImg = $vItem['image'];
-                                                            break;
-                                                        }
+                                        @php
+                                            $cardImg = $q->image;
+                                            if (!$cardImg && !empty($q->vocabulary) && is_array($q->vocabulary)) {
+                                                foreach ($q->vocabulary as $vItem) {
+                                                    if (!empty($vItem['image'])) {
+                                                        $cardImg = $vItem['image'];
+                                                        break;
                                                     }
                                                 }
-                                            @endphp
-                                            @if($cardImg)
-                                                <img src="{{ $cardImg }}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)" style="width: 90px; min-width: 90px; height: 90px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; background: #fff; padding: 4px;" title="ছবি দেখুন">
-                                            @endif
+                                            }
+                                        @endphp
+                                        <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
+                                            <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                                                @if($cardImg)
+                                                    <img src="{{ $cardImg }}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal(this.src)" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ছবি দেখুন">
+                                                @endif
+                                            </div>
                                             <div style="flex: 1; min-width: 0;">
                                                 <div class="detail-q-text-it" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5;">{!! $q->italian !!}</div>
                                                 @if($q->bangla)

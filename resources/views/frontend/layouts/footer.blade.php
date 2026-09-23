@@ -59,48 +59,39 @@
         </script>
         @endif
 
-        <!-- 5. Exam Results Popup Modal -->
-        <div class="modal-overlay" id="exam-result-modal" style="display: none; z-index: 99999;">
+        <!-- 5. Exam Results Popup Modal (Matching Mobile App) -->
+        <div class="modal-overlay" id="exam-result-modal" style="display: none; z-index: 99999; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
             <!-- Outcome modal content showing emojis and counters details -->
-            <div class="modal-content" style="padding: 24px; border-radius: 20px; text-align: center; max-width: 340px; width: 90%; background-color: var(--bg-card);">
-                <div id="test-result-emoji" style="font-size: 52px; margin-bottom: 8px;">😊</div>
-                <h3 class="result-title" style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 14px;">Risultato del Test</h3>
+            <div class="modal-content" style="padding: 26px 20px 20px 20px; border-radius: 28px; text-align: center; max-width: 350px; width: 92%; background-color: #ffffff; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center;">
+                <h3 class="result-title" style="font-size: 24px; font-weight: 900; color: #0284c7; margin: 0 0 14px 0; letter-spacing: -0.3px;">Risultato</h3>
                 
-                <!-- Metrics pills matching Screenshot -->
-                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; background-color: rgba(76, 175, 80, 0.08); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #4CAF50;">
-                        <span>Giusto</span>
-                        <span id="txt-giusto">0</span>
+                <div id="test-result-emoji" style="font-size: 68px; margin-bottom: 18px; line-height: 1; display: flex; align-items: center; justify-content: center;">😊</div>
+                
+                <!-- Metrics capsule progress bars matching Mobile App Screenshot -->
+                <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-bottom: 22px;">
+                    <!-- 1. Giusto Capsule -->
+                    <div style="position: relative; width: 100%; height: 38px; background: #eaecf0; border-radius: 24px; border: 1.5px solid #d0d5dd; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);">
+                        <div id="bar-giusto" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #4CAF50; border-radius: 24px; transition: width 0.5s ease;"></div>
+                        <span style="position: relative; z-index: 2; font-weight: 800; font-size: 14px; color: #1e293b;">Giusto:<span id="txt-giusto">0</span></span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; background-color: rgba(239, 68, 68, 0.08); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #ef4444;">
-                        <span>Sbagliato</span>
-                        <span id="txt-sbagliato">0</span>
+
+                    <!-- 2. Sbagliato Capsule -->
+                    <div style="position: relative; width: 100%; height: 38px; background: #eaecf0; border-radius: 24px; border: 1.5px solid #d0d5dd; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);">
+                        <div id="bar-sbagliato" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #ef4444; border-radius: 24px; transition: width 0.5s ease;"></div>
+                        <span style="position: relative; z-index: 2; font-weight: 800; font-size: 14px; color: #1e293b;">Sbagliato:<span id="txt-sbagliato">0</span></span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; background-color: rgba(245, 158, 11, 0.08); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #f59e0b;">
-                        <span>Non date</span>
-                        <span id="txt-nondate">0</span>
+
+                    <!-- 3. Risposte non date Capsule -->
+                    <div style="position: relative; width: 100%; height: 38px; background: #eaecf0; border-radius: 24px; border: 1.5px solid #d0d5dd; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);">
+                        <div id="bar-nondate" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #f59e0b; border-radius: 24px; transition: width 0.5s ease;"></div>
+                        <span style="position: relative; z-index: 2; font-weight: 800; font-size: 14px; color: #1e293b;">Risposte non date:<span id="txt-nondate">0</span></span>
                     </div>
                 </div>
 
-                <!-- Custom Progress overlay bar inside result modal -->
-                <div style="height: 10px; background-color: var(--border-card); border-radius: 6px; display: flex; overflow: hidden; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-                    <div id="bar-giusto" style="background-color: #4CAF50; width: 0%;"></div>
-                    <div id="bar-sbagliato" style="background-color: #ef4444; width: 0%;"></div>
-                    <div id="bar-nondate" style="background-color: #f59e0b; width: 0%;"></div>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button class="action-btn" style="background-color: var(--accent-green); color: white; margin: 0; font-weight: 800;" onclick="openTestDetailsView()">
+                <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                    <button class="action-btn" style="width: 100%; background-color: #e5e7eb; color: #1e293b; margin: 0; font-weight: 800; font-size: 15px; border-radius: 24px; padding: 12px; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.06); transition: background-color 0.2s ease;" onclick="openTestDetailsView()">
                         Mostra Risultato
                     </button>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="action-btn" style="flex: 1; background-color: #3b82f6; color: white; margin: 0; font-weight: bold;" onclick="restartCurrentQuiz()">
-                            Ricomincia
-                        </button>
-                        <button class="action-btn" style="flex: 1; background-color: var(--bg-page); color: var(--text-secondary); margin: 0; font-weight: bold; border: 1px solid var(--border-card);" onclick="closeResultModal()">
-                            Home
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

@@ -21,12 +21,17 @@ function loadDynamicAppSettings() {
     fetch('/api/settings')
         .then(res => res.json())
         .then(data => {
-            if (data && data.exam_time_minutes) {
+            if (data) {
                 window.APP_SETTINGS = data;
-                const timerPill = document.getElementById('test-timer');
-                if (timerPill && !testTimerInterval) {
-                    const mins = data.exam_time_minutes || 20;
-                    timerPill.innerText = `${mins.toString().padStart(2, '0')}:00`;
+                if (data.exam_time_minutes) {
+                    const timerPill = document.getElementById('test-timer');
+                    if (timerPill && !testTimerInterval) {
+                        const mins = data.exam_time_minutes || 20;
+                        timerPill.innerText = `${mins.toString().padStart(2, '0')}:00`;
+                    }
+                }
+                if (data.font_family && typeof applyAppFontFamily === 'function') {
+                    applyAppFontFamily(data.font_family, data.font_weight || 'normal');
                 }
             }
         })
@@ -79,7 +84,9 @@ function initRandomTestQuiz() {
     fetch('/api/questions/random-test')
         .then(res => res.json())
         .then(data => {
-            testQuestions = data;
+            const rawList = Array.isArray(data) ? data : (data.data || []);
+            testQuestions = rawList.slice(0, 30);
+            testAnswers = Array(testQuestions.length || 30).fill(null);
             if (testQuestions.length === 0) {
                 if (testIt) testIt.innerText = 'Nessuna domanda trovata nel database.';
                 return;
@@ -263,14 +270,27 @@ function showTestQuestion() {
             imgEl.src = finalSrc;
             imgEl.onerror = function () {
                 this.style.display = 'none';
-                if (imgContainer) imgContainer.style.display = 'none';
+                if (imgContainer) {
+                    imgContainer.style.visibility = 'hidden';
+                    imgContainer.style.border = 'none';
+                    imgContainer.style.background = 'transparent';
+                    imgContainer.style.boxShadow = 'none';
+                }
             };
             imgEl.style.display = 'block';
             imgContainer.style.display = 'flex';
+            imgContainer.style.visibility = 'visible';
+            imgContainer.style.border = '1px solid var(--border-card)';
+            imgContainer.style.background = '#ffffff';
+            imgContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
         } else {
             imgEl.src = '';
             imgEl.style.display = 'none';
-            imgContainer.style.display = 'none';
+            imgContainer.style.display = 'flex';
+            imgContainer.style.visibility = 'hidden';
+            imgContainer.style.border = 'none';
+            imgContainer.style.background = 'transparent';
+            imgContainer.style.boxShadow = 'none';
         }
     }
 
@@ -733,7 +753,10 @@ function submitTestExam() {
     if (barSbagliato) barSbagliato.style.width = `${totalQuestions > 0 ? (wrongAnswers / totalQuestions) * 100 : 0}%`;
     if (barNondate) barNondate.style.width = `${totalQuestions > 0 ? (unansweredAnswers / totalQuestions) * 100 : 0}%`;
 
-    if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
+    const happySvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#22c55e" stroke-width="7" fill="#f0fdf4"/><circle cx="35" cy="40" r="5" fill="#22c55e"/><circle cx="65" cy="40" r="5" fill="#22c55e"/><path d="M32 58 C40 74 60 74 68 58" stroke="#22c55e" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+    const sadSvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#ef4444" stroke-width="7" fill="#fef2f2"/><circle cx="35" cy="40" r="5" fill="#ef4444"/><circle cx="65" cy="40" r="5" fill="#ef4444"/><path d="M32 68 C40 52 60 52 68 68" stroke="#ef4444" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+
+    if (resultEmoji) resultEmoji.innerHTML = passed ? happySvg : sadSvg;
 
     const modal = document.getElementById('exam-result-modal');
     if (modal) {
@@ -1091,14 +1114,21 @@ function renderDetailResultsList() {
         card.dataset.qid = q.id;
         card.dataset.qtype = 'argomenti';
 
-        const qThumbImage = q.image || (typeof activePageDetails !== 'undefined' && activePageDetails && (activePageDetails.image || activePageDetails.img)) || (typeof cartelliActivePageMainImage !== 'undefined' ? cartelliActivePageMainImage : null);
+        const rawThumb = q.image || q.img || null;
+        const cleanThumb = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawThumb) : (rawThumb && !rawThumb.includes('/data/user/') && !rawThumb.includes('scaled_IMG') ? rawThumb : '');
+        const qThumbImage = cleanThumb || null;
+
+        const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
+        const qStat = (typeof getUserQuestionStats === 'function') ? (getUserQuestionStats()[statKey] || getUserQuestionStats()[q.id]) : null;
 
         card.innerHTML = `
             <div style="font-size: var(--mcq-num-font-mob, 13px); font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">${i + 1}</div>
 
             <div class="detail-q-header-row">
                 <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
-                    ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                        ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    </div>
                     <div style="flex: 1; min-width: 0;">
                         <div class="detail-q-text-it" style="font-weight: 700; color: var(--text-primary); line-height: 1.4;">${highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary)}</div>
                         <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
@@ -1154,6 +1184,11 @@ function renderDetailResultsList() {
             <div style="text-align: center; font-size: 14px; font-weight: 800; display: flex; flex-direction: column; gap: 4px;">
                 <div style="color: var(--text-primary);">Risposta Corretta: <span style="color: #1e293b;">${databaseIsVero ? 'V' : 'F'}</span></div>
                 <div style="color: var(--text-primary);">${userAnswer === null ? '<span style="color: #f59e0b;">(TU) Non hai risposto</span>' : `(TU) Hai risposto: <span style="color: ${isCorrect ? '#4CAF50' : '#ef4444'};">${userAnswer ? 'V' : 'F'}</span>`}</div>
+                ${qStat ? `
+                <div style="display: flex; justify-content: center; gap: 16px; font-size: 12px; font-weight: 700; margin-top: 4px;">
+                    <span style="color: #4CAF50;">Giusto ${qStat.correct || 0} volte</span>
+                    <span style="color: #ef4444;">Sbagliato ${qStat.wrong || 0} volte</span>
+                </div>` : ''}
             </div>
         `;
         container.appendChild(card);

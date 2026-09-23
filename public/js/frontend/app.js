@@ -2825,7 +2825,10 @@ function submitTestExam() {
     if (barSbagliato) barSbagliato.style.width = `${totalQuestions > 0 ? (wrongAnswers / totalQuestions) * 100 : 0}%`;
     if (barNondate) barNondate.style.width = `${totalQuestions > 0 ? (unansweredAnswers / totalQuestions) * 100 : 0}%`;
 
-    if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
+    const happySvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#22c55e" stroke-width="7" fill="#f0fdf4"/><circle cx="35" cy="40" r="5" fill="#22c55e"/><circle cx="65" cy="40" r="5" fill="#22c55e"/><path d="M32 58 C40 74 60 74 68 58" stroke="#22c55e" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+    const sadSvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#ef4444" stroke-width="7" fill="#fef2f2"/><circle cx="35" cy="40" r="5" fill="#ef4444"/><circle cx="65" cy="40" r="5" fill="#ef4444"/><path d="M32 68 C40 52 60 52 68 68" stroke="#ef4444" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+
+    if (resultEmoji) resultEmoji.innerHTML = passed ? happySvg : sadSvg;
 
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'flex';
@@ -3105,16 +3108,18 @@ function renderDetailResultsList() {
 
         shownCount++;
         const card = document.createElement('div');
-        card.className = `detail-q-card ${userAnswer === null ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect')}`;
-
-        const qThumbImage = q.image || (typeof activePageDetails !== 'undefined' && activePageDetails && (activePageDetails.image || activePageDetails.img)) || (typeof cartelliActivePageMainImage !== 'undefined' ? cartelliActivePageMainImage : null);
+        const rawThumb = q.image || q.img || null;
+        const cleanThumb = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawThumb) : (rawThumb && !rawThumb.includes('/data/user/') && !rawThumb.includes('scaled_IMG') ? rawThumb : '');
+        const qThumbImage = cleanThumb || null;
 
         card.innerHTML = `
             <div style="font-size: var(--mcq-num-font-mob, 13px); font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">${i + 1}</div>
 
             <div class="detail-q-header-row">
                 <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
-                    ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                        ${qThumbImage ? `<img src="${qThumbImage}" class="detail-q-img" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qThumbImage}')" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" title="Zoom Image">` : ''}
+                    </div>
                     <div style="flex: 1; min-width: 0;">
                         <div class="detail-q-text-it" style="font-weight: 700; color: var(--text-primary); line-height: 1.4;">${highlightDictionaryTerms(q.italian || q.question || '', q.vocabulary)}</div>
                         <div class="detail-q-text-bn" id="detail-q-bn-${i}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla || q.bn_question || ''}</div>
@@ -3662,7 +3667,9 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${showLeftImg ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                    ${(q.image || q.img) ? `<img src="${q.image || q.img}" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${q.image || q.img}')" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                </div>
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${highlightDictionaryTerms(q.italian, q.vocabulary)}</div>
                     <div class="detail-q-text-bn" id="page-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bangla}</div>
@@ -4243,11 +4250,11 @@ function loadSavedMcqsScreen() {
                     </div>
                 ` : '';
 
-                const leftThumbHtml = showLeftImg ? `
-                    <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                const leftThumbHtml = `
+                    <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                        ${showLeftImg ? `<img src="${qImage}" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">` : ''}
                     </div>
-                ` : '';
+                `;
 
                 const isSelected = selectedSavedMcqIds.includes(q.id);
 
@@ -5551,7 +5558,10 @@ function showSchedaExamResultModal(correct, wrong, unanswered, total) {
     if (barSbagliato) barSbagliato.style.width = `${total > 0 ? (wrong / total) * 100 : 0}%`;
     if (barNondate) barNondate.style.width = `${total > 0 ? (unanswered / total) * 100 : 0}%`;
 
-    if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
+    const happySvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#22c55e" stroke-width="7" fill="#f0fdf4"/><circle cx="35" cy="40" r="5" fill="#22c55e"/><circle cx="65" cy="40" r="5" fill="#22c55e"/><path d="M32 58 C40 74 60 74 68 58" stroke="#22c55e" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+    const sadSvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#ef4444" stroke-width="7" fill="#fef2f2"/><circle cx="35" cy="40" r="5" fill="#ef4444"/><circle cx="65" cy="40" r="5" fill="#ef4444"/><path d="M32 68 C40 52 60 52 68 68" stroke="#ef4444" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+
+    if (resultEmoji) resultEmoji.innerHTML = passed ? happySvg : sadSvg;
 
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'flex';

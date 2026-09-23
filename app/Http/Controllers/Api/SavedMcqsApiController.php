@@ -42,12 +42,7 @@ class SavedMcqsApiController extends Controller
 
         $savedList = $query->orderBy("created_at", "desc")->get();
 
-        // Fallback: If empty, load all available saved records
-        if ($savedList->isEmpty()) {
-            $savedList = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
-                ->orderBy("created_at", "desc")
-                ->get();
-        }
+        // Strict user scoping (do not leak other users' saved items)
 
         // Deduplicate records by question_id and type to prevent duplicate cards
         $savedList = $savedList->unique(function ($item) {

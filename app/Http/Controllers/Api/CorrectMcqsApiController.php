@@ -68,10 +68,7 @@ class CorrectMcqsApiController extends Controller
 
         $allResults = $query->orderBy('updated_at', 'desc')->get();
 
-        // Fallback: If empty, check if any correct results exist across all users/clients
-        if ($allResults->isEmpty()) {
-            $allResults = UserMcqResult::orderBy('updated_at', 'desc')->get();
-        }
+        // Strict user scoping (do not leak other users' correct MCQs)
 
         $correctQuestionIds = [];
 

@@ -188,6 +188,58 @@ class ArgomentiApiController extends Controller
             ], 404);
         }
 
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+        $hasUser = !empty($userIds) || !empty($sessionIds);
+
+        if ($hasUser && $page->questions) {
+            $qIds = $page->questions->pluck('id')->toArray();
+            
+            $userResults = UserMcqResult::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->get()
+                ->keyBy('question_id');
+
+            $savedIds = \App\Models\SavedMcq::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->pluck('question_id')
+                ->toArray();
+
+            $notes = \App\Models\Note::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->get()
+                ->keyBy('question_id');
+
+            foreach ($page->questions as $question) {
+                $res = $userResults->get($question->id);
+                $question->user_answer = $res ? $res->user_answer : null;
+                $question->is_correct = $res ? (bool)$res->is_correct : null;
+                $question->correct_count = $res ? (int)$res->correct_count : 0;
+                $question->wrong_count = $res ? (int)$res->wrong_count : 0;
+                $question->is_saved = in_array($question->id, $savedIds);
+                $question->user_note = $notes->has($question->id) ? $notes->get($question->id)->note_text : null;
+            }
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => $page

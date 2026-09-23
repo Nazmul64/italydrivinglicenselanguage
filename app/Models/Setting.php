@@ -69,5 +69,7 @@ class Setting extends Model
         'qr_local_url',
         'privacy_policy',
         'terms_conditions',
+        'font_family',
+        'font_weight',
     ];
 }

@@ -20,6 +20,8 @@ class UserMcqResult extends Model
         'category_id',
         'chapter_id',
         'page_id',
+        'correct_count',
+        'wrong_count',
     ];
 
     public function question()

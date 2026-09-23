@@ -179,9 +179,9 @@ class ArgomentiController extends Controller
     }
 
     /**
-     * Get page details with its MCQs.
+     * Get page details with its MCQs and user statistics.
      */
-    public function getPageDetails($pageId)
+    public function getPageDetails(Request $request, $pageId)
     {
         $page = Page::with(['chapter', 'questions' => function ($q) {
             $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
@@ -193,6 +193,58 @@ class ArgomentiController extends Controller
                 'message' => 'Page not found',
                 'data' => null
             ], 404);
+        }
+
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+        $hasUser = !empty($userIds) || !empty($sessionIds);
+
+        if ($hasUser && $page->questions) {
+            $qIds = $page->questions->pluck('id')->toArray();
+            
+            $userResults = UserMcqResult::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->get()
+                ->keyBy('question_id');
+
+            $savedIds = \App\Models\SavedMcq::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->pluck('question_id')
+                ->toArray();
+
+            $notes = \App\Models\Note::whereIn('question_id', $qIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) $q->whereIn('user_id', $userIds);
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                        else $q->whereIn('session_id', $sessionIds);
+                    }
+                })
+                ->get()
+                ->keyBy('question_id');
+
+            foreach ($page->questions as $question) {
+                $res = $userResults->get($question->id);
+                $question->user_answer = $res ? $res->user_answer : null;
+                $question->is_correct = $res ? (bool)$res->is_correct : null;
+                $question->correct_count = $res ? (int)$res->correct_count : 0;
+                $question->wrong_count = $res ? (int)$res->wrong_count : 0;
+                $question->is_saved = in_array($question->id, $savedIds);
+                $question->user_note = $notes->has($question->id) ? $notes->get($question->id)->note_text : null;
+            }
         }
         
         return response()->json($page);
@@ -1160,9 +1212,18 @@ class ArgomentiController extends Controller
             ];
 
             if ($existing) {
+                if ($isCorrect) {
+                    $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
+                    $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                } else {
+                    $data['correct_count'] = ($existing->correct_count ?: 0);
+                    $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                }
                 $existing->update($data);
                 $logged[] = $existing;
             } else {
+                $data['correct_count'] = $isCorrect ? 1 : 0;
+                $data['wrong_count'] = $isCorrect ? 0 : 1;
                 $logged[] = UserMcqResult::create($data);
             }
         }
@@ -1252,21 +1313,6 @@ class ArgomentiController extends Controller
 
         $perPage = $request->query('per_page', 10);
         $results = $query->orderBy('updated_at', 'desc')->paginate($perPage);
-
-        // Fallback: If empty, query without user filter so records are never lost
-        if ($results->isEmpty()) {
-            $fallbackQuery = UserMcqResult::with([
-                'question.page.chapter.category',
-                'page',
-                'chapter',
-                'category'
-            ]);
-            if ($isCorrect !== null && $isCorrect !== '') {
-                $val = ($isCorrect === 'true' || $isCorrect === '1' || $isCorrect === 1);
-                $fallbackQuery->where('is_correct', $val ? 1 : 0);
-            }
-            $results = $fallbackQuery->orderBy('updated_at', 'desc')->paginate($perPage);
-        }
 
         return response()->json($results);
     }

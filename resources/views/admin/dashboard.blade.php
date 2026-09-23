@@ -1490,6 +1490,110 @@
                     <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">পরীক্ষার জন্য সময় (মিনিটে) নির্ধারণ করুন। MCQ ও Exam Simulation স্ক্রিনে এই টাইমার গণনা করা হবে। (ডিফল্ট: 20 মিনিট)</span>
                 </div>
 
+                <!-- 🔤 Global Font Family & Weight Configuration -->
+                <div style="background: rgba(79, 70, 229, 0.04); border: 1.5px solid rgba(79, 70, 229, 0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                        <h4 style="font-size: 15px; font-weight: 800; color: #4338ca; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-font"></i>
+                            <span>Global Website & App Font Family & Weight (ফন্ট সেটিংস)</span>
+                        </h4>
+                        <span style="font-size: 11px; font-weight: 700; background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 12px;">৫০+ ফন্ট ফ্যামিলি</span>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">এখান থেকে যেকোনো ফন্ট এবং ফন্ট স্টাইল (নরমাল / বোল্ড) সিলেক্ট করলে সম্পূর্ণ ওয়েবসাইট এবং মোবাইল অ্যাপের সমস্ত টেক্সট, শিরোনাম ও প্রশ্ন সেই ফন্টে প্রদর্শিত হবে।</p>
+                    
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Select Font Family (ফন্ট ফ্যামিলি)</label>
+                            <select id="settings-font-family" name="font_family" class="form-control" style="width: 100%; font-size: 14px; font-weight: 600;" onchange="updateAdminFontPreview()">
+                                <optgroup label="🌟 Recommended Modern Fonts">
+                                    <option value="Inter">Inter (Clean Modern UI)</option>
+                                    <option value="Roboto">Roboto (Android / Google Standard)</option>
+                                    <option value="Poppins">Poppins (Geometric & Trendy)</option>
+                                    <option value="Outfit">Outfit (High-End Premium)</option>
+                                    <option value="Montserrat">Montserrat (Modern Heading & Body)</option>
+                                    <option value="Open Sans">Open Sans (High Legibility)</option>
+                                    <option value="Lato">Lato (Balanced & Elegant)</option>
+                                    <option value="Plus Jakarta Sans">Plus Jakarta Sans (Ultra Modern)</option>
+                                    <option value="DM Sans">DM Sans (Minimalist & Sleek)</option>
+                                    <option value="Work Sans">Work Sans (Crisp UI)</option>
+                                </optgroup>
+                                <optgroup label="🇧🇩 Bengali & Multilingual Optimized">
+                                    <option value="Hind Siliguri">Hind Siliguri (Bengali + Latin)</option>
+                                    <option value="Noto Sans Bengali">Noto Sans Bengali (Google Noto)</option>
+                                    <option value="Mukti">Mukti (Bengali Clean)</option>
+                                    <option value="Kalpurush">Kalpurush (Classic Bengali)</option>
+                                    <option value="SolaimanLipi">SolaimanLipi (Standard Bengali)</option>
+                                </optgroup>
+                                <optgroup label="🅰️ Popular Sans-Serif Fonts">
+                                    <option value="Raleway">Raleway</option>
+                                    <option value="Nunito">Nunito (Friendly Rounded)</option>
+                                    <option value="Rubik">Rubik</option>
+                                    <option value="Ubuntu">Ubuntu</option>
+                                    <option value="Quicksand">Quicksand</option>
+                                    <option value="Fira Sans">Fira Sans</option>
+                                    <option value="Barlow">Barlow</option>
+                                    <option value="Kanit">Kanit</option>
+                                    <option value="Mulish">Mulish</option>
+                                    <option value="PT Sans">PT Sans</option>
+                                    <option value="Source Sans 3">Source Sans 3</option>
+                                    <option value="Cabin">Cabin</option>
+                                    <option value="Titillium Web">Titillium Web</option>
+                                    <option value="Maven Pro">Maven Pro</option>
+                                    <option value="Heebo">Heebo</option>
+                                    <option value="Cairo">Cairo</option>
+                                    <option value="Prompt">Prompt</option>
+                                    <option value="Manrope">Manrope</option>
+                                    <option value="Space Grotesk">Space Grotesk</option>
+                                    <option value="Lexend">Lexend</option>
+                                    <option value="Urbanist">Urbanist</option>
+                                </optgroup>
+                                <optgroup label="📰 Editorial & Serif Fonts">
+                                    <option value="Playfair Display">Playfair Display (Luxury Serif)</option>
+                                    <option value="Merriweather">Merriweather (Readable Serif)</option>
+                                    <option value="Lora">Lora</option>
+                                    <option value="Cinzel">Cinzel</option>
+                                </optgroup>
+                                <optgroup label="🎨 Display & Impact Fonts">
+                                    <option value="Oswald">Oswald (Condensed Impact)</option>
+                                    <option value="Anton">Anton</option>
+                                    <option value="Bebas Neue">Bebas Neue</option>
+                                    <option value="Syne">Syne</option>
+                                    <option value="Pacifico">Pacifico</option>
+                                    <option value="Dancing Script">Dancing Script</option>
+                                    <option value="Caveat">Caveat</option>
+                                    <option value="Inconsolata">Inconsolata (Monospace)</option>
+                                </optgroup>
+                                <optgroup label="💻 System Fonts">
+                                    <option value="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">System Default</option>
+                                    <option value="Arial, sans-serif">Arial</option>
+                                    <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Segoe UI</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Font Weight (ফন্ট স্টাইল / বোল্ড)</label>
+                            <select id="settings-font-weight" name="font_weight" class="form-control" style="width: 100%; font-size: 14px; font-weight: 600;" onchange="updateAdminFontPreview()">
+                                <option value="normal">Normal (400 - স্বাভাবিক)</option>
+                                <option value="500">Medium (500 - মাঝারি)</option>
+                                <option value="600">Semi-Bold (600 - সেমি বোল্ড)</option>
+                                <option value="bold">Bold (700 - বোল্ড)</option>
+                                <option value="800">Extra-Bold (800 - অতিরিক্ত বোল্ড)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Live Font Preview Box -->
+                    <div id="admin-font-live-preview-box" style="background: var(--bg-card, #ffffff); border: 1.5px dashed rgba(79, 70, 229, 0.4); border-radius: 12px; padding: 16px; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px;">Live Preview (ফন্ট প্রিভিউ)</span>
+                            <span id="admin-font-preview-label" style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">Font: Inter | Weight: Normal</span>
+                        </div>
+                        <div id="admin-font-preview-italian" style="font-size: 16px; color: var(--text-primary); margin-bottom: 4px; line-height: 1.4;">La carreggiata può essere a doppio senso di circolazione.</div>
+                        <div id="admin-font-preview-bangla" style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;">ক্যারেজিয়াটা উভয়মুখী চলাচলের রাস্তা হতে পারে।</div>
+                    </div>
+                </div>
+
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);"><i class="fa-solid fa-key" style="color: var(--accent-green); margin-right: 6px;"></i> License Key Auto-Message (লাইসেন্স মেসেজ)</label>
                     <textarea id="settings-license-message" name="license_message" class="form-control" style="width: 100%; min-height: 90px; resize: vertical;" placeholder="লাইসেন্স পাঠানোর সময় যে মেসেজ যাবে সেটি এখানে লিখুন..."></textarea>

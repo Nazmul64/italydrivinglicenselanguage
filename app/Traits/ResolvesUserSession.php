@@ -58,18 +58,7 @@ trait ResolvesUserSession
             }
         }
 
-        // 2. Fallback: if still no phone and no userId, resolve latest active AppClient or registered User
-        if (!$phone && empty($userIds)) {
-            $activeClient = AppClient::where('is_active', true)->latest()->first();
-            if ($activeClient && $activeClient->phone) {
-                $phone = $activeClient->phone;
-            } else {
-                $latestUser = User::whereNotNull('phone')->latest()->first();
-                if ($latestUser) {
-                    $phone = $latestUser->phone;
-                }
-            }
-        }
+        // 2. Strict user isolation: If no phone and no userId, remain isolated to own session only (never leak other users)
 
         // 3. If phone is found, resolve ALL aliases (phone, clean digits, last 10, UUIDs, session IDs, user IDs)
         if ($phone) {

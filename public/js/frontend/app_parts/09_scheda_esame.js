@@ -818,7 +818,10 @@ function showSchedaExamResultModal(correct, wrong, unanswered, total) {
     if (barSbagliato) barSbagliato.style.width = `${total > 0 ? (wrong / total) * 100 : 0}%`;
     if (barNondate) barNondate.style.width = `${total > 0 ? (unanswered / total) * 100 : 0}%`;
 
-    if (resultEmoji) resultEmoji.innerText = passed ? '😊' : '😢';
+    const happySvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#22c55e" stroke-width="7" fill="#f0fdf4"/><circle cx="35" cy="40" r="5" fill="#22c55e"/><circle cx="65" cy="40" r="5" fill="#22c55e"/><path d="M32 58 C40 74 60 74 68 58" stroke="#22c55e" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+    const sadSvg = `<svg width="78" height="78" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="44" stroke="#ef4444" stroke-width="7" fill="#fef2f2"/><circle cx="35" cy="40" r="5" fill="#ef4444"/><circle cx="65" cy="40" r="5" fill="#ef4444"/><path d="M32 68 C40 52 60 52 68 68" stroke="#ef4444" stroke-width="7" stroke-linecap="round" fill="none"/></svg>`;
+
+    if (resultEmoji) resultEmoji.innerHTML = passed ? happySvg : sadSvg;
 
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'flex';

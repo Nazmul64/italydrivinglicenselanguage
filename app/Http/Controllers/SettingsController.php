@@ -37,6 +37,12 @@ class SettingsController extends Controller
         if (empty($setting->terms_conditions)) {
             $setting->terms_conditions = "Terms & Conditions for M Bangla Patente B\n\nWelcome to M Bangla Patente B. By using our application, you agree to comply with the following terms:\n\n1. License: App access is granted per activated device key.\n2. Usage: Content is for personal study purposes only.\n3. Content Ownership: Material presented remains proprietary to M Bangla Patente B.";
         }
+        if (empty($setting->font_family)) {
+            $setting->font_family = 'Inter';
+        }
+        if (empty($setting->font_weight)) {
+            $setting->font_weight = 'normal';
+        }
 
         $requestHost = $request ? $request->getSchemeAndHttpHost() : null;
         $localServerUrl = $setting->qr_local_url;
@@ -184,6 +190,12 @@ class SettingsController extends Controller
         }
         if ($request->has('terms_conditions')) {
             $setting->terms_conditions = $request->input('terms_conditions');
+        }
+        if ($request->has('font_family') && !empty($request->input('font_family'))) {
+            $setting->font_family = $request->input('font_family');
+        }
+        if ($request->has('font_weight') && !empty($request->input('font_weight'))) {
+            $setting->font_weight = $request->input('font_weight');
         }
 
         if ($request->hasFile('app_logo')) {

@@ -43,14 +43,7 @@ class NotedMcqsApiController extends Controller
 
         $notesList = $query->orderBy("updated_at", "desc")->get();
 
-        // Fallback: If empty, load all available active notes
-        if ($notesList->isEmpty()) {
-            $notesList = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
-                ->whereNotNull('note_text')
-                ->where('note_text', '!=', '')
-                ->orderBy("updated_at", "desc")
-                ->get();
-        }
+        // Strict user scoping (do not leak other users' notes)
 
         // Deduplicate records by question_id and type
         $notesList = $notesList->unique(function ($item) {

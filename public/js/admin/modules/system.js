@@ -1097,6 +1097,8 @@ function fetchGeneralSettings() {
                 'settings-argomenti-question-text-font-mobile': settings.argomenti_question_text_font_mobile,
                 'settings-argomenti-question-image-size-desktop': settings.argomenti_question_image_size_desktop,
                 'settings-argomenti-question-image-size-mobile': settings.argomenti_question_image_size_mobile,
+                'settings-font-family': settings.font_family || 'Inter',
+                'settings-font-weight': settings.font_weight || 'normal',
                 'settings-qr-target-mode': settings.qr_target_mode || 'live',
                 'settings-qr-live-url': settings.qr_live_url || 'https://mbanglapatenteb.com',
                 'settings-qr-local-url': settings.qr_local_url || 'http://127.0.0.1:8000',
@@ -1114,6 +1116,10 @@ function fetchGeneralSettings() {
                 if (elem && val !== undefined && val !== null) {
                     elem.value = val;
                 }
+            }
+
+            if (typeof updateAdminFontPreview === 'function') {
+                updateAdminFontPreview();
             }
 
             if (document.getElementById('settings-primary-color')) {
@@ -1619,4 +1625,46 @@ function saveLicenseProtectionForm(e) {
         }
     });
 }
+
+function updateAdminFontPreview() {
+    const fontSelect = document.getElementById('settings-font-family');
+    const weightSelect = document.getElementById('settings-font-weight');
+    const labelEl = document.getElementById('admin-font-preview-label');
+    const itEl = document.getElementById('admin-font-preview-italian');
+    const bnEl = document.getElementById('admin-font-preview-bangla');
+
+    if (!fontSelect || !weightSelect) return;
+
+    const fontFamily = fontSelect.value || 'Inter';
+    const fontWeight = weightSelect.value || 'normal';
+
+    if (labelEl) {
+        labelEl.innerText = `Font: ${fontFamily} | Weight: ${fontWeight}`;
+    }
+
+    // If it's a Google Font, dynamically load its stylesheet
+    if (!fontFamily.includes('system-ui') && !fontFamily.includes('Arial') && !fontFamily.includes('Segoe UI')) {
+        const fontNameForUrl = fontFamily.replace(/\s+/g, '+');
+        const linkId = `google-font-preview-${fontNameForUrl}`;
+        if (!document.getElementById(linkId)) {
+            const link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${fontNameForUrl}:wght@400;500;600;700;800;900&display=swap`;
+            document.head.appendChild(link);
+        }
+    }
+
+    const appliedFont = fontFamily.includes(',') ? fontFamily : `"${fontFamily}", sans-serif`;
+
+    if (itEl) {
+        itEl.style.fontFamily = appliedFont;
+        itEl.style.fontWeight = fontWeight;
+    }
+    if (bnEl) {
+        bnEl.style.fontFamily = appliedFont;
+        bnEl.style.fontWeight = fontWeight;
+    }
+}
+window.updateAdminFontPreview = updateAdminFontPreview;
 

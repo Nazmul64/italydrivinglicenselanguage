@@ -98,10 +98,19 @@
     @if($gSettings->favicon)
         <link rel="icon" type="image/x-icon" href="{{ asset($gSettings->favicon) }}">
     @endif
-    <!-- Google Fonts: Outfit -->
+    <!-- Google Fonts: Configured from Admin Panel -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    @php
+        $activeFontFamily = $gSettings->font_family ?? 'Inter';
+        $activeFontWeight = $gSettings->font_weight ?? 'normal';
+        $fontNameForUrl = str_replace(' ', '+', $activeFontFamily);
+        $isGoogleFont = !str_contains($activeFontFamily, 'system-ui') && !str_contains($activeFontFamily, 'Arial') && !str_contains($activeFontFamily, 'Segoe UI');
+    @endphp
+    @if($isGoogleFont && $activeFontFamily !== 'Outfit')
+        <link href="https://fonts.googleapis.com/css2?family={{ $fontNameForUrl }}:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    @endif
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -137,9 +146,13 @@
         $lg = min(255, (int)($g * 1.12) + 20);
         $lb = min(255, (int)($b * 1.12) + 20);
         $lightShadow = sprintf("#%02x%02x%02x", $lr, $lg, $lb);
+
+        $cssFontFamily = str_contains($activeFontFamily, ',') ? $activeFontFamily : "'{$activeFontFamily}', sans-serif";
     @endphp
     <style id="dynamic-admin-layout-styles">
         :root {
+            --app-font-family: {!! $cssFontFamily !!};
+            --app-font-weight: {{ $activeFontWeight }};
             --home-desk-cols: {{ $gSettings->home_desktop_columns ?? 4 }};
             --home-tab-cols: {{ $gSettings->home_tablet_columns ?? 3 }};
             --home-mob-cols: {{ $gSettings->home_mobile_columns ?? 2 }};
@@ -199,6 +212,15 @@
             --custom-text: {{ $txtColor }};
             --custom-shadow-dark: {{ $darkShadow }};
             --custom-shadow-light: {{ $lightShadow }};
+        }
+
+        body, button, input, select, textarea {
+            font-family: var(--app-font-family) !important;
+            font-weight: var(--app-font-weight) !important;
+        }
+
+        .detail-q-text-it, .detail-q-text-bn, .nav-title, .content-title, .theory-text {
+            font-family: var(--app-font-family) !important;
         }
 
         .nav-card,

@@ -68,10 +68,7 @@ class WrongMcqsApiController extends Controller
 
         $allResults = $query->orderBy('updated_at', 'desc')->get();
 
-        // Fallback: If empty, check if any wrong MCQ results exist across all users/clients
-        if ($allResults->isEmpty()) {
-            $allResults = UserMcqResult::orderBy('updated_at', 'desc')->get();
-        }
+        // Strict user scoping (do not leak other users' wrong MCQs)
 
         $wrongQuestionIds = [];
 

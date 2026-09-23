@@ -728,14 +728,16 @@ function renderCartelliPageMcqs(mcqs) {
         const bookmarkIconClass = cartelliIsBookmarked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         const bookmarkIconColor = cartelliIsBookmarked ? 'color: var(--accent-green);' : '';
 
-        const record = userStats[`cartelli_${q.id}`];
-        let correctCount = 0;
-        let wrongCount = 0;
-        let isAnswered = false;
+        const record = userStats[`cartelli_${q.id}`] || userStats[q.id];
+        let correctCount = (typeof q.correct_count === 'number') ? q.correct_count : 0;
+        let wrongCount = (typeof q.wrong_count === 'number') ? q.wrong_count : 0;
+        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
 
         if (record && typeof record === 'object') {
-            correctCount = typeof record.correct === 'number' ? record.correct : 0;
-            wrongCount = typeof record.wrong === 'number' ? record.wrong : 0;
+            const rCorr = (typeof record.correct === 'number') ? record.correct : 0;
+            const rWrong = (typeof record.wrong === 'number') ? record.wrong : 0;
+            correctCount = Math.max(correctCount, rCorr);
+            wrongCount = Math.max(wrongCount, rWrong);
             if (correctCount > 0 || wrongCount > 0) {
                 isAnswered = true;
             }
@@ -809,7 +811,9 @@ function renderCartelliPageMcqs(mcqs) {
             </div>
 
             <div style="display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; width: 100%;">
-                ${showLeftImg ? `<img src="${cleanImgUrl}" onerror="this.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanImgUrl}')" style="width: var(--argomenti-q-img-size-desk, 110px); min-width: var(--argomenti-q-img-size-desk, 110px); max-width: 250px; height: auto; max-height: var(--argomenti-q-img-size-desk, 110px); object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; flex-shrink: 0; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center;">
+                    ${showLeftImg ? `<img src="${cleanImgUrl}" onerror="this.style.display='none'" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanImgUrl}')" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 10px; border: 1.5px solid var(--border-card); cursor: pointer; background: #fff; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" title="ইমেজ দেখুন">` : ''}
+                </div>
                 <div style="flex: 1; min-width: 0;">
                     <div class="detail-q-text-it">${typeof highlightDictionaryTerms === 'function' ? highlightDictionaryTerms(q.question || '', q.vocabulary || [], q.id, 'cartelli') : (q.question || '')}</div>
                     <div class="detail-q-text-bn" id="cartelli-q-bn-${q.id}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">${q.bn_question || ''}</div>

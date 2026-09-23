@@ -96,13 +96,14 @@ function renderNotedMcqsList(notedItems) {
             </div>
         ` : '';
 
-        const leftThumbHtml = showLeftImg ? `
-            <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                <img src="${qImage}" style="width: auto; max-width: 120px; height: auto; max-height: 100px; min-width: 48px; min-height: 48px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+        const leftThumbHtml = `
+            <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
+                ${showLeftImg ? `<img src="${qImage}" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">` : ''}
             </div>
-        ` : '';
+        `;
 
         const noteSnippet = (item.note_text || q.note_text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const rawNoteText = (item.note_text || q.note_text || '').trim();
 
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'noted-mcq-item-wrapper';
@@ -150,11 +151,12 @@ function renderNotedMcqsList(notedItems) {
                 </div>
             </div>
 
-            <!-- Note content callout -->
-            <div style="margin-top: 10px; padding: 10px 14px; background: rgba(16, 185, 129, 0.08); border-left: 3px solid #10B981; border-radius: 8px; display: flex; align-items: flex-start; gap: 8px;">
+            ${rawNoteText ? `
+            <div style="margin-top: 10px; margin-left: 112px; padding: 10px 14px; background: rgba(16, 185, 129, 0.08); border-left: 3px solid #10B981; border-radius: 8px; display: flex; align-items: flex-start; gap: 8px;">
                 <i class="fa-regular fa-note-sticky" style="color: #10B981; font-size: 14px; margin-top: 2px; flex-shrink: 0;"></i>
-                <div style="font-size: 12px; color: var(--text-primary); font-weight: 600; line-height: 1.4; flex: 1;">${item.note_text || q.note_text || ''}</div>
+                <div style="font-size: 12px; color: var(--text-primary); font-weight: 600; line-height: 1.4; flex: 1;">${rawNoteText}</div>
             </div>
+            ` : ''}
 
             <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center; justify-content: flex-start; width: 100%; flex-wrap: wrap;">
                 <button type="button" class="test-speaker-btn" onclick="speakTextTTS(${q.id});" style="width: auto; height: auto; min-width: 0; padding: 6px 10px; border-radius: 10px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;" title="Pronunciation (TTS)">
