@@ -78,11 +78,11 @@ function renderSavedMcqsList(savedItems) {
             </div>
         ` : '';
 
-        const leftThumbHtml = showLeftImg ? `
+        const leftThumbHtml = `
             <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                <img src="${qImage}" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">
+                ${showLeftImg ? `<img src="${qImage}" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${qImage}')" title="Zoom Image">` : ''}
             </div>
-        ` : '';
+        `;
 
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'saved-mcq-item-wrapper';

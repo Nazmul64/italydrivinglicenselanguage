@@ -1,22 +1,22 @@
-# 🚗 MBanglaPatenteB - Official Master RESTful API & Mobile Integration Documentation
+# 🚗 MBanglaPatenteB - Official Master RESTful API & Flutter Integration Documentation
 
-> **Base URL (Local/Dev):** `http://127.0.0.1:8000/api/v1`  
+> **Base URL (Local/Development):** `http://127.0.0.1:8000/api/v1`  
 > **Base URL (Production):** `https://mbanglapatenteb.com/api/v1`  
-> **Headers Required:**  
+> **Headers Required for all API Calls:**  
 > - `Accept: application/json`  
 > - `Content-Type: application/json`  
-> - `X-Client-Phone: <User_Phone_Number>` *(Crucial for 2-Way Sync)*  
-> - `Authorization: Bearer <Sanctum_Token>` *(Optional / If logged in)*
+> - `X-Client-Phone: <User_Phone_Number>` *(Mandatory for 2-Way Synchronization)*  
+> - `Authorization: Bearer <Sanctum_Token>` *(Optional / If user is logged in)*
 
 ---
 
 ## 📋 Table of Contents
-1. [Core Architectural Rules & Problem Solutions (Must-Read for Flutter Developers)](#1-core-architectural-rules--problem-solutions)
-   - [Rule 1: Question Card Image vs Underline Vocabulary Image Isolation](#rule-1-question-card-image-vs-underline-vocabulary-image-isolation)
-   - [Rule 2: Left Image Box Rule - NO Empty Placeholder Box](#rule-2-left-image-box-rule---no-empty-placeholder-box)
-   - [Rule 3: 2-Way Real-time Synchronization (Web & Mobile App)](#rule-3-2-way-real-time-synchronization-web--mobile-app)
+1. [Core Architectural Rules & Problem Solutions (Must Follow for App & Web)](#1-core-architectural-rules--problem-solutions)
+   - [Rule 1: Fixed 100px Left Image Area (ALWAYS Blank/Empty if No Image)](#rule-1-fixed-100px-left-image-area-always-blankempty-if-no-image)
+   - [Rule 2: Vocabulary Underline Image Isolation (NEVER in Question Card)](#rule-2-vocabulary-underline-image-isolation-never-in-question-card)
+   - [Rule 3: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)](#rule-3-2-way-real-time-cross-platform-sync-web--mobile-app)
    - [Rule 4: QR Code Scan & Active License Security Verification](#rule-4-qr-code-scan--active-license-security-verification)
-   - [Rule 5: Official Scheda Esame / Practice Quiz 30-Question Limit & Result Redirection](#rule-5-official-scheda-esame--practice-quiz-30-question-limit--result-redirection)
+   - [Rule 5: Quiz Progression & Scheda Esame 30-Question Limit](#rule-5-quiz-progression--scheda-esame-30-question-limit)
 2. [Authentication, Registration & License Management](#2-authentication-registration--license-management)
 3. [QR Code Website Unlock & Verification](#3-qr-code-website-unlock--verification)
 4. [Chapters, Topics & Pagina Content APIs](#4-chapters-topics--pagina-content-apis)
@@ -25,116 +25,117 @@
 7. [Saved MCQs (2-Way Sync) APIs](#7-saved-mcqs-2-way-sync-apis)
 8. [Noted MCQs (2-Way Sync) APIs](#8-noted-mcqs-2-way-sync-apis)
 9. [Wrong MCQs (Sbagliate) & Correct MCQs (Giuste) APIs](#9-wrong-mcqs-sbagliate--correct-mcqs-giuste-apis)
-10. [Flutter Dart Implementation Examples](#10-flutter-dart-implementation-examples)
+10. [Flutter Dart Production-Ready Code Examples](#10-flutter-dart-production-ready-code-examples)
 
 ---
 
 ## 1. Core Architectural Rules & Problem Solutions
 
-### Rule 1: Question Card Image vs Underline Vocabulary Image Isolation
+### Rule 1: Fixed 100px Left Image Area (ALWAYS Blank/Empty if No Image)
 > [!CRITICAL]
-> **UNDER NO CIRCUMSTANCES should a vocabulary image (`question.vocabulary[i].image`) ever be rendered on the main Question Card.**
-- `question.image` (or `img`) is the **ONLY** image that belongs to the question card / road sign.
-- `question.vocabulary` is an array of dictionary definitions for underlined words. Its `image` must **ONLY** appear inside the **Vocabulary Popup / BottomSheet modal** when the user taps on the specific underlined word.
-
----
-
-### Rule 2: Left Image Box Rule - NO Empty Placeholder Box
-> [!IMPORTANT]
-> **If `question.image` is null or empty, DO NOT render an empty container / SizedBox / whitespace.**
-- When `question.image == null`: The Italian text must start from the very left edge naturally.
-- When `question.image != null`: Render a fixed thumbnail (e.g. 90-100px) on the left or top based on `image_position`.
+> **All MCQ Cards (Saved, Noted, Correct, Wrong, Test Questions, Cartelli) across Web & Flutter Mobile App MUST maintain a fixed 100px left slot for consistency.**
+- **If Question has Image (`question.image != null`):** Render the image thumbnail in the left 100px container.
+- **If Question has NO Image (`question.image == null`):** **The 100px left slot MUST REMAIN EMPTY / BLANK (`faka thakbe`).** The Italian question text must NEVER expand or shift into the left image area. It must ALWAYS stay aligned on the right column!
 
 ```dart
-// Flutter Implementation Pattern:
-Widget buildMcqCard(McqQuestion q) {
-  final hasImage = q.image != null && q.image!.trim().isNotEmpty;
+// Flutter Layout Structure:
+Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    // 1. FIXED 100px LEFT SLOT: Always exists, contains image if available, else blank SizedBox
+    Container(
+      width: 100,
+      height: 100,
+      alignment: Alignment.topCenter,
+      child: (question.image != null && question.image!.isNotEmpty)
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                question.image!,
+                width: 100,
+                height: 100,
+                fit: BoxFit.contain,
+              ),
+            )
+          : const SizedBox(width: 100, height: 100), // Blank empty slot!
+    ),
+    const SizedBox(width: 12),
 
-  return Card(
-    child: Padding(
-      padding: const EdgeInsets.all(12.0),
+    // 2. RIGHT TEXT COLUMN: Question text strictly stays on the right
+    Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // CONDITIONAL IMAGE: Render ONLY if hasImage is TRUE
-              if (hasImage) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    q.image!,
-                    width: 90,
-                    height: 90,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              
-              // TEXT EXPANDS NATURALLY
-              Expanded(
-                child: Text(
-                  q.italian,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+          Text(
+            question.italian,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
-          // Action Buttons (TTS, Bangla, Save, Note)...
+          // Translation, Action Buttons...
         ],
       ),
     ),
-  );
-}
+  ],
+)
 ```
 
 ---
 
-### Rule 3: 2-Way Real-time Synchronization (Web & Mobile App)
-All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz History) is unified on the backend database via the user's **Phone Number** (`phone` parameter and `X-Client-Phone` header).
-- **Rule**: Whenever the Flutter App makes any API call (e.g., getting saved items, saving a question, submitting an answer), it must always supply the active user's phone in both the query/body and the `X-Client-Phone` header.
-- This guarantees that actions performed in the Web PWA immediately reflect in the Flutter Mobile App and vice versa.
+### Rule 2: Vocabulary Underline Image Isolation (NEVER in Question Card)
+> [!IMPORTANT]
+> **Underline Dictionary Vocabulary images (`question.vocabulary[i].image`) belong ONLY inside the Vocabulary BottomSheet / Popup Modal.**
+- Under no circumstance should `vocabulary.image` ever be shown in the main Question Card or in the left 100px slot.
+- `question.image` (or `img`) is the ONLY official question image.
+
+---
+
+### Rule 3: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)
+Both the Web PWA and Flutter Mobile App connect to the same central Laravel database. All user progress is keyed by the user's **Phone Number**.
+- **Saved MCQs**: If user saves an MCQ on Web -> it immediately shows in the Mobile App. If saved on App -> immediately shows on Web.
+- **Noted MCQs**: If user adds/edits a note on Web -> instantly synced to App. If edited on App -> instantly synced to Web.
+- **Test Results (Correct / Wrong MCQs)**: When a test is taken on Web or App, the backend records each answer to `user_mcq_results` and updates `correct_count` / `wrong_count`. Both Web and App display the same error review list (`/api/v1/wrong-mcqs`) and correct list (`/api/v1/correct-mcqs`).
+- **Sync Header**: Always pass `X-Client-Phone: <phone>` with all requests.
 
 ---
 
 ### Rule 4: QR Code Scan & Active License Security Verification
 - **Flow**:
-  1. User enters First Name, Last Name, and Phone Number to register in the App or Web.
-  2. Admin assigns and activates a **License Key** for that customer (`is_active = 1`).
-  3. When the user opens the Web PWA, the website displays a dynamic Login QR Code.
-  4. The user scans the QR code using the Flutter mobile app's built-in QR Scanner.
-  5. The mobile app sends a POST request to `/api/v1/qr-verification/verify` containing the scanned QR data + the mobile user's `phone` / `license_key`.
-  6. **Security Rule**: The backend verifies if the user's license is active.
-     - **If Active (`is_active == 1`)**: Backend returns `200 OK`, unlocks the Web browser session in real-time via Cache/Session.
-     - **If Inactive / No License**: Backend returns `403 Forbidden` (`{"status": "error", "message": "License inactive"}`). The website **MUST NOT** unlock.
+  1. Student enters First Name, Last Name, and Phone Number.
+  2. Admin assigns a license key and activates the customer (`is_active = 1`).
+  3. When student opens Web PWA, a dynamic QR code is displayed on the screen.
+  4. Student opens Flutter Mobile App, taps "Scan Web QR", and scans the QR code.
+  5. App sends `POST /api/v1/qr-verification/verify` with `{ qr_data, phone, first_name, last_name }`.
+  6. **Security Validation**:
+     - If the user's account has an **active license (`is_active == 1`)**: Backend returns `200 OK` and unlocks the Web browser session in real-time.
+     - If the user's account is **inactive (`is_active == 0`) or no license**: Backend returns `403 Forbidden` (`License inactive`). The website **WILL NOT UNLOCK**.
 
 ---
 
-### Rule 5: Official Scheda Esame / Practice Quiz 30-Question Limit & Result Redirection
-- An official Italian Driving License Scheda Esame consists of **exactly 30 questions**.
-- Practice quizzes and Exam Simulations must load 30 questions.
-- When the user answers question 30 and presses "Avanti" or "Concludi Esame", the app must calculate the final score (Pass: `<= 3 errors`, Fail: `>= 4 errors`), submit results to `/api/v1/user-mcq-results`, and navigate to the Exam Result Summary Screen.
+### Rule 5: Quiz Progression & Scheda Esame 30-Question Limit
+- **Official Scheda Esame (Practice Exam)**:
+  - Consists of **exactly 30 questions** randomly picked across all official ministerial chapters.
+  - The exam progresses sequentially through questions 1 to 30.
+  - Upon completing question 30 (or clicking "Concludi Esame"), the app calculates results and presents the **Risultato** summary screen (Passed: `<= 3 errors`, Failed: `>= 4 errors`).
+- **Topic / Cartelli / Custom Quiz**:
+  - If a topic or cartello has $N$ questions (e.g. 2 questions, 5 questions, 10 questions), the quiz MUST iterate through all $N$ questions ($1, 2, \dots, N$).
+  - It **MUST NOT** exit or show the result modal prematurely after just 1 question.
 
 ---
 
 ## 2. Authentication, Registration & License Management
 
-### 2.1 Customer Registration & License Activation
+### 2.1 Customer Registration & License Activation Request
 - **Endpoint:** `POST /api/v1/app-clients/register`
-- **Description:** Registers a student / app client or submits an activation request.
 - **Request Body:**
 ```json
 {
-  "first_name": "John",
-  "last_name": "Doe",
+  "first_name": "Tarikul",
+  "last_name": "Islam",
   "phone": "+393510000000",
-  "device_id": "unique-device-uuid-1234",
-  "activation_key": "MB-2026-XXXX-YYYY" // Optional: if student already has a key
+  "device_id": "device-uuid-123456",
+  "activation_key": "MB-2026-ABCD-1234" // Optional
 }
 ```
-- **Response (`200 OK` / `201 Created`):**
+- **Response (`200 OK`):**
 ```json
 {
   "success": true,
@@ -143,8 +144,8 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
   "data": {
     "session_id": "client_session_abc123",
     "phone": "+393510000000",
-    "first_name": "John",
-    "last_name": "Doe",
+    "first_name": "Tarikul",
+    "last_name": "Islam",
     "is_active": 1,
     "expires_at": "2027-09-23 20:00:00"
   }
@@ -153,7 +154,7 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ### 2.2 Check Client License Status
 - **Endpoint:** `GET /api/v1/app-clients/status`
-- **Query Params:** `phone=+393510000000` or `session_id=client_session_abc123`
+- **Query Params:** `phone=+393510000000`
 - **Response (`200 OK`):**
 ```json
 {
@@ -161,8 +162,8 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
   "is_active": true,
   "status": "active",
   "client": {
-    "first_name": "John",
-    "last_name": "Doe",
+    "first_name": "Tarikul",
+    "last_name": "Islam",
     "phone": "+393510000000",
     "is_active": 1,
     "expires_at": "2027-09-23 20:00:00"
@@ -174,16 +175,16 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ## 3. QR Code Website Unlock & Verification
 
-### 3.1 Mobile QR Scan Verification
+### 3.1 Mobile QR Code Scan Verification
 - **Endpoint:** `POST /api/v1/qr-verification/verify`
-- **Description:** Called by the Flutter mobile app after scanning the QR code displayed on the website.
+- **Description:** Called by the Flutter mobile app when scanning the Web QR code.
 - **Request Body:**
 ```json
 {
-  "qr_data": "https://mbanglapatenteb.com/?session_id=web_session_xyz789", // or raw session string
+  "qr_data": "https://mbanglapatenteb.com/?session_id=web_session_xyz789",
   "phone": "+393510000000",
-  "first_name": "John",
-  "last_name": "Doe"
+  "first_name": "Tarikul",
+  "last_name": "Islam"
 }
 ```
 - **Response If Active (`200 OK`):**
@@ -192,11 +193,11 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
   "success": true,
   "status": "success",
   "license_status": "active",
-  "message": "Website Full Access Granted! আপনার লাইসেন্স সফলভাবে যাচাই করা হয়েছে।",
+  "message": "🎉 Website Full Access Granted! আপনার লাইসেন্স সফলভাবে যাচাই করা হয়েছে।",
   "session_id": "web_session_xyz789",
   "user": {
-    "first_name": "John",
-    "last_name": "Doe",
+    "first_name": "Tarikul",
+    "last_name": "Islam",
     "phone": "+393510000000"
   }
 }
@@ -211,31 +212,13 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 }
 ```
 
-### 3.2 Web Polling Endpoint (Checks if QR was scanned)
-- **Endpoint:** `GET /api/v1/qr-verification/check-status?session_id=web_session_xyz789`
-- **Response:** `{"unlocked": true, "user": {...}}` or `{"unlocked": false}`
-
 ---
 
 ## 4. Chapters, Topics & Pagina Content APIs
 
-### 4.1 Get All Chapters
+### 4.1 Get All Chapters List
 - **Endpoint:** `GET /api/v1/chapters`
-- **Response (`200 OK`):**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "chapter_number": 1,
-      "name_italian": "Capitolo 1) DEFINIZIONI STRADALI E DEI VEICOLI",
-      "name_bangla": "অধ্যায় ১) রাস্তা এবং যানবাহনের সংজ্ঞা",
-      "topics_count": 12
-    }
-  ]
-}
-```
+- **Response (`200 OK`):** Returns all 25 official Patente B chapters.
 
 ### 4.2 Get Chapter Details with Pages & MCQs
 - **Endpoint:** `GET /api/v1/chapters/{id}`
@@ -247,10 +230,7 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ### 5.1 Get MCQ Questions by Page / Topic
 - **Endpoint:** `GET /api/v1/mcqs`
-- **Query Params:**
-  - `page_id`: ID of the page/pagina
-  - `chapter_id`: ID of chapter (optional)
-  - `limit`: number of questions (default 30)
+- **Query Params:** `page_id=4`, `limit=30`
 - **Response Schema:**
 ```json
 {
@@ -273,11 +253,6 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
           "word": "suddivisa",
           "bangla": "বিভক্ত",
           "image": "https://mbanglapatenteb.com/uploads/vocab/suddivisa.webp" // ONLY FOR VOCABULARY POPUP!
-        },
-        {
-          "word": "carreggiate",
-          "bangla": "যানবাহন চলার রাস্তা / ক্যারেজওয়ে",
-          "image": null
         }
       ]
     }
@@ -287,7 +262,7 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ### 5.2 Cartelli (Road Signs) Master List
 - **Endpoint:** `GET /api/v1/cartelli`
-- **Response:** Returns list of road sign categories, figures, and associated quiz questions.
+- **Response:** Returns categories, road sign figures, and associated quiz questions.
 
 ---
 
@@ -295,7 +270,6 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ### 6.1 Generate Official Scheda Esame (30 Questions)
 - **Endpoint:** `GET /api/v1/exam/generate-scheda`
-- **Description:** Generates a randomized official standard exam simulation of exactly **30 questions** distributed across all official ministerial chapters.
 - **Response (`200 OK`):**
 ```json
 {
@@ -304,7 +278,7 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
   "duration_minutes": 20,
   "max_allowed_errors": 3,
   "data": [
-    /* Exact array of 30 question objects */
+    /* Exact array of 30 randomized official question objects */
   ]
 }
 ```
@@ -315,7 +289,7 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 ```json
 {
   "phone": "+393510000000",
-  "quiz_type": "scheda_esame", // or "topic_quiz", "error_review"
+  "quiz_type": "scheda_esame",
   "total_questions": 30,
   "correct_count": 28,
   "wrong_count": 2,
@@ -336,7 +310,6 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 - **Endpoint:** `GET /api/v1/saved-mcqs`
 - **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
-- **Response:** Array of questions saved with their full details.
 
 ### 7.2 Save / Bookmark an MCQ
 - **Endpoint:** `POST /api/v1/saved-mcqs`
@@ -356,12 +329,12 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 
 ## 8. Noted MCQs (2-Way Sync) APIs
 
-### 8.1 Get User's Personal Notes
+### 8.1 Get User's Noted MCQs
 - **Endpoint:** `GET /api/v1/noted-mcqs`
 - **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
 
-### 8.2 Save or Update Note for an MCQ
+### 8.2 Save or Update Note
 - **Endpoint:** `POST /api/v1/noted-mcqs`
 - **Request Body:**
 ```json
@@ -384,22 +357,26 @@ All user progress data (Saved Questions, Notes, Wrong MCQs, Correct MCQs, Quiz H
 - **Endpoint:** `GET /api/v1/wrong-mcqs`
 - **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
-- **Response:** All questions where the user made mistakes, along with error count (`wrong_count`, `correct_count`).
 
 ### 9.2 Get Correct MCQs
 - **Endpoint:** `GET /api/v1/correct-mcqs`
 - **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
 
-### 9.3 Clear / Reset Error History
+### 9.3 Reset Wrong MCQs
 - **Endpoint:** `POST /api/v1/wrong-mcqs/reset`
-- **Request Body:** `{"phone": "+393510000000", "mcq_ids": [1052, 1053]}`
+- **Request Body:**
+```json
+{
+  "phone": "+393510000000",
+  "mcq_ids": [1052, 1053]
+}
+```
 
 ---
 
-## 10. Flutter Dart Implementation Examples
+## 10. Flutter Dart Production-Ready Code Examples
 
-### Complete Model & Card Widget
 ```dart
 import 'package:flutter/material.dart';
 
@@ -424,7 +401,7 @@ class McqQuestion {
   final String italian;
   final String? bangla;
   final bool isVero;
-  final String? image; // Question road sign image (can be null!)
+  final String? image; // Question official image (can be null!)
   final String? audio;
   final List<VocabularyItem> vocabulary;
 
@@ -457,6 +434,7 @@ class McqQuestion {
 
 class McqCardWidget extends StatelessWidget {
   final McqQuestion question;
+  final int index;
   final VoidCallback? onPlayAudio;
   final VoidCallback? onToggleSave;
   final VoidCallback? onOpenNote;
@@ -464,6 +442,7 @@ class McqCardWidget extends StatelessWidget {
   const McqCardWidget({
     Key? key,
     required this.question,
+    required this.index,
     this.onPlayAudio,
     this.onToggleSave,
     this.onOpenNote,
@@ -523,40 +502,74 @@ class McqCardWidget extends StatelessWidget {
         padding: const EdgeInsets.all(14.0),
         child: Column(
           children: [
+            // Top Bar: Question Number + Action Eye
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${index + 1}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Question Content Row (Fixed 100px Left Image Area)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Question image slot (Rendered ONLY if hasImage is true)
-                if (hasImage) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      question.image!,
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.contain,
-                      errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
+                // 1. FIXED 100px LEFT SLOT: Renders image if present, otherwise remains BLANK/EMPTY!
+                Container(
+                  width: 100,
+                  height: 100,
+                  alignment: Alignment.topCenter,
+                  child: hasImage
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            question.image!,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.contain,
+                            errorBuilder: (ctx, err, stack) => const SizedBox(width: 100, height: 100),
+                          ),
+                        )
+                      : const SizedBox(width: 100, height: 100), // Reserved empty space!
+                ),
+                const SizedBox(width: 12),
 
-                // 2. Question Text with Underlined Interactive Vocabulary
+                // 2. Question Text on Right (Never invades left 100px area)
                 Expanded(
-                  child: Text(
-                    question.italian,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question.italian,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (question.bangla != null && question.bangla!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          question.bangla!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Action Toolbar (Pronounce, Translation, Bookmark, Notes)
+            // Action Toolbar
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
