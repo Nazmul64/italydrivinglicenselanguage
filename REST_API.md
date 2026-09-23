@@ -12,52 +12,30 @@
 
 ---
 
-## 🚨 CRITICAL RULE FOR FLUTTER DEVELOPERS: NO DICTIONARY/UNDERLINE IMAGES ON MCQ CARDS!
+## 🚨 CRITICAL RULES FOR FLUTTER DEVELOPERS
 
-### ❌ What Was Going Wrong in the App:
-When an MCQ has no official image (`question.image == null` or `""`), but has an underlined vocabulary word (`<u>official</u>` with `vocabulary: [{"image": "https://.../vocab_xxx.png"}]`), the Flutter app was incorrectly extracting the vocabulary image and showing it as the **Main Question Image** across:
-1. **Noted MCQs Screen** (`noted_questions_screen.dart` / `noted_mcqs_screen.dart`)
-2. **Wrong MCQs Screen** (`wrong_questions_screen.dart`)
-3. **Correct MCQs Screen** (`correct_questions_screen.dart`)
-4. **Test Live Quiz Screen** (`test_screen.dart` / `quiz_practice_screen.dart`)
-5. **Test Results Screen** (`test_results_screen.dart` / `bocciato_screen.dart` / `promosso_screen.dart`)
+### 1. 🖼️ MCQ Card Layout & Image Area Rule (কখনই আন্ডারলাইনের ছবি কার্ডে আসবে না এবং ইমেজ না থাকলে ফাঁকা থাকবে):
+1. **Official Question Image Only (`question.image` / `question.img`)**:
+   - MCQ কার্ডে কেবল এবং কেবলমাত্র অফিসিয়াল প্রশ্নের ছবি (`question.image`) প্রদর্শিত হবে।
+   - কোনো প্রশ্নে যদি অফিশিয়াল ইমেজ না থাকে (`question.image == null` বা খালি), তাহলে ইমেজের জায়গাটি ফাঁকা থাকবে—টেক্সট পুরো জায়গা দখল করবে না বা লেআউট এলোমেলো হবে না।
+2. **🚫 Underline Vocabulary Image (`vocabulary[i].image`)**:
+   - আন্ডারলাইন করা ভোকাবুলারি শব্দের ছবি (`vocabulary.image`) শুধুমাত্র তখনই প্রদর্শিত হবে যখন ব্যবহারকারী আন্ডারলাইন করা শব্দটিতে ট্যাপ করে ডিকশনারি/অনুবাদ মডাল বা বটম-শীট ওপেন করবে।
+   - **ভোকাবুলারির ছবি কখনোই MCQ কার্ডের ছবি হিসেবে ব্যবহৃত হবে না!**
+3. **Card Layout Structure**:
+   - কার্ডের উপরের বামে প্রশ্নের সিরিয়াল নাম্বার এবং ডানে বড় অক্ষরের **V** (সবুজ) বা **F** (লাল) স্ট্যাটাস ব্যাজ থাকবে।
+   - টেক্সটের মাঝের আন্ডারলাইন করা শব্দগুলোতে সাধারণ টেক্সটের মতো স্বাভাবিক রঙ থাকবে এবং নিচে ১ পিক্সেলের সফট আন্ডারলাইন থাকবে।
 
-### ✅ The Correct Rule:
-1. **`question.image` (Official Question Image)**:
-   - Only display an image on the MCQ card if `question.image != null && question.image.trim().isNotEmpty`.
-   - If `question.image` is empty/null, render `const SizedBox.shrink()` (0 height, completely hidden, no empty space).
-2. **`question.vocabulary[i].image` (Underline Dictionary Image)**:
-   - This image belongs **EXCLUSIVELY** to the Vocabulary Dictionary Modal / BottomSheet that opens **ONLY when the user taps on the underlined word**.
-   - **NEVER** assign or display `vocabulary.image` or `page.image` on the question card!
+### 2. 📊 `(TU) Hai risposto:` Stats Card Rule (উত্তরের পরিসংখ্যান কেবল উত্তর দেওয়ার পরেই দেখাবে):
+- যদি ব্যবহারকারী পূর্বে কোনো প্রশ্নের উত্তর দিয়ে থাকে (`correct_count > 0 || wrong_count > 0` অথবা `isAnswered == true`), শুধুমাত্র তখনই কার্ডের নিচে স্ট্যাটাস বক্স প্রদর্শিত হবে:
+  ```
+  (TU) Hai risposto:
+  Giusto X volte    Sbagliato Y volte
+  ```
+- যদি ব্যবহারকারী এখনও কোনো উত্তর না দিয়ে থাকে, তাহলে এই স্ট্যাটাস বক্সটি সম্পূর্ণ অদৃশ্য/হাইড থাকবে (`const SizedBox.shrink()`)।
 
-### 💻 Flutter Code Implementation:
-```dart
-// Helper method to get the valid question image
-String? getValidQuestionImage(dynamic question) {
-  final rawImg = question.image ?? question.img;
-  if (rawImg == null) return null;
-  final imgStr = rawImg.toString().trim();
-  if (imgStr.isEmpty || imgStr.contains('/data/user/') || imgStr.contains('scaled_IMG')) {
-    return null;
-  }
-  return imgStr;
-}
-
-// Widget for rendering MCQ Question Image across ALL 5 screens:
-Widget buildQuestionImageWidget(dynamic question) {
-  final imageUrl = getValidQuestionImage(question);
-  
-  // 🚫 If no question image, DO NOT show vocabulary image or dummy image!
-  if (imageUrl == null) {
-    return const SizedBox.shrink(); // Completely hidden
-  }
-
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 12.0),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        imageUrl,
+### 3. ⏱️ Official Exam 30 Questions Limit (টেস্টে সর্বদা সর্বোচ্চ ৩০টি প্রশ্ন থাকবে):
+- ডাটাবেজে ১,০০০ বা ১০,০০০ প্রশ্ন থাকলেও, টেস্ট/এক্সাম মোডে (`GET /api/v1/scheda-esame/generate`) সার্ভার **সর্বোচ্চ ৩০টি প্রশ্ন** রিটার্ন করবে।
+- ৩০টি প্রশ্নের উত্তর সাবমিট করার পর স্বয়ংক্রিয়ভাবে ব্যবহারকারীকে **Result Screen** (Promosso / Bocciato)-এ নিয়ে যাবে।
         height: 140,
         width: double.infinity,
         fit: BoxFit.contain,
