@@ -200,7 +200,11 @@ class ArgomentiController extends Controller
         $sessionIds = $context['session_ids'];
         $hasUser = !empty($userIds) || !empty($sessionIds);
 
-        if ($hasUser && $page->questions) {
+        $userResults = collect();
+        $savedIds = [];
+        $notes = collect();
+
+        if ($hasUser && $page->questions && $page->questions->isNotEmpty()) {
             $qIds = $page->questions->pluck('id')->toArray();
             
             $userResults = UserMcqResult::whereIn('question_id', $qIds)
@@ -211,8 +215,9 @@ class ArgomentiController extends Controller
                         else $q->whereIn('session_id', $sessionIds);
                     }
                 })
+                ->orderBy('id', 'desc')
                 ->get()
-                ->keyBy('question_id');
+                ->groupBy('question_id');
 
             $savedIds = \App\Models\SavedMcq::whereIn('question_id', $qIds)
                 ->where(function ($q) use ($userIds, $sessionIds) {
@@ -235,13 +240,28 @@ class ArgomentiController extends Controller
                 })
                 ->get()
                 ->keyBy('question_id');
+        }
 
+        if ($page->questions) {
             foreach ($page->questions as $question) {
-                $res = $userResults->get($question->id);
-                $question->user_answer = $res ? $res->user_answer : null;
-                $question->is_correct = $res ? (bool)$res->is_correct : null;
-                $question->correct_count = $res ? (int)$res->correct_count : 0;
-                $question->wrong_count = $res ? (int)$res->wrong_count : 0;
+                $attempts = $userResults->get($question->id);
+                if ($attempts && $attempts->isNotEmpty()) {
+                    $latest = $attempts->first();
+                    $cCount = $latest->correct_count !== null ? (int)$latest->correct_count : $attempts->where('is_correct', 1)->count();
+                    $wCount = $latest->wrong_count !== null ? (int)$latest->wrong_count : $attempts->where('is_correct', 0)->count();
+
+                    $question->user_answer = $latest->user_answer;
+                    $question->is_correct = (bool)$latest->is_correct;
+                    $question->correct_count = $cCount;
+                    $question->wrong_count = $wCount;
+                    $question->has_answered = true;
+                } else {
+                    $question->user_answer = null;
+                    $question->is_correct = null;
+                    $question->correct_count = 0;
+                    $question->wrong_count = 0;
+                    $question->has_answered = false;
+                }
                 $question->is_saved = in_array($question->id, $savedIds);
                 $question->user_note = $notes->has($question->id) ? $notes->get($question->id)->note_text : null;
             }

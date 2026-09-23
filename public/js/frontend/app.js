@@ -2484,17 +2484,20 @@ function selectTestAnswer(ans) {
 
         switchTestQuestionTab(currentTestTab);
 
-        setTimeout(() => {
+        if (testTimerInterval && window.testAdvanceTimer) {
+            clearTimeout(window.testAdvanceTimer);
+        }
+        window.testAdvanceTimer = setTimeout(() => {
             if (currentTestIndex < testQuestions.length - 1) {
                 jumpToTestQuestion(currentTestIndex + 1);
             } else {
                 if (practiceMode === 'sheet') {
                     finishSheetPractice();
                 } else {
-                    nextTestQuestion();
+                    submitTestExam();
                 }
             }
-        }, 1000);
+        }, 800);
 
     } else {
         // No immediate feedback, just highlight selection and auto-advance after 400ms
@@ -2510,19 +2513,30 @@ function selectTestAnswer(ans) {
             falsoBtn.classList.add('active');
         }
 
-        setTimeout(() => {
+        if (window.testAdvanceTimer) {
+            clearTimeout(window.testAdvanceTimer);
+        }
+        window.testAdvanceTimer = setTimeout(() => {
             nextTestQuestion();
         }, 400);
     }
 }
 
 function prevTestQuestion() {
+    if (window.testAdvanceTimer) {
+        clearTimeout(window.testAdvanceTimer);
+        window.testAdvanceTimer = null;
+    }
     if (currentTestIndex > 0) {
         jumpToTestQuestion(currentTestIndex - 1);
     }
 }
 
 function nextTestQuestion() {
+    if (window.testAdvanceTimer) {
+        clearTimeout(window.testAdvanceTimer);
+        window.testAdvanceTimer = null;
+    }
     if (currentTestIndex < testQuestions.length - 1) {
         jumpToTestQuestion(currentTestIndex + 1);
     } else {

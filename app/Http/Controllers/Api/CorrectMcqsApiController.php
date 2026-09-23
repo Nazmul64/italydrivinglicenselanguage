@@ -148,6 +148,27 @@ class CorrectMcqsApiController extends Controller
             $questions = $questions->concat($mappedCartelli);
         }
 
+        // Compute correct_count and wrong_count for each returned question
+        $groupedResults = $allResults->groupBy('question_id');
+        foreach ($questions as $question) {
+            $attempts = $groupedResults->get($question->id);
+            if ($attempts && $attempts->isNotEmpty()) {
+                $latest = $attempts->first();
+                $cCount = $latest->correct_count !== null ? (int)$latest->correct_count : $attempts->where('is_correct', 1)->count();
+                $wCount = $latest->wrong_count !== null ? (int)$latest->wrong_count : $attempts->where('is_correct', 0)->count();
+
+                $question->user_answer = $latest->user_answer;
+                $question->is_correct = (bool)$latest->is_correct;
+                $question->correct_count = $cCount;
+                $question->wrong_count = $wCount;
+                $question->has_answered = true;
+            } else {
+                $question->correct_count = 1;
+                $question->wrong_count = 0;
+                $question->has_answered = true;
+            }
+        }
+
         return response()->json([
             'status' => 'success',
             'total_correct' => count($questions),

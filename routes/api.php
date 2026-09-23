@@ -58,6 +58,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/cartelli/pages/{chapterId}', [CartelliApiController::class, 'getPages']);
     Route::get('/cartelli/page-mcqs/{pageId}', [CartelliApiController::class, 'getPageMcqs']);
     Route::get('/cartelli/chapter-mcqs/{chapterId}', [CartelliApiController::class, 'getChapterMcqs']);
+    Route::get('/questions/chapter/{chapter}', [ArgomentiApiController::class, 'getPageDetails']);
+    Route::get('/questions/page/{page}', [ArgomentiApiController::class, 'getPageDetails']);
 
     // 🎴 HOME NAVIGATION CARDS RESTFUL API (Ordered by order_index ASC)
     Route::get('/home-cards', function () {
@@ -397,19 +399,94 @@ Route::get('/chapters/{id}/pages', [ArgomentiApiController::class, 'getChapterPa
 Route::get('/pages/all', [ArgomentiApiController::class, 'getAllPages']);
 Route::get('/pages/{id}', [ArgomentiApiController::class, 'getPageDetails']);
 
-Route::get('/questions/chapter/{chapter}', function ($chapter) {
+Route::get('/questions/chapter/{chapter}', function (Request $request, $chapter) {
     $questions = \App\Models\Question::where(function($q) use ($chapter) {
         $q->where('chapter', $chapter)
           ->orWhereIn('page_id', \App\Models\Page::where('chapter_id', $chapter)->pluck('id'));
     })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+
+    $phone = $request->query('phone') ?? $request->header('X-Client-Phone');
+    $sessionId = $request->query('session_id') ?? $request->header('X-Session-ID');
+    $userId = auth()->id() ?? $request->query('user_id');
+
+    if ($questions->isNotEmpty()) {
+        $qIds = $questions->pluck('id')->toArray();
+        $query = \App\Models\UserMcqResult::whereIn('question_id', $qIds);
+        if ($phone || $sessionId || $userId) {
+            $query->where(function($q) use ($phone, $sessionId, $userId) {
+                if ($userId) $q->where('user_id', $userId);
+                if ($sessionId) $q->orWhere('session_id', $sessionId);
+            });
+        }
+        $userResults = $query->orderBy('id', 'desc')->get()->groupBy('question_id');
+
+        foreach ($questions as $question) {
+            $attempts = $userResults->get($question->id);
+            if ($attempts && $attempts->isNotEmpty()) {
+                $latest = $attempts->first();
+                $cCount = $latest->correct_count !== null ? (int)$latest->correct_count : $attempts->where('is_correct', 1)->count();
+                $wCount = $latest->wrong_count !== null ? (int)$latest->wrong_count : $attempts->where('is_correct', 0)->count();
+
+                $question->user_answer = $latest->user_answer;
+                $question->is_correct = (bool)$latest->is_correct;
+                $question->correct_count = $cCount;
+                $question->wrong_count = $wCount;
+                $question->has_answered = true;
+            } else {
+                $question->user_answer = null;
+                $question->is_correct = null;
+                $question->correct_count = 0;
+                $question->wrong_count = 0;
+                $question->has_answered = false;
+            }
+        }
+    }
+
     return response()->json([
         'status' => 'success',
         'data' => $questions
     ]);
 });
 
-Route::get('/questions/page/{page}', function ($page) {
+Route::get('/questions/page/{page}', function (Request $request, $page) {
     $questions = \App\Models\Question::where('page_id', $page)->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+
+    if ($questions->isNotEmpty()) {
+        $qIds = $questions->pluck('id')->toArray();
+        $sessionId = $request->query('session_id') ?? $request->header('X-Session-ID');
+        $userId = auth()->id() ?? $request->query('user_id');
+
+        $query = \App\Models\UserMcqResult::whereIn('question_id', $qIds);
+        if ($sessionId || $userId) {
+            $query->where(function($q) use ($sessionId, $userId) {
+                if ($userId) $q->where('user_id', $userId);
+                if ($sessionId) $q->orWhere('session_id', $sessionId);
+            });
+        }
+        $userResults = $query->orderBy('id', 'desc')->get()->groupBy('question_id');
+
+        foreach ($questions as $question) {
+            $attempts = $userResults->get($question->id);
+            if ($attempts && $attempts->isNotEmpty()) {
+                $latest = $attempts->first();
+                $cCount = $latest->correct_count !== null ? (int)$latest->correct_count : $attempts->where('is_correct', 1)->count();
+                $wCount = $latest->wrong_count !== null ? (int)$latest->wrong_count : $attempts->where('is_correct', 0)->count();
+
+                $question->user_answer = $latest->user_answer;
+                $question->is_correct = (bool)$latest->is_correct;
+                $question->correct_count = $cCount;
+                $question->wrong_count = $wCount;
+                $question->has_answered = true;
+            } else {
+                $question->user_answer = null;
+                $question->is_correct = null;
+                $question->correct_count = 0;
+                $question->wrong_count = 0;
+                $question->has_answered = false;
+            }
+        }
+    }
+
     return response()->json([
         'status' => 'success',
         'data' => $questions

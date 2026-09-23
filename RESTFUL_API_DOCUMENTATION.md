@@ -6,81 +6,117 @@
 > - `Accept: application/json`  
 > - `Content-Type: application/json`  
 > - `X-Client-Phone: <User_Phone_Number>` *(Mandatory for 2-Way Synchronization)*  
+> - `X-Session-ID: <Session_Or_Device_UUID>` *(Optional / Client Tracking)*  
 > - `Authorization: Bearer <Sanctum_Token>` *(Optional / If user is logged in)*
 
 ---
 
 ## 📋 Table of Contents
-1. [Core Architectural Rules & Problem Solutions (Must Follow for App & Web)](#1-core-architectural-rules--problem-solutions)
+1. [Core Architectural Rules & UI Guidelines (Must Follow for App & Web)](#1-core-architectural-rules--ui-guidelines)
    - [Rule 1: Fixed 100px Left Image Area (ALWAYS Blank/Empty if No Image)](#rule-1-fixed-100px-left-image-area-always-blankempty-if-no-image)
-   - [Rule 2: Vocabulary Underline Image Isolation (NEVER in Question Card)](#rule-2-vocabulary-underline-image-isolation-never-in-question-card)
-   - [Rule 3: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)](#rule-3-2-way-real-time-cross-platform-sync-web--mobile-app)
-   - [Rule 4: QR Code Scan & Active License Security Verification](#rule-4-qr-code-scan--active-license-security-verification)
-   - [Rule 5: Quiz Progression & Scheda Esame 30-Question Limit](#rule-5-quiz-progression--scheda-esame-30-question-limit)
+   - [Rule 2: User Answer Stats `(TU) Hai risposto: Giusto X / Sbagliato Y` (Blank if Unanswered)](#rule-2-user-answer-stats-tu-hai-risposto-giusto-x--sbagliato-y)
+   - [Rule 3: Vocabulary Underline Image Isolation (NEVER in Question Card)](#rule-3-vocabulary-underline-image-isolation-never-in-question-card)
+   - [Rule 4: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)](#rule-4-2-way-real-time-cross-platform-sync-web--mobile-app)
+   - [Rule 5: QR Code Scan & Active License Security Verification](#rule-5-qr-code-scan--active-license-security-verification)
+   - [Rule 6: Quiz Progression & Non-Premature Termination](#rule-6-quiz-progression--non-premature-termination)
 2. [Authentication, Registration & License Management](#2-authentication-registration--license-management)
 3. [QR Code Website Unlock & Verification](#3-qr-code-website-unlock--verification)
 4. [Chapters, Topics & Pagina Content APIs](#4-chapters-topics--pagina-content-apis)
-5. [MCQs & Cartelli (Road Signs) APIs](#5-mcqs--cartelli-road-signs-apis)
+5. [MCQs & Cartelli (Road Signs) APIs with User Progress](#5-mcqs--cartelli-road-signs-apis-with-user-progress)
 6. [Practice Quiz & Official Scheda Esame APIs](#6-practice-quiz--official-scheda-esame-apis)
 7. [Saved MCQs (2-Way Sync) APIs](#7-saved-mcqs-2-way-sync-apis)
 8. [Noted MCQs (2-Way Sync) APIs](#8-noted-mcqs-2-way-sync-apis)
 9. [Wrong MCQs (Sbagliate) & Correct MCQs (Giuste) APIs](#9-wrong-mcqs-sbagliate--correct-mcqs-giuste-apis)
-10. [Flutter Dart Production-Ready Code Examples](#10-flutter-dart-production-ready-code-examples)
+10. [MCQ Answer Result Logging API (Real-time Sync)](#10-mcq-answer-result-logging-api-real-time-sync)
+11. [Flutter Dart Production-Ready Models & UI Widget](#11-flutter-dart-production-ready-models--ui-widget)
 
 ---
 
-## 1. Core Architectural Rules & Problem Solutions
+## 1. Core Architectural Rules & UI Guidelines
 
 ### Rule 1: Fixed 100px Left Image Area (ALWAYS Blank/Empty if No Image)
 > [!CRITICAL]
-> **All MCQ Cards (Saved, Noted, Correct, Wrong, Test Questions, Cartelli) across Web & Flutter Mobile App MUST maintain a fixed 100px left slot for consistency.**
+> **All MCQ Cards (Argomenti, Cartelli, Saved, Noted, Correct, Wrong, Test Questions) across Web & Flutter Mobile App MUST maintain a fixed 100px left slot.**
 - **If Question has Image (`question.image != null`):** Render the image thumbnail in the left 100px container.
-- **If Question has NO Image (`question.image == null`):** **The 100px left slot MUST REMAIN EMPTY / BLANK (`faka thakbe`).** The Italian question text must NEVER expand or shift into the left image area. It must ALWAYS stay aligned on the right column!
+- **If Question has NO Image (`question.image == null`):** **The 100px left slot MUST REMAIN EMPTY / BLANK (`faka thakbe`).** The Italian question text must NEVER expand or shift into the left image area. It must ALWAYS stay aligned on the right column.
 
 ```dart
-// Flutter Layout Structure:
-Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    // 1. FIXED 100px LEFT SLOT: Always exists, contains image if available, else blank SizedBox
-    Container(
-      width: 100,
-      height: 100,
-      alignment: Alignment.topCenter,
-      child: (question.image != null && question.image!.isNotEmpty)
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                question.image!,
-                width: 100,
-                height: 100,
-                fit: BoxFit.contain,
-              ),
-            )
-          : const SizedBox(width: 100, height: 100), // Blank empty slot!
-    ),
-    const SizedBox(width: 12),
-
-    // 2. RIGHT TEXT COLUMN: Question text strictly stays on the right
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            question.italian,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+// Fixed 100px Left Image Area Structure:
+Container(
+  width: 100,
+  height: 100,
+  alignment: Alignment.topCenter,
+  child: (question.image != null && question.image!.isNotEmpty)
+      ? ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            question.image!,
+            width: 100,
+            height: 100,
+            fit: BoxFit.contain,
           ),
-          // Translation, Action Buttons...
-        ],
-      ),
-    ),
-  ],
+        )
+      : const SizedBox(width: 100, height: 100), // Blank empty slot!
 )
 ```
 
 ---
 
-### Rule 2: Vocabulary Underline Image Isolation (NEVER in Question Card)
+### Rule 2: User Answer Stats `(TU) Hai risposto: Giusto X / Sbagliato Y`
+> [!IMPORTANT]
+> **Every MCQ card in Argomenti (Vere e False), Cartelli, and Topics displays the user's historical answer count directly below the audio player / action bar:**
+- **If user has answered (`question.has_answered == true` OR `correct_count > 0 || wrong_count > 0`):**
+  Show the capsule container:
+  ```text
+  (TU) Hai risposto:
+  Giusto X volte        Sbagliato Y volte
+  ```
+  *(Green text for `Giusto ${question.correct_count} volte`, Red text for `Sbagliato ${question.wrong_count} volte`)*
+- **If user has NOT answered (`question.has_answered == false` AND `correct_count == 0 && wrong_count == 0`):**
+  **The bottom section remains BLANK / EMPTY (`faka thakbe`)** (i.e. `const SizedBox.shrink()`).
+
+```dart
+// User Response Stats Widget Structure:
+if (question.hasAnswered || (question.correctCount > 0 || question.wrongCount > 0)) ...[
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+    margin: const EdgeInsets.only(top: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      children: [
+        const Text(
+          '(TU) Hai risposto:',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Giusto ${question.correctCount} volte',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+            ),
+            const SizedBox(width: 18),
+            Text(
+              'Sbagliato ${question.wrongCount} volte',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ),
+]
+```
+
+---
+
+### Rule 3: Vocabulary Underline Image Isolation (NEVER in Question Card)
 > [!IMPORTANT]
 > **Underline Dictionary Vocabulary images (`question.vocabulary[i].image`) belong ONLY inside the Vocabulary BottomSheet / Popup Modal.**
 - Under no circumstance should `vocabulary.image` ever be shown in the main Question Card or in the left 100px slot.
@@ -88,43 +124,43 @@ Row(
 
 ---
 
-### Rule 3: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)
+### Rule 4: 2-Way Real-time Cross-Platform Sync (Web & Mobile App)
 Both the Web PWA and Flutter Mobile App connect to the same central Laravel database. All user progress is keyed by the user's **Phone Number**.
 - **Saved MCQs**: If user saves an MCQ on Web -> it immediately shows in the Mobile App. If saved on App -> immediately shows on Web.
 - **Noted MCQs**: If user adds/edits a note on Web -> instantly synced to App. If edited on App -> instantly synced to Web.
-- **Test Results (Correct / Wrong MCQs)**: When a test is taken on Web or App, the backend records each answer to `user_mcq_results` and updates `correct_count` / `wrong_count`. Both Web and App display the same error review list (`/api/v1/wrong-mcqs`) and correct list (`/api/v1/correct-mcqs`).
+- **Answer Statistics**: Whenever user answers an MCQ in practice or test, calling `POST /api/v1/user-mcq-results/log` updates `correct_count` and `wrong_count`. These are automatically returned in all page/chapter MCQ endpoints.
 - **Sync Header**: Always pass `X-Client-Phone: <phone>` with all requests.
 
 ---
 
-### Rule 4: QR Code Scan & Active License Security Verification
+### Rule 5: QR Code Scan & Active License Security Verification
 - **Flow**:
-  1. Student enters First Name, Last Name, and Phone Number.
-  2. Admin assigns a license key and activates the customer (`is_active = 1`).
-  3. When student opens Web PWA, a dynamic QR code is displayed on the screen.
-  4. Student opens Flutter Mobile App, taps "Scan Web QR", and scans the QR code.
-  5. App sends `POST /api/v1/qr-verification/verify` with `{ qr_data, phone, first_name, last_name }`.
-  6. **Security Validation**:
-     - If the user's account has an **active license (`is_active == 1`)**: Backend returns `200 OK` and unlocks the Web browser session in real-time.
-     - If the user's account is **inactive (`is_active == 0`) or no license**: Backend returns `403 Forbidden` (`License inactive`). The website **WILL NOT UNLOCK**.
+  1. Student registers or logs in with their Phone Number.
+  2. When student opens Web PWA, a dynamic QR code is displayed on the screen.
+  3. Student opens Flutter Mobile App, taps "Scan Web QR", and scans the QR code.
+  4. App sends `POST /api/v1/qr-verification/verify` with `{ qr_data, phone, first_name, last_name }`.
+  5. **Security Validation**:
+     - If the user has an **active license (`is_active == 1`)**: Backend returns `200 OK` and unlocks the Web browser session in real-time.
+     - If the user is **inactive (`is_active == 0`)**: Backend returns `403 Forbidden` (`License inactive`). The website **WILL NOT UNLOCK**.
 
 ---
 
-### Rule 5: Quiz Progression & Scheda Esame 30-Question Limit
-- **Official Scheda Esame (Practice Exam)**:
-  - Consists of **exactly 30 questions** randomly picked across all official ministerial chapters.
-  - The exam progresses sequentially through questions 1 to 30.
-  - Upon completing question 30 (or clicking "Concludi Esame"), the app calculates results and presents the **Risultato** summary screen (Passed: `<= 3 errors`, Failed: `>= 4 errors`).
-- **Topic / Cartelli / Custom Quiz**:
-  - If a topic or cartello has $N$ questions (e.g. 2 questions, 5 questions, 10 questions), the quiz MUST iterate through all $N$ questions ($1, 2, \dots, N$).
-  - It **MUST NOT** exit or show the result modal prematurely after just 1 question.
+### Rule 6: Quiz Progression & Non-Premature Termination
+- **Official Scheda Esame**:
+  - Consists of **exactly 30 questions** randomly selected across chapters.
+  - Progresses sequentially through questions 1 to 30.
+  - Submits upon completing question 30 or clicking "Concludi Esame".
+- **Topic / Custom Practice Quiz**:
+  - If a topic or custom selection has $N$ questions (e.g. 2 questions or 30 questions), the quiz MUST present all $N$ questions.
+  - It **MUST NOT** exit or trigger result submission prematurely after 1 question.
+  - When clicking Back (`<`) during a test, the app prompts for confirmation rather than auto-submitting incomplete answers.
 
 ---
 
 ## 2. Authentication, Registration & License Management
 
 ### 2.1 Customer Registration & License Activation Request
-- **Endpoint:** `POST /api/v1/app-clients/register`
+- **Endpoint:** `POST /api/v1/support/register`
 - **Request Body:**
 ```json
 {
@@ -132,7 +168,7 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
   "last_name": "Islam",
   "phone": "+393510000000",
   "device_id": "device-uuid-123456",
-  "activation_key": "MB-2026-ABCD-1234" // Optional
+  "activation_key": "MB-2026-ABCD-1234"
 }
 ```
 - **Response (`200 OK`):**
@@ -153,7 +189,7 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 ```
 
 ### 2.2 Check Client License Status
-- **Endpoint:** `GET /api/v1/app-clients/status`
+- **Endpoint:** `GET /api/v1/client/status`
 - **Query Params:** `phone=+393510000000`
 - **Response (`200 OK`):**
 ```json
@@ -216,88 +252,131 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 
 ## 4. Chapters, Topics & Pagina Content APIs
 
-### 4.1 Get All Chapters List
+### 4.1 Get All Chapters with Progress Counts
 - **Endpoint:** `GET /api/v1/chapters`
-- **Response (`200 OK`):** Returns all 25 official Patente B chapters.
-
-### 4.2 Get Chapter Details with Pages & MCQs
-- **Endpoint:** `GET /api/v1/chapters/{id}`
-- **Query Params:** `with_mcqs=true`
-
----
-
-## 5. MCQs & Cartelli (Road Signs) APIs
-
-### 5.1 Get MCQ Questions by Page / Topic
-- **Endpoint:** `GET /api/v1/mcqs`
-- **Query Params:** `page_id=4`, `limit=30`
-- **Response Schema:**
+- **Headers:** `X-Client-Phone: +393510000000`
+- **Response (`200 OK`):**
 ```json
 {
-  "success": true,
+  "status": "success",
   "data": [
     {
-      "id": 1052,
-      "chapter_id": 1,
-      "page_id": 4,
-      "italian": "La strada può essere suddivisa in carreggiate",
-      "bangla": "রাস্তা একাধিক ক্যারেজওয়েতে বিভক্ত হতে পারে",
-      "is_vero": 1,
-      "image": "https://mbanglapatenteb.com/uploads/mcqs/images/img_1052.webp", // CAN BE NULL!
-      "image_position": "left",
-      "audio": "https://mbanglapatenteb.com/uploads/mcqs/audio/audio_1052.mp3",
-      "explanation_it": "...",
-      "explanation_bn": "...",
-      "vocabulary": [
-        {
-          "word": "suddivisa",
-          "bangla": "বিভক্ত",
-          "image": "https://mbanglapatenteb.com/uploads/vocab/suddivisa.webp" // ONLY FOR VOCABULARY POPUP!
-        }
-      ]
+      "id": 1,
+      "chapter_number": 1,
+      "name": "DOVERI NELL'USO DELLA STRADA",
+      "bn_name": "রাস্তা ব্যবহারের নিয়মাবলী",
+      "questions_count": 120,
+      "corrette": 45,
+      "errori": 5,
+      "non_risposte": 70,
+      "pages_count": 12
     }
   ]
 }
 ```
 
-### 5.2 Cartelli (Road Signs) Master List
-- **Endpoint:** `GET /api/v1/cartelli`
-- **Response:** Returns categories, road sign figures, and associated quiz questions.
+### 4.2 Get Pages for a Chapter
+- **Endpoint:** `GET /api/v1/chapters/{chapter_id}/pages`
+- **Headers:** `X-Client-Phone: +393510000000`
+- **Response (`200 OK`):** Returns all pages within the chapter with question and error progress counts.
+
+---
+
+## 5. MCQs & Cartelli (Road Signs) APIs with User Progress
+
+### 5.1 Get Page Details & MCQs (with Answer History & Stats)
+- **Endpoint:** `GET /api/v1/pages/{page_id}`
+- **Headers:** `X-Client-Phone: +393510000000`
+- **Response (`200 OK`):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 1,
+    "chapter_id": 1,
+    "title": "Definizioni stradali: la strada",
+    "bn_title": "রাস্তার সংজ্ঞা ও পরিচিতি",
+    "questions": [
+      {
+        "id": 2,
+        "chapter": 1,
+        "page_id": 1,
+        "sort_order": 2,
+        "italian": "La strada può comprendere le piste ciclabili",
+        "bangla": "রাস্তায় সাইকেল লেন অন্তর্ভুক্ত থাকতে পারে",
+        "is_vero": true,
+        "image": null,
+        "image_position": "left",
+        "audio": "/uploads/audio/q2.mp3",
+        "video": null,
+        "vocabulary": [
+          { "word": "strada", "bangla": "রাস্তা", "image": null },
+          { "word": "piste ciclabili", "bangla": "সাইকেল লেন", "image": "/uploads/vocab/pista.webp" }
+        ],
+        "user_answer": "F",
+        "is_correct": false,
+        "correct_count": 0,
+        "wrong_count": 1,
+        "has_answered": true,
+        "is_saved": false,
+        "user_note": null
+      },
+      {
+        "id": 3,
+        "chapter": 1,
+        "page_id": 1,
+        "sort_order": 3,
+        "italian": "La strada può essere a senso unico di circolazione",
+        "bangla": "রাস্তা একমুখী চলাচলের হতে পারে",
+        "is_vero": true,
+        "image": null,
+        "image_position": "left",
+        "audio": "/uploads/audio/q3.mp3",
+        "video": null,
+        "vocabulary": [],
+        "user_answer": null,
+        "is_correct": null,
+        "correct_count": 0,
+        "wrong_count": 0,
+        "has_answered": false,
+        "is_saved": false,
+        "user_note": null
+      }
+    ]
+  }
+}
+```
+
+### 5.2 Get Cartelli (Road Signs) Page MCQs
+- **Endpoint:** `GET /api/v1/cartelli/page-mcqs/{pageId}`
+- **Headers:** `X-Client-Phone: +393510000000`
+- **Response (`200 OK`):** Returns road sign MCQs with `correct_count`, `wrong_count`, `has_answered`, `user_answer`, `is_saved`, `user_note`.
+
+### 5.3 Get Cartelli Chapter MCQs
+- **Endpoint:** `GET /api/v1/cartelli/chapter-mcqs/{chapterId}`
+- **Headers:** `X-Client-Phone: +393510000000`
 
 ---
 
 ## 6. Practice Quiz & Official Scheda Esame APIs
 
 ### 6.1 Generate Official Scheda Esame (30 Questions)
-- **Endpoint:** `GET /api/v1/exam/generate-scheda`
-- **Response (`200 OK`):**
-```json
-{
-  "success": true,
-  "total_questions": 30,
-  "duration_minutes": 20,
-  "max_allowed_errors": 3,
-  "data": [
-    /* Exact array of 30 randomized official question objects */
-  ]
-}
-```
+- **Endpoint:** `GET /api/v1/quiz/exam` or `GET /api/v1/scheda-esame/generate`
+- **Response (`200 OK`):** Returns 30 randomized official ministerial questions.
 
-### 6.2 Submit Exam / Quiz Results
-- **Endpoint:** `POST /api/v1/user-mcq-results`
+### 6.2 Submit Exam Simulation Result
+- **Endpoint:** `POST /api/v1/scheda-esame/submit`
 - **Request Body:**
 ```json
 {
-  "phone": "+393510000000",
-  "quiz_type": "scheda_esame",
   "total_questions": 30,
   "correct_count": 28,
   "wrong_count": 2,
-  "blank_count": 0,
+  "unanswered_count": 0,
   "is_passed": true,
   "answers": [
-    { "mcq_id": 1052, "selected_answer": "vero", "is_correct": true },
-    { "mcq_id": 1053, "selected_answer": "falso", "is_correct": false }
+    { "question_id": 2, "user_answer": "V", "is_correct": true },
+    { "question_id": 3, "user_answer": "F", "is_correct": false }
   ]
 }
 ```
@@ -308,22 +387,17 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 
 ### 7.1 Get User's Saved MCQs
 - **Endpoint:** `GET /api/v1/saved-mcqs`
-- **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
 
-### 7.2 Save / Bookmark an MCQ
-- **Endpoint:** `POST /api/v1/saved-mcqs`
+### 7.2 Toggle Save/Bookmark an MCQ
+- **Endpoint:** `POST /api/v1/saved-mcqs/toggle`
 - **Request Body:**
 ```json
 {
-  "phone": "+393510000000",
-  "mcq_id": 1052
+  "question_id": 2,
+  "type": "argomenti"
 }
 ```
-
-### 7.3 Remove MCQ from Saved
-- **Endpoint:** `DELETE /api/v1/saved-mcqs/{mcq_id}`
-- **Query Params:** `phone=+393510000000`
 
 ---
 
@@ -331,7 +405,6 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 
 ### 8.1 Get User's Noted MCQs
 - **Endpoint:** `GET /api/v1/noted-mcqs`
-- **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
 
 ### 8.2 Save or Update Note
@@ -339,53 +412,84 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 - **Request Body:**
 ```json
 {
-  "phone": "+393510000000",
-  "mcq_id": 1052,
-  "note_text": "মনে রাখতে হবে: ক্যারেজওয়ে একাধিক হতে পারে কিন্তু রাস্তা এক বা একাধিক হতে পারে।"
+  "question_id": 2,
+  "page_id": 1,
+  "type": "argomenti",
+  "note_text": "রাস্তায় সাইকেল লেন থাকতে পারে।"
 }
 ```
 
 ### 8.3 Delete Note
-- **Endpoint:** `DELETE /api/v1/noted-mcqs/{mcq_id}`
-- **Query Params:** `phone=+393510000000`
+- **Endpoint:** `DELETE /api/v1/noted-mcqs/{id}`
 
 ---
 
 ## 9. Wrong MCQs (Sbagliate) & Correct MCQs (Giuste) APIs
 
-### 9.1 Get Wrong MCQs (Scheda Errori)
+### 9.1 Get Wrong Answered MCQs
 - **Endpoint:** `GET /api/v1/wrong-mcqs`
-- **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
+- **Query Params:** `chapter_id=1`, `page_id=1`, `search=strada`
 
-### 9.2 Get Correct MCQs
+### 9.2 Get Correct Answered MCQs
 - **Endpoint:** `GET /api/v1/correct-mcqs`
-- **Query Params:** `phone=+393510000000`
 - **Headers:** `X-Client-Phone: +393510000000`
+- **Query Params:** `chapter_id=1`, `page_id=1`, `search=strada`
 
-### 9.3 Reset Wrong MCQs
-- **Endpoint:** `POST /api/v1/wrong-mcqs/reset`
-- **Request Body:**
+---
+
+## 10. MCQ Answer Result Logging API (Real-time Sync)
+
+### 10.1 Log Single or Multiple MCQ Answers
+- **Endpoint:** `POST /api/v1/user-mcq-results/log`
+- **Headers:** `X-Client-Phone: +393510000000`
+- **Request Body (Single MCQ or Batch Array):**
 ```json
 {
-  "phone": "+393510000000",
-  "mcq_ids": [1052, 1053]
+  "results": [
+    {
+      "question_id": 2,
+      "type": "argomenti",
+      "user_answer": "F",
+      "is_correct": false
+    }
+  ]
+}
+```
+- **Response (`200 OK`):**
+```json
+{
+  "status": "success",
+  "success": true,
+  "count": 1,
+  "logged": [
+    {
+      "question_id": 2,
+      "correct_count": 0,
+      "wrong_count": 1,
+      "is_correct": 0,
+      "user_answer": "F"
+    }
+  ]
 }
 ```
 
 ---
 
-## 10. Flutter Dart Production-Ready Code Examples
+## 11. Flutter Dart Production-Ready Models & UI Widget
 
+### 11.1 MCQ Model (`mcq_question.dart`)
 ```dart
-import 'package:flutter/material.dart';
-
 class VocabularyItem {
   final String word;
   final String bangla;
   final String? image;
 
-  VocabularyItem({required this.word, required this.bangla, this.image});
+  VocabularyItem({
+    required this.word,
+    required this.bangla,
+    this.image,
+  });
 
   factory VocabularyItem.fromJson(Map<String, dynamic> json) {
     return VocabularyItem(
@@ -398,39 +502,73 @@ class VocabularyItem {
 
 class McqQuestion {
   final int id;
+  final int? chapterId;
+  final int? pageId;
   final String italian;
   final String? bangla;
   final bool isVero;
-  final String? image; // Question official image (can be null!)
+  final String? image;
   final String? audio;
   final List<VocabularyItem> vocabulary;
+  
+  // User historical statistics
+  final String? userAnswer;
+  final bool? isCorrect;
+  final int correctCount;
+  final int wrongCount;
+  final bool hasAnswered;
+  final bool isSaved;
+  final String? userNote;
 
   McqQuestion({
     required this.id,
+    this.chapterId,
+    this.pageId,
     required this.italian,
     this.bangla,
     required this.isVero,
     this.image,
     this.audio,
     required this.vocabulary,
+    this.userAnswer,
+    this.isCorrect,
+    this.correctCount = 0,
+    this.wrongCount = 0,
+    this.hasAnswered = false,
+    this.isSaved = false,
+    this.userNote,
   });
 
   factory McqQuestion.fromJson(Map<String, dynamic> json) {
     return McqQuestion(
-      id: json['id'],
-      italian: json['italian'] ?? '',
-      bangla: json['bangla'],
-      isVero: json['is_vero'] == 1 || json['is_vero'] == true,
+      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
+      chapterId: json['chapter_id'] ?? json['chapter'],
+      pageId: json['page_id'],
+      italian: json['italian'] ?? json['question'] ?? '',
+      bangla: json['bangla'] ?? json['bn_question'],
+      isVero: json['is_vero'] == 1 || json['is_vero'] == true || json['correct_answer'] == 'vero' || json['correct_answer'] == '1',
       image: (json['image'] != null && json['image'].toString().isNotEmpty)
-          ? json['image']
+          ? json['image'].toString()
           : null,
-      audio: json['audio'],
+      audio: json['audio'] ?? json['voice'],
       vocabulary: (json['vocabulary'] as List? ?? [])
           .map((v) => VocabularyItem.fromJson(v))
           .toList(),
+      userAnswer: json['user_answer']?.toString(),
+      isCorrect: json['is_correct'] == null ? null : (json['is_correct'] == 1 || json['is_correct'] == true),
+      correctCount: json['correct_count'] is int ? json['correct_count'] : (int.tryParse(json['correct_count']?.toString() ?? '0') ?? 0),
+      wrongCount: json['wrong_count'] is int ? json['wrong_count'] : (int.tryParse(json['wrong_count']?.toString() ?? '0') ?? 0),
+      hasAnswered: json['has_answered'] == true || json['has_answered'] == 1,
+      isSaved: json['is_saved'] == true || json['is_saved'] == 1,
+      userNote: json['user_note']?.toString(),
     );
   }
 }
+```
+
+### 11.2 MCQ Card Widget with Fixed 100px Left Slot & Stats Capsule
+```dart
+import 'package:flutter/material.dart';
 
 class McqCardWidget extends StatelessWidget {
   final McqQuestion question;
@@ -448,49 +586,10 @@ class McqCardWidget extends StatelessWidget {
     this.onOpenNote,
   }) : super(key: key);
 
-  void _showVocabularyModal(BuildContext context, VocabularyItem vocab) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                vocab.word,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                vocab.bangla,
-                style: const TextStyle(fontSize: 18, color: Colors.black87),
-              ),
-              if (vocab.image != null && vocab.image!.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    vocab.image!,
-                    maxHeight: 120,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasImage = question.image != null && question.image!.trim().isNotEmpty;
+    final showStats = question.hasAnswered || (question.correctCount > 0 || question.wrongCount > 0);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -501,8 +600,9 @@ class McqCardWidget extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar: Question Number + Action Eye
+            // Row 1: Question Index & 'V' / 'F' Official Indicator
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -510,15 +610,23 @@ class McqCardWidget extends StatelessWidget {
                   '${index + 1}',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                Text(
+                  question.isVero ? 'V' : 'F',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: question.isVero ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // Question Content Row (Fixed 100px Left Image Area)
+            // Row 2: Question Content (Fixed 100px Left Slot)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. FIXED 100px LEFT SLOT: Renders image if present, otherwise remains BLANK/EMPTY!
+                // 1. FIXED 100px LEFT SLOT: Always exists, contains image if available, else blank SizedBox
                 Container(
                   width: 100,
                   height: 100,
@@ -538,7 +646,7 @@ class McqCardWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // 2. Question Text on Right (Never invades left 100px area)
+                // 2. Question Text on Right Column
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -567,29 +675,72 @@ class McqCardWidget extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // Action Toolbar
+            // Row 3: Action Toolbar (TTS Audio, Bookmark, Note)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.mic, color: Colors.green),
+                  icon: const Icon(Icons.volume_up, color: Colors.blue),
                   onPressed: onPlayAudio,
                   tooltip: 'Italian TTS',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.bookmark_border, color: Colors.orange),
+                  icon: Icon(
+                    question.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    color: question.isSaved ? Colors.green : Colors.grey,
+                  ),
                   onPressed: onToggleSave,
                   tooltip: 'Save MCQ',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.edit_note, color: Colors.blue),
+                  icon: Icon(
+                    question.userNote != null && question.userNote!.isNotEmpty ? Icons.note : Icons.note_add_outlined,
+                    color: question.userNote != null ? Colors.amber.shade800 : Colors.grey,
+                  ),
                   onPressed: onOpenNote,
-                  tooltip: 'Add Note',
+                  tooltip: 'Note',
                 ),
               ],
             ),
+
+            // Row 4: (TU) Hai risposto Capsule (Render ONLY when answered, otherwise keep BLANK)
+            if (showStats) ...[
+              const Divider(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      '(TU) Hai risposto:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Giusto ${question.correctCount} volte',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                        ),
+                        const SizedBox(width: 20),
+                        Text(
+                          'Sbagliato ${question.wrongCount} volte',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

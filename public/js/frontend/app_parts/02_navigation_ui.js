@@ -1101,7 +1101,14 @@ function navigateBack() {
         return;
     }
     if (activeScreen === 'test') {
-        submitTestExam();
+        if (confirm("আপনি কি টেস্ট পরীক্ষা বাতিল করে ফিরে যেতে চান?")) {
+            if (typeof testTimerInterval !== 'undefined') clearInterval(testTimerInterval);
+            if (typeof audioProgressInterval !== 'undefined') clearInterval(audioProgressInterval);
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            testQuestions = [];
+            screenHistory.pop();
+            openScreen('home', 'mbanglapatenteb');
+        }
         return;
     }
 
