@@ -37,9 +37,83 @@
 - ডাটাবেজে ১,০০০ বা ১০,০০০ প্রশ্ন থাকলেও, টেস্ট/এক্সাম মোডে (`GET /api/v1/scheda-esame/generate`) সার্ভার **সর্বোচ্চ ৩০টি প্রশ্ন** রিটার্ন করবে।
 - ৩০টি প্রশ্নের উত্তর সাবমিট করার পর স্বয়ংক্রিয়ভাবে ব্যবহারকারীকে **Result Screen** (Promosso / Bocciato)-এ নিয়ে যাবে।
 
+### 4. 🔤 Vocabulary Modal Image Rule (আন্ডারলাইনে ছবি না দিলে কখনোই অন্য আন্ডারলাইন বা আগের ছবি দেখাবে না - No Image Fallback/Leakage):
+- **সঠিক নিয়ম**: ব্যবহারকারী যে আন্ডারলাইন করা শব্দে ট্যাপ করবে, **শুধুমাত্র সেই নির্দিষ্ট শব্দের জন্য যদি অ্যাডমিন থেকে ছবি আপলোড করা থাকে (`matchingVocab.image != null`)**, তাহলেই মডালে ছবি প্রদর্শিত হবে।
+- **ছবি না থাকলে সম্পূর্ণ ফাঁকা (`SizedBox.shrink()`):** যদি ঐ নির্দিষ্ট আন্ডারলাইন শব্দের কোনো ছবি অ্যাডমিন থেকে দেওয়া না হয়ে থাকে, তবে মডালে কোনো ছবি আসবে না।
+- **🚫 কোনো অবস্থাতেই নিচের ভুলগুলো করা যাবে না:**
+  1. ১ম আন্ডারলাইনের ছবি ২য় আন্ডারলাইনে দেখানো যাবে না (`vocabulary[0].image` ফলব্যাক নিষিদ্ধ)।
+  2. মডালের আগের স্টেট ক্লিয়ার না করে পুরনো ইমেজ রিইউজ করা যাবে না।
+  3. অফিশিয়াল প্রশ্নের ছবি (`question.image`) ভোকাবুলারি মডালে দেওয়া যাবে না।
+
 ---
 
-### 💻 Flutter Code Implementation for MCQ Card:
+### 💻 Flutter Code Implementation for Underline Tap & Vocabulary Sheet (No Image Leak):
+```dart
+void openVocabularyBottomSheet(BuildContext context, String tappedWord, List<dynamic> vocabularyList) {
+  // 1. Find the exact matching vocabulary item for the tapped word
+  final cleanTapped = tappedWord.trim().toLowerCase();
+  dynamic matchedItem;
+  
+  for (var item in vocabularyList) {
+    final itWord = (item['italian'] ?? item['word'] ?? '').toString().trim().toLowerCase();
+    if (itWord == cleanTapped) {
+      matchedItem = item;
+      break;
+    }
+  }
+
+  // 2. Extract ONLY this word's specific image (NEVER fallback to vocabulary[0] or question.image)
+  String? vocabImage;
+  if (matchedItem != null && matchedItem['image'] != null) {
+    final rawImg = matchedItem['image'].toString().trim();
+    if (rawImg.isNotEmpty && !rawImg.contains('/data/user/') && !rawImg.contains('scaled_IMG')) {
+      vocabImage = rawImg;
+    }
+  }
+
+  final banglaMeaning = matchedItem != null ? (matchedItem['bangla'] ?? matchedItem['meaning'] ?? '') : '';
+
+  // 3. Display BottomSheet Modal
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (ctx) => Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Word & Meaning
+          Text(tappedWord, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          if (banglaMeaning.toString().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(banglaMeaning.toString(), style: const TextStyle(fontSize: 16, color: Color(0xFF10B981), fontWeight: FontWeight.w600)),
+          ],
+
+          // 🖼️ Vocabulary Image: ONLY shown if THIS word has an image, otherwise completely empty!
+          if (vocabImage != null) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                vocabImage,
+                maxHeight: 180,
+                fit: BoxFit.contain,
+                errorBuilder: (c, e, s) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+        ],
+      ),
+    ),
+  );
+}
+```
 ```dart
 Widget buildMcqCard({
   required BuildContext context,
