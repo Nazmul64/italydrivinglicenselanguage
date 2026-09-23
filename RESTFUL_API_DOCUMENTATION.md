@@ -160,6 +160,18 @@ Both the Web PWA and Flutter Mobile App connect to the same central Laravel data
 
 ---
 
+### Rule 7: Note Text Isolation (NEVER Render Note Banner on Main MCQ Card)
+> [!CRITICAL]
+> **Do NOT render any inline yellow banner / note text box (e.g. `📝 code`) directly inside or above the MCQ card.**
+- **The Main MCQ Card MUST Remain Clean**: The note text belongs strictly inside the **Note Popup Dialog / Modal** and in the dedicated **Noted MCQs** screen (`/api/v1/noted-mcqs`).
+- **Visual Feedback on Card**:
+  - If the question has a note (`question.userNote != null && question.userNote!.isNotEmpty`):
+    - Highlight the **Note icon button** (e.g., `color: Colors.amber.shade800` / filled `Icons.note` icon).
+  - Tapping the Note icon button opens the `showNoteDialog(context, question)` modal to view, edit, or delete the note.
+  - **No inline note box should ever appear between the question text and action buttons on the card.**
+
+---
+
 ## 2. Authentication, Registration & License Management
 
 ### 2.1 Customer Registration & License Activation Request
@@ -750,4 +762,61 @@ class McqCardWidget extends StatelessWidget {
     );
   }
 }
+
+/// 11.3 Clean Note Dialog (Opens on Note icon click - NOT rendered inside the card)
+void showNoteDialog(BuildContext context, McqQuestion question, Function(String newNote) onSaveNote, VoidCallback onDeleteNote) {
+  final controller = TextEditingController(text: question.userNote ?? '');
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: const [
+          Icon(Icons.edit_note, color: Colors.amber),
+          SizedBox(width: 8),
+          Text('MCQ Note', style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: TextField(
+        controller: controller,
+        maxLines: 4,
+        decoration: InputDecoration(
+          hintText: 'এখানে আপনার ব্যক্তিগত নোট লিখুন...',
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+        ),
+      ),
+      actions: [
+        if (question.userNote != null && question.userNote!.isNotEmpty)
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onDeleteNote();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF16A34A),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: () {
+            final text = controller.text.trim();
+            Navigator.pop(ctx);
+            onSaveNote(text);
+          },
+          child: const Text('Save Note'),
+        ),
+      ],
+    ),
+  );
+}
 ```
+
