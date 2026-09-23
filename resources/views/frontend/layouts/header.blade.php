@@ -277,6 +277,24 @@
         .chapter-image-card h3,
         .chapter-image-card .card-title,
         .chapter-card-header h3,
+        .chapter-card-title,
+        .section-title,
+        .schede-page-title,
+        .chapter-selector-trigger,
+        .screen-title,
+        .nav-title,
+        .content-title,
+        #cartelli-schede-chapter-label,
+        #cartelli-page-chapter-label,
+        #argomenti-schede-chapter-label,
+        #argomenti-page-chapter-label,
+        #cartelli-page-label,
+        #argomenti-page-label,
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text-primary, #334155) !important;
+            font-weight: 600 !important;
+        }
+
         #screen-cartelli-schede .chapter-selector-trigger,
         #screen-cartelli-schede #cartelli-schede-chapter-label,
         #screen-cartelli-page #cartelli-page-chapter-label,

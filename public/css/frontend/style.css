@@ -775,7 +775,7 @@ body.dark-mode .illustration-box.illustration-box-lottie {
 
 .section-title {
     font-size: 20px;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--text-primary);
 }
 
@@ -2329,7 +2329,7 @@ body.dark-mode .detail-speed-popover-menu {
     border-radius: 12px;
     padding: 12px 16px;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--text-primary);
     display: flex;
     align-items: center;
@@ -2544,7 +2544,7 @@ body.dark-mode .detail-q-card.selected-q-card {
 
 .chapter-card-title {
     font-size: 18px;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--text-primary);
     line-height: 1.4;
 }
@@ -2553,7 +2553,7 @@ body.dark-mode .detail-q-card.selected-q-card {
     display: flex;
     justify-content: space-between;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-secondary);
     margin-top: 4px;
 }
@@ -2582,7 +2582,7 @@ body.dark-mode .detail-q-card.selected-q-card {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 600;
     font-size: 13px;
     color: var(--text-primary);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
