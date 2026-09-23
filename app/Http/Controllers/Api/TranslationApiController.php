@@ -204,20 +204,10 @@ class TranslationApiController extends Controller
      */
     protected function fetchOnlineTranslation($text, $fromLang, $toLang)
     {
-        $headers = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n";
-
-        // 1. Google Translate Dict Chrome Extension API (very reliable and fast)
+        // 1. Google Translate Dict Chrome Extension API
         try {
             $gtDictUrl = "https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl={$fromLang}&tl={$toLang}&q=" . urlencode($text);
-            $ctx = stream_context_create([
-                'http' => [
-                    'timeout' => 3.0,
-                    'ignore_errors' => true,
-                    'header' => $headers
-                ],
-                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
-            ]);
-            $resp = @file_get_contents($gtDictUrl, false, $ctx);
+            $resp = $this->httpGet($gtDictUrl);
             if ($resp) {
                 $arr = json_decode($resp, true);
                 if (is_array($arr) && isset($arr[0]) && is_string($arr[0]) && !empty(trim($arr[0]))) {
@@ -228,45 +218,10 @@ class TranslationApiController extends Controller
             // Skip to next provider
         }
 
-        // 2. MyMemory Free Translation API
-        try {
-            $pair = "{$fromLang}|{$toLang}";
-            $mmUrl = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . urlencode($pair);
-            $ctx = stream_context_create([
-                'http' => [
-                    'timeout' => 3.5,
-                    'ignore_errors' => true,
-                    'header' => $headers
-                ],
-                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
-            ]);
-            $resp = @file_get_contents($mmUrl, false, $ctx);
-            if ($resp) {
-                $json = json_decode($resp, true);
-                if (isset($json['responseData']['translatedText']) && !empty($json['responseData']['translatedText'])) {
-                    $clean = trim($json['responseData']['translatedText']);
-                    // Exclude error responses from MyMemory
-                    if (!str_contains($clean, 'MYMEMORY WARNING:') && !str_contains($clean, 'QUERY LENGTH LIMIT EXCEEDED')) {
-                        return $clean;
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Skip to next provider
-        }
-
-        // 3. Fallback to Google Translate Single GTX Endpoint
+        // 2. Google Translate Single GTX Endpoint
         try {
             $gtUrl = "https://translate.googleapis.com/translate_a/single?client=gtx&sl={$fromLang}&tl={$toLang}&dt=t&q=" . urlencode($text);
-            $ctx = stream_context_create([
-                'http' => [
-                    'timeout' => 3.0,
-                    'ignore_errors' => true,
-                    'header' => $headers
-                ],
-                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
-            ]);
-            $resp = @file_get_contents($gtUrl, false, $ctx);
+            $resp = $this->httpGet($gtUrl);
             if ($resp) {
                 $arr = json_decode($resp, true);
                 if (isset($arr[0]) && is_array($arr[0])) {
@@ -283,6 +238,119 @@ class TranslationApiController extends Controller
             }
         } catch (\Throwable $e) {
             // Ignore
+        }
+
+        // 3. Google Translate Web Mobile Interface
+        try {
+            $gtWebUrl = "https://translate.google.com/m?sl={$fromLang}&tl={$toLang}&q=" . urlencode($text);
+            $resp = $this->httpGet($gtWebUrl);
+            if ($resp && preg_match('/<div class="result-container">(.*?)<\/div>/is', $resp, $matches)) {
+                $parsed = html_entity_decode(strip_tags($matches[1]), ENT_QUOTES, 'UTF-8');
+                if (!empty(trim($parsed))) {
+                    return trim($parsed);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore
+        }
+
+        // 4. MyMemory Free Translation API
+        try {
+            $pair = "{$fromLang}|{$toLang}";
+            $mmUrl = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair=" . urlencode($pair);
+            $resp = $this->httpGet($mmUrl);
+            if ($resp) {
+                $json = json_decode($resp, true);
+                if (isset($json['responseData']['translatedText']) && !empty($json['responseData']['translatedText'])) {
+                    $clean = trim($json['responseData']['translatedText']);
+                    if (!str_contains($clean, 'MYMEMORY WARNING:') && !str_contains($clean, 'QUERY LENGTH LIMIT EXCEEDED')) {
+                        return $clean;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Skip to next provider
+        }
+
+        // 5. Lingva public API fallback
+        try {
+            $lingvaUrl = "https://lingva.ml/api/v1/{$fromLang}/{$toLang}/" . urlencode($text);
+            $resp = $this->httpGet($lingvaUrl);
+            if ($resp) {
+                $json = json_decode($resp, true);
+                if (isset($json['translation']) && !empty(trim($json['translation']))) {
+                    return trim($json['translation']);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore
+        }
+
+        return null;
+    }
+
+    /**
+     * Resilient HTTP GET that works across any hosting environment (cURL -> Guzzle/Laravel Http -> file_get_contents).
+     */
+    protected function httpGet($url)
+    {
+        $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+        // 1. Try cURL (Best and standard for production/live servers)
+        if (function_exists('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json, text/plain, */*',
+                'Accept-Language: en-US,en;q=0.9,it;q=0.8,bn;q=0.7'
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($response !== false && $httpCode >= 200 && $httpCode < 400) {
+                return $response;
+            }
+        }
+
+        // 2. Try Laravel Http facade
+        try {
+            $resp = \Illuminate\Support\Facades\Http::withoutVerifying()
+                ->withUserAgent($userAgent)
+                ->timeout(4)
+                ->get($url);
+            if ($resp->successful()) {
+                return $resp->body();
+            }
+        } catch (\Throwable $e) {
+            // Ignore
+        }
+
+        // 3. Try file_get_contents
+        if (ini_get('allow_url_fopen')) {
+            try {
+                $ctx = stream_context_create([
+                    'http' => [
+                        'timeout' => 3.5,
+                        'ignore_errors' => true,
+                        'header' => "User-Agent: {$userAgent}\r\n"
+                    ],
+                    'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+                ]);
+                $resp = @file_get_contents($url, false, $ctx);
+                if ($resp !== false) {
+                    return $resp;
+                }
+            } catch (\Throwable $e) {
+                // Ignore
+            }
         }
 
         return null;

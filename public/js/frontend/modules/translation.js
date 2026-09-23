@@ -90,11 +90,35 @@ function performTranslation() {
                 lastTargetLang = toLang;
                 if (resultTextEl) resultTextEl.innerText = translated;
             } else {
-                if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
+                fetchClientSideTranslation(text, fromLang, toLang, resultTextEl);
             }
         })
         .catch(err => {
-            console.error('Translation error:', err);
+            console.warn('Backend translation failed, falling back to direct browser translator:', err);
+            fetchClientSideTranslation(text, fromLang, toLang, resultTextEl);
+        });
+}
+
+function fetchClientSideTranslation(text, fromLang, toLang, resultTextEl) {
+    const directUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
+    fetch(directUrl)
+        .then(res => res.json())
+        .then(arr => {
+            if (arr && arr[0] && Array.isArray(arr[0])) {
+                let directResult = '';
+                arr[0].forEach(part => {
+                    if (part && part[0]) directResult += part[0];
+                });
+                if (directResult.trim()) {
+                    lastTranslatedText = directResult.trim();
+                    lastTargetLang = toLang;
+                    if (resultTextEl) resultTextEl.innerText = lastTranslatedText;
+                    return;
+                }
+            }
+            if (resultTextEl) resultTextEl.innerText = 'অনুবাদ পাওয়া যায়নি';
+        })
+        .catch(() => {
             if (resultTextEl) resultTextEl.innerText = 'অনুবাদ করতে সমস্যা হয়েছে';
         });
 }
