@@ -105,21 +105,25 @@ function syncUserQuestionStatsFromBackend() {
 
             const stats = {};
             items.forEach(item => {
-                const qId = item.question_id;
-                if (!qId) return;
+                const rawQId = item.question_id;
+                if (!rawQId) return;
+                const isCartelli = item.question_type === 'cartelli' || (typeof item.question_type === 'undefined' && (item.cartello_question || item.cartello_id));
+                const qId = isCartelli ? `cartelli_${rawQId}` : rawQId;
                 const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
+                const cCount = (typeof item.correct_count === 'number') ? item.correct_count : (isCorrect ? 1 : 0);
+                const wCount = (typeof item.wrong_count === 'number') ? item.wrong_count : (isCorrect ? 0 : 1);
 
                 if (!stats[qId]) {
                     stats[qId] = {
                         state: isCorrect ? 'correct' : 'wrong',
-                        correct: isCorrect ? 1 : 0,
-                        wrong: isCorrect ? 0 : 1,
+                        correct: cCount,
+                        wrong: wCount,
                         chapter: item.chapter_id || null,
                         updated_at: item.updated_at
                     };
                 } else {
-                    if (isCorrect) stats[qId].correct = (stats[qId].correct || 0) + 1;
-                    else stats[qId].wrong = (stats[qId].wrong || 0) + 1;
+                    stats[qId].correct = Math.max(stats[qId].correct || 0, cCount);
+                    stats[qId].wrong = Math.max(stats[qId].wrong || 0, wCount);
                     if (new Date(item.updated_at || 0) >= new Date(stats[qId].updated_at || 0)) {
                         stats[qId].state = isCorrect ? 'correct' : 'wrong';
                         stats[qId].updated_at = item.updated_at;
@@ -2416,7 +2420,7 @@ function selectTestAnswer(ans) {
     const isCorrect = (ans === databaseIsVero);
 
     if (isSfidaMode) {
-        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong', q.type || 'argomenti');
         const veroBtn = document.getElementById('test-vero-btn');
         const falsoBtn = document.getElementById('test-falso-btn');
 
@@ -2458,7 +2462,7 @@ function selectTestAnswer(ans) {
     }
 
     if (isImmediateCorrectionActive) {
-        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong');
+        saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong', q.type || 'argomenti');
         playAppSound(isCorrect);
 
         const veroBtn = document.getElementById('test-vero-btn');
@@ -2865,24 +2869,25 @@ function openTestDetailsView() {
         const q = testQuestions[i];
         const userAnswer = testAnswers[i];
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+        const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
 
         if (userAnswer === null) {
             unansweredAnswers++;
         } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
             if (q && q.id) {
-                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'correct' };
-                stats[q.id].correct = (stats[q.id].correct || 0) + 1;
-                stats[q.id].state = 'correct';
-                logBatchPayload.push({ question_id: q.id, is_correct: true });
+                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'correct' };
+                stats[statKey].correct = (stats[statKey].correct || 0) + 1;
+                stats[statKey].state = 'correct';
+                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: true });
             }
         } else {
             wrongAnswers++;
             if (q && q.id) {
-                if (!stats[q.id]) stats[q.id] = { correct: 0, wrong: 0, state: 'wrong' };
-                stats[q.id].wrong = (stats[q.id].wrong || 0) + 1;
-                stats[q.id].state = 'wrong';
-                logBatchPayload.push({ question_id: q.id, is_correct: false });
+                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'wrong' };
+                stats[statKey].wrong = (stats[statKey].wrong || 0) + 1;
+                stats[statKey].state = 'wrong';
+                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: false });
             }
         }
     }
@@ -4750,6 +4755,7 @@ function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'ar
         body: JSON.stringify({
             results: [{
                 question_id: qIdNum,
+                question_type: questionType,
                 user_answer: isCorrect ? 'correct' : 'wrong',
                 is_correct: isCorrect
             }]

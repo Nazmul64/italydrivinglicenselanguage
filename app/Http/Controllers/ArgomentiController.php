@@ -1148,7 +1148,13 @@ class ArgomentiController extends Controller
         foreach ($rawResults as $res) {
             if (!is_array($res)) continue;
 
-            $qIdNum = isset($res['question_id']) ? (int)$res['question_id'] : (isset($res['id']) ? (int)$res['id'] : null);
+            $rawQId = $res['question_id'] ?? ($res['id'] ?? null);
+            $qType = $res['question_type'] ?? ($res['type'] ?? 'argomenti');
+            if (is_string($rawQId) && str_starts_with($rawQId, 'cartelli_')) {
+                $qType = 'cartelli';
+            }
+
+            $qIdNum = (int)$rawQId;
             if (!$qIdNum) continue;
 
             $isCorrectRaw = $res['is_correct'] ?? ($res['isCorrect'] ?? ($res['correct'] ?? 0));
@@ -1159,21 +1165,11 @@ class ArgomentiController extends Controller
                 $userAns = $userAns ? 'V' : 'F';
             }
 
-            $question = Question::find($qIdNum);
             $pageId = null;
             $chapterId = null;
             $categoryId = null;
 
-            if ($question) {
-                $pageId = $question->page_id;
-                $chapterId = $question->chapter;
-                if ($chapterId) {
-                    $chapter = Chapter::find($chapterId);
-                    if ($chapter) {
-                        $categoryId = $chapter->category_id;
-                    }
-                }
-            } else {
+            if ($qType === 'cartelli') {
                 $cartelloQ = \App\Models\CartelloMcq::find($qIdNum);
                 if ($cartelloQ) {
                     $pageId = $cartelloQ->page_id;
@@ -1181,9 +1177,38 @@ class ArgomentiController extends Controller
                 } else {
                     continue;
                 }
+            } else {
+                $question = Question::find($qIdNum);
+                if ($question) {
+                    $pageId = $question->page_id;
+                    $chapterId = $question->chapter;
+                    if ($chapterId) {
+                        $chapter = Chapter::find($chapterId);
+                        if ($chapter) {
+                            $categoryId = $chapter->category_id;
+                        }
+                    }
+                } else {
+                    $cartelloQ = \App\Models\CartelloMcq::find($qIdNum);
+                    if ($cartelloQ) {
+                        $qType = 'cartelli';
+                        $pageId = $cartelloQ->page_id;
+                        $chapterId = $cartelloQ->page ? $cartelloQ->page->chapter_id : null;
+                    } else {
+                        continue;
+                    }
+                }
             }
 
             $query = UserMcqResult::where('question_id', $qIdNum);
+            if ($qType === 'cartelli') {
+                $query->where('question_type', 'cartelli');
+            } else {
+                $query->where(function($sq) {
+                    $sq->where('question_type', 'argomenti')->orWhereNull('question_type');
+                });
+            }
+
             if (!empty($userIds) || !empty($sessionIds)) {
                 $query->where(function($q) use ($userIds, $sessionIds) {
                     if (!empty($userIds)) {
@@ -1204,6 +1229,7 @@ class ArgomentiController extends Controller
                 'session_id' => $sessionId,
                 'user_id' => $userId,
                 'question_id' => $qIdNum,
+                'question_type' => $qType,
                 'user_answer' => $userAns,
                 'is_correct' => $isCorrect ? 1 : 0,
                 'category_id' => $categoryId,
@@ -1246,6 +1272,7 @@ class ArgomentiController extends Controller
         $sessionIds = $context['session_ids'];
 
         $isCorrect = $request->query('is_correct');
+        $questionType = $request->query('question_type');
         $categoryId = $request->query('category_id');
         $chapterId = $request->query('chapter_id') ?: $request->query('chapter');
         $pageId = $request->query('page_id') ?: $request->query('page');
@@ -1263,6 +1290,7 @@ class ArgomentiController extends Controller
                 }
             },
             'question.page.chapter.category',
+            'cartelloQuestion.page',
             'page',
             'chapter',
             'category'
@@ -1281,6 +1309,16 @@ class ArgomentiController extends Controller
                     }
                 }
             });
+        }
+
+        if ($questionType) {
+            if ($questionType === 'cartelli') {
+                $query->where('question_type', 'cartelli');
+            } else {
+                $query->where(function($sq) {
+                    $sq->where('question_type', 'argomenti')->orWhereNull('question_type');
+                });
+            }
         }
 
         if ($isCorrect !== null && $isCorrect !== '') {
@@ -1305,9 +1343,14 @@ class ArgomentiController extends Controller
         }
 
         if ($search) {
-            $query->whereHas('question', function ($q) use ($search) {
-                $q->where('italian', 'like', "%{$search}%")
-                  ->orWhere('bangla', 'like', "%{$search}%");
+            $query->where(function($sq) use ($search) {
+                $sq->whereHas('question', function ($q) use ($search) {
+                    $q->where('italian', 'like', "%{$search}%")
+                      ->orWhere('bangla', 'like', "%{$search}%");
+                })->orWhereHas('cartelloQuestion', function ($q) use ($search) {
+                    $q->where('question', 'like', "%{$search}%")
+                      ->orWhere('bn_question', 'like', "%{$search}%");
+                });
             });
         }
 

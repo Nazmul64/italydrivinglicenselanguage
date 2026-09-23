@@ -15,6 +15,7 @@ class UserMcqResult extends Model
         'session_id',
         'user_id',
         'question_id',
+        'question_type',
         'user_answer',
         'is_correct',
         'category_id',
@@ -27,6 +28,11 @@ class UserMcqResult extends Model
     public function question()
     {
         return $this->belongsTo(Question::class, 'question_id');
+    }
+
+    public function cartelloQuestion()
+    {
+        return $this->belongsTo(CartelloMcq::class, 'question_id');
     }
 
     public function page()

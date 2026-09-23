@@ -828,7 +828,9 @@ function loadCorrectMcqsList() {
                 `;
 
                 const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-                const record = userStatsMap[q.id] || {};
+                const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
+                const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
+                const record = userStatsMap[statKey] || {};
                 const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
                 const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
 
@@ -1131,9 +1133,11 @@ function loadWrongMcqsList() {
                 `;
 
                 const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-                const record = userStatsMap[q.id] || {};
+                const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
+                const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
+                const record = userStatsMap[statKey] || {};
                 const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
-                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 1);
+                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
                     const statsDiv = document.createElement('div');

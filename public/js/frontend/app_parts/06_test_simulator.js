@@ -1119,7 +1119,7 @@ function renderDetailResultsList() {
         const qThumbImage = cleanThumb || null;
 
         const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
-        const qStat = (typeof getUserQuestionStats === 'function') ? (getUserQuestionStats()[statKey] || getUserQuestionStats()[q.id]) : null;
+        const qStat = (typeof getUserQuestionStats === 'function') ? (getUserQuestionStats()[statKey] || null) : null;
 
         card.innerHTML = `
             <div style="font-size: var(--mcq-num-font-mob, 13px); font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">${i + 1}</div>

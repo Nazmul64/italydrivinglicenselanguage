@@ -136,7 +136,9 @@ function loadSavedMcqsScreen() {
                 `;
 
                 const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-                const record = userStatsMap[q.id] || {};
+                const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
+                const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
+                const record = userStatsMap[statKey] || {};
                 const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
                 const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
 
@@ -705,6 +707,7 @@ function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'ar
             session_id: userSessionId,
             results: [{
                 question_id: qIdNum,
+                question_type: questionType,
                 user_answer: isCorrect ? 'correct' : 'wrong',
                 is_correct: isCorrect
             }]

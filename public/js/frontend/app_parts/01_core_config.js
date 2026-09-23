@@ -181,8 +181,10 @@ function syncUserQuestionStatsFromBackend() {
 
             const stats = {};
             items.forEach(item => {
-                const qId = item.question_id;
-                if (!qId) return;
+                const rawQId = item.question_id;
+                if (!rawQId) return;
+                const isCartelli = item.question_type === 'cartelli' || (typeof item.question_type === 'undefined' && (item.cartello_question || item.cartello_id));
+                const qId = isCartelli ? `cartelli_${rawQId}` : rawQId;
                 const isCorrect = item.is_correct === 1 || item.is_correct === true || item.is_correct === '1';
                 const cCount = (typeof item.correct_count === 'number') ? item.correct_count : (isCorrect ? 1 : 0);
                 const wCount = (typeof item.wrong_count === 'number') ? item.wrong_count : (isCorrect ? 0 : 1);

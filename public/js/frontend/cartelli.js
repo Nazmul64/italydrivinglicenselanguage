@@ -215,6 +215,7 @@ function startCartelliCategoryQuiz() {
                     list.forEach(q => {
                         allMcqs.push({
                             id: q.id,
+                            type: 'cartelli',
                             chapter: q.chapter_id,
                             italian: q.italian || q.question,
                             bangla: q.bangla || q.bn_question,
@@ -565,6 +566,7 @@ function startCartelliSchedeQuiz() {
                     list.forEach(q => {
                         allMcqs.push({
                             id: q.id,
+                            type: 'cartelli',
                             chapter: q.chapter_id,
                             italian: q.italian || q.question,
                             bangla: q.bangla || q.bn_question,
@@ -728,16 +730,20 @@ function renderCartelliPageMcqs(mcqs) {
         const bookmarkIconClass = cartelliIsBookmarked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         const bookmarkIconColor = cartelliIsBookmarked ? 'color: var(--accent-green);' : '';
 
-        const record = userStats[`cartelli_${q.id}`] || userStats[q.id];
-        let correctCount = (typeof q.correct_count === 'number') ? q.correct_count : 0;
-        let wrongCount = (typeof q.wrong_count === 'number') ? q.wrong_count : 0;
-        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
+        const record = userStats[`cartelli_${q.id}`];
+        let correctCount = 0;
+        let wrongCount = 0;
+        let isAnswered = false;
 
         if (record && typeof record === 'object') {
-            const rCorr = (typeof record.correct === 'number') ? record.correct : 0;
-            const rWrong = (typeof record.wrong === 'number') ? record.wrong : 0;
-            correctCount = Math.max(correctCount, rCorr);
-            wrongCount = Math.max(wrongCount, rWrong);
+            correctCount = (typeof record.correct === 'number') ? record.correct : 0;
+            wrongCount = (typeof record.wrong === 'number') ? record.wrong : 0;
+            if (correctCount > 0 || wrongCount > 0) {
+                isAnswered = true;
+            }
+        } else if (typeof q.correct_count === 'number' || typeof q.wrong_count === 'number') {
+            correctCount = q.correct_count || 0;
+            wrongCount = q.wrong_count || 0;
             if (correctCount > 0 || wrongCount > 0) {
                 isAnswered = true;
             }
