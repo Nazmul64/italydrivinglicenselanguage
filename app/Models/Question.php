@@ -67,4 +67,19 @@ class Question extends Model
     {
         return $this->hasMany(SavedMcq::class, 'question_id');
     }
+
+    protected static function booted()
+    {
+        static::deleting(function ($question) {
+            Note::where('question_id', $question->id)->where(function($q) {
+                $q->where('type', 'argomenti')->orWhereNull('type');
+            })->delete();
+            SavedMcq::where('question_id', $question->id)->where(function($q) {
+                $q->where('type', 'argomenti')->orWhereNull('type');
+            })->delete();
+            UserMcqResult::where('question_id', $question->id)->where(function($q) {
+                $q->where('question_type', 'argomenti')->orWhereNull('question_type');
+            })->delete();
+        });
+    }
 }

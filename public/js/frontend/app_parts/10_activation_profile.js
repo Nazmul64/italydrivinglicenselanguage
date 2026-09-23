@@ -747,6 +747,7 @@ function loadCorrectMcqsList() {
             window.cachedQuestionsMap = window.cachedQuestionsMap || {};
             container.innerHTML = '';
             filtered.forEach((q, index) => {
+                if (!q || !q.id || (!q.italian && !q.question)) return;
                 window.cachedQuestionsMap[q.id] = q;
                 const card = document.createElement('div');
                 card.className = `detail-q-card correct`;
@@ -1051,6 +1052,7 @@ function loadWrongMcqsList() {
 
             container.innerHTML = '';
             filtered.forEach((q, index) => {
+                if (!q || !q.id || (!q.italian && !q.question)) return;
                 window.cachedQuestionsMap[q.id] = q;
 
                 const card = document.createElement('div');

@@ -1311,6 +1311,10 @@ class ArgomentiController extends Controller
             });
         }
 
+        $query->where(function($sq) {
+            $sq->whereHas('question')->orWhereHas('cartelloQuestion');
+        });
+
         if ($questionType) {
             if ($questionType === 'cartelli') {
                 $query->where('question_type', 'cartelli');

@@ -36,7 +36,7 @@ function loadSavedMcqsScreen() {
 
             savedArr.forEach((item, index) => {
                 const q = item.question || item;
-                if (!q || !q.id) return;
+                if (!q || !q.id || (!q.italian && !q.question)) return;
 
                 const page = q.page || null;
                 const chapter = (page && page.chapter) ? page.chapter : null;

@@ -53,4 +53,13 @@ class CartelloMcq extends Model
     {
         return $this->belongsTo(CartelloPage::class, 'page_id');
     }
+
+    protected static function booted()
+    {
+        static::deleting(function ($mcq) {
+            Note::where('question_id', $mcq->id)->where('type', 'cartelli')->delete();
+            SavedMcq::where('question_id', $mcq->id)->where('type', 'cartelli')->delete();
+            UserMcqResult::where('question_id', $mcq->id)->where('question_type', 'cartelli')->delete();
+        });
+    }
 }

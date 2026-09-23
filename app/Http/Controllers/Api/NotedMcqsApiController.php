@@ -156,19 +156,10 @@ class NotedMcqsApiController extends Controller
                 }
             }
 
-            return [
-                "id"          => $item->id,
-                "session_id"  => $item->session_id,
-                "user_id"     => $item->user_id,
-                "question_id" => $item->question_id,
-                "page_id"     => $item->page_id,
-                "type"        => $item->type ?: "argomenti",
-                "note_text"   => $item->note_text,
-                "created_at"  => $item->created_at,
-                "updated_at"  => $item->updated_at,
-                "question"    => null
-            ];
-        });
+            // Clean orphan note whose question was deleted from DB
+            $item->delete();
+            return null;
+        })->filter()->values();
 
         return response()->json([
             "status" => "success",

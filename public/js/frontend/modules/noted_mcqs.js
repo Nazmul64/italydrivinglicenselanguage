@@ -64,7 +64,7 @@ function renderNotedMcqsList(notedItems) {
 
     notedItems.forEach((item, index) => {
         const q = item.question || item;
-        if (!q || !q.id) return;
+        if (!q || !q.id || (!q.italian && !q.question)) return;
 
         window.cachedQuestionsMap = window.cachedQuestionsMap || {};
         window.cachedQuestionsMap[q.id] = q;

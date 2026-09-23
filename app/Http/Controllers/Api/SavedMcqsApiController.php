@@ -90,9 +90,16 @@ class SavedMcqsApiController extends Controller
                         "question" => $questionData
                     ];
                 }
+            } else {
+                if ($item->question) {
+                    return $item;
+                }
             }
-            return $item;
-        });
+
+            // Clean orphan bookmark whose question was deleted from DB
+            $item->delete();
+            return null;
+        })->filter()->values();
 
         return response()->json([
             "status" => "success",
