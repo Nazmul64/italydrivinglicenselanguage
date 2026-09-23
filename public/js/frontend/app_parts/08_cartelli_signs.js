@@ -54,11 +54,11 @@ function loadSavedMcqsScreen() {
                 const rawQImage = q.image || q.img;
                 const cleanQImg = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : (rawQImage && !rawQImage.includes('/data/user/') && !rawQImage.includes('scaled_IMG') ? rawQImage : '');
 
-                const leftThumbHtml = `
+                const leftThumbHtml = cleanQImg ? `
                     <div style="width: 100px; min-width: 100px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px;">
-                        ${cleanQImg ? `<img src="${cleanQImg}" onerror="this.parentElement.style.display='none'" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanQImg}')" title="Zoom Image">` : ''}
+                        <img src="${cleanQImg}" onerror="this.parentElement.style.display='none'" style="width: 100px; max-width: 100px; height: auto; max-height: 100px; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-card); background: #fff; cursor: pointer; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" onclick="if(typeof openImageZoomModal === 'function') openImageZoomModal('${cleanQImg}')" title="Zoom Image">
                     </div>
-                `;
+                ` : '';
 
                 const isSelected = selectedSavedMcqIds.includes(q.id);
 

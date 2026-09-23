@@ -55,11 +55,8 @@ class QrVerificationApiController extends Controller
             if (!$user && $clientSessionId) {
                 $user = User::where('uuid', $clientSessionId)->first();
             }
-            if (!$user && $targetSessionId) {
-                $user = User::where('uuid', $targetSessionId)->first();
-            }
 
-            // 2. Lookup AppClient in app_clients table
+            // 2. Lookup AppClient in app_clients table (Scanning User)
             $appClient = null;
             if ($phone) {
                 $cleanPhone = preg_replace('/\D/', '', $phone);
@@ -72,9 +69,6 @@ class QrVerificationApiController extends Controller
             }
             if (!$appClient && $clientSessionId) {
                 $appClient = AppClient::where('session_id', $clientSessionId)->orderBy('is_active', 'desc')->first();
-            }
-            if (!$appClient && $targetSessionId) {
-                $appClient = AppClient::where('session_id', $targetSessionId)->orderBy('is_active', 'desc')->first();
             }
             if (!$appClient && $user && $user->first_name) {
                 $appClient = AppClient::where('first_name', 'LIKE', '%' . trim($user->first_name) . '%')->first();
