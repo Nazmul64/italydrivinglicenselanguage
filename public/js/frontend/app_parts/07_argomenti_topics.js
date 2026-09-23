@@ -258,10 +258,10 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const saveIconColor = isSaved ? 'color: var(--accent-green);' : '';
 
         const statsHtml = isAnswered ? `
-            <div style="flex: 1; font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 10px;">
-                <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
-                <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
-                    <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+            <div style="flex: 1; font-size: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 12px; background: rgba(241, 245, 249, 0.6); border: 1px solid var(--border-card); border-radius: 12px;">
+                <div style="color: #475569; font-weight: 600; font-size: 12px;">(TU) Hai risposto:</div>
+                <div style="display: flex; gap: 16px; font-size: 12px; font-weight: 600;">
+                    <span style="color: #16a34a;">Giusto ${correctCount} volte</span>
                     <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
                 </div>
             </div>
