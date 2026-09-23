@@ -494,13 +494,19 @@ function openNotesModal(pageId, questionId, noteId, existingText, type) {
     document.getElementById('notes-textarea').value = localText;
 
     if (!localText && (questionId || pageId)) {
-        const query = questionId ? `question_id=${questionId}&type=${qType}` : `page_id=${pageId}`;
+        const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+        const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+        let query = questionId ? `question_id=${questionId}&type=${qType}` : `page_id=${pageId}`;
+        if (userPhone) query += `&phone=${encodeURIComponent(userPhone)}`;
+        if (userSessionId) query += `&session_id=${encodeURIComponent(userSessionId)}`;
+
         fetch(`/api/notes?${query}`)
             .then(res => res.json())
-            .then(notes => {
-                if (notes && notes.length > 0) {
-                    document.getElementById('notes-form-note-id').value = notes[0].id;
-                    document.getElementById('notes-textarea').value = notes[0].note_text;
+            .then(resData => {
+                const list = (resData && Array.isArray(resData.data)) ? resData.data : (Array.isArray(resData) ? resData : []);
+                if (list.length > 0) {
+                    document.getElementById('notes-form-note-id').value = list[0].id;
+                    document.getElementById('notes-textarea').value = list[0].note_text || '';
                     document.getElementById('notes-delete-btn').style.display = 'block';
                 } else {
                     document.getElementById('notes-delete-btn').style.display = 'none';

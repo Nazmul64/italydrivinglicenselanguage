@@ -41,6 +41,21 @@ class NotedMcqsApiController extends Controller
             });
         }
 
+        $questionId = $request->query('question_id') ?? $request->query('questionId');
+        $pageId = $request->query('page_id') ?? $request->query('pageId');
+        $type = $request->query('type');
+
+        if ($questionId) {
+            $query->where('question_id', $questionId);
+            if ($type) {
+                $query->where('type', $type);
+            }
+        } elseif ($pageId) {
+            $query->where('page_id', $pageId);
+        } elseif ($type) {
+            $query->where('type', $type);
+        }
+
         $notesList = $query->orderBy("updated_at", "desc")->get();
 
         // Strict user scoping (do not leak other users' notes)

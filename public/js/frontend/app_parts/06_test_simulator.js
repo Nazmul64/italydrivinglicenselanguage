@@ -1184,7 +1184,7 @@ function renderDetailResultsList() {
             <div style="text-align: center; font-size: 14px; font-weight: 800; display: flex; flex-direction: column; gap: 4px;">
                 <div style="color: var(--text-primary);">Risposta Corretta: <span style="color: #1e293b;">${databaseIsVero ? 'V' : 'F'}</span></div>
                 <div style="color: var(--text-primary);">${userAnswer === null ? '<span style="color: #f59e0b;">(TU) Non hai risposto</span>' : `(TU) Hai risposto: <span style="color: ${isCorrect ? '#4CAF50' : '#ef4444'};">${userAnswer ? 'V' : 'F'}</span>`}</div>
-                ${qStat ? `
+                ${(qStat && ((qStat.correct || 0) > 0 || (qStat.wrong || 0) > 0)) ? `
                 <div style="display: flex; justify-content: center; gap: 16px; font-size: 12px; font-weight: 700; margin-top: 4px;">
                     <span style="color: #4CAF50;">Giusto ${qStat.correct || 0} volte</span>
                     <span style="color: #ef4444;">Sbagliato ${qStat.wrong || 0} volte</span>

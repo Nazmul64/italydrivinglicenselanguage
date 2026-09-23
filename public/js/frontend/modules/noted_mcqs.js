@@ -185,6 +185,24 @@ function renderNotedMcqsList(notedItems) {
             </div>
         `;
 
+        const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
+        const record = userStatsMap[statKey] || {};
+        const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
+        const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+
+        if (correctCount > 0 || wrongCount > 0) {
+            const statsDiv = document.createElement('div');
+            statsDiv.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-card); font-size: 13px; font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;';
+            statsDiv.innerHTML = `
+                <div style="color: var(--text-primary); font-weight: 800; font-size: 13px;">(TU) Hai risposto:</div>
+                <div style="display: flex; gap: 16px; font-size: 13px; font-weight: 700;">
+                    <span style="color: #4CAF50;">Giusto ${correctCount} volte</span>
+                    <span style="color: #ef4444;">Sbagliato ${wrongCount} volte</span>
+                </div>
+            `;
+            card.appendChild(statsDiv);
+        }
+
         itemWrapper.appendChild(card);
         container.appendChild(itemWrapper);
     });
