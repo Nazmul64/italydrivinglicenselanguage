@@ -4777,6 +4777,7 @@ function deleteUserNote() {
             if (typeof loadNotedMcqsScreen === 'function') {
                 loadNotedMcqsScreen();
             }
+        })
         .catch(err => {
             console.error("Error deleting note: ", err);
             showToast('নোটটি মুছে ফেলা হয়েছে');

@@ -136,7 +136,6 @@ function loadSavedMcqsScreen() {
                 `;
 
                 const userStatsMap = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-                const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
                 const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
                 const record = userStatsMap[statKey] || {};
                 const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
