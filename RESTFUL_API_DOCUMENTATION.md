@@ -128,7 +128,10 @@ if (question.hasAnswered || (question.correctCount > 0 || question.wrongCount > 
 Both the Web PWA and Flutter Mobile App connect to the same central Laravel database. All user progress is keyed by the user's **Phone Number**.
 - **Saved MCQs**: If user saves an MCQ on Web -> it immediately shows in the Mobile App. If saved on App -> immediately shows on Web.
 - **Noted MCQs**: If user adds/edits a note on Web -> instantly synced to App. If edited on App -> instantly synced to Web.
-- **Answer Statistics**: Whenever user answers an MCQ in practice or test, calling `POST /api/v1/user-mcq-results/log` updates `correct_count` and `wrong_count`. These are automatically returned in all page/chapter MCQ endpoints.
+- **Answer Statistics & Error Review**:
+  - `GET /api/v1/wrong-mcqs` returns all MCQs where user made errors (`wrong_count > 0` or `is_correct == 0`).
+  - `GET /api/v1/correct-mcqs` returns all MCQs where user answered correctly (`correct_count > 0` or `is_correct == 1`).
+  - `POST /api/v1/user-mcq-results/log` logs answer attempts in real time and updates stats.
 - **Sync Header**: Always pass `X-Client-Phone: <phone>` with all requests.
 
 ---

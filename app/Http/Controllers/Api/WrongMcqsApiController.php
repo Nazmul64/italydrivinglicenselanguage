@@ -75,7 +75,7 @@ class WrongMcqsApiController extends Controller
         foreach ($allResults as $res) {
             // Direct single question record
             if (!empty($res->question_id)) {
-                if ($res->is_correct == 0 || $res->is_correct === false || $res->is_correct === '0') {
+                if ($res->is_correct == 0 || $res->is_correct === false || $res->is_correct === '0' || (!empty($res->wrong_count) && (int)$res->wrong_count > 0)) {
                     $wrongQuestionIds[] = (int)$res->question_id;
                 }
             }
