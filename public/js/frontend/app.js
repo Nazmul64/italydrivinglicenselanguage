@@ -4227,8 +4227,12 @@ function loadSavedMcqsScreen() {
     const container = document.getElementById('saved-mcqs-list-container');
     if (!container) return;
 
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
 
-    fetch('/api/saved-mcqs')
+    fetch(`/api/v1/saved-mcqs?phone=${encodeURIComponent(savedPhone)}&session_id=${encodeURIComponent(savedSessionId)}`, {
+        headers: { 'X-Client-Phone': savedPhone, 'X-Client-Session-ID': savedSessionId }
+    })
         .then(res => res.json())
         .then(resData => {
             const savedArr = Array.isArray(resData) ? resData : (resData.data || []);
@@ -4579,11 +4583,18 @@ function toggleSavedMcq(questionId, btnElement, type) {
     };
     if (type) payload.type = type;
 
-    fetch('/api/saved-mcqs/toggle', {
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    payload.phone = savedPhone;
+    payload.session_id = savedSessionId;
+
+    fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token
+            'X-CSRF-TOKEN': token,
+            'X-Client-Phone': savedPhone,
+            'X-Client-Session-ID': savedSessionId
         },
         body: JSON.stringify(payload)
     })

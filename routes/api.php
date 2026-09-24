@@ -144,6 +144,27 @@ Route::prefix('v1')->group(function () {
     Route::get('/v1/translation', [TranslationApiController::class, 'getQuestionTranslation']);
     Route::post('/v1/translation', [TranslationApiController::class, 'translate']);
 
+    // 📝 TEST, SCHEDA ESAME & LEARNING RESTFUL API
+    Route::get('/test/questions', [TestApiController::class, 'getQuestions']);
+    Route::get('/v1/test/questions', [TestApiController::class, 'getQuestions']);
+    Route::match(['get', 'post'], '/test/submit', [TestApiController::class, 'submitResult']);
+    Route::match(['get', 'post'], '/v1/test/submit', [TestApiController::class, 'submitResult']);
+
+    Route::get('/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
+    Route::get('/v1/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
+    Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+    Route::match(['get', 'post'], '/v1/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+
+    Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
+    Route::get('/v1/sfida/questions', [SfidaApiController::class, 'getQuestions']);
+
+    Route::get('/lezioni', [LezioniApiController::class, 'index']);
+    Route::get('/v1/lezioni', [LezioniApiController::class, 'index']);
+    Route::get('/lezioni/{id}', [LezioniApiController::class, 'show']);
+    Route::get('/v1/lezioni/{id}', [LezioniApiController::class, 'show']);
+    Route::get('/eclass', [EClassApiController::class, 'index']);
+    Route::get('/v1/eclass', [EClassApiController::class, 'index']);
+
     Route::middleware('auth:sanctum')->group(function () {
         // User Profile & Status
         Route::get('/user', [SupportRegistrationApiController::class, 'getUser']);
@@ -382,6 +403,12 @@ Route::post('/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController:
 Route::post('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
 Route::get('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
 
+Route::get('/test/questions', [TestApiController::class, 'getQuestions']);
+Route::match(['get', 'post'], '/test/submit', [TestApiController::class, 'submitResult']);
+Route::get('/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
+Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
+
 Route::get('/home-cards', function () {
     $cards = \App\Models\HomeCard::where('status', 1)->orderBy('order_index', 'asc')->get();
     return response()->json([
@@ -405,17 +432,29 @@ Route::get('/questions/chapter/{chapter}', function (Request $request, $chapter)
           ->orWhereIn('page_id', \App\Models\Page::where('chapter_id', $chapter)->pluck('id'));
     })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
 
-    $phone = $request->query('phone') ?? $request->header('X-Client-Phone');
-    $sessionId = $request->query('session_id') ?? $request->header('X-Session-ID');
-    $userId = auth()->id() ?? $request->query('user_id');
-
     if ($questions->isNotEmpty()) {
         $qIds = $questions->pluck('id')->toArray();
+        $controller = new \App\Http\Controllers\Api\ArgomentiApiController();
+        // Use reflection or standard call to resolve context
+        $refMethod = new \ReflectionMethod($controller, 'resolveUserContext');
+        $refMethod->setAccessible(true);
+        $context = $refMethod->invoke($controller, $request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+
         $query = \App\Models\UserMcqResult::whereIn('question_id', $qIds);
-        if ($phone || $sessionId || $userId) {
-            $query->where(function($q) use ($phone, $sessionId, $userId) {
-                if ($userId) $q->where('user_id', $userId);
-                if ($sessionId) $q->orWhere('session_id', $sessionId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
+                }
             });
         }
         $userResults = $query->orderBy('id', 'desc')->get()->groupBy('question_id');
@@ -453,14 +492,26 @@ Route::get('/questions/page/{page}', function (Request $request, $page) {
 
     if ($questions->isNotEmpty()) {
         $qIds = $questions->pluck('id')->toArray();
-        $sessionId = $request->query('session_id') ?? $request->header('X-Session-ID');
-        $userId = auth()->id() ?? $request->query('user_id');
+        $controller = new \App\Http\Controllers\Api\ArgomentiApiController();
+        $refMethod = new \ReflectionMethod($controller, 'resolveUserContext');
+        $refMethod->setAccessible(true);
+        $context = $refMethod->invoke($controller, $request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
 
         $query = \App\Models\UserMcqResult::whereIn('question_id', $qIds);
-        if ($sessionId || $userId) {
-            $query->where(function($q) use ($sessionId, $userId) {
-                if ($userId) $q->where('user_id', $userId);
-                if ($sessionId) $q->orWhere('session_id', $sessionId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
+                }
             });
         }
         $userResults = $query->orderBy('id', 'desc')->get()->groupBy('question_id');
