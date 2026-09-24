@@ -4583,11 +4583,6 @@ function toggleSavedMcq(questionId, btnElement, type) {
     };
     if (type) payload.type = type;
 
-    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
-    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
-    payload.phone = savedPhone;
-    payload.session_id = savedSessionId;
-
     fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
