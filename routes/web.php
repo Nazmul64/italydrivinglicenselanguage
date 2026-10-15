@@ -1471,16 +1471,26 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'title' => 'required|string|max:255',
             'type' => 'required|string|in:license,text',
             'days' => 'nullable|integer',
+            'duration_seconds' => 'nullable|integer',
             'message_text' => 'nullable|string',
             'bg_color' => 'nullable|string|max:20',
             'text_color' => 'nullable|string|max:20',
             'order_index' => 'required|integer',
         ]);
 
+        $durationSeconds = $request->duration_seconds;
+        $days = $request->days;
+        if ($durationSeconds && $durationSeconds > 0) {
+            $days = max(1, (int) ceil($durationSeconds / 86400));
+        } elseif ($days && $days > 0) {
+            $durationSeconds = $days * 86400;
+        }
+
         $preset = \App\Models\ChatPreset::create([
             'title' => $request->title,
             'type' => $request->type,
-            'days' => $request->days,
+            'days' => $days,
+            'duration_seconds' => $durationSeconds,
             'message_text' => $request->message_text,
             'bg_color' => $request->bg_color ?: '#4b5563',
             'text_color' => $request->text_color ?: '#ffffff',
@@ -1497,16 +1507,26 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'title' => 'required|string|max:255',
             'type' => 'required|string|in:license,text',
             'days' => 'nullable|integer',
+            'duration_seconds' => 'nullable|integer',
             'message_text' => 'nullable|string',
             'bg_color' => 'nullable|string|max:20',
             'text_color' => 'nullable|string|max:20',
             'order_index' => 'required|integer',
         ]);
 
+        $durationSeconds = $request->duration_seconds;
+        $days = $request->days;
+        if ($durationSeconds && $durationSeconds > 0) {
+            $days = max(1, (int) ceil($durationSeconds / 86400));
+        } elseif ($days && $days > 0) {
+            $durationSeconds = $days * 86400;
+        }
+
         $preset->update([
             'title' => $request->title,
             'type' => $request->type,
-            'days' => $request->days,
+            'days' => $days,
+            'duration_seconds' => $durationSeconds,
             'message_text' => $request->message_text,
             'bg_color' => $request->bg_color ?: '#4b5563',
             'text_color' => $request->text_color ?: '#ffffff',
@@ -1558,8 +1578,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $conversationId = $convo->id;
         }
 
-        if ($preset->type === 'license' && $preset->days) {
-            $days = intval($preset->days);
+        if ($preset->type === 'license' && ($preset->duration_seconds || $preset->days)) {
+            $seconds = $preset->duration_seconds ? intval($preset->duration_seconds) : (intval($preset->days) * 86400);
+            if ($seconds <= 0) $seconds = 30;
+            $days = max(1, (int) ceil($seconds / 86400));
             $keyNum = rand(100000, 999999);
 
             if (!$client) {
@@ -1572,7 +1594,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                 $client->progress   = 50;
             }
             $client->is_active = true;
-            $client->expires_at = now()->addDays($days);
+            $client->expires_at = now()->addSeconds($seconds);
             if (empty($client->session_id)) {
                 $client->session_id = $user ? $user->uuid : $sessionId;
             }
@@ -1587,34 +1609,35 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                     }
                 })->update([
                     'is_active'  => true,
-                    'expires_at' => now()->addDays($days),
+                    'expires_at' => now()->addSeconds($seconds),
                 ]);
-                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * $days);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, max(30, $seconds));
                 if ($cleanPhone) {
-                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, 86400 * $days);
+                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, max(30, $seconds));
                 }
             }
-            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, max(30, $seconds));
             if ($client->session_id && $client->session_id !== $sessionId) {
-                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * $days);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, max(30, $seconds));
             }
             if ($user && $user->uuid && $user->uuid !== $sessionId) {
-                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $user->uuid, true, 86400 * $days);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $user->uuid, true, max(30, $seconds));
             }
 
             $userId = $user ? $user->uuid : $client->session_id;
             \App\Models\License::updateOrCreate(
                 ['user_id' => $userId],
                 [
-                    'license_key'  => (string) $keyNum,
-                    'status'       => 'active',
-                    'activated_at' => now(),
-                    'expires_at'   => now()->addDays($days),
+                    'license_key'      => (string) $keyNum,
+                    'status'           => 'active',
+                    'duration_seconds' => $seconds,
+                    'activated_at'     => now(),
+                    'expires_at'       => now()->addSeconds($seconds),
                 ]
             );
 
-            // 1. Create License Card Message (ONLY ONCE for the active session)
-            $cardMsg = "[LICENSE_CARD:days={$days},key={$keyNum}]";
+            // 1. Create License Card Message with exact seconds and days
+            $cardMsg = "[LICENSE_CARD:seconds={$seconds},days={$days},key={$keyNum}]";
             \App\Models\Message::create([
                 'conversation_id' => $conversationId,
                 'session_id'      => $sessionId,

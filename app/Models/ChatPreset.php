@@ -10,10 +10,18 @@ class ChatPreset extends Model
         'title',
         'type',
         'days',
+        'duration_seconds',
         'message_text',
         'bg_color',
         'text_color',
         'order_index',
         'status'
+    ];
+
+    protected $casts = [
+        'days' => 'integer',
+        'duration_seconds' => 'integer',
+        'order_index' => 'integer',
+        'status' => 'boolean',
     ];
 }

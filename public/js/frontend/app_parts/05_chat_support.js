@@ -120,17 +120,32 @@ function renderGuestChatMessages(messages) {
         const bubble = document.createElement('div');
 
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
+            const matchSec = msg.message.match(/seconds=(\d+)/);
             const matchDays = msg.message.match(/days=(\d+)/);
             const matchKey = msg.message.match(/key=(\d+)/);
-            const days = matchDays ? parseInt(matchDays[1], 10) : 365;
             const key = matchKey ? matchKey[1] : '';
 
-            let durationStr = `${days} Days`;
-            if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
-            else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
-            else if (days === 180) durationStr = '6 Months (৬ মাস)';
-            else if (days === 90) durationStr = '3 Months (৩ মাস)';
-            else if (days === 30) durationStr = '1 Month (১ মাস)';
+            let durationStr = '';
+            let days = 365;
+            if (matchSec) {
+                const sec = parseInt(matchSec[1], 10);
+                days = Math.max(1, Math.ceil(sec / 86400));
+                if (sec < 60) durationStr = `${sec} Seconds (${sec} সেকেন্ড)`;
+                else if (sec < 3600) durationStr = `${Math.round(sec / 60)} Minutes (${Math.round(sec / 60)} মিনিট)`;
+                else if (sec < 86400) durationStr = `${Math.round(sec / 3600)} Hours (${Math.round(sec / 3600)} ঘণ্টা)`;
+                else {
+                    const d = Math.round(sec / 86400);
+                    durationStr = `${d} Days (${d} দিন)`;
+                }
+            } else {
+                days = matchDays ? parseInt(matchDays[1], 10) : 365;
+                durationStr = `${days} Days`;
+                if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
+                else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
+                else if (days === 180) durationStr = '6 Months (৬ মাস)';
+                else if (days === 90) durationStr = '3 Months (৩ মাস)';
+                else if (days === 30) durationStr = '1 Month (১ মাস)';
+            }
 
             bubble.className = `license-card-bubble`;
             let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza (এক্টিভ করুন)</button>`;

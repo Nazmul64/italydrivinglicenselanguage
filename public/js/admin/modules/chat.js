@@ -186,17 +186,30 @@ function renderConversationMessages(messages, forceScroll) {
         const bubble = document.createElement('div');
 
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
+            const matchSec = msg.message.match(/seconds=(\d+)/);
             const matchDays = msg.message.match(/days=(\d+)/);
             const matchKey = msg.message.match(/key=(\d+)/);
-            const days = matchDays ? parseInt(matchDays[1], 10) : 365;
             const key = matchKey ? matchKey[1] : '';
 
-            let durationStr = `${days} Days`;
-            if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
-            else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
-            else if (days === 180) durationStr = '6 Months (৬ মাস)';
-            else if (days === 90) durationStr = '3 Months (৩ মাস)';
-            else if (days === 30) durationStr = '1 Month (১ মাস)';
+            let durationStr = '';
+            if (matchSec) {
+                const sec = parseInt(matchSec[1], 10);
+                if (sec < 60) durationStr = `${sec} Seconds (${sec} সেকেন্ড)`;
+                else if (sec < 3600) durationStr = `${Math.round(sec / 60)} Minutes (${Math.round(sec / 60)} মিনিট)`;
+                else if (sec < 86400) durationStr = `${Math.round(sec / 3600)} Hours (${Math.round(sec / 3600)} ঘণ্টা)`;
+                else {
+                    const d = Math.round(sec / 86400);
+                    durationStr = `${d} Days (${d} দিন)`;
+                }
+            } else {
+                const days = matchDays ? parseInt(matchDays[1], 10) : 365;
+                durationStr = `${days} Days`;
+                if (days === 365 || days === 366) durationStr = '1 Year (১ বছর)';
+                else if (days === 730 || days === 732) durationStr = '2 Years (২ বছর)';
+                else if (days === 180) durationStr = '6 Months (৬ মাস)';
+                else if (days === 90) durationStr = '3 Months (৩ মাস)';
+                else if (days === 30) durationStr = '1 Month (১ মাস)';
+            }
 
             bubble.className = `license-card-bubble`;
             bubble.style.alignSelf = 'flex-end';
@@ -526,7 +539,16 @@ function fetchChatPresetsManagerList() {
                         <div style="display: inline-block; padding: 4px 10px; border-radius: 6px; background-color: ${p.bg_color}; color: ${p.text_color}; font-size: 11px; font-weight: bold;">
                             ${p.title}
                         </div>
-                        ${p.days ? `<small style="color: var(--text-secondary); margin-left: 6px;">(${p.days} days)</small>` : ''}
+                        ${(() => {
+                            if (p.duration_seconds) {
+                                const sec = p.duration_seconds;
+                                if (sec < 60) return `<small style="color: #10b981; font-weight: bold; margin-left: 6px;">(${sec} sec)</small>`;
+                                if (sec < 3600) return `<small style="color: #10b981; font-weight: bold; margin-left: 6px;">(${Math.round(sec / 60)} min)</small>`;
+                                if (sec < 86400) return `<small style="color: #10b981; font-weight: bold; margin-left: 6px;">(${Math.round(sec / 3600)} hrs)</small>`;
+                                return `<small style="color: var(--text-secondary); margin-left: 6px;">(${Math.round(sec / 86400)} days)</small>`;
+                            }
+                            return p.days ? `<small style="color: var(--text-secondary); margin-left: 6px;">(${p.days} days)</small>` : '';
+                        })()}
                     </td>
                     <td style="text-align: center;">${badgeType}</td>
                     <td style="text-align: right; white-space: nowrap;">
@@ -542,6 +564,63 @@ function fetchChatPresetsManagerList() {
             console.error("Error fetching presets list: ", err);
             tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--accent-red); padding: 20px;">Error loading presets.</td></tr>';
         });
+}
+
+function setPresetDurationQuick(val, unit, title) {
+    const valInput = document.getElementById('form-preset-duration-val');
+    const unitSelect = document.getElementById('form-preset-duration-unit');
+    const titleInput = document.getElementById('form-preset-title');
+
+    if (valInput) valInput.value = val;
+    if (unitSelect) unitSelect.value = unit;
+
+    if (titleInput && (!titleInput.value.trim() || titleInput.dataset.autoTitle === 'true')) {
+        titleInput.value = title;
+        titleInput.dataset.autoTitle = 'true';
+    }
+
+    updatePresetDurationCalc();
+}
+
+function updatePresetDurationCalc() {
+    const valInput = document.getElementById('form-preset-duration-val');
+    const unitSelect = document.getElementById('form-preset-duration-unit');
+    const previewEl = document.getElementById('preset-duration-preview');
+    const secInput = document.getElementById('form-preset-seconds');
+    const daysInput = document.getElementById('form-preset-days');
+
+    const val = parseInt(valInput ? valInput.value : '30', 10) || 30;
+    const unit = unitSelect ? unitSelect.value : 'seconds';
+
+    let totalSeconds = val;
+    let label = `${val} সেকেন্ড`;
+
+    switch (unit) {
+        case 'seconds':
+            totalSeconds = val;
+            label = `${val} সেকেন্ড (${val}s)`;
+            break;
+        case 'minutes':
+            totalSeconds = val * 60;
+            label = `${val} মিনিট (${val}m)`;
+            break;
+        case 'hours':
+            totalSeconds = val * 3600;
+            label = `${val} ঘণ্টা (${val}h)`;
+            break;
+        case 'days':
+            totalSeconds = val * 86400;
+            label = `${val} দিন (${val}d)`;
+            break;
+        case 'years':
+            totalSeconds = val * 31536000;
+            label = `${val} বছর (${val}y)`;
+            break;
+    }
+
+    if (secInput) secInput.value = totalSeconds;
+    if (daysInput) daysInput.value = Math.max(1, Math.ceil(totalSeconds / 86400));
+    if (previewEl) previewEl.textContent = label;
 }
 
 function toggleChatPresetTypeFields(type) {
@@ -560,14 +639,18 @@ function toggleChatPresetTypeFields(type) {
 function openAddChatPresetModal() {
     document.getElementById('chat-preset-modal-title').textContent = 'Add Chat Response Button';
     document.getElementById('form-preset-id').value = '';
-    document.getElementById('form-preset-title').value = '';
+    const titleInput = document.getElementById('form-preset-title');
+    titleInput.value = '';
+    titleInput.dataset.autoTitle = 'true';
     document.getElementById('form-preset-type').value = 'license';
-    document.getElementById('form-preset-days').value = '365';
     document.getElementById('form-preset-text').value = '';
     document.getElementById('form-preset-bg-color').value = '#3b82f6';
     document.getElementById('form-preset-text-color').value = '#ffffff';
     document.getElementById('form-preset-order').value = (allChatPresetsList.length + 1).toString();
     toggleChatPresetTypeFields('license');
+
+    // Default to 30 seconds for quick testing
+    setPresetDurationQuick(30, 'seconds', '30s Test License');
 
     const modal = document.getElementById('chat-preset-modal');
     if (modal) modal.style.display = 'flex';
@@ -576,14 +659,34 @@ function openAddChatPresetModal() {
 function openEditChatPresetModal(preset) {
     document.getElementById('chat-preset-modal-title').textContent = 'Edit Chat Response Button';
     document.getElementById('form-preset-id').value = preset.id;
-    document.getElementById('form-preset-title').value = preset.title;
+    const titleInput = document.getElementById('form-preset-title');
+    titleInput.value = preset.title;
+    titleInput.dataset.autoTitle = 'false';
     document.getElementById('form-preset-type').value = preset.type || 'license';
-    document.getElementById('form-preset-days').value = preset.days || '';
     document.getElementById('form-preset-text').value = preset.message_text || '';
     document.getElementById('form-preset-bg-color').value = preset.bg_color || '#3b82f6';
     document.getElementById('form-preset-text-color').value = preset.text_color || '#ffffff';
     document.getElementById('form-preset-order').value = preset.order_index || '0';
     toggleChatPresetTypeFields(preset.type || 'license');
+
+    if (preset.duration_seconds && preset.duration_seconds > 0) {
+        const sec = preset.duration_seconds;
+        if (sec < 60) {
+            setPresetDurationQuick(sec, 'seconds', preset.title);
+        } else if (sec < 3600 && sec % 60 === 0) {
+            setPresetDurationQuick(sec / 60, 'minutes', preset.title);
+        } else if (sec < 86400 && sec % 3600 === 0) {
+            setPresetDurationQuick(sec / 3600, 'hours', preset.title);
+        } else if (sec % 31536000 === 0) {
+            setPresetDurationQuick(sec / 31536000, 'years', preset.title);
+        } else {
+            setPresetDurationQuick(Math.round(sec / 86400), 'days', preset.title);
+        }
+    } else if (preset.days) {
+        setPresetDurationQuick(preset.days, 'days', preset.title);
+    } else {
+        setPresetDurationQuick(30, 'seconds', preset.title);
+    }
 
     const modal = document.getElementById('chat-preset-modal');
     if (modal) modal.style.display = 'flex';
@@ -599,7 +702,8 @@ function saveChatPreset(e) {
     const id = document.getElementById('form-preset-id').value;
     const title = document.getElementById('form-preset-title').value.trim();
     const type = document.getElementById('form-preset-type').value;
-    const days = document.getElementById('form-preset-days').value;
+    const durationSeconds = parseInt(document.getElementById('form-preset-seconds')?.value || '30', 10);
+    const days = parseInt(document.getElementById('form-preset-days')?.value || '1', 10);
     const messageText = document.getElementById('form-preset-text').value;
     const bgColor = document.getElementById('form-preset-bg-color').value;
     const textColor = document.getElementById('form-preset-text-color').value;
@@ -621,11 +725,12 @@ function saveChatPreset(e) {
         body: JSON.stringify({
             title: title,
             type: type,
-            days: days ? parseInt(days) : null,
+            days: days,
+            duration_seconds: durationSeconds,
             message_text: messageText,
             bg_color: bgColor,
             text_color: textColor,
-            order_index: parseInt(orderIndex)
+            order_index: parseInt(orderIndex) || 0
         })
     })
         .then(res => res.json())

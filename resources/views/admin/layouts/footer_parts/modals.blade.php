@@ -1078,9 +1078,36 @@
                     </select>
                 </div>
 
-                <div class="form-group" id="form-preset-days-group" style="margin-bottom: 12px;">
-                    <label class="form-label" for="form-preset-days" style="font-weight: bold;">License Validity Days (e.g. 31, 90, 365, 1095)</label>
-                    <input type="number" class="form-control" id="form-preset-days" placeholder="365">
+                <div class="form-group" id="form-preset-days-group" style="margin-bottom: 14px;">
+                    <label class="form-label" style="font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                        <span>License Validity / মেয়াদ নির্ধারণ</span>
+                        <span id="preset-duration-preview" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 11px;">৩০ সেকেন্ড</span>
+                    </label>
+
+                    <!-- Quick Preset Buttons -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                        <button type="button" class="btn btn-outline-primary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(30, 'seconds', '30s Test')" style="padding: 3px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid #3b82f6;">⚡ ৩০ সেকেন্ড</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(60, 'seconds', '1m Test')" style="padding: 3px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid #3b82f6;">⚡ ১ মিনিট</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(5, 'minutes', '5m Test')" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #94a3b8;">৫ মিনিট</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(1, 'days', '1 Day Access')" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #94a3b8;">১ দিন</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(30, 'days', '1 Month')" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #94a3b8;">১ মাস (30d)</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(365, 'days', '1 Year (365d)')" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #94a3b8;">১ বছর (365d)</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-quick-btn" onclick="setPresetDurationQuick(1095, 'days', '3 Years (1095d)')" style="padding: 3px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid #94a3b8;">৩ বছর (1095d)</button>
+                    </div>
+
+                    <!-- Custom Duration Value & Unit -->
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" class="form-control" id="form-preset-duration-val" min="1" step="1" value="30" placeholder="e.g. 30" style="flex: 2;" oninput="updatePresetDurationCalc()">
+                        <select class="form-control" id="form-preset-duration-unit" style="flex: 3;" onchange="updatePresetDurationCalc()">
+                            <option value="seconds" selected>Seconds (সেকেন্ড)</option>
+                            <option value="minutes">Minutes (মিনিট)</option>
+                            <option value="hours">Hours (ঘণ্টা)</option>
+                            <option value="days">Days (দিন)</option>
+                            <option value="years">Years (বছর)</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="form-preset-seconds" value="30">
+                    <input type="hidden" id="form-preset-days" value="1">
                 </div>
 
                 <div class="form-group" id="form-preset-text-group" style="margin-bottom: 12px; display: none;">
