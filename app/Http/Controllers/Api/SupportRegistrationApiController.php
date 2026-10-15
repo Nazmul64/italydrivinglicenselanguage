@@ -74,12 +74,25 @@ class SupportRegistrationApiController extends Controller
         $license = License::where('user_id', $user->uuid)->latest()->first();
         if (!$license) {
             $license = License::create([
-                'user_id'     => $user->uuid,
-                'license_key' => rand(100000, 999999),
-                'status'      => 'inactive',
+                'user_id'          => $user->uuid,
+                'license_key'      => (string) rand(100000, 999999),
+                'status'           => 'inactive',
+                'duration_seconds' => 31536000,
             ]);
         }
-        $licenseStatus = $license->status;
+
+        $isCurrentlyActive = false;
+        if ($license->status === 'active') {
+            if ($license->expires_at && now()->gt($license->expires_at)) {
+                $license->update(['status' => 'expired']);
+                $licenseStatus = 'expired';
+            } else {
+                $isCurrentlyActive = true;
+                $licenseStatus = 'active';
+            }
+        } else {
+            $licenseStatus = $license->status;
+        }
 
         $incomingSessionId = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID');
 
@@ -105,8 +118,8 @@ class SupportRegistrationApiController extends Controller
                 'first_name' => $firstName ?: $clientRecord->first_name,
                 'last_name'  => $lastName ?: $clientRecord->last_name,
                 'phone'      => $phone,
-                'is_active'  => $licenseStatus === 'active' || $clientRecord->is_active,
-                'expires_at' => $license->expires_at ?: $clientRecord->expires_at,
+                'is_active'  => $isCurrentlyActive,
+                'expires_at' => $isCurrentlyActive ? $license->expires_at : null,
             ]);
         } else {
             $clientRecord = \App\Models\AppClient::create([
@@ -114,8 +127,8 @@ class SupportRegistrationApiController extends Controller
                 'first_name' => $firstName,
                 'last_name'  => $lastName,
                 'phone'      => $phone,
-                'is_active'  => $licenseStatus === 'active',
-                'expires_at' => $license->expires_at,
+                'is_active'  => $isCurrentlyActive,
+                'expires_at' => $isCurrentlyActive ? $license->expires_at : null,
                 'stars'      => 5,
                 'progress'   => 50,
             ]);

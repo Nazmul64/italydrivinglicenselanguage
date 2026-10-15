@@ -333,6 +333,21 @@ function showTestQuestion() {
     if (audioProgressInterval) {
         clearInterval(audioProgressInterval);
     }
+
+    // Sync test bookmark icon
+    const testBookmarkIcon = document.getElementById('test-bookmark-icon');
+    if (testBookmarkIcon && q) {
+        const qType = (q.chapter_name && q.chapter_name.toLowerCase().includes('cartell')) ||
+                      (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
+        const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
+        let isSaved = false;
+        try {
+            const bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            isSaved = bookmarks.includes(q.id) || bookmarks.includes(String(q.id));
+        } catch (_) {}
+        testBookmarkIcon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+        testBookmarkIcon.style.color = isSaved ? 'var(--accent-green, #22c55e)' : '';
+    }
 }
 
 function selectTestAnswer(ans) {
@@ -790,6 +805,85 @@ function submitTestExam() {
     if (examsEl) {
         let completedExamsCount = parseInt(examsEl.innerText) || 0;
         examsEl.innerText = completedExamsCount + 1;
+    }
+
+    // Two-way synchronization: Submit results to server database
+    try {
+        const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+        const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        const loggedAnswers = [];
+        for (let i = 0; i < totalQuestions; i++) {
+            const q = testQuestions[i];
+            if (!q) continue;
+            const qId = q.id;
+            const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
+            const userSelected = testAnswers[i];
+            const isAttempted = userSelected !== null && userSelected !== undefined;
+            const isCorrect = isAttempted && (userSelected === databaseIsVero);
+            const userAnswerStr = isAttempted ? (userSelected ? 'V' : 'F') : null;
+            const qType = (q.chapter_name && q.chapter_name.toLowerCase().includes('cartell')) ||
+                          (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
+
+            loggedAnswers.push({
+                question_id: qId,
+                id: qId,
+                question_type: qType,
+                type: qType,
+                user_answer: userAnswerStr,
+                is_correct: isCorrect,
+                correct: isCorrect ? 1 : 0,
+                is_attempted: isAttempted
+            });
+        }
+
+        const durationTotal = typeof getExamDurationSeconds === 'function' ? getExamDurationSeconds() : 1200;
+        const timeSpent = Math.max(0, durationTotal - (testTimerSeconds || 0));
+
+        const examPayload = {
+            total_questions: totalQuestions,
+            correct_count: correctAnswers,
+            wrong_count: wrongAnswers,
+            non_risposte_count: unansweredAnswers,
+            duration_seconds: timeSpent,
+            time_spent_seconds: timeSpent,
+            answers: loggedAnswers,
+            results: loggedAnswers,
+            phone: savedPhone,
+            session_id: savedSessionId
+        };
+
+        fetch('/api/v1/scheda-esame/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Client-Phone': savedPhone,
+                'X-Session-ID': savedSessionId
+            },
+            body: JSON.stringify(examPayload)
+        }).catch(err => console.warn('Scheda submit sync error:', err));
+
+        fetch('/api/v1/user-mcq-results/log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Client-Phone': savedPhone,
+                'X-Session-ID': savedSessionId
+            },
+            body: JSON.stringify({
+                results: loggedAnswers,
+                answers: loggedAnswers,
+                phone: savedPhone,
+                session_id: savedSessionId
+            })
+        }).catch(err => console.warn('MCQ results log sync error:', err));
+    } catch (e) {
+        console.warn('Error syncing exam test results to server:', e);
     }
 }
 

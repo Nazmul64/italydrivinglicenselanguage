@@ -1167,48 +1167,88 @@ function loadWrongMcqsList() {
 
 
 function toggleCurrentTestBookmark() {
-    if (typeof quizData === 'undefined' || quizData.length === 0) {
-        showToast('বুকমার্ক সংরক্ষণ করা হয়েছে');
-        return;
+    let currentQ = null;
+    let qType = 'argomenti';
+
+    if (typeof testQuestions !== 'undefined' && Array.isArray(testQuestions) && testQuestions.length > 0 && typeof currentTestIndex !== 'undefined' && testQuestions[currentTestIndex]) {
+        currentQ = testQuestions[currentTestIndex];
+    } else if (typeof quizData !== 'undefined' && Array.isArray(quizData) && quizData.length > 0 && typeof currentQuizIndex !== 'undefined' && quizData[currentQuizIndex]) {
+        currentQ = quizData[currentQuizIndex];
     }
-    const currentQ = quizData[currentQuizIndex];
+
     if (!currentQ || !currentQ.id) {
-        showToast('বুকমার্ক সংরক্ষণ করা হয়েছে');
+        showToast('কোনো প্রশ্ন পাওয়া যায়নি');
         return;
     }
+
+    if ((currentQ.chapter_name && currentQ.chapter_name.toLowerCase().includes('cartell')) ||
+        (currentQ.image && currentQ.image.toLowerCase().includes('cartell'))) {
+        qType = 'cartelli';
+    }
+
+    const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
+    const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Client-Phone': savedPhone,
+            'X-Session-ID': savedSessionId
         },
-        body: JSON.stringify({ question_id: currentQ.id })
+        body: JSON.stringify({
+            question_id: currentQ.id,
+            type: qType,
+            phone: savedPhone,
+            session_id: savedSessionId,
+            italian: currentQ.italian || currentQ.question || ''
+        })
     })
         .then(res => res.json())
         .then(data => {
+            const isNowSaved = data.saved ?? (data.status === 'saved' || data.is_saved);
             const icon = document.getElementById('test-bookmark-icon');
-            if (data.saved) {
-                if (icon) icon.className = 'fa-solid fa-bookmark';
-                showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
-            } else {
-                if (icon) icon.className = 'fa-regular fa-bookmark';
-                showToast('প্রশ্ন বুকমার্ক থেকে সরানো হয়েছে');
+            if (icon) {
+                icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                icon.style.color = isNowSaved ? 'var(--accent-green, #22c55e)' : '';
             }
+
+            // Update local storage bookmarks array
+            const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
+            try {
+                let bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                const idx = bookmarks.indexOf(currentQ.id);
+                if (isNowSaved && idx === -1) bookmarks.push(currentQ.id);
+                else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
+                localStorage.setItem(storageKey, JSON.stringify(bookmarks));
+            } catch (_) { }
+
+            showToast(data.message || (isNowSaved ? 'প্রশ্নটি সেভ করা হয়েছে (Saved)' : 'সেভ থেকে সরানো হয়েছে (Removed)'));
         })
         .catch(err => {
-            showToast('প্রশ্ন বুকমার্কে সংরক্ষণ করা হয়েছে');
+            console.error('Error toggling test bookmark:', err);
+            showToast('বুকমার্ক আপডেট করতে সমস্যা হয়েছে');
         });
 }
 
 function openCurrentTestNoteModal() {
-    if (typeof quizData === 'undefined' || quizData.length === 0) {
-        openNotesModal(null, null, null, '');
-        return;
+    let currentQ = null;
+    let qType = 'argomenti';
+
+    if (typeof testQuestions !== 'undefined' && Array.isArray(testQuestions) && testQuestions.length > 0 && typeof currentTestIndex !== 'undefined' && testQuestions[currentTestIndex]) {
+        currentQ = testQuestions[currentTestIndex];
+    } else if (typeof quizData !== 'undefined' && Array.isArray(quizData) && quizData.length > 0 && typeof currentQuizIndex !== 'undefined' && quizData[currentQuizIndex]) {
+        currentQ = quizData[currentQuizIndex];
     }
-    const currentQ = quizData[currentQuizIndex];
+
     const qId = (currentQ && currentQ.id) ? currentQ.id : null;
-    openNotesModal(null, qId, null, '');
+    if (currentQ && ((currentQ.chapter_name && currentQ.chapter_name.toLowerCase().includes('cartell')) || (currentQ.image && currentQ.image.toLowerCase().includes('cartell')))) {
+        qType = 'cartelli';
+    }
+    openNotesModal(null, qId, qType, currentQ ? (currentQ.user_note || '') : '');
 }
 
 // --- 9. Sfida (Challenge Mode) & Leaderboard Logic ---
@@ -1343,29 +1383,38 @@ function loadUserProfileData() {
         .then(res => {
             if (res.status === 'success' && res.data) {
                 const nameInput = document.getElementById('profile-name-input');
+                const phoneInput = document.getElementById('profile-phone-input');
                 const avatarImg = document.getElementById('profile-avatar-img');
                 const examsEl = document.getElementById('stats-exams');
                 const errorsEl = document.getElementById('stats-errors');
 
                 const name = res.data.name || localStorage.getItem('user_profile_name') || '';
+                const phone = res.data.phone || localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
                 const avatar = res.data.avatar || localStorage.getItem('user_profile_avatar') || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=6366F1&color=fff`;
 
                 if (nameInput) nameInput.value = name;
+                if (phoneInput) phoneInput.value = phone;
                 if (avatarImg) avatarImg.src = avatar;
                 if (examsEl) examsEl.innerText = res.data.completed_exams !== undefined ? res.data.completed_exams : '0';
                 if (errorsEl) errorsEl.innerText = res.data.avg_errors !== undefined ? res.data.avg_errors : '0.0';
 
                 localStorage.setItem('user_profile_name', name);
                 localStorage.setItem('user_profile_avatar', avatar);
+                if (phone) {
+                    localStorage.setItem('app_client_phone', phone);
+                }
             }
         })
         .catch(() => {
             const nameInput = document.getElementById('profile-name-input');
+            const phoneInput = document.getElementById('profile-phone-input');
             const avatarImg = document.getElementById('profile-avatar-img');
             const name = localStorage.getItem('user_profile_name') || '';
+            const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
             const avatar = localStorage.getItem('user_profile_avatar') || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=6366F1&color=fff`;
 
             if (nameInput) nameInput.value = name;
+            if (phoneInput) phoneInput.value = phone;
             if (avatarImg) avatarImg.src = avatar;
         });
 }
@@ -1398,8 +1447,10 @@ function validateProfileNameInput() {
 
 function saveUserProfile() {
     const nameInput = document.getElementById('profile-name-input');
+    const phoneInput = document.getElementById('profile-phone-input');
     const hint = document.getElementById('profile-name-hint');
     const name = nameInput ? nameInput.value.trim() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
 
     if (!name) {
         if (hint) {
@@ -1410,8 +1461,33 @@ function saveUserProfile() {
         return;
     }
 
+    // Persist phone for cross-device two-way sync
+    if (phone) {
+        localStorage.setItem('app_client_phone', phone);
+        document.cookie = "app_client_phone=" + encodeURIComponent(phone) + "; path=/; SameSite=Lax";
+        if (typeof currentClientPhone !== 'undefined') {
+            currentClientPhone = phone;
+        }
+
+        // Verify/register client identity with backend
+        fetch('/api/v1/client/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                phone: phone,
+                first_name: name,
+                session_id: localStorage.getItem('app_client_session_id') || ''
+            })
+        }).catch(err => console.warn('Sync client verify note:', err));
+    }
+
     const payload = {
         name: name,
+        phone: phone,
         avatar: uploadedAvatarBase64
     };
 

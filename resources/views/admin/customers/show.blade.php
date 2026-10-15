@@ -48,22 +48,90 @@
                 @if($customer->licenses->count() > 0)
                     <div class="mb-3">
                         @foreach($customer->licenses as $lic)
-                            <div class="p-2 border rounded mb-2 bg-light">
-                                <div><strong>Key:</strong> <code>{{ $lic->license_key }}</code></div>
-                                <div><strong>Status:</strong> <span class="badge bg-info text-dark text-uppercase">{{ $lic->status }}</span></div>
-                                @if($lic->activated_at)
-                                    <div><small class="text-muted">Activated: {{ $lic->activated_at->format('Y-m-d H:i') }}</small></div>
+                            @php
+                                $isLicExpired = $lic->expires_at && now()->gt($lic->expires_at);
+                                $statusClass = match($lic->status) {
+                                    'active' => ($isLicExpired ? 'bg-danger text-white' : 'bg-success text-white'),
+                                    'expired' => 'bg-danger text-white',
+                                    'pending' => 'bg-warning text-dark',
+                                    'inactive' => 'bg-secondary text-white',
+                                    default => 'bg-info text-dark',
+                                };
+                                $displayStatus = ($lic->status === 'active' && $isLicExpired) ? 'EXPIRED' : strtoupper($lic->status);
+                            @endphp
+                            <div class="p-3 border rounded mb-3 bg-light shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fs-5"><strong>Key:</strong> <code>{{ $lic->license_key }}</code></span>
+                                    <span class="badge {{ $statusClass }} px-2 py-1">{{ $displayStatus }}</span>
+                                </div>
+                                <div class="small text-muted mb-1">
+                                    @if($lic->duration_seconds)
+                                        @php
+                                            $secs = $lic->duration_seconds;
+                                            $durText = $secs < 60 ? "{$secs} Seconds" : ($secs < 3600 ? round($secs/60) . " Minutes" : ($secs < 86400 ? round($secs/3600) . " Hours" : round($secs/86400) . " Days"));
+                                        @endphp
+                                        <strong>Duration:</strong> {{ $durText }} |
+                                    @endif
+                                    @if($lic->activated_at)
+                                        <strong>Activated:</strong> {{ $lic->activated_at->format('Y-m-d H:i:s') }}
+                                    @else
+                                        <em>Not yet activated</em>
+                                    @endif
+                                </div>
+                                @if($lic->expires_at)
+                                    <div class="small mb-2">
+                                        <strong>Expires At:</strong> <code>{{ $lic->expires_at->format('Y-m-d H:i:s') }}</code>
+                                        @if($isLicExpired)
+                                            <span class="badge bg-danger ms-1">Expired {{ $lic->expires_at->diffForHumans() }}</span>
+                                        @else
+                                            <span class="badge bg-success ms-1">Valid (Expires {{ $lic->expires_at->diffForHumans() }})</span>
+                                        @endif
+                                    </div>
                                 @endif
-                                <form method="POST" action="{{ route('admin.licenses.updateStatus', $lic->id) }}" class="d-flex gap-2 mt-2">
+
+                                <form method="POST" action="{{ route('admin.licenses.updateStatus', $lic->id) }}" class="mt-2 pt-2 border-top">
                                     @csrf
-                                    <select name="status" class="form-select form-select-sm">
-                                        <option value="inactive" {{ $lic->status == 'inactive' ? 'selected' : '' }}>Inactive</option>
-                                        <option value="pending" {{ $lic->status == 'pending' ? 'selected' : '' }}>Pending</option>
-                                        <option value="active" {{ $lic->status == 'active' ? 'selected' : '' }}>Active</option>
-                                        <option value="expired" {{ $lic->status == 'expired' ? 'selected' : '' }}>Expired</option>
-                                        <option value="revoked" {{ $lic->status == 'revoked' ? 'selected' : '' }}>Revoked</option>
-                                    </select>
-                                    <button type="submit" class="btn btn-sm btn-outline-success">Update</button>
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-4">
+                                            <label class="form-label small fw-bold mb-0">Status</label>
+                                            <select name="status" class="form-select form-select-sm" onchange="toggleDurationUpdate(this, '{{ $lic->id }}')">
+                                                <option value="inactive" {{ $lic->status == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                                <option value="pending" {{ $lic->status == 'pending' ? 'selected' : '' }}>Pending</option>
+                                                <option value="active" {{ ($lic->status == 'active' && !$isLicExpired) ? 'selected' : '' }}>Active</option>
+                                                <option value="expired" {{ ($lic->status == 'expired' || $isLicExpired) ? 'selected' : '' }}>Expired</option>
+                                                <option value="revoked" {{ $lic->status == 'revoked' ? 'selected' : '' }}>Revoked</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-5">
+                                            <label class="form-label small fw-bold mb-0">Extend / Duration</label>
+                                            <select name="duration_preset" class="form-select form-select-sm" id="preset_{{ $lic->id }}" onchange="handlePresetChange(this, '{{ $lic->id }}')">
+                                                <option value="60">⏱️ 1 Minute (Test)</option>
+                                                <option value="300">5 Minutes</option>
+                                                <option value="3600">1 Hour</option>
+                                                <option value="86400">1 Day</option>
+                                                <option value="604800">7 Days</option>
+                                                <option value="2592000">30 Days</option>
+                                                <option value="31536000" selected>365 Days (1 Yr)</option>
+                                                <option value="custom">Custom...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-3 d-flex align-items-end">
+                                            <button type="submit" class="btn btn-sm btn-primary w-100 mt-3">Update</button>
+                                        </div>
+                                    </div>
+                                    <div id="custom_inputs_{{ $lic->id }}" class="row g-2 mt-1" style="display: none;">
+                                        <div class="col-6">
+                                            <input type="number" name="custom_duration_value" class="form-control form-control-sm" placeholder="Value" min="1" value="1">
+                                        </div>
+                                        <div class="col-6">
+                                            <select name="custom_duration_unit" class="form-select form-select-sm">
+                                                <option value="seconds">Seconds</option>
+                                                <option value="minutes" selected>Minutes</option>
+                                                <option value="hours">Hours</option>
+                                                <option value="days">Days</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </form>
                             </div>
                         @endforeach
@@ -72,15 +140,73 @@
                     <p class="text-muted">No license assigned yet.</p>
                 @endif
 
-                <h6 class="mt-3">Assign New License Key</h6>
+                <h6 class="mt-3 border-top pt-3">Assign New License Key</h6>
                 <form method="POST" action="{{ route('admin.customers.assignLicense', $customer->uuid) }}">
                     @csrf
                     <div class="mb-2">
-                        <input type="text" name="license_key" class="form-control" placeholder="Leave empty for auto-generated key">
+                        <label class="form-label small fw-bold mb-1">License Key (Optional)</label>
+                        <input type="text" name="license_key" class="form-control form-control-sm" placeholder="Leave blank to auto-generate">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold mb-1">Initial Status</label>
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="pending" selected>Pending (User Activates)</option>
+                                <option value="active">Active Immediately</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold mb-1">Duration Validity</label>
+                            <select name="duration_preset" class="form-select form-select-sm" id="new_lic_preset" onchange="handleNewPresetChange(this)">
+                                <option value="60">⏱️ 1 Minute (Test)</option>
+                                <option value="300">5 Minutes</option>
+                                <option value="3600">1 Hour</option>
+                                <option value="86400">1 Day</option>
+                                <option value="604800">7 Days</option>
+                                <option value="2592000">30 Days</option>
+                                <option value="31536000" selected>365 Days (1 Year)</option>
+                                <option value="custom">Custom...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="new_custom_inputs" class="row g-2 mb-2" style="display: none;">
+                        <div class="col-6">
+                            <input type="number" name="custom_duration_value" class="form-control form-control-sm" placeholder="Value (e.g. 1)" min="1" value="1">
+                        </div>
+                        <div class="col-6">
+                            <select name="custom_duration_unit" class="form-select form-select-sm">
+                                <option value="seconds">Seconds</option>
+                                <option value="minutes" selected>Minutes</option>
+                                <option value="hours">Hours</option>
+                                <option value="days">Days</option>
+                            </select>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-success w-100">🔑 Assign License & Send Activation Card</button>
                 </form>
             </div>
+
+            <script>
+                function handlePresetChange(selectEl, licId) {
+                    var customDiv = document.getElementById('custom_inputs_' + licId);
+                    if (customDiv) {
+                        customDiv.style.display = selectEl.value === 'custom' ? 'flex' : 'none';
+                    }
+                }
+                function handleNewPresetChange(selectEl) {
+                    var customDiv = document.getElementById('new_custom_inputs');
+                    if (customDiv) {
+                        customDiv.style.display = selectEl.value === 'custom' ? 'flex' : 'none';
+                    }
+                }
+                function toggleDurationUpdate(selectEl, licId) {
+                    var presetEl = document.getElementById('preset_' + licId);
+                    if (presetEl) {
+                        presetEl.disabled = (selectEl.value === 'inactive' || selectEl.value === 'expired' || selectEl.value === 'revoked');
+                    }
+                }
+            </script>
         </div>
 
         <!-- Chat Column -->

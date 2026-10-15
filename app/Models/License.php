@@ -13,11 +13,13 @@ class License extends Model
         'user_id',
         'license_key',
         'status',
+        'duration_seconds',
         'activated_at',
         'expires_at',
     ];
 
     protected $casts = [
+        'duration_seconds' => 'integer',
         'activated_at' => 'datetime',
         'expires_at' => 'datetime',
     ];

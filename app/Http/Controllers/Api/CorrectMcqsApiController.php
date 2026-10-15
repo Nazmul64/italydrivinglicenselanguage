@@ -70,13 +70,15 @@ class CorrectMcqsApiController extends Controller
 
         // Strict user scoping (do not leak other users' correct MCQs)
 
-        $correctQuestionIds = [];
+        $latestStatusByQId = [];
 
         foreach ($allResults as $res) {
             // Direct single question record
             if (!empty($res->question_id)) {
-                if ($res->is_correct == 1 || $res->is_correct === true || $res->is_correct === '1' || (!empty($res->correct_count) && (int)$res->correct_count > 0)) {
-                    $correctQuestionIds[] = (int)$res->question_id;
+                $qId = (int)$res->question_id;
+                if (!isset($latestStatusByQId[$qId])) {
+                    $isCorr = ($res->is_correct == 1 || $res->is_correct === true || $res->is_correct === '1');
+                    $latestStatusByQId[$qId] = $isCorr;
                 }
             }
 
@@ -85,15 +87,19 @@ class CorrectMcqsApiController extends Controller
                 $ansArr = is_string($res->answers) ? json_decode($res->answers, true) : $res->answers;
                 if (is_array($ansArr)) {
                     foreach ($ansArr as $key => $item) {
+                        $qId = null;
+                        $isCorr = null;
                         if (is_array($item)) {
                             $qId = $item['question_id'] ?? ($item['id'] ?? null);
                             $isCorr = $item['is_correct'] ?? ($item['correct'] ?? null);
-                            if ($qId && ($isCorr === true || $isCorr == 1 || $isCorr === '1')) {
-                                $correctQuestionIds[] = (int)$qId;
-                            }
                         } else if (is_numeric($key)) {
-                            if ($item === true || $item == 1 || $item === '1') {
-                                $correctQuestionIds[] = (int)$key;
+                            $qId = (int)$key;
+                            $isCorr = $item;
+                        }
+                        if ($qId) {
+                            $qIdInt = (int)$qId;
+                            if (!isset($latestStatusByQId[$qIdInt])) {
+                                $latestStatusByQId[$qIdInt] = ($isCorr === true || $isCorr == 1 || $isCorr === '1');
                             }
                         }
                     }
@@ -101,6 +107,12 @@ class CorrectMcqsApiController extends Controller
             }
         }
 
+        $correctQuestionIds = [];
+        foreach ($latestStatusByQId as $qId => $isCorrect) {
+            if ($isCorrect) {
+                $correctQuestionIds[] = $qId;
+            }
+        }
         $correctQuestionIds = array_values(array_unique(array_filter($correctQuestionIds)));
 
         if (empty($correctQuestionIds)) {

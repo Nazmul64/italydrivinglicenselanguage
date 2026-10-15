@@ -20,6 +20,11 @@
             <div id="profile-name-hint" style="font-size: 11px; margin-top: 6px; min-height: 16px;"></div>
         </div>
 
+        <div style="text-align: left; width: 100%; max-width: 400px; margin: 12px auto 0;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">মোবাইল নম্বর (অ্যাপ ও ওয়েব ডেটা সিঙ্ক করতে)</label>
+            <input type="tel" id="profile-phone-input" placeholder="যেমন: +39 351 123 4567 বা 017..." style="width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-card); background: var(--bg-card); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+        </div>
+
         <button type="button" class="action-btn" onclick="saveUserProfile()" style="margin-top: 16px; background: linear-gradient(135deg, #6366F1, #4F46E5); color: white; border-radius: 12px; padding: 12px; width: 100%; max-width: 400px; font-weight: 800; border: none; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
             <i class="fa-solid fa-floppy-disk"></i> প্রোফাইল সংরক্ষণ করুন
         </button>

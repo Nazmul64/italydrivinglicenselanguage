@@ -581,6 +581,12 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
     Route::get('/api/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
     Route::get('/api/v1/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
 
+    // Exam / Test Submission Endpoints
+    Route::match(['get', 'post'], '/api/scheda-esame/submit', [\App\Http\Controllers\Api\SchedaEsameApiController::class, 'submitExam']);
+    Route::match(['get', 'post'], '/api/v1/scheda-esame/submit', [\App\Http\Controllers\Api\SchedaEsameApiController::class, 'submitExam']);
+    Route::match(['get', 'post'], '/api/test/submit', [\App\Http\Controllers\Api\SchedaEsameApiController::class, 'submitExam']);
+    Route::match(['get', 'post'], '/api/v1/test/submit', [\App\Http\Controllers\Api\SchedaEsameApiController::class, 'submitExam']);
+
     // Saved, Noted, Correct, and Wrong MCQs Routes
     Route::get('/api/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);
     Route::get('/api/v1/saved-mcqs', [\App\Http\Controllers\Api\SavedMcqsApiController::class, 'index']);

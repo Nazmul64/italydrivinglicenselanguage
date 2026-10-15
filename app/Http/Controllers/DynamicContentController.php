@@ -893,6 +893,9 @@ class DynamicContentController extends Controller
         ));
         
         if ($client) {
+            if ($isClientExpired && $client->is_active) {
+                $client->is_active = false;
+            }
             if ($phone && !$client->phone) {
                 $client->phone = $phone;
             }
@@ -900,7 +903,7 @@ class DynamicContentController extends Controller
                 if (!$client->first_name && $userObj->first_name) $client->first_name = $userObj->first_name;
                 if (!$client->last_name && $userObj->last_name) $client->last_name = $userObj->last_name;
             }
-            if ($isActive && !$client->is_active) {
+            if ($isActive && !$isClientExpired && !$client->is_active) {
                 $client->is_active = true;
             }
             if ($client->isDirty()) {

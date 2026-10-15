@@ -1015,7 +1015,8 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
                 .then(data => {
                     if (data && data.length > 0) {
                         practiceMode = 'exam';
-                        testQuestions = data.map(q => ({
+                        const testList = Array.isArray(data) ? data : (data.data || []);
+                        testQuestions = testList.slice(0, 30).map(q => ({
                             id: q.id,
                             italian: q.italian || q.question || '',
                             bangla: q.bangla || q.bn_question || '',
