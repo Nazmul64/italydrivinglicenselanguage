@@ -32,38 +32,71 @@ class ArgomentiApiController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $chapters->transform(function ($ch) use ($userIds, $sessionIds, $hasUser) {
-            $pageIds = Page::where('chapter_id', $ch->id)->pluck('id');
-            $questionIds = Question::where(function ($q) use ($ch, $pageIds) {
-                $q->where('chapter', $ch->id)
-                  ->orWhere('chapter', $ch->chapter_number)
-                  ->orWhereIn('page_id', $pageIds);
-            })->pluck('id')->toArray();
+        // Pre-fetch all pages and questions in 2 queries instead of 75 queries
+        $pages = Page::where('status', true)->select('id', 'chapter_id')->get();
+        $pagesByChapter = $pages->groupBy('chapter_id');
 
+        $allQuestions = Question::select('id', 'chapter', 'page_id')->get();
+        $questionsByPage = $allQuestions->whereNotNull('page_id')->groupBy('page_id');
+        $questionsByChapter = $allQuestions->whereNotNull('chapter')->groupBy('chapter');
+
+        $latestResultsByQ = collect();
+        if ($hasUser) {
+            $latestResultsByQ = UserMcqResult::where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
+                }
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->unique('question_id')
+            ->keyBy('question_id');
+        }
+
+        $chapters->transform(function ($ch) use ($pagesByChapter, $questionsByPage, $questionsByChapter, $latestResultsByQ, $hasUser) {
+            $chPageIds = isset($pagesByChapter[$ch->id]) ? $pagesByChapter[$ch->id]->pluck('id')->toArray() : [];
+            
+            $qIds = [];
+            foreach ($chPageIds as $pId) {
+                if (isset($questionsByPage[$pId])) {
+                    foreach ($questionsByPage[$pId] as $q) {
+                        $qIds[$q->id] = true;
+                    }
+                }
+            }
+            if (isset($questionsByChapter[$ch->id])) {
+                foreach ($questionsByChapter[$ch->id] as $q) {
+                    $qIds[$q->id] = true;
+                }
+            }
+            if (!empty($ch->chapter_number) && isset($questionsByChapter[$ch->chapter_number])) {
+                foreach ($questionsByChapter[$ch->chapter_number] as $q) {
+                    $qIds[$q->id] = true;
+                }
+            }
+
+            $questionIds = array_keys($qIds);
             $total = count($questionIds);
             $correct = 0;
             $wrong = 0;
 
             if ($hasUser && $total > 0) {
-                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
-                    ->where(function ($q) use ($userIds, $sessionIds) {
-                        if (!empty($userIds)) {
-                            $q->whereIn('user_id', $userIds);
+                foreach ($questionIds as $qid) {
+                    if (isset($latestResultsByQ[$qid])) {
+                        if ($latestResultsByQ[$qid]->is_correct) {
+                            $correct++;
+                        } else {
+                            $wrong++;
                         }
-                        if (!empty($sessionIds)) {
-                            if (!empty($userIds)) {
-                                $q->orWhereIn('session_id', $sessionIds);
-                            } else {
-                                $q->whereIn('session_id', $sessionIds);
-                            }
-                        }
-                    })
-                    ->orderBy('updated_at', 'desc')
-                    ->get()
-                    ->unique('question_id');
-
-                $correct = $latestResults->where('is_correct', 1)->count();
-                $wrong = $latestResults->where('is_correct', 0)->count();
+                    }
+                }
             }
 
             $unanswered = max(0, $total - $correct - $wrong);
@@ -107,32 +140,47 @@ class ArgomentiApiController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $pages->transform(function ($p) use ($userIds, $sessionIds, $hasUser) {
-            $questionIds = Question::where('page_id', $p->id)->pluck('id')->toArray();
-            $total = count($questionIds);
+        $pageIds = $pages->pluck('id')->toArray();
+        $questionsByPage = Question::whereIn('page_id', $pageIds)->select('id', 'page_id')->get()->groupBy('page_id');
+        $allPageQIds = $questionsByPage->flatten(1)->pluck('id')->toArray();
+
+        $latestResultsByQ = collect();
+        if ($hasUser && !empty($allPageQIds)) {
+            $latestResultsByQ = UserMcqResult::whereIn('question_id', $allPageQIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) {
+                        $q->whereIn('user_id', $userIds);
+                    }
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) {
+                            $q->orWhereIn('session_id', $sessionIds);
+                        } else {
+                            $q->whereIn('session_id', $sessionIds);
+                        }
+                    }
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get()
+                ->unique('question_id')
+                ->keyBy('question_id');
+        }
+
+        $pages->transform(function ($p) use ($questionsByPage, $latestResultsByQ, $hasUser) {
+            $pageQuestions = isset($questionsByPage[$p->id]) ? $questionsByPage[$p->id] : collect();
+            $total = $pageQuestions->count();
             $correct = 0;
             $wrong = 0;
 
             if ($hasUser && $total > 0) {
-                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
-                    ->where(function ($q) use ($userIds, $sessionIds) {
-                        if (!empty($userIds)) {
-                            $q->whereIn('user_id', $userIds);
+                foreach ($pageQuestions as $q) {
+                    if (isset($latestResultsByQ[$q->id])) {
+                        if ($latestResultsByQ[$q->id]->is_correct) {
+                            $correct++;
+                        } else {
+                            $wrong++;
                         }
-                        if (!empty($sessionIds)) {
-                            if (!empty($userIds)) {
-                                $q->orWhereIn('session_id', $sessionIds);
-                            } else {
-                                $q->whereIn('session_id', $sessionIds);
-                            }
-                        }
-                    })
-                    ->orderBy('updated_at', 'desc')
-                    ->get()
-                    ->unique('question_id');
-
-                $correct = $latestResults->where('is_correct', 1)->count();
-                $wrong = $latestResults->where('is_correct', 0)->count();
+                    }
+                }
             }
 
             $unanswered = max(0, $total - $correct - $wrong);

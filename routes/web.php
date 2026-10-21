@@ -1899,12 +1899,20 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                 \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, $cacheSec);
             }
         }
+        \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $sessionId);
         \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, $cacheSec);
         if ($client->session_id && $client->session_id !== $sessionId) {
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $client->session_id);
             \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, $cacheSec);
         }
         if ($user && $user->uuid && $user->uuid !== $sessionId) {
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $user->uuid);
             \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $user->uuid, true, $cacheSec);
+        }
+        if ($client->phone && $client->phone !== 'N/A') {
+            $cleanP = preg_replace('/\D/', '', $client->phone);
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $client->phone);
+            if ($cleanP) \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $cleanP);
         }
 
         $userId = $user ? $user->uuid : $client->session_id;

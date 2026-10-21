@@ -117,9 +117,24 @@ class CustomerAdminController extends Controller
             $appClientQuery->orWhere('phone', $customer->phone);
         }
         $appClientQuery->update([
-            'is_active'  => ($status === 'active'),
-            'expires_at' => $expiresAt,
+            'is_active'      => ($status === 'active'),
+            'is_uninstalled' => false,
+            'expires_at'     => $expiresAt,
         ]);
+
+        if ($status === 'active') {
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $customer->uuid);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->uuid, true, $durationSeconds);
+            if ($customer->phone) {
+                $cleanP = preg_replace('/\D/', '', $customer->phone);
+                \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $customer->phone);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->phone, true, $durationSeconds);
+                if ($cleanP) {
+                    \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $cleanP);
+                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanP, true, $durationSeconds);
+                }
+            }
+        }
 
         // Send activation card into user's support chat
         $conversation = Conversation::firstOrCreate(['user_id' => $customer->uuid]);
@@ -130,8 +145,8 @@ class CustomerAdminController extends Controller
             'sender'          => 'admin',
             'sender_type'     => 'admin',
             'sender_id'       => 'admin',
-            'sender_name'     => 'System Admin',
-            'message'         => "🔑 License Key Assigned ({$durationLabel})\nKey: {$key}\nDuration: {$durationLabel}\nStatus: " . ucfirst($status),
+            'sender_name'     => 'Support Admin',
+            'message'         => "[LICENSE_CARD:key={$key}|days=" . max(1, round($durationSeconds / 86400)) . "|seconds={$durationSeconds}]\n🔑 License Key Assigned ({$durationLabel})\nKey: {$key}\nDuration: {$durationLabel}\nStatus: " . ucfirst($status),
             'license_key'     => $key,
             'is_license_card' => true,
         ]);
@@ -171,6 +186,40 @@ class CustomerAdminController extends Controller
             if ($customer) {
                 $customer->update(['is_uninstalled' => false]);
             }
+
+            // Immediately unblock in cache & unlock for user
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $license->user_id);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $license->user_id, true, $durationSeconds);
+            if ($customer) {
+                \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $customer->uuid);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->uuid, true, $durationSeconds);
+                if ($customer->phone) {
+                    $cleanP = preg_replace('/\D/', '', $customer->phone);
+                    \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $customer->phone);
+                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->phone, true, $durationSeconds);
+                    if ($cleanP) {
+                        \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $cleanP);
+                        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanP, true, $durationSeconds);
+                    }
+                }
+            }
+
+            // Post renewal card directly into customer live chat
+            $conversation = Conversation::firstOrCreate(['user_id' => $license->user_id]);
+            $durationLabel = $this->formatDurationLabel($durationSeconds);
+            $cardMsg = "[LICENSE_CARD:key={$license->license_key}|days=" . max(1, round($durationSeconds / 86400)) . "|seconds={$durationSeconds}]\n🔑 আপনার লাইসেন্স কি পুনরায় আপডেট/নবায়ন করা হয়েছে!\nমেয়াদ: {$durationLabel}\nলাইসেন্স সক্রিয় হয়েছে, এখন আপনি অ্যাপ ও ওয়েবসাইটের সকল ফিচার ব্যবহার করতে পারবেন।";
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'session_id'      => $customer ? ($customer->uuid ?: $license->user_id) : $license->user_id,
+                'sender'          => 'admin',
+                'sender_type'     => 'admin',
+                'sender_id'       => 'admin',
+                'sender_name'     => 'Support Admin',
+                'message'         => $cardMsg,
+                'license_key'     => $license->license_key,
+                'is_license_card' => true,
+            ]);
         } elseif (in_array($status, ['expired', 'inactive', 'revoked'])) {
             if ($status === 'expired') {
                 $data['expires_at'] = now()->subSecond();
@@ -243,6 +292,18 @@ class CustomerAdminController extends Controller
             'expires_at'     => $expiresAt,
         ]);
 
+        \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $customer->uuid);
+        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->uuid, true, $durationSeconds);
+        if ($customer->phone) {
+            $cleanP = preg_replace('/\D/', '', $customer->phone);
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $customer->phone);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $customer->phone, true, $durationSeconds);
+            if ($cleanP) {
+                \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $cleanP);
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanP, true, $durationSeconds);
+            }
+        }
+
         // Send activation card into user's support chat
         $conversation = Conversation::firstOrCreate(['user_id' => $customer->uuid]);
         Message::create([
@@ -251,8 +312,8 @@ class CustomerAdminController extends Controller
             'sender'          => 'admin',
             'sender_type'     => 'admin',
             'sender_id'       => 'admin',
-            'sender_name'     => 'System Admin',
-            'message'         => "[LICENSE_CARD:key={$key}|days=365|seconds={$durationSeconds}]\n🔑 আপনার অ্যাকাউন্টটি সক্রিয় করা হয়েছে!\nলাইসেন্স কি: {$key} ({$durationLabel})\nনিচে 'Attiva Licenza (অ্যাক্টিভ করুন)' বাটনে ক্লিক করে অ্যাপের সম্পূর্ণ সুবিধা উপভোগ করুন।",
+            'sender_name'     => 'Support Admin',
+            'message'         => "[LICENSE_CARD:key={$key}|days=" . max(1, round($durationSeconds / 86400)) . "|seconds={$durationSeconds}]\n🔑 আপনার অ্যাকাউন্টটি সক্রিয় করা হয়েছে!\nলাইসেন্স কি: {$key} ({$durationLabel})\nনিচে 'Attiva Licenza (অ্যাক্টিভ করুন)' বাটনে ক্লিক করে অ্যাপের সম্পূর্ণ সুবিধা উপভোগ করুন।",
             'license_key'     => $key,
             'is_license_card' => true,
         ]);

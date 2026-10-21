@@ -191,9 +191,9 @@ trait ResolvesUserSession
                 $client = AppClient::create([
                     'phone' => $phone,
                     'session_id' => $userRecord->uuid ?: ($sessionId ?: $cleanPhone),
-                    'first_name' => $firstName ?: 'App',
-                    'last_name' => $lastName ?: 'User',
-                    'is_active' => false
+                    'first_name' => $firstName ?: '',
+                    'last_name'  => $lastName ?: '',
+                    'is_active'  => false
                 ]);
             }
 
