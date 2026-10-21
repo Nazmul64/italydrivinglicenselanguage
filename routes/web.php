@@ -576,7 +576,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
         });
 
         $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
-        return response()->json($combined);
+        return response()->json($combined)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     // Public Classes API
@@ -2212,6 +2215,9 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $question->save();
         }
 
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+
         return response()->json($question);
     });
 
@@ -2314,6 +2320,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         }
 
         $question->save();
+
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+
         return response()->json($question);
     });
 
@@ -2323,6 +2333,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             @unlink(public_path($question->image));
         }
         $question->delete();
+
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+
         return response()->json(['success' => true]);
     });
 
@@ -2350,6 +2364,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
                 }
                 $question->delete();
             }
+
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+
             return response()->json(['success' => true]);
         }
 
@@ -2364,6 +2382,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             }
             $question->delete();
         }
+
+        \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+        \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+
         return response()->json(['success' => true]);
     });
 

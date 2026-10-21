@@ -13,6 +13,7 @@ use App\Helpers\ImageHelper;
 use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 class ArgomentiController extends Controller
 {
@@ -534,6 +535,8 @@ class ArgomentiController extends Controller
         }
 
         $chapter = Chapter::create($data);
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json($chapter);
     }
 
@@ -613,6 +616,8 @@ class ArgomentiController extends Controller
         }
 
         $chapter->update($updateData);
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json($chapter);
     }
 
@@ -624,6 +629,8 @@ class ArgomentiController extends Controller
         $this->checkPermission('chapters');
         $chapter = Chapter::findOrFail($id);
         $chapter->update(['status' => !$chapter->status]);
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json($chapter);
     }
 
@@ -642,6 +649,8 @@ class ArgomentiController extends Controller
             @unlink(public_path($chapter->cover_image));
         }
         $chapter->delete(); // cascade deletes pages
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json(['success' => true]);
     }
 
@@ -724,6 +733,8 @@ class ArgomentiController extends Controller
         ];
 
         $page = Page::create($data);
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
 
         if ($request->hasFile('image')) {
             $uploadedPath = ImageHelper::uploadAndOptimize($request->file('image'), 'uploads/pages/images', 'page_img_' . $page->id, 800, 80);
@@ -1033,6 +1044,8 @@ class ArgomentiController extends Controller
             }
         }
 
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json($page);
     }
 
@@ -1044,6 +1057,8 @@ class ArgomentiController extends Controller
         $this->checkPermission('pages');
         $page = Page::findOrFail($id);
         $page->update(['status' => !$page->status]);
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json($page);
     }
 
@@ -1069,6 +1084,8 @@ class ArgomentiController extends Controller
 
         Question::where('page_id', $page->id)->delete();
         $page->delete();
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json(['success' => true]);
     }
 
@@ -1118,6 +1135,8 @@ class ArgomentiController extends Controller
             $chapter->delete(); // cascade deletes pages
         }
 
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json(['success' => true]);
     }
 
@@ -1185,6 +1204,8 @@ class ArgomentiController extends Controller
             $page->delete();
         }
 
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
         return response()->json(['success' => true]);
     }
 
@@ -1203,6 +1224,9 @@ class ArgomentiController extends Controller
         // Assign questions
         Question::whereIn('id', $request->question_ids)
             ->update(['page_id' => $page->id]);
+
+        Cache::forget('frontend_cached_view_data');
+        Cache::forget('all_compiled_mcq_vocabulary');
 
         return response()->json(['success' => true]);
     }

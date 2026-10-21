@@ -92,6 +92,14 @@
                     <button class="action-btn" style="width: 100%; background-color: #e5e7eb; color: #1e293b; margin: 0; font-weight: 800; font-size: 15px; border-radius: 24px; padding: 12px; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.06); transition: background-color 0.2s ease;" onclick="openTestDetailsView()">
                         Mostra Risultato
                     </button>
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <button type="button" style="flex: 1; background-color: #3b82f6; color: #ffffff; font-weight: 800; font-size: 14px; border-radius: 14px; padding: 11px; border: none; cursor: pointer; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); transition: transform 0.1s ease, background-color 0.2s ease;" onclick="restartCurrentTest()">
+                            Ricomincia
+                        </button>
+                        <button type="button" style="flex: 1; background-color: #f8fafc; color: #475569; font-weight: 800; font-size: 14px; border-radius: 14px; padding: 11px; border: 1.5px solid #cbd5e1; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s ease, background-color 0.2s ease;" onclick="goHomeFromTestModal()">
+                            Home
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

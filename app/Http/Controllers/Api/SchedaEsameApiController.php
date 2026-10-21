@@ -19,7 +19,7 @@ class SchedaEsameApiController extends Controller
      */
     public function generateSheet()
     {
-        $argomentiQuestions = Question::inRandomOrder()->limit(20)->get()->map(function ($q) {
+        $argomentiQuestions = Question::inRandomOrder()->limit(30)->get()->map(function ($q) {
             return [
                 'id' => $q->id,
                 'type' => 'argomenti',
@@ -34,7 +34,7 @@ class SchedaEsameApiController extends Controller
             ];
         });
 
-        $cartelliQuestions = CartelloMcq::where('status', true)->inRandomOrder()->limit(10)->get()->map(function ($q) {
+        $cartelliQuestions = CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function ($q) {
             return [
                 'id' => $q->id,
                 'type' => 'cartelli',
@@ -57,7 +57,10 @@ class SchedaEsameApiController extends Controller
             'max_allowed_errors' => 3,
             'total_questions' => min(30, $combined->count()),
             'data' => $combined
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**

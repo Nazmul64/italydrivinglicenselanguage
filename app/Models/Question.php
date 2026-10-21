@@ -70,6 +70,11 @@ class Question extends Model
 
     protected static function booted()
     {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+
         static::deleting(function ($question) {
             Note::where('question_id', $question->id)->where(function($q) {
                 $q->where('type', 'argomenti')->orWhereNull('type');
@@ -80,6 +85,11 @@ class Question extends Model
             UserMcqResult::where('question_id', $question->id)->where(function($q) {
                 $q->where('question_type', 'argomenti')->orWhereNull('question_type');
             })->delete();
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
         });
     }
 }

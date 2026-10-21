@@ -55,6 +55,8 @@ class ExamSheetController extends Controller
             }
 
             $exam->update([
+                'total_count' => count($questionsArray),
+                'unanswered_count' => count($questionsArray),
                 'answers' => $questionsArray
             ]);
         }
@@ -210,7 +212,7 @@ class ExamSheetController extends Controller
 
     // ==========================================
     // Admin CRUD Operations
-    // ==========================================
+    // ============= b=============================
 
     /**
      * Store a new scheduled exam.

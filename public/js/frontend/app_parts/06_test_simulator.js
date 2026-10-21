@@ -81,7 +81,7 @@ function initRandomTestQuiz() {
     }
     if (optBar) optBar.style.display = 'none';
 
-    fetch('/api/questions/random-test')
+    fetch('/api/questions/random-test?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
             const rawList = Array.isArray(data) ? data : (data.data || []);
@@ -779,7 +779,8 @@ function submitTestExam() {
         }
     }
 
-    const passed = wrongAnswers <= 4;
+    const maxAllowedErrors = totalQuestions >= 30 ? 3 : Math.floor(totalQuestions * 0.1);
+    const passed = (wrongAnswers <= maxAllowedErrors) && (correctAnswers > 0 || totalQuestions === 0);
 
     const txtGiusto = document.getElementById('txt-giusto');
     const txtSbagliato = document.getElementById('txt-sbagliato');
@@ -884,22 +885,48 @@ function submitTestExam() {
     }
 }
 
-function closeResultModal() {
+function restartCurrentTest() {
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'none';
+    if (typeof stopAllTestAudio === 'function') stopAllTestAudio();
+    if (typeof activeExamSession !== 'undefined' && activeExamSession && activeExamSession.id && typeof startSchedaExamSimulation === 'function') {
+        startSchedaExamSimulation(activeExamSession.id);
+        return;
+    }
+    if (typeof initRandomTestQuiz === 'function') {
+        initRandomTestQuiz();
+    } else if (typeof restartCurrentQuiz === 'function') {
+        currentTestIndex = 0;
+        testAnswers = Array(testQuestions.length).fill(null);
+        if (typeof switchTestQuestionTab === 'function') switchTestQuestionTab(1);
+        if (typeof showTestQuestion === 'function') showTestQuestion();
+    }
     if (typeof openScreen === 'function') {
-        openScreen('home', 'mbanglapatenteb');
+        openScreen('test', 'Test');
     }
 }
 
-function restartCurrentQuiz() {
+function goHomeFromTestModal() {
     const modal = document.getElementById('exam-result-modal');
     if (modal) modal.style.display = 'none';
-    currentTestIndex = 0;
-    testAnswers = Array(testQuestions.length).fill(null);
-    if (typeof switchTestQuestionTab === 'function') switchTestQuestionTab(1);
-    if (typeof showTestQuestion === 'function') showTestQuestion();
-    if (typeof openScreen === 'function') openScreen('test', 'Practice Quiz');
+    if (typeof stopAllTestAudio === 'function') stopAllTestAudio();
+    if (typeof testTimerInterval !== 'undefined' && testTimerInterval) {
+        clearInterval(testTimerInterval);
+    }
+    if (typeof schedaExamTimerInterval !== 'undefined' && schedaExamTimerInterval) {
+        clearInterval(schedaExamTimerInterval);
+    }
+    if (typeof openScreen === 'function') {
+        openScreen('home', 'mbanglabatenteb');
+    }
+}
+
+function closeResultModal() {
+    goHomeFromTestModal();
+}
+
+function restartCurrentQuiz() {
+    restartCurrentTest();
 }
 
 // --- 14. Detailed Results Card List Operations ---
