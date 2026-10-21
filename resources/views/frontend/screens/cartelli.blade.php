@@ -77,10 +77,10 @@
     </div>
 
     <!-- Pre-rendered Schede list for each chapter -->
-    <div id="cartelli-schede-list" style="padding-bottom: 80px; width: 100%;">
+    <div id="cartelli-schede-list" class="argomenti-grid" style="padding-bottom: 80px; width: 100%;">
         @if(isset($cartelliChapters))
             @foreach($cartelliChapters as $ch)
-                <div id="cartelli-chapter-schede-{{ $ch->id }}" class="cartelli-chapter-schede-box" style="display: none; width: 100%;">
+                <div id="cartelli-chapter-schede-{{ $ch->id }}" class="cartelli-chapter-schede-box" style="display: none; width: 100%; grid-column: 1 / -1;">
                     <div class="argomenti-grid" style="width: 100%;">
                         @if($ch->pages && $ch->pages->count() > 0)
                             @foreach($ch->pages as $index => $page)

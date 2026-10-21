@@ -299,7 +299,8 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
     const container = document.getElementById('cartelli-schede-list');
     if (container) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
+        if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px; grid-column: 1 / -1;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
     }
 
     openScreen('cartelli-schede', 'Scegli Scheda');
@@ -318,12 +319,18 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
             updateLabel();
 
             if (pages.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna scheda trovata per questo capitolo.</div>`;
+                if (container) {
+                    if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px; grid-column: 1 / -1;">Nessuna scheda trovata per questo capitolo.</div>`;
+                }
                 return;
             }
 
             const userStats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : JSON.parse(localStorage.getItem('user_question_stats') || '{}');
-            container.innerHTML = '';
+            if (container) {
+                if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+                container.innerHTML = '';
+            }
             pages.forEach((page, index) => {
                 let correct = 0;
                 let wrong = 0;

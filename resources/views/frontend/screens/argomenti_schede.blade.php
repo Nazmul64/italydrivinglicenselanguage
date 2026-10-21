@@ -35,10 +35,10 @@
         <button class="pill-btn active" id="pill-argomenti-unselect" onclick="unselectAllSheets()">Unselect All</button>
     </div>
 
-    <div id="argomenti-schede-list" style="padding-bottom: 80px; width: 100%;">
+    <div id="argomenti-schede-list" class="argomenti-grid" style="padding-bottom: 80px; width: 100%;">
         @if(isset($argomentiChapters))
             @foreach($argomentiChapters as $ch)
-                <div id="argomenti-chapter-schede-{{ $ch->id }}" class="argomenti-chapter-schede-box" style="display: {{ $loop->first ? 'block' : 'none' }}; width: 100%;">
+                <div id="argomenti-chapter-schede-{{ $ch->id }}" class="argomenti-chapter-schede-box" style="display: {{ $loop->first ? 'block' : 'none' }}; width: 100%; grid-column: 1 / -1;">
                     <div class="argomenti-grid" style="width: 100%;">
                         @if($ch->pages && $ch->pages->count() > 0)
                             @foreach($ch->pages as $index => $page)

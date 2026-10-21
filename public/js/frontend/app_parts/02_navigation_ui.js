@@ -682,7 +682,8 @@ function openChapterSheetsScreen(chapterId) {
             updateArgomentiPillStates();
             renderSheetsList();
         } else if (container) {
-            container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
+            if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+            container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px; grid-column: 1 / -1;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
         }
 
         // 2. Fetch fresh chapter pages directly with cache-busting
@@ -694,7 +695,10 @@ function openChapterSheetsScreen(chapterId) {
                 window.chapterPagesCache[chapterId] = pages;
 
                 if (pages.length === 0) {
-                    if (container) container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;">Nessuna pagina trovata per questo capitolo.</div>`;
+                    if (container) {
+                        if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+                        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px; grid-column: 1 / -1;">Nessuna pagina trovata per questo capitolo.</div>`;
+                    }
                     return;
                 }
 
@@ -708,7 +712,8 @@ function openChapterSheetsScreen(chapterId) {
             .catch(err => {
                 console.error("Error loading chapter pages: ", err);
                 if (container && !window.chapterPagesCache[chapterId] && !hasBoxes) {
-                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle pagine.</div>`;
+                    if (!container.classList.contains('argomenti-grid')) container.classList.add('argomenti-grid');
+                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px; grid-column: 1 / -1;">Si è verificato un errore nel caricamento delle pagine.</div>`;
                 }
             });
     } finally {
@@ -719,6 +724,9 @@ function openChapterSheetsScreen(chapterId) {
 function renderSheetsList() {
     const container = document.getElementById('argomenti-schede-list');
     if (!container) return;
+    if (!container.classList.contains('argomenti-grid')) {
+        container.classList.add('argomenti-grid');
+    }
     container.innerHTML = '';
 
     const userStats = getUserQuestionStats();
