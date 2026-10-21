@@ -40,20 +40,51 @@ class WebQrGate
 
         $sessionId        = session()->getId();
         $cookieSessionId  = $request->cookie('qr_session_id');
-        $cookieAppPhone   = $request->cookie('app_client_phone');
-        $cookieAppSession = $request->cookie('app_client_session_id');
 
-        $isUnlocked = session('qr_unlocked') === true
-            || Cache::get('qr_unlocked_' . $sessionId) === true
-            || ($cookieSessionId && Cache::get('qr_unlocked_' . $cookieSessionId) === true)
-            || ($cookieAppPhone && Cache::get('qr_unlocked_' . $cookieAppPhone) === true)
-            || ($cookieAppSession && Cache::get('qr_unlocked_' . $cookieAppSession) === true);
+        // Check if THIS specific session has been unlocked via QR code from the mobile app
+        $isUnlocked = (Cache::get('qr_unlocked_' . $sessionId) === true)
+            || ($cookieSessionId && Cache::get('qr_unlocked_' . $cookieSessionId) === true);
 
-        if ($isUnlocked) {
-            session(['qr_unlocked' => true]);
-            if ($cookieAppPhone) session(['app_client_phone' => $cookieAppPhone]);
-            session()->save();
-            Cache::put('qr_unlocked_' . $sessionId, true, 86400 * 365);
+        $phone = Cache::get('qr_phone_' . $sessionId)
+            ?: ($cookieSessionId ? Cache::get('qr_phone_' . $cookieSessionId) : null)
+            ?: session('app_client_phone');
+
+        // If marked unlocked in cache, strictly verify that the associated client is still active and unexpired
+        if ($isUnlocked && $phone) {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $last10 = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
+            $client = \App\Models\AppClient::where(function($q) use ($phone, $cleanPhone, $last10) {
+                $q->where('phone', $phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
+            })->first();
+
+            if ($client) {
+                if (!$client->is_active || ($client->expires_at && now()->gt($client->expires_at))) {
+                    // Client is inactive or expired! Lock session immediately
+                    $isUnlocked = false;
+                    Cache::forget('qr_unlocked_' . $sessionId);
+                    if ($cookieSessionId) Cache::forget('qr_unlocked_' . $cookieSessionId);
+                    session()->forget('qr_unlocked');
+                    session()->forget('app_client_phone');
+                } else {
+                    $isUnlocked = true;
+                    session(['qr_unlocked' => true, 'app_client_phone' => $client->phone]);
+                }
+            } else {
+                $isUnlocked = false;
+                Cache::forget('qr_unlocked_' . $sessionId);
+                session()->forget('qr_unlocked');
+            }
+        } elseif ($isUnlocked && !$phone) {
+            $isUnlocked = true;
+        } else {
+            $isUnlocked = false;
+            session()->forget('qr_unlocked');
         }
 
         if ($isProtectionEnabled && !$isUnlocked) {

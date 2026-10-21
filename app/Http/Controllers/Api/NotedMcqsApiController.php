@@ -22,24 +22,30 @@ class NotedMcqsApiController extends Controller
         $userIds = $context['user_ids'];
         $sessionIds = $context['session_ids'];
 
+        if (empty($userIds) && empty($sessionIds)) {
+            return response()->json([
+                "status" => "success",
+                "total" => 0,
+                "data" => []
+            ]);
+        }
+
         $query = Note::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
             ->whereNotNull('note_text')
             ->where('note_text', '!=', '');
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userIds, $sessionIds) {
+        $query->where(function ($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn("user_id", $userIds);
+            }
+            if (!empty($sessionIds)) {
                 if (!empty($userIds)) {
-                    $q->whereIn("user_id", $userIds);
+                    $q->orWhereIn("session_id", $sessionIds);
+                } else {
+                    $q->whereIn("session_id", $sessionIds);
                 }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn("session_id", $sessionIds);
-                    } else {
-                        $q->whereIn("session_id", $sessionIds);
-                    }
-                }
-            });
-        }
+            }
+        });
 
         $questionId = $request->query('question_id') ?? $request->query('questionId');
         $pageId = $request->query('page_id') ?? $request->query('pageId');
@@ -216,20 +222,28 @@ class NotedMcqsApiController extends Controller
             $query->where("page_id", $pageId);
         }
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userIds, $sessionIds) {
-                if (!empty($userIds)) {
-                    $q->whereIn("user_id", $userIds);
-                }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn("session_id", $sessionIds);
-                    } else {
-                        $q->whereIn("session_id", $sessionIds);
-                    }
-                }
-            });
+        if (empty($userIds) && empty($sessionIds)) {
+            if (!$sessionId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Session or User context is required to save notes.'
+                ], 400);
+            }
+            $sessionIds = [$sessionId];
         }
+
+        $query->where(function ($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn("user_id", $userIds);
+            }
+            if (!empty($sessionIds)) {
+                if (!empty($userIds)) {
+                    $q->orWhereIn("session_id", $sessionIds);
+                } else {
+                    $q->whereIn("session_id", $sessionIds);
+                }
+            }
+        });
 
         $existing = $query->first();
 
@@ -292,7 +306,24 @@ class NotedMcqsApiController extends Controller
             ], 422);
         }
 
-        $note = Note::find($noteId);
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
+
+        $query = Note::where('id', $noteId);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $query->where(function($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) $q->orWhereIn('session_id', $sessionIds);
+                    else $q->whereIn('session_id', $sessionIds);
+                }
+            });
+        }
+
+        $note = $query->first();
         if ($note) {
             $note->delete();
         }

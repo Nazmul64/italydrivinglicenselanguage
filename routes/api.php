@@ -44,6 +44,10 @@ Route::prefix('v1')->group(function () {
     // 🔑 1. SUPPORT REGISTRATION & UNPROTECTED INITIAL AUTH
     Route::post('/support/register', [SupportRegistrationApiController::class, 'register']);
 
+    // 🔑 PUBLIC LICENSE & CLIENT STATUS CHECK
+    Route::get('/license/status', [LicenseApiController::class, 'getStatus']);
+    Route::get('/client/status', [LicenseApiController::class, 'getStatus']);
+
     // 💬 PUBLIC / FALLBACK SUPPORT ENDPOINTS
     Route::get('/support/messages', [SupportApiController::class, 'index']);
 
@@ -543,5 +547,17 @@ Route::get('/questions/page/{page}', function (Request $request, $page) {
         'data' => $questions
     ]);
 });
+
+// Top-level fallbacks (accessible via /api/* without /v1/ prefix)
+Route::match(['get', 'post'], '/user-mcq-results/log', [\App\Http\Controllers\ArgomentiController::class, 'logUserMcqResults']);
+Route::get('/user-mcq-results', [\App\Http\Controllers\ArgomentiController::class, 'getUserMcqResults']);
+Route::get('/correct-mcqs', [CorrectMcqsApiController::class, 'index']);
+Route::get('/wrong-mcqs', [WrongMcqsApiController::class, 'index']);
+Route::get('/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
+Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+Route::match(['get', 'post'], '/test/submit', [TestApiController::class, 'submitResult']);
+Route::get('/license/status', [LicenseApiController::class, 'getStatus']);
+Route::get('/client/status', [LicenseApiController::class, 'getStatus']);
+
 
 

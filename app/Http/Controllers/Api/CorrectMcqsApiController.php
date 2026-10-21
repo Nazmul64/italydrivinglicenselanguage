@@ -22,22 +22,28 @@ class CorrectMcqsApiController extends Controller
         $userIds = $context['user_ids'];
         $sessionIds = $context['session_ids'];
 
+        if (empty($userIds) && empty($sessionIds)) {
+            return response()->json([
+                'status' => 'success',
+                'total' => 0,
+                'data' => []
+            ]);
+        }
+
         $query = UserMcqResult::query();
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function($q) use ($userIds, $sessionIds) {
+        $query->where(function($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn('user_id', $userIds);
+            }
+            if (!empty($sessionIds)) {
                 if (!empty($userIds)) {
-                    $q->whereIn('user_id', $userIds);
+                    $q->orWhereIn('session_id', $sessionIds);
+                } else {
+                    $q->whereIn('session_id', $sessionIds);
                 }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn('session_id', $sessionIds);
-                    } else {
-                        $q->whereIn('session_id', $sessionIds);
-                    }
-                }
-            });
-        }
+            }
+        });
 
         if ($request->filled('chapter_id') || $request->filled('chapter')) {
             $chapId = $request->query('chapter_id') ?: $request->query('chapter');

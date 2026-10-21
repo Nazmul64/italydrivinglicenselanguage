@@ -10,6 +10,8 @@ use App\Models\License;
 
 class SupportApiController extends Controller
 {
+    use \App\Traits\ResolvesUserSession;
+
     private function fetchAllUserMessages($user, $extraSessionId = null, $phoneParam = null)
     {
         $phone = $user ? $user->phone : $phoneParam;
@@ -227,10 +229,42 @@ class SupportApiController extends Controller
             $senderName = trim($request->input('sender_name') ?: ($request->input('first_name') . ' ' . $request->input('last_name')));
         }
 
+        $context = $this->resolveUserContext($request);
+        if (!$user && $context['user']) {
+            $user = $context['user'];
+        }
+        if (!$phone && $context['phone']) {
+            $phone = $context['phone'];
+        }
+
         $conversationId = null;
         if ($user) {
             $conversation = Conversation::firstOrCreate(['user_id' => $user->uuid]);
             $conversationId = $conversation->id;
+        }
+
+        // Deduplicate greeting and automated system/join announcements
+        if (str_contains($messageText, 'যুক্ত হয়েছি') ||
+            str_contains($messageText, 'কাস্টমার নিবন্ধিত হয়েছে') ||
+            str_contains($messageText, 'অ্যাপ থেকে চ্যাটে')) {
+            $hasDuplicate = Message::where(function($q) use ($sessionId, $conversationId, $user) {
+                if ($conversationId) $q->where('conversation_id', $conversationId);
+                if ($sessionId) $q->orWhere('session_id', $sessionId);
+                if ($user) $q->orWhere('sender_id', $user->uuid);
+            })->where(function($mq) {
+                $mq->where('message', 'like', '%যুক্ত হয়েছি%')
+                   ->orWhere('message', 'like', '%নিবন্ধিত হয়েছে%')
+                   ->orWhere('message', 'like', '%অ্যাপ থেকে চ্যাটে%');
+            })->first();
+
+            if ($hasDuplicate) {
+                return response()->json([
+                    'status'  => 'success',
+                    'success' => true,
+                    'message' => 'Message already recorded.',
+                    'data'    => $hasDuplicate
+                ]);
+            }
         }
 
         $msg = Message::create([

@@ -16,12 +16,15 @@ class AppClient extends Model
         'is_blocked',
         'stars',
         'progress',
-        'expires_at'
+        'expires_at',
+        'is_uninstalled',
+        'install_uuid',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
         'is_active' => 'boolean',
         'is_blocked' => 'boolean',
+        'is_uninstalled' => 'boolean',
     ];
 }

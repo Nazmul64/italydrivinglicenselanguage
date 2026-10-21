@@ -225,19 +225,16 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
 
         const record = userStats[q.id];
-        let correctCount = (typeof q.correct_count === 'number') ? q.correct_count : 0;
-        let wrongCount = (typeof q.wrong_count === 'number') ? q.wrong_count : 0;
-        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
+        const hasDbStats = typeof q.correct_count === 'number' && typeof q.wrong_count === 'number';
+        let correctCount = hasDbStats ? q.correct_count : 0;
+        let wrongCount = hasDbStats ? q.wrong_count : 0;
 
-        if (record && typeof record === 'object') {
-            const rCorr = (typeof record.correct === 'number') ? record.correct : 0;
-            const rWrong = (typeof record.wrong === 'number') ? record.wrong : 0;
-            correctCount = Math.max(correctCount, rCorr);
-            wrongCount = Math.max(wrongCount, rWrong);
-            if (correctCount > 0 || wrongCount > 0) {
-                isAnswered = true;
-            }
+        if (!hasDbStats && record && typeof record === 'object') {
+            correctCount = (typeof record.correct === 'number') ? record.correct : 0;
+            wrongCount = (typeof record.wrong === 'number') ? record.wrong : 0;
         }
+
+        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
 
         const card = document.createElement('div');
         const isCorrect = isAnswered && ((record && record.state === 'correct') || q.is_correct === true || correctCount > wrongCount);

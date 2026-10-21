@@ -4,10 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\ExamSheet;
 use App\Models\Question;
+use App\Models\Chapter;
+use App\Models\UserMcqResult;
+use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class ExamSheetController extends Controller
 {
+    use ResolvesUserSession;
+
     /**
      * Get list of exam sheets.
      */
@@ -79,11 +84,18 @@ class ExamSheetController extends Controller
             return response()->json(['error' => 'Nessuna domanda trovata per questo esame.'], 400);
         }
 
+        // Resolve user/session context for cross-device sync
+        $context = $this->resolveUserContext($request);
+        $userId = $context['user_id'];
+        $userIds = $context['user_ids'];
+        $sessionId = $context['session_id'];
+        $sessionIds = $context['session_ids'];
+
         $correct = 0;
         $wrong = 0;
         $unanswered = 0;
 
-        // Grade each question
+        // Grade each question & record to UserMcqResult
         $updatedQuestions = [];
         foreach ($currentQuestions as $q) {
             $qId = $q['id'];
@@ -91,10 +103,87 @@ class ExamSheetController extends Controller
 
             if ($userAns === null) {
                 $unanswered++;
-            } elseif ($userAns === $q['is_vero']) {
-                $correct++;
             } else {
-                $wrong++;
+                $isCorrect = ($userAns === $q['is_vero']);
+                if ($isCorrect) {
+                    $correct++;
+                } else {
+                    $wrong++;
+                }
+
+                // Log into UserMcqResult for website & mobile app sync
+                try {
+                    $qRecord = Question::find($qId);
+                    $pageId = $qRecord ? $qRecord->page_id : null;
+                    $chapterId = $qRecord ? $qRecord->chapter : null;
+                    $categoryId = null;
+                    if ($chapterId) {
+                        $chap = Chapter::find($chapterId);
+                        if ($chap) $categoryId = $chap->category_id;
+                    }
+
+                    $query = UserMcqResult::where('question_id', $qId);
+                    $query->where(function($sq) {
+                        $sq->where('question_type', 'argomenti')->orWhereNull('question_type');
+                    });
+
+                    $userContextSessionIds = $sessionIds;
+                    if (empty($userIds) && empty($userContextSessionIds)) {
+                        if ($sessionId) $userContextSessionIds = [$sessionId];
+                    }
+
+                    if (!empty($userIds) || !empty($userContextSessionIds)) {
+                        $query->where(function($sq) use ($userIds, $userContextSessionIds) {
+                            if (!empty($userIds)) {
+                                $sq->whereIn('user_id', $userIds);
+                            }
+                            if (!empty($userContextSessionIds)) {
+                                if (!empty($userIds)) {
+                                    $sq->orWhereIn('session_id', $userContextSessionIds);
+                                } else {
+                                    $sq->whereIn('session_id', $userContextSessionIds);
+                                }
+                            }
+                        });
+                        $existing = $query->first();
+                    } else {
+                        $existing = null;
+                    }
+                    $data = [
+                        'session_id' => $sessionId,
+                        'user_id' => $userId,
+                        'question_id' => $qId,
+                        'question_type' => 'argomenti',
+                        'user_answer' => $userAns ? 'V' : 'F',
+                        'is_correct' => $isCorrect ? 1 : 0,
+                        'category_id' => $categoryId,
+                        'chapter_id' => $chapterId,
+                        'page_id' => $pageId,
+                    ];
+
+                    if ($existing) {
+                        $recentlyUpdated = $existing->updated_at && $existing->updated_at->diffInSeconds(now()) < 10;
+                        if ($recentlyUpdated && (int)$existing->is_correct === ($isCorrect ? 1 : 0) && (string)$existing->user_answer === (string)$userAns) {
+                            $data['correct_count'] = $existing->correct_count ?: ($isCorrect ? 1 : 0);
+                            $data['wrong_count'] = $existing->wrong_count ?: ($isCorrect ? 0 : 1);
+                        } else {
+                            if ($isCorrect) {
+                                $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
+                                $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                            } else {
+                                $data['correct_count'] = ($existing->correct_count ?: 0);
+                                $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                            }
+                        }
+                        $existing->update($data);
+                    } else {
+                        $data['correct_count'] = $isCorrect ? 1 : 0;
+                        $data['wrong_count'] = $isCorrect ? 0 : 1;
+                        UserMcqResult::create($data);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Failed to log UserMcqResult from submitExam: " . $e->getMessage());
+                }
             }
 
             $q['user_answer'] = $userAns;

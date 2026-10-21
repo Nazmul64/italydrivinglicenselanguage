@@ -3,16 +3,21 @@
 let adminChatInterval = null;
 let activeChatSessionId = null;
 let allConversationsList = [];
+let adminChatSearchQuery = '';
+let adminChatSearchDebounce = null;
 
 function startAdminChatPolling() {
     fetchConversations();
     if (!adminChatInterval) {
         adminChatInterval = setInterval(() => {
-            fetchConversations();
+            if (document.hidden) return; // Pause polling when tab is not in focus
+            if (!adminChatSearchQuery) {
+                fetchConversations();
+            }
             if (activeChatSessionId) {
                 fetchConversationMessages(activeChatSessionId, false);
             }
-        }, 3000);
+        }, 6000);
     }
 }
 
@@ -23,14 +28,71 @@ function stopAdminChatPolling() {
     }
 }
 
-function fetchConversations() {
-    fetch('/admin/api/chat/conversations')
-        .then(res => res.json())
+function fetchConversations(customSearch = '') {
+    const url = customSearch 
+        ? `/admin/api/chat/conversations?search=${encodeURIComponent(customSearch)}`
+        : '/admin/api/chat/conversations';
+
+    const fetchPromise = window.safeFetchJson
+        ? safeFetchJson(url)
+        : fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(res => res.json());
+
+    fetchPromise
         .then(conversations => {
-            allConversationsList = conversations;
-            renderConversationsList(conversations);
+            if (Array.isArray(conversations)) {
+                if (!customSearch) {
+                    allConversationsList = conversations;
+                }
+                renderConversationsList(conversations);
+            }
         })
-        .catch(err => console.error("Error fetching conversations: ", err));
+        .catch(err => console.warn("Admin chat sync notice: ", err.message || err));
+}
+
+function onAdminChatSearchInput(val) {
+    adminChatSearchQuery = (val || '').trim().toLowerCase();
+    const clearBtn = document.getElementById('admin-chat-search-clear');
+    if (clearBtn) {
+        clearBtn.style.display = adminChatSearchQuery ? 'block' : 'none';
+    }
+
+    // 1. Instant 0ms local filtering
+    if (!adminChatSearchQuery) {
+        renderConversationsList(allConversationsList);
+    } else {
+        const localMatches = allConversationsList.filter(convo => {
+            const client = convo.client || {};
+            const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+            const phone = (client.phone || '').toLowerCase();
+            const cleanPhone = phone.replace(/\D/g, '');
+            const cleanQuery = adminChatSearchQuery.replace(/\D/g, '');
+            const lastMsg = (convo.last_message || '').toLowerCase();
+            const sId = (convo.session_id || '').toLowerCase();
+
+            return fullName.includes(adminChatSearchQuery) ||
+                   phone.includes(adminChatSearchQuery) ||
+                   (cleanQuery.length >= 3 && cleanPhone.includes(cleanQuery)) ||
+                   lastMsg.includes(adminChatSearchQuery) ||
+                   sId.includes(adminChatSearchQuery);
+        });
+        renderConversationsList(localMatches);
+    }
+
+    // 2. Debounced server search across entire database of users and app_clients
+    clearTimeout(adminChatSearchDebounce);
+    if (adminChatSearchQuery.length >= 2) {
+        adminChatSearchDebounce = setTimeout(() => {
+            fetchConversations(adminChatSearchQuery);
+        }, 250);
+    }
+}
+
+function clearAdminChatSearch() {
+    const input = document.getElementById('admin-chat-search-input');
+    if (input) {
+        input.value = '';
+    }
+    onAdminChatSearchInput('');
 }
 
 function renderConversationsList(conversations) {
@@ -38,8 +100,25 @@ function renderConversationsList(conversations) {
     if (!listContainer) return;
     listContainer.innerHTML = '';
 
+    // Update summary counts
+    const totalCount = Array.isArray(conversations) ? conversations.length : 0;
+    const activeCount = Array.isArray(conversations) ? conversations.filter(c => c.client && c.client.is_active).length : 0;
+    
+    const totalBadge = document.getElementById('chat-total-count');
+    const activeBadge = document.getElementById('chat-active-count');
+    const sidebarBadge = document.getElementById('chat-sidebar-count-badge');
+
+    if (totalBadge) totalBadge.innerText = totalCount;
+    if (activeBadge) activeBadge.innerText = activeCount;
+    if (sidebarBadge) sidebarBadge.innerText = totalCount;
+
     if (!conversations || conversations.length === 0) {
-        listContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-secondary); font-size: 12px;">কোনো চ্যাট উপলব্ধ নেই</div>`;
+        listContainer.innerHTML = adminChatSearchQuery
+            ? `<div style="padding: 24px 16px; text-align: center; color: var(--text-secondary); font-size: 13px;">
+                 <i class="fa-solid fa-user-slash" style="font-size: 24px; margin-bottom: 8px; opacity: 0.5;"></i><br>
+                 "<strong>${adminChatSearchQuery}</strong>" দিয়ে কোনো কাস্টমার পাওয়া যায়নি
+               </div>`
+            : `<div style="padding: 20px; text-align: center; color: var(--text-secondary); font-size: 12px;">কোনো চ্যাট উপলব্ধ নেই</div>`;
         return;
     }
 
@@ -75,7 +154,7 @@ function renderConversationsList(conversations) {
 
             progressHTML = `
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; width: 100%;">
-                    <span style="font-size: 9px; color: var(--text-secondary); white-space: nowrap;">${client.phone}</span>
+                    <span style="font-size: 9px; color: var(--text-secondary); white-space: nowrap;"><i class="fa-solid fa-phone" style="font-size: 8px; margin-right: 2px;"></i>${client.phone}</span>
                     <div class="client-progress-bar-bg" style="flex: 1; height: 5px; background-color: var(--border-color); border-radius: 3px; overflow: hidden; position: relative;">
                         <div class="client-progress-bar-fill" style="width: ${client.progress}%; height: 100%; background-color: #4CAF50; border-radius: 3px;"></div>
                     </div>
@@ -84,12 +163,22 @@ function renderConversationsList(conversations) {
         }
 
         const statusHTML = `
-            <button class="btn-chat-toggle ${isActive ? 'active' : 'inactive'}"
-                    onclick="event.stopPropagation(); toggleClientActivation('${convo.session_id}')"
-                    title="${isActive ? 'Click to Deactivate Customer' : 'Click to Activate Customer'}">
-                <i class="fa-solid ${isActive ? 'fa-user-check' : 'fa-user-xmark'}"></i>
-                <span>${isActive ? 'Active' : 'Inactive'}</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <button class="btn-chat-toggle ${isActive ? 'active' : 'inactive'}"
+                        onclick="event.stopPropagation(); toggleClientActivation('${convo.session_id}')"
+                        title="${isActive ? 'Click to Deactivate Customer' : 'Click to Activate Customer'}">
+                    <i class="fa-solid ${isActive ? 'fa-user-check' : 'fa-user-xmark'}"></i>
+                    <span>${isActive ? 'Active' : 'Inactive'}</span>
+                </button>
+                <button class="btn-chat-delete"
+                        onclick="event.stopPropagation(); deleteChatConversation('${convo.session_id}')"
+                        title="Delete User & Conversation (কাস্টমার ও চ্যাট মুছে ফেলুন)"
+                        style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;"
+                        onmouseover="this.style.background='#ef4444'; this.style.color='#fff';"
+                        onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444';">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
         `;
 
         item.innerHTML = `
@@ -105,6 +194,23 @@ function renderConversationsList(conversations) {
     });
 }
 
+function updateActiveChatHeaderStatus(isActive, sessionId) {
+    const container = document.getElementById('active-chat-toggle-btn-container');
+    if (!container) return;
+    const targetSessionId = sessionId || activeChatSessionId;
+    if (!targetSessionId) return;
+
+    container.innerHTML = `
+        <button class="btn-chat-toggle ${isActive ? 'active' : 'inactive'}"
+                onclick="event.stopPropagation(); toggleClientActivation('${targetSessionId}')"
+                title="${isActive ? 'Click to Deactivate Customer' : 'Click to Activate Customer'}"
+                style="padding: 6px 14px; font-size: 12px;">
+            <i class="fa-solid ${isActive ? 'fa-user-check' : 'fa-user-xmark'}"></i>
+            <span>${isActive ? 'Active' : 'Inactive'}</span>
+        </button>
+    `;
+}
+
 function toggleClientActivation(identifier) {
     if (!identifier) return;
     const safeIdentifier = encodeURIComponent(identifier);
@@ -117,16 +223,32 @@ function toggleClientActivation(identifier) {
     })
         .then(res => res.json())
         .then(data => {
-            showToast(data.is_active ? 'গ্রাহক অ্যাকাউন্ট সক্রিয় করা হয়েছে' : 'গ্রাহক অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে');
-            fetchConversations();
+            const isNowActive = data.is_active;
+            showToast(isNowActive ? 'গ্রাহক অ্যাকাউন্ট সক্রিয় (Active) করা হয়েছে' : 'গ্রাহক অ্যাকাউন্ট নিষ্ক্রিয় (Inactive) করা হয়েছে');
+            
+            // Instantly update active chat header toggle button
+            if (activeChatSessionId === identifier) {
+                updateActiveChatHeaderStatus(isNowActive, identifier);
+                fetchConversationMessages(identifier, true);
+            }
+
+            // Update in local cache
+            const convo = allConversationsList.find(c => c.session_id === identifier);
+            if (convo && convo.client) {
+                convo.client.is_active = isNowActive;
+            }
+
+            if (adminChatSearchQuery) {
+                fetchConversations(adminChatSearchQuery);
+            } else {
+                fetchConversations();
+            }
         })
         .catch(err => {
             console.error("Error toggling client activation: ", err);
             showToast('অ্যাক্টিভেশন স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে');
         });
 }
-
-
 
 function selectConversation(sessionId) {
     activeChatSessionId = sessionId;
@@ -138,17 +260,25 @@ function selectConversation(sessionId) {
 
     const convo = allConversationsList.find(c => c.session_id === sessionId);
     const activeName = document.getElementById('active-chat-name');
+    const activeSub = document.getElementById('active-chat-sub');
     const activeAvatar = document.getElementById('active-chat-avatar');
+
+    let isActive = false;
 
     if (convo && convo.client) {
         const client = convo.client;
-        if (activeName) activeName.innerText = `${client.first_name} ${client.last_name} (${client.phone})`;
+        isActive = !!client.is_active;
+        if (activeName) activeName.innerText = `${client.first_name} ${client.last_name}`;
+        if (activeSub) activeSub.innerHTML = `<i class="fa-solid fa-phone" style="font-size: 10px; margin-right: 4px;"></i>${client.phone || 'N/A'}`;
         if (activeAvatar) activeAvatar.innerText = `${client.first_name[0] || 'U'}${client.last_name[0] || 'S'}`.toUpperCase();
     } else {
         let safeSId = String(sessionId || '');
         if (activeName) activeName.innerText = `Guest User #${safeSId.substring(0, 8)}`;
+        if (activeSub) activeSub.innerText = `Session: #${safeSId.substring(0, 8)}`;
         if (activeAvatar) activeAvatar.innerText = `GU`;
     }
+
+    updateActiveChatHeaderStatus(isActive, sessionId);
 
     fetchConversationMessages(sessionId, true);
 
@@ -163,17 +293,18 @@ function selectConversation(sessionId) {
 
 function fetchConversationMessages(sessionId, forceScroll = false) {
     if (!sessionId) return;
-    fetch(`/admin/api/chat/messages/${encodeURIComponent(sessionId)}`)
-        .then(res => {
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            return res.json();
-        })
+    const url = `/admin/api/chat/messages/${encodeURIComponent(sessionId)}`;
+    const fetchPromise = window.safeFetchJson
+        ? safeFetchJson(url)
+        : fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(res => res.json());
+
+    fetchPromise
         .then(messages => {
             if (Array.isArray(messages)) {
                 renderConversationMessages(messages, forceScroll);
             }
         })
-        .catch(err => console.error("Error loading messages: ", err));
+        .catch(err => console.warn("Chat messages sync notice: ", err.message || err));
 }
 
 function renderConversationMessages(messages, forceScroll) {
@@ -182,7 +313,16 @@ function renderConversationMessages(messages, forceScroll) {
     const scrollAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
 
     container.innerHTML = '';
+    const seenJoinGreetings = new Set();
     messages.forEach(msg => {
+        const rawText = (msg.message || '').trim();
+        if (rawText.includes('যুক্ত হয়েছি') || rawText.includes('অ্যাপ থেকে চ্যাটে') || rawText.includes('নিবন্ধিত হয়েছে')) {
+            if (seenJoinGreetings.has(rawText)) {
+                return; // Suppress duplicate greeting bubbles
+            }
+            seenJoinGreetings.add(rawText);
+        }
+
         const bubble = document.createElement('div');
 
         if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
@@ -404,8 +544,8 @@ function closeAdminChatSettings() {
     if (modal) modal.style.display = 'none';
 }
 
-function sendDirectChatLicense(days) {
-    days = parseInt(days, 10);
+function sendDirectChatLicense(secondsOrDays, customLabel = '') {
+    let durationSeconds = parseInt(secondsOrDays, 10);
     if (!activeChatSessionId) {
         if (allConversationsList && allConversationsList.length > 0) {
             activeChatSessionId = allConversationsList[0].session_id;
@@ -414,13 +554,27 @@ function sendDirectChatLicense(days) {
             return;
         }
     }
-    if (!days || days < 1) {
-        showToast('দয়া করে সঠিক দিন সংখ্যা লিখুন');
+    if (!durationSeconds || durationSeconds < 1) {
+        showToast('দয়া করে সঠিক সময়কাল লিখুন');
         return;
     }
 
+    let label = customLabel;
+    if (!label) {
+        if (durationSeconds < 60) {
+            label = `${durationSeconds} সেকেন্ড`;
+        } else if (durationSeconds < 3600) {
+            label = `${Math.round(durationSeconds / 60)} মিনিট`;
+        } else if (durationSeconds < 86400) {
+            label = `${Math.round(durationSeconds / 3600)} ঘন্টা`;
+        } else {
+            const days = Math.round(durationSeconds / 86400);
+            label = `${days} দিন`;
+        }
+    }
+
     closeAdminChatSettings();
-    showToast(`${days} দিনের লাইসেন্স কি তৈরি করা হচ্ছে...`);
+    showToast(`${label} মেয়াদের লাইসেন্স কি তৈরি করা হচ্ছে...`);
 
     fetch('/admin/api/chat/send-license', {
         method: 'POST',
@@ -431,7 +585,9 @@ function sendDirectChatLicense(days) {
         },
         body: JSON.stringify({
             session_id: activeChatSessionId,
-            days: days
+            duration_seconds: durationSeconds,
+            days: Math.max(1, Math.round(durationSeconds / 86400)),
+            duration_label: label
         })
     })
         .then(async res => {
@@ -442,7 +598,7 @@ function sendDirectChatLicense(days) {
             return res.json();
         })
         .then(data => {
-            showToast('লাইসেন্স কি সফলভাবে চ্যাটে পাঠানো হয়েছে!');
+            showToast(`লাইসেন্স কি (${label}) সফলভাবে চ্যাটে পাঠানো হয়েছে!`);
             fetchConversationMessages(activeChatSessionId, true);
             fetchConversations();
         })
@@ -451,6 +607,93 @@ function sendDirectChatLicense(days) {
             showToast(err.message || 'লাইসেন্স পাঠাতে সমস্যা হয়েছে');
         });
 }
+
+function sendCustomChatLicense() {
+    const valInput = document.getElementById('admin-custom-license-val');
+    const unitSelect = document.getElementById('admin-custom-license-unit');
+    const val = parseInt(valInput ? valInput.value : '0', 10);
+    const unit = unitSelect ? unitSelect.value : 'months';
+
+    if (!val || val < 1) {
+        showToast('দয়া করে সঠিক সংখ্যা লিখুন');
+        return;
+    }
+
+    let durationSeconds = val;
+    let label = '';
+    if (unit === 'seconds') {
+        durationSeconds = val;
+        label = `${val} সেকেন্ড`;
+    } else if (unit === 'minutes') {
+        durationSeconds = val * 60;
+        label = `${val} মিনিট`;
+    } else if (unit === 'hours') {
+        durationSeconds = val * 3600;
+        label = `${val} ঘন্টা`;
+    } else if (unit === 'days') {
+        durationSeconds = val * 86400;
+        label = `${val} দিন`;
+    } else if (unit === 'months') {
+        durationSeconds = val * 2592000;
+        label = `${val} মাস`;
+    } else if (unit === 'years') {
+        durationSeconds = val * 31536000;
+        label = `${val} বছর`;
+    }
+
+    sendDirectChatLicense(durationSeconds, label);
+}
+
+function deleteChatConversation(sessionId) {
+    if (!sessionId) return;
+    if (!confirm('আপনি কি নিশ্চিত এই কাস্টমার ও চ্যাট হিস্টোরি মুছে ফেলতে চান?\n\nএটি মুছে দিলে কাস্টমার অ্যাপ থেকে পুনরায় নতুন করে রেজিস্ট্রেশন করতে পারবে।')) {
+        return;
+    }
+
+    showToast('কাস্টমার মুছে ফেলা হচ্ছে...');
+
+    fetch('/admin/api/chat/delete-conversation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getAdminCsrfToken()
+        },
+        body: JSON.stringify({ session_id: sessionId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message || 'কাস্টমার সফলভাবে মুছে ফেলা হয়েছে');
+
+                // If currently open chat was deleted, reset main area
+                if (activeChatSessionId === sessionId) {
+                    activeChatSessionId = null;
+                    const mainArea = document.getElementById('admin-chat-main-area');
+                    if (mainArea) mainArea.style.display = 'none';
+                }
+
+                // Remove from local list
+                allConversationsList = allConversationsList.filter(c => c.session_id !== sessionId);
+
+                if (adminChatSearchQuery) {
+                    fetchConversations(adminChatSearchQuery);
+                } else {
+                    fetchConversations();
+                }
+            } else {
+                showToast(data.message || 'মুছে ফেলতে সমস্যা হয়েছে');
+            }
+        })
+        .catch(err => {
+            console.error('Error deleting conversation:', err);
+            showToast('কাস্টমার মুছে ফেলতে সমস্যা হয়েছে');
+        });
+}
+
+window.sendDirectChatLicense = sendDirectChatLicense;
+window.sendCustomChatLicense = sendCustomChatLicense;
+window.deleteChatConversation = deleteChatConversation;
 
 function executeChatPreset(presetId) {
     if (!activeChatSessionId) {

@@ -45,6 +45,19 @@
             <div class="card p-3 mb-4">
                 <h5 class="card-title text-success border-bottom pb-2">🔑 License Management</h5>
                 
+                @if($customer->is_uninstalled)
+                    <div class="alert alert-danger py-2 px-3 mb-3 small">
+                        <strong>⚠️ অ্যাপ আনইনস্টল শনাক্ত হয়েছে!</strong><br>
+                        এই গ্রাহক অ্যাপটি আনইনস্টল বা পুনরায় ইনস্টল করায় অ্যাকাউন্টটি লক রয়েছে। পুনরায় চালু করতে নিচে ক্লিক করুন:
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('admin.customers.quickActivate', $customer->uuid) }}" class="mb-3">
+                    @csrf
+                    <button type="submit" class="btn btn-success w-100 fw-bold shadow-sm">
+                        ⚡ এক ক্লিকে সক্রিয় করুন ও চ্যাটে কার্ড পাঠান
+                    </button>
+                </form>
                 @if($customer->licenses->count() > 0)
                     <div class="mb-3">
                         @foreach($customer->licenses as $lic)

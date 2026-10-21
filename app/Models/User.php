@@ -23,6 +23,8 @@ class User extends Authenticatable
         'password',
         'role',
         'permissions',
+        'is_uninstalled',
+        'install_uuid',
     ];
 
     protected $hidden = [

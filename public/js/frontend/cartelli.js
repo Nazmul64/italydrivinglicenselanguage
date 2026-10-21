@@ -200,7 +200,6 @@ function startCartelliCategoryQuiz() {
         showToast('কোনো অধ্যায় পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
     Promise.all(targetChapters.map(chapId =>
         fetch(`/api/cartelli/questions/chapter/${chapId}`)
@@ -551,7 +550,6 @@ function startCartelliSchedeQuiz() {
         showToast('কোনো পেজ পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
     Promise.all(targetPages.map(pageId =>
         fetch(`/api/cartelli/page-mcqs/${pageId}`)

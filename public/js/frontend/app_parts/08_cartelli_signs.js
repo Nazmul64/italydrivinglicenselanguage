@@ -12,13 +12,20 @@ function loadSavedMcqsScreen() {
 
     const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const savedFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const savedLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     selectedSavedMcqIds = [];
     isSavedMcqSelectMode = false;
     updateSavedMcqsPillStates();
 
-    fetch(`/api/v1/saved-mcqs?phone=${encodeURIComponent(savedPhone)}&session_id=${encodeURIComponent(savedSessionId)}`, {
-        headers: { 'X-Client-Phone': savedPhone }
+    fetch(`/api/v1/saved-mcqs?phone=${encodeURIComponent(savedPhone)}&session_id=${encodeURIComponent(savedSessionId)}&first_name=${encodeURIComponent(savedFirstName)}&last_name=${encodeURIComponent(savedLastName)}`, {
+        headers: { 
+            'X-Client-Phone': savedPhone,
+            'X-Client-Session-ID': savedSessionId,
+            'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(savedLastName || '')
+        }
     })
         .then(res => res.json())
         .then(resData => {

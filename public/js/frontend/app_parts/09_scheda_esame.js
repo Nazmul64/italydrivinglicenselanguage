@@ -772,14 +772,23 @@ function submitSchedaExam() {
     if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
 
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+    const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
 
     fetch(`/api/exams/${activeExamSession.id}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token
+            'X-CSRF-TOKEN': token,
+            'X-Client-Phone': curPhone,
+            'X-Session-ID': curSessionId
         },
-        body: JSON.stringify({ answers: examUserAnswers })
+        body: JSON.stringify({ 
+            answers: examUserAnswers,
+            phone: curPhone,
+            user_phone: curPhone,
+            session_id: curSessionId
+        })
     })
         .then(res => res.json())
         .then(data => {
@@ -787,6 +796,12 @@ function submitSchedaExam() {
                 showToast(data.error);
                 openScreen('scheda-esame', 'Scheda Esame');
                 return;
+            }
+
+            // Trigger sync event for profile stats, correct and wrong MCQ lists
+            window.dispatchEvent(new CustomEvent('user-stats-updated'));
+            if (typeof loadUserProfileStats === 'function') {
+                loadUserProfileStats();
             }
 
             // Show result popup modal

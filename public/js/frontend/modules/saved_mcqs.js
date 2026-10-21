@@ -15,18 +15,27 @@ function toggleSaveMcqApi(questionId) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const savedFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const savedLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     return fetch('/api/v1/saved-mcqs/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Client-Phone': savedPhone,
+            'X-Session-ID': savedSessionId,
+            'X-Client-Session-ID': savedSessionId,
+            'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(savedLastName || '')
         },
         body: JSON.stringify({
             question_id: questionId,
             phone: savedPhone,
-            session_id: savedSessionId
+            session_id: savedSessionId,
+            first_name: savedFirstName,
+            last_name: savedLastName
         })
     })
     .then(res => res.json())

@@ -59,28 +59,52 @@
                         @forelse($customers as $customer)
                             @php
                                 $status = $customer->license ? $customer->license->status : 'inactive';
-                                $badgeClass = match($status) {
-                                    'active' => 'badge-active',
-                                    'pending' => 'badge-pending',
-                                    'revoked', 'expired' => 'badge-revoked',
-                                    default => 'badge-inactive',
-                                };
+                                $isUninstalled = (bool)$customer->is_uninstalled;
+                                if ($isUninstalled) {
+                                    $badgeClass = 'bg-danger text-white';
+                                    $displayStatus = '⚠️ আনইনস্টল / ইনঅ্যাক্টিভ';
+                                } else {
+                                    $badgeClass = match($status) {
+                                        'active' => 'badge-active',
+                                        'pending' => 'badge-pending',
+                                        'revoked', 'expired' => 'badge-revoked',
+                                        default => 'badge-inactive',
+                                    };
+                                    $displayStatus = strtoupper($status);
+                                }
                             @endphp
-                            <tr>
+                            <tr @if($isUninstalled) style="background-color: rgba(239, 68, 68, 0.05);" @endif>
                                 <td><strong>{{ $customer->first_name ?: $customer->name }}</strong></td>
                                 <td>{{ $customer->last_name }}</td>
                                 <td><code>{{ $customer->phone ?: 'N/A' }}</code></td>
                                 <td><small class="text-muted" style="font-family: monospace;">{{ $customer->uuid }}</small></td>
-                                <td><span class="badge {{ $badgeClass }} text-uppercase">{{ $status }}</span></td>
+                                <td><span class="badge {{ $badgeClass }} px-2 py-1">{{ $displayStatus }}</span></td>
                                 <td>
                                     <small class="text-truncate d-inline-block" style="max-width: 180px;">
                                         {{ optional(optional($customer->conversation)->latestMessage)->message ?: 'No messages yet' }}
                                     </small>
                                 </td>
                                 <td>
-                                    <a href="{{ route('admin.customers.show', $customer->uuid) }}" class="btn btn-sm btn-primary">
-                                        💬 Support & License
-                                    </a>
+                                    <div class="d-flex gap-1 align-items-center">
+                                        @if($status !== 'active' || $isUninstalled)
+                                            <form method="POST" action="{{ route('admin.customers.quickActivate', $customer->uuid) }}" onsubmit="return confirm('আপনি কি নিশ্চিত যে এই গ্রাহকের লাইসেন্স সক্রিয় করবেন?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success" title="১-ক্লিকে সক্রিয় করুন ও চ্যাটে কার্ড পাঠান">
+                                                    ⚡ এক্টিভ করুন
+                                                </button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('admin.customers.deactivate', $customer->uuid) }}" onsubmit="return confirm('আপনি কি এই গ্রাহকের অ্যাকাউন্ট নিষ্ক্রিয় করতে চান?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="নিষ্ক্রিয় করুন">
+                                                    🔒 লক
+                                                </button>
+                                            </form>
+                                        @endif
+                                        <a href="{{ route('admin.customers.show', $customer->uuid) }}" class="btn btn-sm btn-primary">
+                                            💬 Support & License
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

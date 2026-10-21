@@ -20,9 +20,11 @@ class SavedMcqsController extends Controller
         $userIds = $context['user_ids'];
         $sessionIds = $context['session_ids'];
 
-        $query = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"]);
+        if (empty($userIds) && empty($sessionIds)) {
+            $savedList = collect();
+        } else {
+            $query = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"]);
 
-        if (!empty($userIds) || !empty($sessionIds)) {
             $query->where(function ($q) use ($userIds, $sessionIds) {
                 if (!empty($userIds)) {
                     $q->whereIn("user_id", $userIds);
@@ -35,14 +37,8 @@ class SavedMcqsController extends Controller
                     }
                 }
             });
-        }
 
-        $savedList = $query->orderBy("created_at", "desc")->get();
-
-        if ($savedList->isEmpty()) {
-            $savedList = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"])
-                ->orderBy("created_at", "desc")
-                ->get();
+            $savedList = $query->orderBy("created_at", "desc")->get();
         }
 
         // Deduplicate records by question_id and type

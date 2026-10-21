@@ -23,12 +23,14 @@ window.safeFetchJson = function(url, options = {}) {
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
             return res.text().then(text => {
-                console.error("Non-JSON response received:", text.substring(0, 200));
+                if (text.includes('Imunify360') || text.includes('bot-protection') || res.status === 403) {
+                    throw new Error("Access denied by Imunify360 bot-protection. IPs used for automation should be whitelisted");
+                }
                 throw new Error("Server returned non-JSON response (session may have expired). Please log in again.");
             });
         }
         if (!res.ok) {
-            return res.json().then(errData => {
+            return res.json().catch(() => ({ message: `HTTP Error ${res.status}` })).then(errData => {
                 throw new Error(errData.message || `HTTP Error ${res.status}`);
             });
         }
@@ -200,9 +202,10 @@ function triggerGlobalSearch(value) {
 
 // Fetch Dashboard overall stats
 function fetchStats() {
-    fetch('/admin/api/stats')
-        .then(res => res.json())
+    const fetchPromise = window.safeFetchJson ? safeFetchJson('/admin/api/stats') : fetch('/admin/api/stats', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(res => res.json());
+    fetchPromise
         .then(data => {
+            if (!data) return;
             if (document.getElementById('stat-chapters')) {
                 document.getElementById('stat-chapters').innerText = data.total_chapters || 0;
                 document.getElementById('stat-pages').innerText = data.total_pages || 0;
@@ -216,10 +219,10 @@ function fetchStats() {
                 document.getElementById('stat-users').innerText = data.total_users || 0;
             }
             if (document.getElementById('dash-total-sales')) {
-                document.getElementById('dash-total-sales').innerText = data.total_questions + ' questions';
+                document.getElementById('dash-total-sales').innerText = (data.total_questions || 0) + ' questions';
             }
         })
-        .catch(err => console.error(err));
+        .catch(err => console.warn('Stats fetch notice:', err.message || err));
 }
 fetchStats();
 

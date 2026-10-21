@@ -12,27 +12,33 @@ function loadNotedMcqsScreen() {
     const countBadge = document.getElementById('noted-mcqs-count');
     if (!container) return;
 
-    container.innerHTML = `
-        <div style="text-align: center; padding: 40px;">
-            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--accent-green);"></i>
-            <div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">লোড হচ্ছে...</div>
-        </div>
-    `;
+    if (activeNotedMcqsData && activeNotedMcqsData.length > 0) {
+        renderNotedMcqsList(activeNotedMcqsData);
+    } else {
+        container.innerHTML = '';
+    }
 
     const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const savedFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const savedLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     let url = '/api/v1/noted-mcqs';
     const params = [];
     if (savedPhone) params.push(`phone=${encodeURIComponent(savedPhone)}`);
     if (savedSessionId) params.push(`session_id=${encodeURIComponent(savedSessionId)}`);
+    if (savedFirstName) params.push(`first_name=${encodeURIComponent(savedFirstName)}`);
+    if (savedLastName) params.push(`last_name=${encodeURIComponent(savedLastName)}`);
     if (params.length > 0) url += `?${params.join('&')}`;
 
     fetch(url, {
         headers: {
             'Accept': 'application/json',
             'X-Client-Phone': savedPhone,
-            'X-Session-ID': savedSessionId
+            'X-Session-ID': savedSessionId,
+            'X-Client-Session-ID': savedSessionId,
+            'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(savedLastName || '')
         }
     })
     .then(res => res.json())

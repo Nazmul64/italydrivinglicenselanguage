@@ -247,8 +247,6 @@ function startCustomSheetsQuiz() {
         return;
     }
 
-    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
-
     Promise.all(targetSheets.map(pageId =>
         fetch(`/api/questions/page/${pageId}`)
             .then(res => res.json())
@@ -438,7 +436,6 @@ function startArgomentiCategoryQuiz() {
         showToast('কোনো অধ্যায় পাওয়া যায়নি');
         return;
     }
-    showToast('কুইজ প্রশ্ন লোড হচ্ছে...');
 
     Promise.all(targetChapters.map(chapId =>
         fetch(`/api/questions/chapter/${chapId}`)

@@ -324,11 +324,37 @@
             </div>
         </div>
 
-        
+        <!-- 🔍 SEARCH BAR FOR CHAT ROOM (First Name, Last Name, Phone Number) -->
+        <div class="chat-search-header-container" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; background: var(--bg-card); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; color: var(--accent-orange); font-size: 14px;"></i>
+                <input type="text" id="admin-chat-search-input" 
+                       placeholder="কাস্টমার খুঁজুন: নাম বা ফোন নম্বর লিখুন (Search Customer by Name or Phone to Activate / Chat)..." 
+                       style="width: 100%; padding: 10px 36px 10px 40px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-content); font-size: 13px; color: var(--text-primary); outline: none; transition: all 0.2s;"
+                       oninput="onAdminChatSearchInput(this.value)">
+                <button id="admin-chat-search-clear" onclick="clearAdminChatSearch()" 
+                        style="position: absolute; right: 10px; background: none; border: none; color: var(--text-secondary); cursor: pointer; display: none; font-size: 14px; padding: 4px;"
+                        title="ক্লিয়ার করুন">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+            </div>
+            <div id="admin-chat-search-status" style="font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; display: flex; gap: 8px;">
+                <span id="chat-total-customers-badge" style="background: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-users"></i><span id="chat-total-count">0</span> কাস্টমার
+                </span>
+                <span id="chat-active-count-badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-circle-check"></i><span id="chat-active-count">0</span> Active
+                </span>
+            </div>
+        </div>
+
         <div class="chat-room-container">
             <!-- Sidebar list of conversations -->
             <div class="chat-sidebar">
-                <div class="chat-sidebar-header">Conversations</div>
+                <div class="chat-sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>CONVERSATIONS</span>
+                    <span id="chat-sidebar-count-badge" style="font-size: 11px; background: var(--border-color); padding: 2px 8px; border-radius: 10px; color: var(--text-secondary); font-weight: bold;">0</span>
+                </div>
                 <div class="chat-conversation-list" id="admin-chat-list">
                     <!-- Injected dynamically via JS -->
                 </div>
@@ -339,9 +365,25 @@
                 <div class="chat-main-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <div class="conversation-avatar" id="active-chat-avatar">GU</div>
-                        <div style="font-weight: bold; font-size: 13px;" id="active-chat-name">Guest User</div>
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px;" id="active-chat-name">Guest User</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;" id="active-chat-sub">Phone: -</div>
+                        </div>
                     </div>
-                    <button type="button" onclick="openAdminChatSettings()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-gear"></i></button>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div id="active-chat-toggle-btn-container">
+                            <!-- Toggle Active/Inactive button for active conversation injected here -->
+                        </div>
+                        <button type="button" class="btn btn-sm" onclick="openAdminChatSettings()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 5px; cursor: pointer;" title="লাইসেন্স কি পাঠান / মেয়াদ নির্ধারণ করুন">
+                            <i class="fa-solid fa-key"></i> লাইসেন্স কি / মেয়াদ
+                        </button>
+                        <button type="button" class="btn btn-sm" onclick="deleteChatConversation(activeChatSessionId)" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px; font-weight: bold; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 5px; cursor: pointer;" title="এই কাস্টমার ও চ্যাট মুছে ফেলুন">
+                            <i class="fa-solid fa-trash-can"></i> ডিলিট
+                        </button>
+                        <button type="button" onclick="openAdminChatSettings()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; padding: 6px;" title="Settings & Presets">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="chat-messages-container" id="admin-chat-messages">
@@ -369,11 +411,11 @@
 
     <!-- Chat settings modal (License & Macros) -->
     <div class="modal-overlay" id="admin-chat-settings-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999;">
-        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 440px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 85vh; overflow-y: auto;">
+        <div class="modal-content" style="padding: 24px; border-radius: 20px; width: 90%; max-width: 480px; background: var(--bg-card); border: 1px solid var(--border-color); max-height: 88vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
                 <div>
                     <h4 style="font-size: 15px; font-weight: 800; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-key" style="color: #10b981;"></i> লাইসেন্স কি ও রেসপন্স পাঠান
+                        <i class="fa-solid fa-key" style="color: #10b981;"></i> লাইসেন্স কি ও মেয়াদ নির্ধারণ
                     </h4>
                     <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">
                         গ্রাহক: <strong id="chat-settings-target-user" style="color: var(--text-primary);">User</strong>
@@ -385,6 +427,71 @@
                     </button>
                     <button onclick="closeAdminChatSettings()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary);">
                         <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Direct License Duration Section (1 mo, 2 mo, 3 mo, 6 mo, 1 yr, 2 yr, 3 yr, 4 yr, custom) -->
+            <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 14px; margin-bottom: 18px;">
+                <div style="font-size: 12px; font-weight: 800; color: #059669; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-shield-halved"></i> লাইসেন্স মেয়াদ নির্ধারণ ও কি পাঠানো (Direct License Key & Duration):
+                </div>
+                <!-- Quick Duration Presets Grid -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
+                    <!-- Short / Test Durations -->
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(1, '১ সেকেন্ড')" style="background: #f59e0b; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;" title="১ সেকেন্ড মেয়াদের টেস্ট লাইসেন্স">
+                        ⚡ ১ সেকেন্ড
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(60, '১ মিনিট')" style="background: #f59e0b; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;" title="১ মিনিট মেয়াদের টেস্ট লাইসেন্স">
+                        ⏱️ ১ মিনিট
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(300, '৫ মিনিট')" style="background: #f59e0b; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;" title="৫ মিনিট মেয়াদের লাইসেন্স">
+                        ⏱️ ৫ মিনিট
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(3600, '১ ঘন্টা')" style="background: #f59e0b; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;" title="১ ঘন্টা মেয়াদের লাইসেন্স">
+                        ⌛ ১ ঘন্টা
+                    </button>
+
+                    <!-- Days & Months -->
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(86400, '১ দিন')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ১ দিন (1d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(2592000, '১ মাস')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ১ মাস (30d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(5184000, '২ মাস')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ২ মাস (60d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(7776000, '৩ মাস')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ৩ মাস (90d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(15552000, '৬ মাস')" style="background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ৬ মাস (180d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(31536000, '১ বছর')" style="background: #059669; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ১ বছর (365d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(63072000, '২ বছর')" style="background: #059669; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        ২ বছর (730d)
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="sendDirectChatLicense(315360000, 'আনলিমিটেড / ১০ বছর')" style="background: #065f46; color: white; border: none; border-radius: 8px; padding: 8px 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                        আনলিমিটেড
+                    </button>
+                </div>
+
+                <!-- Custom Duration Row -->
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <input type="number" id="admin-custom-license-val" value="1" min="1" max="5000" style="width: 70px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-content); font-size: 12px; color: var(--text-primary);">
+                    <select id="admin-custom-license-unit" style="padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-content); font-size: 12px; color: var(--text-primary);">
+                        <option value="seconds">সেকেন্ড (Seconds)</option>
+                        <option value="minutes">মিনিট (Minutes)</option>
+                        <option value="hours">ঘন্টা (Hours)</option>
+                        <option value="days">দিন (Days)</option>
+                        <option value="months" selected>মাস (Months)</option>
+                        <option value="years">বছর (Years)</option>
+                    </select>
+                    <button type="button" class="btn btn-sm" onclick="sendCustomChatLicense()" style="flex: 1; padding: 7px 10px; font-size: 12px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fa-solid fa-paper-plane"></i> আপডেট / পাঠান
                     </button>
                 </div>
             </div>

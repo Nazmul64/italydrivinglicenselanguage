@@ -787,9 +787,24 @@ class DynamicContentController extends Controller
               ?: session('app_client_phone')
               ?: \Illuminate\Support\Facades\Cache::get('qr_phone_' . $sessionId);
 
+        $cleanPhone = $phone ? preg_replace('/\D/', '', $phone) : null;
+        $isExplicitlyDeleted = ($phone && \Illuminate\Support\Facades\Cache::get('user_deleted_phone_' . $phone))
+            || ($cleanPhone && \Illuminate\Support\Facades\Cache::get('user_deleted_phone_' . $cleanPhone))
+            || ($sessionId && \Illuminate\Support\Facades\Cache::get('user_deleted_' . $sessionId));
+
+        if ($isExplicitlyDeleted) {
+            return response()->json([
+                'session_id'     => $sessionId,
+                'status'         => 'deleted',
+                'license_status' => 'deleted',
+                'is_deleted'     => true,
+                'is_active'      => false,
+                'message'        => 'Already deleted your account. Please contact admin.',
+            ]);
+        }
+
         $client = null;
         if ($phone) {
-            $cleanPhone = preg_replace('/\D/', '', $phone);
             $last10Digits = strlen($cleanPhone) >= 10 ? substr($cleanPhone, -10) : $cleanPhone;
 
             $client = AppClient::where(function ($q) use ($phone, $cleanPhone, $last10Digits) {
@@ -813,21 +828,6 @@ class DynamicContentController extends Controller
                 ->first();
         }
 
-        if (!$client && !$phone) {
-            $client = AppClient::where('is_active', true)
-                ->where(function($q) {
-                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
-                })
-                ->latest()
-                ->first();
-            if (!$client) {
-                $client = AppClient::latest()->first();
-            }
-            if ($client && $client->phone) {
-                $phone = $client->phone;
-            }
-        }
-
         if ($client && $client->is_active && $client->expires_at && now()->gt($client->expires_at)) {
             $client->is_active = false;
             $client->save();
@@ -844,7 +844,7 @@ class DynamicContentController extends Controller
             || $request->header('X-QR-Unlocked') === '1'
             || (!empty($phone) && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $phone) === true);
 
-        if ($isQrUnlocked) {
+        if ($isQrUnlocked && $client && (!$client->expires_at || $client->expires_at->isFuture())) {
             session(['qr_unlocked' => true]);
             if ($phone) session(['app_client_phone' => $phone]);
             session()->save();
@@ -886,12 +886,36 @@ class DynamicContentController extends Controller
 
         $isClientExpired = $client && $client->expires_at && now()->gt($client->expires_at);
 
-        $isActive = !$isProtectionEnabled || (!$isClientExpired && (
-            $isQrUnlocked 
-            || $userActive 
-            || ($client && $client->is_active && (!$client->expires_at || $client->expires_at->isFuture()))
-        ));
-        
+        $isActive = false;
+        if (!$isProtectionEnabled) {
+            $isActive = true;
+        } else {
+            if (!$isClientExpired) {
+                if ($client && $client->is_active && (!$client->expires_at || $client->expires_at->isFuture())) {
+                    $isActive = true;
+                } elseif ($userActive) {
+                    $isActive = true;
+                } elseif ($isQrUnlocked && $client && $client->is_active) {
+                    $isActive = true;
+                }
+            }
+        }
+
+        $licenseStatus = 'inactive';
+        if ($isClientExpired) {
+            $licenseStatus = 'expired';
+        } elseif ($isActive) {
+            $licenseStatus = 'active';
+        } elseif ($client && !$client->is_active) {
+            $licenseStatus = 'inactive';
+        }
+
+        $isUninstalled = ($userObj && $userObj->is_uninstalled) || ($client && $client->is_uninstalled);
+        if ($isUninstalled) {
+            $isActive = false;
+            $licenseStatus = 'inactive';
+        }
+
         if ($client) {
             if ($isClientExpired && $client->is_active) {
                 $client->is_active = false;
@@ -902,9 +926,6 @@ class DynamicContentController extends Controller
             if ($userObj) {
                 if (!$client->first_name && $userObj->first_name) $client->first_name = $userObj->first_name;
                 if (!$client->last_name && $userObj->last_name) $client->last_name = $userObj->last_name;
-            }
-            if ($isActive && !$isClientExpired && !$client->is_active) {
-                $client->is_active = true;
             }
             if ($client->isDirty()) {
                 $client->save();
@@ -917,14 +938,14 @@ class DynamicContentController extends Controller
                 $oldSessionId = $client->session_id;
                 $client->session_id = $sessionId;
                 $client->save();
-                
+
                 \App\Models\Message::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
                 \App\Models\Note::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
                 \App\Models\SavedMcq::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
                 \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
             }
         }
-        
+
         $firstName = $client ? $client->first_name : ($userObj ? $userObj->first_name : null);
         $lastName  = $client ? $client->last_name : ($userObj ? $userObj->last_name : null);
         $phoneNum  = $client ? $client->phone : ($userObj ? $userObj->phone : $phone);
@@ -947,13 +968,21 @@ class DynamicContentController extends Controller
             'session_id' => $client ? $client->session_id : $sessionId,
             'verified'   => (bool)(!$isProtectionEnabled || $isVerified),
             'is_active'  => (bool)$isActive,
+            'is_uninstalled' => (bool)$isUninstalled,
+            'status'     => $licenseStatus,
+            'license_status' => $licenseStatus,
             'free_access_mode' => !$isProtectionEnabled,
             'qr_protection_enabled' => (bool)$isProtectionEnabled,
             'first_name' => $firstName,
             'last_name'  => $lastName,
             'phone'      => $phoneNum,
             'expires_at' => $client && $client->expires_at ? $client->expires_at->toIso8601String() : null,
-            'days_left'  => $client && $client->expires_at ? max(0, now()->diffInDays($client->expires_at, false)) : null
+            'days_left'  => $client && $client->expires_at ? max(0, (int)now()->diffInDays($client->expires_at, false)) : null,
+            'license'    => [
+                'status'         => $licenseStatus,
+                'expires_at'     => $client && $client->expires_at ? $client->expires_at->toIso8601String() : null,
+                'days_remaining' => $client && $client->expires_at ? max(0, (int)now()->diffInDays($client->expires_at, false)) : null
+            ]
         ]);
 
         if ($client && $client->phone) {
@@ -989,6 +1018,8 @@ class DynamicContentController extends Controller
         $sessionId  = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID') ?: session()->getId();
         $cleanPhone = preg_replace('/\D/', '', $rawPhone);
         $last10     = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
+        $incomingInstallUuid = $request->input('install_uuid') ?: $request->input('deviceId') ?: $request->input('device_id') ?: $request->header('X-Install-UUID');
+        $isFreshInstall = $request->boolean('is_fresh_install') || $request->input('is_fresh_install') === '1' || $request->input('is_reinstall') === '1';
         
         // 1. Find existing client by phone number or session ID
         $client = AppClient::where(function ($q) use ($rawPhone, $cleanPhone, $last10) {
@@ -1014,9 +1045,30 @@ class DynamicContentController extends Controller
         
         $oldSessionId = $client->session_id;
 
+        // 2. Sync or find User table record
+        $userObj = \App\Models\User::where(function ($q) use ($rawPhone, $cleanPhone, $last10) {
+            $q->where('phone', $rawPhone);
+            if (!empty($cleanPhone)) {
+                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                if (!empty($last10)) {
+                    $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                }
+            }
+        })->first();
+
+        $isUninstalledDetected = false;
+        if ($userObj) {
+            $previousInstallUuid = $userObj->install_uuid;
+            if ($isFreshInstall || ($previousInstallUuid && $incomingInstallUuid && $previousInstallUuid !== $incomingInstallUuid) || $userObj->is_uninstalled) {
+                $isUninstalledDetected = true;
+            }
+        } elseif ($client && $client->install_uuid && $incomingInstallUuid && $client->install_uuid !== $incomingInstallUuid) {
+            $isUninstalledDetected = true;
+        }
+
         // Check if this client already has an active, unexpired license
         $hasActiveLicense = false;
-        if ($client->is_active && $client->expires_at && $client->expires_at->isFuture()) {
+        if (!$isUninstalledDetected && $client->is_active && $client->expires_at && $client->expires_at->isFuture()) {
             $hasActiveLicense = true;
         }
         
@@ -1026,6 +1078,10 @@ class DynamicContentController extends Controller
         $client->phone      = $rawPhone;
         $client->session_id = $sessionId;
         $client->is_active  = $hasActiveLicense;
+        $client->is_uninstalled = $isUninstalledDetected;
+        if ($incomingInstallUuid) {
+            $client->install_uuid = $incomingInstallUuid;
+        }
         if (!$hasActiveLicense) {
             $client->expires_at = null;
         }
@@ -1038,34 +1094,27 @@ class DynamicContentController extends Controller
             \App\Models\UserMcqResult::where('session_id', $oldSessionId)->update(['session_id' => $sessionId]);
         }
 
-        // 2. Sync or create User table record
-        $userObj = \App\Models\User::where(function ($q) use ($rawPhone, $cleanPhone, $last10) {
-            $q->where('phone', $rawPhone);
-            if (!empty($cleanPhone)) {
-                $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                if (!empty($last10)) {
-                    $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
-                }
-            }
-        })->first();
-
         if (!$userObj) {
             $userObj = \App\Models\User::create([
-                'uuid'       => (string) \Illuminate\Support\Str::uuid(),
-                'name'       => trim($firstName . ' ' . $lastName),
-                'first_name' => $firstName,
-                'last_name'  => $lastName,
-                'phone'      => $rawPhone,
-                'email'      => 'user_' . \Illuminate\Support\Str::random(8) . '@mbanglapatenteb.com',
-                'password'   => bcrypt(\Illuminate\Support\Str::random(16)),
-                'role'       => 'user',
+                'uuid'           => (string) \Illuminate\Support\Str::uuid(),
+                'name'           => trim($firstName . ' ' . $lastName),
+                'first_name'     => $firstName,
+                'last_name'      => $lastName,
+                'phone'          => $rawPhone,
+                'email'          => 'user_' . \Illuminate\Support\Str::random(8) . '@mbanglapatenteb.com',
+                'password'       => bcrypt(\Illuminate\Support\Str::random(16)),
+                'role'           => 'user',
+                'is_uninstalled' => false,
+                'install_uuid'   => $incomingInstallUuid,
             ]);
         } else {
             $userObj->update([
-                'first_name' => $firstName ?: $userObj->first_name,
-                'last_name'  => $lastName ?: $userObj->last_name,
-                'name'       => trim(($firstName ?: $userObj->first_name) . ' ' . ($lastName ?: $userObj->last_name)),
-                'phone'      => $rawPhone,
+                'first_name'     => $firstName ?: $userObj->first_name,
+                'last_name'      => $lastName ?: $userObj->last_name,
+                'name'           => trim(($firstName ?: $userObj->first_name) . ' ' . ($lastName ?: $userObj->last_name)),
+                'phone'          => $rawPhone,
+                'is_uninstalled' => $isUninstalledDetected,
+                'install_uuid'   => $incomingInstallUuid ?: $userObj->install_uuid,
             ]);
         }
 
@@ -1079,6 +1128,8 @@ class DynamicContentController extends Controller
                 'activated_at'=> null,
                 'expires_at'  => null,
             ]);
+        } elseif ($isUninstalledDetected) {
+            $existingLicense->update(['status' => 'inactive']);
         } elseif ($existingLicense->status === 'active' && $existingLicense->expires_at && $existingLicense->expires_at->isPast()) {
             $existingLicense->update(['status' => 'expired']);
         }
@@ -1088,41 +1139,74 @@ class DynamicContentController extends Controller
         // Ensure Conversation exists
         $convo = \App\Models\Conversation::firstOrCreate(['user_id' => $userObj->uuid]);
 
-        // Ensure an initial registration message exists for this session
-        $existingMsg = \App\Models\Message::where('session_id', $sessionId)
-            ->orWhere('session_id', $userObj->uuid)
-            ->orWhere('conversation_id', $convo->id)
-            ->exists();
+        // System notification / alert
+        if ($isUninstalledDetected) {
+            $hasExistingAlert = \App\Models\Message::where(function($q) use ($userObj, $convo) {
+                    $q->where('session_id', $userObj->uuid)->orWhere('conversation_id', $convo->id);
+                })
+                ->where('message', 'like', '%⚠️ অ্যাপ আনইনস্টল বা পুনরায় ইনস্টল করা হয়েছে%')
+                ->exists();
 
-        if (!$existingMsg) {
-            \App\Models\Message::create([
-                'conversation_id' => $convo->id,
-                'session_id'      => $sessionId,
-                'sender'          => 'user',
-                'sender_type'     => 'user',
-                'sender_id'       => $userObj->uuid,
-                'sender_name'     => trim($firstName . ' ' . $lastName),
-                'message'         => '🎉 কাস্টমার নিবন্ধিত হয়েছে (' . $firstName . ' ' . $lastName . ' - ' . $rawPhone . ')',
-            ]);
+            if (!$hasExistingAlert) {
+                \App\Models\Message::create([
+                    'conversation_id' => $convo->id,
+                    'session_id'      => $userObj->uuid,
+                    'sender'          => 'system',
+                    'sender_type'     => 'admin',
+                    'sender_id'       => 'system',
+                    'sender_name'     => 'Security Alert',
+                    'message'         => "⚠️ অ্যাপ আনইনস্টল বা পুনরায় ইনস্টল করা হয়েছে ({$firstName} {$lastName} - {$rawPhone})। অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে। অ্যাডমিন প্যানেল থেকে সক্রিয় করা আবশ্যক।",
+                ]);
+            }
+        } else {
+            $existingMsg = \App\Models\Message::where('session_id', $sessionId)
+                ->orWhere('session_id', $userObj->uuid)
+                ->orWhere('conversation_id', $convo->id)
+                ->exists();
+
+            if (!$existingMsg) {
+                \App\Models\Message::create([
+                    'conversation_id' => $convo->id,
+                    'session_id'      => $sessionId,
+                    'sender'          => 'user',
+                    'sender_type'     => 'user',
+                    'sender_id'       => $userObj->uuid,
+                    'sender_name'     => trim($firstName . ' ' . $lastName),
+                    'message'         => '🎉 কাস্টমার নিবন্ধিত হয়েছে (' . $firstName . ' ' . $lastName . ' - ' . $rawPhone . ')',
+                ]);
+            }
         }
 
         $token = $userObj->createToken('mobile_app_token')->plainTextToken;
         $alreadyActive = (bool) $client->is_active;
 
+        if ($alreadyActive && (!$client->expires_at || $client->expires_at->isFuture())) {
+            $daysLeft = $client->expires_at ? max(1, (int)now()->diffInDays($client->expires_at)) : 30;
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, $daysLeft * 86400);
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, $daysLeft * 86400);
+            session(['qr_unlocked' => true, 'app_client_phone' => $client->phone]);
+            session()->save();
+        }
+
         $response = response()->json([
-            'success' => true,
+            'success'        => true,
             'already_active' => $alreadyActive,
-            'is_active' => (bool)$client->is_active,
+            'is_active'      => (bool)$client->is_active,
+            'is_uninstalled' => $isUninstalledDetected,
+            'requires_admin_reactivation' => $isUninstalledDetected,
             'license_status' => $existingLicense ? $existingLicense->status : 'inactive',
             'client' => $client,
             'user' => [
-                'id'         => $userObj->uuid,
-                'first_name' => $userObj->first_name,
-                'last_name'  => $userObj->last_name,
-                'phone'      => $userObj->phone,
+                'id'             => $userObj->uuid,
+                'first_name'     => $userObj->first_name,
+                'last_name'      => $userObj->last_name,
+                'phone'          => $userObj->phone,
+                'is_uninstalled' => (bool)$userObj->is_uninstalled,
             ],
             'token' => $token,
-            'message' => 'Client verified successfully.'
+            'message' => $isUninstalledDetected
+                ? 'অ্যাপ আনইনস্টল করার কারণে অ্যাকাউন্টটি ইনঅ্যাক্টিভ করা হয়েছে। অনুগ্রহ করে অ্যাডমিন সাপোর্টে যোগাযোগ করে সক্রিয় করে নিন।'
+                : ($alreadyActive ? 'অ্যাকাউন্টটি সক্রিয় রয়েছে।' : 'আপনার তথ্য সফলভাবে জমা হয়েছে। অ্যাডমিন কর্তৃক লাইসেন্স বরাদ্দের পর সক্রিয় করা যাবে।')
         ]);
 
         return $response->cookie('app_client_phone', $client->phone, 525600);
@@ -1159,14 +1243,83 @@ class DynamicContentController extends Controller
     {
         $this->checkPermission('sliders');
         $client = AppClient::findOrFail($id);
-        $client->is_active = !$client->is_active;
-        if ($client->is_active && !$client->expires_at) {
-            $client->expires_at = now()->addYear();
+        $newActive = !$client->is_active;
+        $days = 365;
+
+        $client->is_active = $newActive;
+        if ($newActive) {
+            $client->is_blocked = false;
+            if (!$client->expires_at || $client->expires_at->isPast()) {
+                $client->expires_at = now()->addDays($days);
+            }
         }
         $client->save();
 
+        if ($client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            $last10 = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
+
+            AppClient::where(function($q) use ($client, $cleanPhone, $last10) {
+                $q->where('phone', $client->phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
+            })->update([
+                'is_active'  => $newActive,
+                'expires_at' => $newActive ? ($client->expires_at ?: now()->addDays($days)) : $client->expires_at,
+            ]);
+
+            $user = \App\Models\User::where(function($q) use ($client, $cleanPhone, $last10) {
+                $q->where('phone', $client->phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
+            })->first();
+
+            $userId = $user ? $user->uuid : $client->session_id;
+            if ($userId) {
+                \App\Models\License::updateOrCreate(
+                    ['user_id' => $userId],
+                    [
+                        'license_key'      => (string) rand(100000, 999999),
+                        'status'           => $newActive ? 'active' : 'inactive',
+                        'duration_seconds' => $days * 86400,
+                        'activated_at'     => $newActive ? now() : null,
+                        'expires_at'       => $newActive ? ($client->expires_at ?: now()->addDays($days)) : null,
+                    ]
+                );
+            }
+
+            if ($newActive) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * $days);
+                if (!empty($cleanPhone)) {
+                    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, 86400 * $days);
+                }
+            } else {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->phone);
+                if (!empty($cleanPhone)) {
+                    \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $cleanPhone);
+                }
+            }
+        }
+
+        if ($client->session_id) {
+            if ($newActive) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * $days);
+            } else {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->session_id);
+            }
+        }
+
         return response()->json([
             'success' => true,
+            'message' => $newActive ? 'গ্রাহককে সক্রিয় করা হয়েছে' : 'গ্রাহককে নিষ্ক্রিয় করা হয়েছে',
             'client' => $client
         ]);
     }
@@ -1180,6 +1333,15 @@ class DynamicContentController extends Controller
             $client->is_active = false;
         }
         $client->save();
+
+        if ($client->is_blocked) {
+            if ($client->phone) {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->phone);
+            }
+            if ($client->session_id) {
+                \Illuminate\Support\Facades\Cache::forget('qr_unlocked_' . $client->session_id);
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -1195,15 +1357,68 @@ class DynamicContentController extends Controller
             'days' => 'required|integer|min:1'
         ]);
 
+        $days = (int) $request->days;
         $client = AppClient::findOrFail($id);
         $client->is_active = true;
         $client->is_blocked = false;
-        $client->expires_at = now()->addDays($request->days);
+        $client->expires_at = now()->addDays($days);
         $client->save();
+
+        if ($client->phone && $client->phone !== 'N/A') {
+            $cleanPhone = preg_replace('/\D/', '', $client->phone);
+            $last10 = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
+
+            AppClient::where(function($q) use ($client, $cleanPhone, $last10) {
+                $q->where('phone', $client->phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
+            })->update([
+                'is_active'  => true,
+                'is_blocked' => false,
+                'expires_at' => now()->addDays($days)
+            ]);
+
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->phone, true, 86400 * $days);
+            if (!empty($cleanPhone)) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, 86400 * $days);
+            }
+
+            $user = \App\Models\User::where(function($q) use ($client, $cleanPhone, $last10) {
+                $q->where('phone', $client->phone);
+                if (!empty($cleanPhone)) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
+                }
+            })->first();
+
+            $userId = $user ? $user->uuid : $client->session_id;
+            if ($userId) {
+                \App\Models\License::updateOrCreate(
+                    ['user_id' => $userId],
+                    [
+                        'license_key'      => (string) rand(100000, 999999),
+                        'status'           => 'active',
+                        'duration_seconds' => $days * 86400,
+                        'activated_at'     => now(),
+                        'expires_at'       => now()->addDays($days),
+                    ]
+                );
+            }
+        }
+
+        if ($client->session_id) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $client->session_id, true, 86400 * $days);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => "গ্রাহককে {$request->days} দিনের জন্য লাইসেন্স দেওয়া হয়েছে",
+            'message' => "গ্রাহককে {$days} দিনের জন্য লাইসেন্স দেওয়া হয়েছে",
             'client' => $client
         ]);
     }

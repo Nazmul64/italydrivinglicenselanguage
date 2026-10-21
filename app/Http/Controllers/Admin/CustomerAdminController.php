@@ -164,9 +164,13 @@ class CustomerAdminController extends Controller
                 $appClientQuery->orWhere('phone', $customer->phone);
             }
             $appClientQuery->update([
-                'is_active'  => true,
-                'expires_at' => $expiresAt,
+                'is_active'      => true,
+                'is_uninstalled' => false,
+                'expires_at'     => $expiresAt,
             ]);
+            if ($customer) {
+                $customer->update(['is_uninstalled' => false]);
+            }
         } elseif (in_array($status, ['expired', 'inactive', 'revoked'])) {
             if ($status === 'expired') {
                 $data['expires_at'] = now()->subSecond();
@@ -195,6 +199,86 @@ class CustomerAdminController extends Controller
         $durationLabel = $this->formatDurationLabel($durationSeconds);
 
         return redirect()->back()->with('success', "License status updated to {$status} ({$durationLabel}).");
+    }
+
+    public function quickActivate(Request $request, $uuid)
+    {
+        $customer = User::where('uuid', $uuid)->firstOrFail();
+        $durationSeconds = $this->parseDurationSeconds($request, 31536000);
+        $activatedAt = now();
+        $expiresAt   = now()->addSeconds($durationSeconds);
+        $durationLabel = $this->formatDurationLabel($durationSeconds);
+
+        $license = License::where('user_id', $customer->uuid)->latest()->first();
+        $key = $license ? $license->license_key : (string) rand(100000, 999999);
+
+        if (!$license) {
+            $license = License::create([
+                'user_id'          => $customer->uuid,
+                'license_key'      => $key,
+                'status'           => 'active',
+                'duration_seconds' => $durationSeconds,
+                'activated_at'     => $activatedAt,
+                'expires_at'       => $expiresAt,
+            ]);
+        } else {
+            $license->update([
+                'status'           => 'active',
+                'duration_seconds' => $durationSeconds,
+                'activated_at'     => $activatedAt,
+                'expires_at'       => $expiresAt,
+            ]);
+        }
+
+        $customer->update(['is_uninstalled' => false]);
+
+        // Sync AppClient
+        $appClientQuery = \App\Models\AppClient::where('session_id', $customer->uuid);
+        if ($customer->phone) {
+            $appClientQuery->orWhere('phone', $customer->phone);
+        }
+        $appClientQuery->update([
+            'is_active'      => true,
+            'is_uninstalled' => false,
+            'expires_at'     => $expiresAt,
+        ]);
+
+        // Send activation card into user's support chat
+        $conversation = Conversation::firstOrCreate(['user_id' => $customer->uuid]);
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'session_id'      => $customer->uuid,
+            'sender'          => 'admin',
+            'sender_type'     => 'admin',
+            'sender_id'       => 'admin',
+            'sender_name'     => 'System Admin',
+            'message'         => "[LICENSE_CARD:key={$key}|days=365|seconds={$durationSeconds}]\n🔑 আপনার অ্যাকাউন্টটি সক্রিয় করা হয়েছে!\nলাইসেন্স কি: {$key} ({$durationLabel})\nনিচে 'Attiva Licenza (অ্যাক্টিভ করুন)' বাটনে ক্লিক করে অ্যাপের সম্পূর্ণ সুবিধা উপভোগ করুন।",
+            'license_key'     => $key,
+            'is_license_card' => true,
+        ]);
+
+        return redirect()->back()->with('success', "গ্রাহক {$customer->name} ({$customer->phone}) সফলভাবে সক্রিয় করা হয়েছে! চ্যাটে অ্যাক্টিভেশন কার্ড পাঠানো হয়েছে।");
+    }
+
+    public function deactivate(Request $request, $uuid)
+    {
+        $customer = User::where('uuid', $uuid)->firstOrFail();
+        $license = License::where('user_id', $customer->uuid)->latest()->first();
+        if ($license) {
+            $license->update(['status' => 'inactive']);
+        }
+        $customer->update(['is_uninstalled' => true]);
+
+        $appClientQuery = \App\Models\AppClient::where('session_id', $customer->uuid);
+        if ($customer->phone) {
+            $appClientQuery->orWhere('phone', $customer->phone);
+        }
+        $appClientQuery->update([
+            'is_active'      => false,
+            'is_uninstalled' => true,
+        ]);
+
+        return redirect()->back()->with('success', "গ্রাহক {$customer->name} সফলভাবে নিষ্ক্রিয় করা হয়েছে।");
     }
 
     public function sendMessage(Request $request, $uuid)

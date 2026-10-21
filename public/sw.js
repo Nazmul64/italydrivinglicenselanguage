@@ -1,5 +1,5 @@
-// Italy Bangla Patente App - Service Worker for Mobile PWA
-const CACHE_NAME = 'patente-app-v53';
+// Italy Bangla Patente App - Service Worker for Zero-Load Instant Mobile PWA
+const CACHE_NAME = 'patente-app-v57';
 const ASSETS_TO_CACHE = [
   '/',
   '/app',
@@ -56,38 +56,45 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // API endpoints that must be live real-time
+  if (url.pathname.startsWith('/api/chat') || url.pathname.startsWith('/support/messages') || url.pathname.startsWith('/admin/api')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   const isNavigation = event.request.mode === 'navigate' ||
     (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
 
-  event.respondWith(
-    fetch(event.request)
-      .then(async (networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-          return networkResponse;
-        }
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then(async (networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+            return networkResponse;
+          }
 
-        if (isNavigation && (!networkResponse || networkResponse.status === 404)) {
+          // If navigation returned 404 (e.g. /page-details or direct SPA route), return app shell
+          if (!networkResponse || networkResponse.status === 404 || networkResponse.status >= 500) {
+            const appShell = (await caches.match('/')) || (await caches.match('/app'));
+            if (appShell) return appShell;
+            try {
+              const rootFetch = await fetch('/');
+              if (rootFetch && rootFetch.status === 200) return rootFetch;
+            } catch (e) {}
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) return cachedResponse;
+
           const appShell = (await caches.match('/')) || (await caches.match('/app'));
           if (appShell) return appShell;
-        }
 
-        return networkResponse;
-      })
-      .catch(async () => {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        if (isNavigation) {
-          const appShell = (await caches.match('/')) || (await caches.match('/app'));
-          if (appShell) {
-            return appShell;
-          }
           try {
             return await fetch('/');
           } catch (e) {
@@ -96,9 +103,51 @@ self.addEventListener('fetch', (event) => {
               { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
             );
           }
-        }
+        })
+    );
+    return;
+  }
 
-        return new Response('', { status: 404, statusText: 'Not Found' });
+  // Static Assets (CSS, JS, Fonts, Images): Cache-First with background revalidation (0ms load)
+  const isStaticAsset = url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.ttf') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.jpg') ||
+    url.pathname.endsWith('.webp') ||
+    url.pathname.endsWith('.svg');
+
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        }).catch(() => null);
+
+        // Instant 0ms return from cache if available, otherwise fetch from network
+        return cachedResponse || fetchPromise;
       })
+    );
+    return;
+  }
+
+  // Default Stale-While-Revalidate for other GET requests
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse || new Response(JSON.stringify({ status: 'offline', data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });

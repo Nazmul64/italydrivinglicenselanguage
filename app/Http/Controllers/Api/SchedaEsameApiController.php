@@ -55,7 +55,7 @@ class SchedaEsameApiController extends Controller
             'status' => 'success',
             'duration_minutes' => 20,
             'max_allowed_errors' => 3,
-            'total_questions' => 30,
+            'total_questions' => min(30, $combined->count()),
             'data' => $combined
         ]);
     }
@@ -182,22 +182,28 @@ class SchedaEsameApiController extends Controller
                     });
                 }
 
-                if (!empty($userIds) || !empty($sessionIds)) {
-                    $query->where(function($q) use ($userIds, $sessionIds) {
+                $userContextSessionIds = $sessionIds;
+                if (empty($userIds) && empty($userContextSessionIds)) {
+                    if ($sessionId) $userContextSessionIds = [$sessionId];
+                }
+
+                if (!empty($userIds) || !empty($userContextSessionIds)) {
+                    $query->where(function($q) use ($userIds, $userContextSessionIds) {
                         if (!empty($userIds)) {
                             $q->whereIn('user_id', $userIds);
                         }
-                        if (!empty($sessionIds)) {
+                        if (!empty($userContextSessionIds)) {
                             if (!empty($userIds)) {
-                                $q->orWhereIn('session_id', $sessionIds);
+                                $q->orWhereIn('session_id', $userContextSessionIds);
                             } else {
-                                $q->whereIn('session_id', $sessionIds);
+                                $q->whereIn('session_id', $userContextSessionIds);
                             }
                         }
                     });
+                    $existing = $query->first();
+                } else {
+                    $existing = null;
                 }
-
-                $existing = $query->first();
 
                 $data = [
                     'session_id' => $sessionId,
@@ -212,12 +218,19 @@ class SchedaEsameApiController extends Controller
                 ];
 
                 if ($existing) {
-                    if ($isCorrect) {
-                        $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
-                        $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                    $recentlyUpdated = $existing->updated_at && $existing->updated_at->diffInSeconds(now()) < 10;
+                    if ($recentlyUpdated && (int)$existing->is_correct === ($isCorrect ? 1 : 0) && (string)$existing->user_answer === (string)$userAns) {
+                        // Duplicate/concurrent submission protection: do not double-increment
+                        $data['correct_count'] = $existing->correct_count ?: ($isCorrect ? 1 : 0);
+                        $data['wrong_count'] = $existing->wrong_count ?: ($isCorrect ? 0 : 1);
                     } else {
-                        $data['correct_count'] = ($existing->correct_count ?: 0);
-                        $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                        if ($isCorrect) {
+                            $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
+                            $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                        } else {
+                            $data['correct_count'] = ($existing->correct_count ?: 0);
+                            $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                        }
                     }
                     $existing->update($data);
                     $logged[] = $existing;

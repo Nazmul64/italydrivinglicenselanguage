@@ -1,23 +1,68 @@
-﻿// --- Global Fetch Interceptor for Client License Headers ---
+// --- Global Fetch Interceptor for Client License Headers ---
 (function () {
     const originalFetch = window.fetch;
+
+    function safeAsciiHeader(val) {
+        if (val === null || val === undefined) return '';
+        const str = String(val).trim();
+        if (/[^\x00-\x7F]/.test(str)) {
+            try {
+                return encodeURIComponent(str);
+            } catch (e) {
+                return '';
+            }
+        }
+        return str;
+    }
+
     window.fetch = function (resource, init = {}) {
+        init = init || {};
         const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : null);
         const sessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : null);
+        const firstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : null);
+        const lastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : null);
 
-        if (phone || sessionId) {
-            init = init || {};
-            init.headers = init.headers || {};
-
+        // Sanitize any existing headers to guarantee 0 fetch exceptions
+        if (init.headers) {
             if (init.headers instanceof Headers) {
-                if (phone && !init.headers.has('X-Client-Phone')) init.headers.append('X-Client-Phone', phone);
-                if (sessionId && !init.headers.has('X-Client-Session-ID')) init.headers.append('X-Client-Session-ID', sessionId);
+                const pairs = [];
+                init.headers.forEach((v, k) => {
+                    pairs.push([k, safeAsciiHeader(v)]);
+                });
+                init.headers = new Headers();
+                pairs.forEach(([k, v]) => init.headers.set(k, v));
             } else if (Array.isArray(init.headers)) {
-                if (phone) init.headers.push(['X-Client-Phone', phone]);
-                if (sessionId) init.headers.push(['X-Client-Session-ID', sessionId]);
+                init.headers = init.headers.map(([k, v]) => [k, safeAsciiHeader(v)]);
+            } else if (typeof init.headers === 'object') {
+                for (const k of Object.keys(init.headers)) {
+                    init.headers[k] = safeAsciiHeader(init.headers[k]);
+                }
+            }
+        } else {
+            init.headers = {};
+        }
+
+        const safePhone = safeAsciiHeader(phone);
+        const safeSession = safeAsciiHeader(sessionId);
+        const safeFirst = safeAsciiHeader(firstName);
+        const safeLast = safeAsciiHeader(lastName);
+
+        if (safePhone || safeSession || safeFirst || safeLast) {
+            if (init.headers instanceof Headers) {
+                if (safePhone && !init.headers.has('X-Client-Phone')) init.headers.append('X-Client-Phone', safePhone);
+                if (safeSession && !init.headers.has('X-Client-Session-ID')) init.headers.append('X-Client-Session-ID', safeSession);
+                if (safeFirst && !init.headers.has('X-Client-First-Name')) init.headers.append('X-Client-First-Name', safeFirst);
+                if (safeLast && !init.headers.has('X-Client-Last-Name')) init.headers.append('X-Client-Last-Name', safeLast);
+            } else if (Array.isArray(init.headers)) {
+                if (safePhone) init.headers.push(['X-Client-Phone', safePhone]);
+                if (safeSession) init.headers.push(['X-Client-Session-ID', safeSession]);
+                if (safeFirst) init.headers.push(['X-Client-First-Name', safeFirst]);
+                if (safeLast) init.headers.push(['X-Client-Last-Name', safeLast]);
             } else {
-                if (phone && !init.headers['X-Client-Phone']) init.headers['X-Client-Phone'] = phone;
-                if (sessionId && !init.headers['X-Client-Session-ID']) init.headers['X-Client-Session-ID'] = sessionId;
+                if (safePhone && !init.headers['X-Client-Phone']) init.headers['X-Client-Phone'] = safePhone;
+                if (safeSession && !init.headers['X-Client-Session-ID']) init.headers['X-Client-Session-ID'] = safeSession;
+                if (safeFirst && !init.headers['X-Client-First-Name']) init.headers['X-Client-First-Name'] = safeFirst;
+                if (safeLast && !init.headers['X-Client-Last-Name']) init.headers['X-Client-Last-Name'] = safeLast;
             }
         }
         return originalFetch.call(this, resource, init);
@@ -44,7 +89,7 @@ window.sanitizeAppImageUrl = function (url) {
             try {
                 const u = new URL(url);
                 return window.location.origin + u.pathname + u.search;
-            } catch (e) {}
+            } catch (e) { }
         }
         return url;
     }
@@ -76,7 +121,7 @@ window.sanitizeAppImageUrl = function (url) {
                             return v;
                         });
                         store.setItem(key, cleaned);
-                    } catch(e) {
+                    } catch (e) {
                         if (raw.startsWith('/data/user/') || raw.includes('scaled_IMG') || raw.includes('com.example.')) {
                             store.removeItem(key);
                         }
@@ -86,7 +131,7 @@ window.sanitizeAppImageUrl = function (url) {
         };
         cleanStore(localStorage);
         cleanStore(sessionStorage);
-    } catch(err) {}
+    } catch (err) { }
 })();
 
 // --- Global Simulation & Speech Variables ---
@@ -528,7 +573,7 @@ function unselectAllSheets() {
 function selectAllSheets() {
     const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
     const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
-    
+
     selectedSheets = [];
     cards.forEach(card => {
         const pageId = parseInt(card.getAttribute('data-page-id'));
@@ -548,7 +593,7 @@ function toggleSelectSheets() {
     isSchedeSelectMode = true;
     const currentBox = currentArgomentiChapId ? document.getElementById(`argomenti-chapter-schede-${currentArgomentiChapId}`) : null;
     const cards = currentBox ? currentBox.querySelectorAll('.scheda-item-card') : document.querySelectorAll('#screen-argomenti-schede .scheda-item-card');
-    
+
     if (selectedSheets.length === 0 && cards.length > 0) {
         const firstId = parseInt(cards[0].getAttribute('data-page-id'));
         if (!isNaN(firstId)) {
@@ -1006,7 +1051,7 @@ function openChapterSheetsScreen(chapterId) {
         activeChapterId = chapterId;
         try {
             sessionStorage.setItem('activeArgomentiChapId', chapterId);
-        } catch(e) {}
+        } catch (e) { }
 
         const labelEl = document.getElementById('selected-chapter-display-label');
 
@@ -1687,13 +1732,13 @@ document.addEventListener('DOMContentLoaded', function () {
     restoreScreenFromUrl();
 });
 
-window.openArgomentiSchedeScreen = function(chId) {
+window.openArgomentiSchedeScreen = function (chId) {
     if (typeof openChapterSheetsScreen === 'function') {
         openChapterSheetsScreen(chId);
     }
 };
 
-window.handleArgomentiChapterCardClick = function(chId) {
+window.handleArgomentiChapterCardClick = function (chId) {
     chId = parseInt(chId);
     if (typeof isArgomentiSelectMode !== 'undefined' && isArgomentiSelectMode) {
         toggleChapterSelection(chId);
@@ -1702,7 +1747,7 @@ window.handleArgomentiChapterCardClick = function(chId) {
     }
 };
 
-window.handleArgomentiSchedaClick = function(chId, pageId) {
+window.handleArgomentiSchedaClick = function (chId, pageId) {
     pageId = parseInt(pageId);
     if (typeof isSchedeSelectMode !== 'undefined' && isSchedeSelectMode) {
         toggleSheetSelectionById(pageId);
@@ -1711,7 +1756,7 @@ window.handleArgomentiSchedaClick = function(chId, pageId) {
     }
 };
 
-window.handleCartelliChapterCardClick = function(chId) {
+window.handleCartelliChapterCardClick = function (chId) {
     chId = parseInt(chId);
     if (typeof isCartelliChapterSelectMode !== 'undefined' && isCartelliChapterSelectMode) {
         if (typeof toggleCartelliChapterSelection === 'function') toggleCartelliChapterSelection(chId);
@@ -1720,7 +1765,7 @@ window.handleCartelliChapterCardClick = function(chId) {
     }
 };
 
-window.handleCartelliSchedaCardClick = function(chId, pageId) {
+window.handleCartelliSchedaCardClick = function (chId, pageId) {
     pageId = parseInt(pageId);
     if (typeof isCartelliSchedeSelectMode !== 'undefined' && isCartelliSchedeSelectMode) {
         if (typeof toggleCartelliSchedaSelection === 'function') toggleCartelliSchedaSelection(pageId);
@@ -2342,7 +2387,7 @@ function renderGuestChatMessages(messages) {
                 img.style.cursor = 'pointer';
                 img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
                 img.onclick = () => window.open(cleanSrc, '_blank');
-                img.onerror = function() {
+                img.onerror = function () {
                     this.style.display = 'none';
                 };
                 bubble.appendChild(img);
@@ -2496,7 +2541,7 @@ function sendGuestChatMessage() {
 // Start continuous background polling for live chat messages
 setInterval(fetchGuestChatMessages, 3000);
 
-window.openTeacherHelpModal = function() {
+window.openTeacherHelpModal = function () {
     toggleGuestChat(true);
 };
 // --- 13. Mobile Exam Simulator (TEST) AJAX Logic ---
@@ -2701,7 +2746,7 @@ function renderAll30MiniGrid() {
     if (!container) return;
     container.innerHTML = '';
 
-    const totalCount = Math.max(30, testQuestions.length || 30);
+    const totalCount = Math.min(30, testQuestions.length);
     const userStats = getUserQuestionStats();
 
     for (let i = 0; i < totalCount; i++) {
@@ -2839,13 +2884,13 @@ function showTestQuestion() {
     const testBookmarkIcon = document.getElementById('test-bookmark-icon');
     if (testBookmarkIcon && q) {
         const qType = (q.chapter_name && q.chapter_name.toLowerCase().includes('cartell')) ||
-                      (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
+            (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
         const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
         let isSaved = false;
         try {
             const bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
             isSaved = bookmarks.includes(q.id) || bookmarks.includes(String(q.id));
-        } catch (_) {}
+        } catch (_) { }
         testBookmarkIcon.className = isSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
         testBookmarkIcon.style.color = isSaved ? 'var(--accent-green, #22c55e)' : '';
     }
@@ -3325,7 +3370,7 @@ function submitTestExam() {
             const isCorrect = isAttempted && (userSelected === databaseIsVero);
             const userAnswerStr = isAttempted ? (userSelected ? 'V' : 'F') : null;
             const qType = (q.chapter_name && q.chapter_name.toLowerCase().includes('cartell')) ||
-                          (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
+                (q.image && q.image.toLowerCase().includes('cartell')) ? 'cartelli' : 'argomenti';
 
             loggedAnswers.push({
                 question_id: qId,
@@ -3366,23 +3411,6 @@ function submitTestExam() {
             },
             body: JSON.stringify(examPayload)
         }).catch(err => console.warn('Scheda submit sync error:', err));
-
-        fetch('/api/v1/user-mcq-results/log', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Client-Phone': savedPhone,
-                'X-Session-ID': savedSessionId
-            },
-            body: JSON.stringify({
-                results: loggedAnswers,
-                answers: loggedAnswers,
-                phone: savedPhone,
-                session_id: savedSessionId
-            })
-        }).catch(err => console.warn('MCQ results log sync error:', err));
     } catch (e) {
         console.warn('Error syncing exam test results to server:', e);
     }
@@ -3424,50 +3452,18 @@ function openTestDetailsView() {
     let unansweredAnswers = 0;
     const totalQuestions = testQuestions.length;
 
-    const stats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-    const logBatchPayload = [];
-
     for (let i = 0; i < totalQuestions; i++) {
         const q = testQuestions[i];
         const userAnswer = testAnswers[i];
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
-        const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
 
         if (userAnswer === null) {
             unansweredAnswers++;
         } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
-            if (q && q.id) {
-                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'correct' };
-                stats[statKey].correct = (stats[statKey].correct || 0) + 1;
-                stats[statKey].state = 'correct';
-                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: true });
-            }
         } else {
             wrongAnswers++;
-            if (q && q.id) {
-                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'wrong' };
-                stats[statKey].wrong = (stats[statKey].wrong || 0) + 1;
-                stats[statKey].state = 'wrong';
-                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: false });
-            }
         }
-    }
-
-    if (typeof saveUserQuestionStats === 'function') {
-        saveUserQuestionStats(stats);
-    }
-
-    if (logBatchPayload.length > 0) {
-        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
-        const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
-
-        fetch('/api/user-mcq-results/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Client-Phone': userPhone },
-            body: JSON.stringify({ phone: userPhone, session_id: userSessionId, results: logBatchPayload })
-        }).catch(err => console.error("Error logging exam results: ", err));
     }
 
     try {
@@ -3476,7 +3472,7 @@ function openTestDetailsView() {
             sessionStorage.setItem('saved_test_detail_answers', JSON.stringify(testAnswers));
             sessionStorage.setItem('saved_test_detail_time_spent', timeSpent.toString());
         }
-    } catch(e) {
+    } catch (e) {
         console.error("Error saving test detail data:", e);
     }
 
@@ -3511,7 +3507,7 @@ function loadTestResultsDetailScreen() {
             const t = sessionStorage.getItem('saved_test_detail_time_spent');
             if (t) savedTimeSpent = parseInt(t) || 0;
         }
-    } catch(e) {}
+    } catch (e) { }
 
     let mins = Math.floor(savedTimeSpent / 60);
     let secs = savedTimeSpent % 60;
@@ -3824,7 +3820,7 @@ function getDetailQuestionSpeed(index) {
 
 function toggleDetailSpeedDropdown(event, index) {
     if (event) event.stopPropagation();
-    
+
     document.querySelectorAll('.detail-speed-popover-menu').forEach(el => {
         if (el.id !== `detail-speed-popover-${index}`) {
             el.style.display = 'none';
@@ -4079,7 +4075,7 @@ function renderPageDetailsUI(page) {
     const chapterLabel = chapterName ? `Capitolo ${chapterNum}) ${chapterName}` : `Capitolo ${chapterNum}`;
     const chapLblEl = document.getElementById('page-details-chapter-label');
     if (chapLblEl) chapLblEl.innerText = chapterLabel;
-    
+
     const pageNum = page.sort_order || page.page_number || page.id;
     const pageLblEl = document.getElementById('page-details-page-label');
     if (pageLblEl) pageLblEl.innerText = `Pagina ${pageNum}) ${page.title || ''}`;
@@ -4209,7 +4205,7 @@ function openPageDetailsScreen(pageId) {
     openScreen('page-details', 'Vere e False');
 
     // Save state for F5 reload restore
-    try { sessionStorage.setItem('activePageDetailsId', pageId); } catch(e) {}
+    try { sessionStorage.setItem('activePageDetailsId', pageId); } catch (e) { }
 
     // 1. Instant Cache Path: Render immediately if previously loaded
     if (window.pageDetailsCache[pageId]) {
@@ -4282,19 +4278,16 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1';
 
         const record = userStats[q.id];
-        let correctCount = (typeof q.correct_count === 'number') ? q.correct_count : 0;
-        let wrongCount = (typeof q.wrong_count === 'number') ? q.wrong_count : 0;
-        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
+        const hasDbStats = typeof q.correct_count === 'number' && typeof q.wrong_count === 'number';
+        let correctCount = hasDbStats ? q.correct_count : 0;
+        let wrongCount = hasDbStats ? q.wrong_count : 0;
 
-        if (record && typeof record === 'object') {
-            const rCorr = (typeof record.correct === 'number') ? record.correct : 0;
-            const rWrong = (typeof record.wrong === 'number') ? record.wrong : 0;
-            correctCount = Math.max(correctCount, rCorr);
-            wrongCount = Math.max(wrongCount, rWrong);
-            if (correctCount > 0 || wrongCount > 0) {
-                isAnswered = true;
-            }
+        if (!hasDbStats && record && typeof record === 'object') {
+            correctCount = (typeof record.correct === 'number') ? record.correct : 0;
+            wrongCount = (typeof record.wrong === 'number') ? record.wrong : 0;
         }
+
+        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
 
         const card = document.createElement('div');
         const isCorrect = isAnswered && ((record && record.state === 'correct') || q.is_correct === true || correctCount > wrongCount);
@@ -5161,7 +5154,7 @@ function updateSavedMcqsQuizButtonVisibility() {
 }
 
 function startSavedMcqsQuiz() {
-    const questionsToQuiz = (selectedSavedMcqIds && selectedSavedMcqIds.length > 0) 
+    const questionsToQuiz = (selectedSavedMcqIds && selectedSavedMcqIds.length > 0)
         ? activeSavedMcqs.filter(q => selectedSavedMcqIds.includes(q.id))
         : activeSavedMcqs;
 
@@ -5286,7 +5279,7 @@ function toggleSavedMcq(questionId, btnElement, type) {
     const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
     const qType = type || 'argomenti';
 
-    const payload = { 
+    const payload = {
         question_id: questionId,
         type: qType,
         phone: savedPhone,
@@ -6039,7 +6032,7 @@ function updateDictSaveIconState() {
         if (qType === 'cartelli') {
             const cBookmarks = JSON.parse(localStorage.getItem('cartelli_bookmarks') || '[]');
             isSaved = cBookmarks.includes(qId) || cBookmarks.includes(String(qId)) || cBookmarks.includes(parseInt(qId));
-            
+
             if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
                 isSaved = activeSavedMcqs.some(q => {
                     const type = q.type || (q.question && q.question.type);
@@ -6047,7 +6040,7 @@ function updateDictSaveIconState() {
                     return type === 'cartelli' && id == qId;
                 });
             }
-            
+
             if (!isSaved) {
                 const cardBookmark = document.querySelector(`#cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${qId}"] .fa-bookmark`);
                 if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
@@ -6057,7 +6050,7 @@ function updateDictSaveIconState() {
         } else {
             const aBookmarks = JSON.parse(localStorage.getItem('argomenti_bookmarks') || '[]');
             isSaved = aBookmarks.includes(qId) || aBookmarks.includes(String(qId)) || aBookmarks.includes(parseInt(qId));
-            
+
             if (!isSaved && typeof activeSavedMcqs !== 'undefined' && Array.isArray(activeSavedMcqs)) {
                 isSaved = activeSavedMcqs.some(q => {
                     const type = q.type || (q.question && q.question.type) || 'argomenti';
@@ -6065,7 +6058,7 @@ function updateDictSaveIconState() {
                     return type !== 'cartelli' && id == qId;
                 });
             }
-            
+
             if (!isSaved) {
                 const cardBookmark = document.querySelector(`#argomenti-q-card-${qId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${qId}"] .fa-bookmark`);
                 if (cardBookmark && (cardBookmark.classList.contains('fa-solid') || (cardBookmark.style.color && cardBookmark.style.color.includes('green')))) {
@@ -6123,47 +6116,47 @@ function saveDictWord() {
                 session_id: savedSessionId
             })
         })
-        .then(res => res.json())
-        .then(data => {
-            const isNowSaved = data.saved ?? (data.status === 'saved' || data.is_saved);
-            const saveBtn = document.getElementById('dict-modal-save-btn');
-            if (saveBtn) {
-                saveBtn.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
-                saveBtn.style.color = isNowSaved ? '#4CAF50' : 'var(--text-primary, #1e293b)';
-            }
+            .then(res => res.json())
+            .then(data => {
+                const isNowSaved = data.saved ?? (data.status === 'saved' || data.is_saved);
+                const saveBtn = document.getElementById('dict-modal-save-btn');
+                if (saveBtn) {
+                    saveBtn.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                    saveBtn.style.color = isNowSaved ? '#4CAF50' : 'var(--text-primary, #1e293b)';
+                }
 
-            // Sync with local storage bookmarks
-            const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
-            let bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
-            const idx = bookmarks.indexOf(qId);
-            if (isNowSaved && idx === -1) bookmarks.push(qId);
-            else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
-            localStorage.setItem(storageKey, JSON.stringify(bookmarks));
+                // Sync with local storage bookmarks
+                const storageKey = qType === 'cartelli' ? 'cartelli_bookmarks' : 'argomenti_bookmarks';
+                let bookmarks = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                const idx = bookmarks.indexOf(qId);
+                if (isNowSaved && idx === -1) bookmarks.push(qId);
+                else if (!isNowSaved && idx > -1) bookmarks.splice(idx, 1);
+                localStorage.setItem(storageKey, JSON.stringify(bookmarks));
 
-            // Sync card bookmark icons on current screen
-            const selector = qType === 'cartelli'
-                ? `#cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${qId}"] .fa-bookmark`
-                : `#argomenti-q-card-${qId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${qId}"] .fa-bookmark`;
+                // Sync card bookmark icons on current screen
+                const selector = qType === 'cartelli'
+                    ? `#cartelli-mcq-card-${qId} .fa-bookmark, #cartelli-card-${qId} .fa-bookmark, [data-qtype="cartelli"][data-qid="${qId}"] .fa-bookmark`
+                    : `#argomenti-q-card-${qId} .fa-bookmark, [data-qtype="argomenti"][data-qid="${qId}"] .fa-bookmark`;
 
-            const cardBookmarks = document.querySelectorAll(selector);
-            cardBookmarks.forEach(icon => {
-                icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
-                icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
+                const cardBookmarks = document.querySelectorAll(selector);
+                cardBookmarks.forEach(icon => {
+                    icon.className = isNowSaved ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+                    icon.style.color = isNowSaved ? 'var(--accent-green)' : '';
+                });
+
+                if (typeof showToast === 'function') {
+                    showToast(data.message || (isNowSaved ? 'à¦ªà§à¦°à¦¶à§à¦¨à¦Ÿà¦¿ à¦¸à§‡à¦­ à¦•à¦°à¦¾ à¦¹à§Ÿà§‡à¦›à§‡ (Saved)' : 'à¦¸à§‡à¦­ à¦¥à§‡à¦•à§‡ à¦¸à¦°à¦¾à¦¨à§‹ à¦¹à§Ÿà§‡à¦›à§‡ (Removed)'));
+                }
+
+                // Refresh saved screen if active or reload cached saved MCQs
+                if (typeof loadSavedMcqsScreen === 'function') {
+                    loadSavedMcqsScreen();
+                }
+            })
+            .catch(err => {
+                console.error('Error toggling save MCQ from modal:', err);
+                toggleLocalDictWordSave(wordKey);
             });
-
-            if (typeof showToast === 'function') {
-                showToast(data.message || (isNowSaved ? 'à¦ªà§à¦°à¦¶à§à¦¨à¦Ÿà¦¿ à¦¸à§‡à¦­ à¦•à¦°à¦¾ à¦¹à§Ÿà§‡à¦›à§‡ (Saved)' : 'à¦¸à§‡à¦­ à¦¥à§‡à¦•à§‡ à¦¸à¦°à¦¾à¦¨à§‹ à¦¹à§Ÿà§‡à¦›à§‡ (Removed)'));
-            }
-
-            // Refresh saved screen if active or reload cached saved MCQs
-            if (typeof loadSavedMcqsScreen === 'function') {
-                loadSavedMcqsScreen();
-            }
-        })
-        .catch(err => {
-            console.error('Error toggling save MCQ from modal:', err);
-            toggleLocalDictWordSave(wordKey);
-        });
     } else if (wordKey) {
         toggleLocalDictWordSave(wordKey);
     }
@@ -6396,14 +6389,23 @@ function submitSchedaExam() {
     if (schedaExamTimerInterval) clearInterval(schedaExamTimerInterval);
 
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+    const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
 
     fetch(`/api/exams/${activeExamSession.id}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token
+            'X-CSRF-TOKEN': token,
+            'X-Client-Phone': curPhone,
+            'X-Session-ID': curSessionId
         },
-        body: JSON.stringify({ answers: examUserAnswers })
+        body: JSON.stringify({
+            answers: examUserAnswers,
+            phone: curPhone,
+            user_phone: curPhone,
+            session_id: curSessionId
+        })
     })
         .then(res => res.json())
         .then(data => {
@@ -6411,6 +6413,11 @@ function submitSchedaExam() {
                 showToast(data.error);
                 openScreen('scheda-esame', 'Scheda Esame');
                 return;
+            }
+
+            window.dispatchEvent(new CustomEvent('user-stats-updated'));
+            if (typeof loadUserProfileStats === 'function') {
+                loadUserProfileStats();
             }
 
             // Show result popup modal
@@ -7284,8 +7291,8 @@ function loadCorrectMcqsList() {
                 const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
                 const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
                 const record = userStatsMap[statKey] || {};
-                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
-                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+                const correctCount = (typeof q.correct_count === 'number' && q.correct_count > 0) ? q.correct_count : (typeof record.correct === 'number' ? record.correct : 0);
+                const wrongCount = (typeof q.wrong_count === 'number' && q.wrong_count > 0) ? q.wrong_count : (typeof record.wrong === 'number' ? record.wrong : 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
                     const statsDiv = document.createElement('div');
@@ -7590,8 +7597,8 @@ function loadWrongMcqsList() {
                 const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
                 const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
                 const record = userStatsMap[statKey] || {};
-                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
-                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+                const correctCount = (typeof q.correct_count === 'number' && q.correct_count > 0) ? q.correct_count : (typeof record.correct === 'number' ? record.correct : 0);
+                const wrongCount = (typeof q.wrong_count === 'number' && q.wrong_count > 0) ? q.wrong_count : (typeof record.wrong === 'number' ? record.wrong : 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
                     const statsDiv = document.createElement('div');

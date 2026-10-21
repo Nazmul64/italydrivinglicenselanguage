@@ -66,31 +66,6 @@ class EnsureLicenseIsActive
             $client = AppClient::where("session_id", $sessionId)->first();
         }
 
-        if (!$client && !$phone) {
-            $client = AppClient::where("is_active", true)
-                ->where(function($q) {
-                    $q->whereNull("expires_at")->orWhere("expires_at", ">", now());
-                })
-                ->latest()
-                ->first();
-
-            if (!$client && AppClient::count() === 0) {
-                try {
-                    $client = AppClient::create([
-                        'phone' => '01700000000',
-                        'session_id' => $sessionId ?: 'default_active_client',
-                        'first_name' => 'Demo',
-                        'last_name' => 'User',
-                        'is_active' => true,
-                        'expires_at' => now()->addYears(5),
-                    ]);
-                    $userActive = true;
-                } catch (\Throwable $e) {
-                    $userActive = true;
-                }
-            }
-        }
-
         $userActive = false;
 
         $cookieSessionId  = $request->cookie('qr_session_id');
@@ -105,7 +80,7 @@ class EnsureLicenseIsActive
             || ($cookieAppSession && \Illuminate\Support\Facades\Cache::get('qr_unlocked_' . $cookieAppSession) === true)
             || $cookieTabUnlocked;
 
-        if ($isQrUnlocked) {
+        if ($isQrUnlocked && $client && $client->is_active && (!$client->expires_at || $client->expires_at->isFuture())) {
             $userActive = true;
         }
 

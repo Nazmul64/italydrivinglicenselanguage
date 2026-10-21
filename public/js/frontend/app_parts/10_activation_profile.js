@@ -14,17 +14,50 @@ function checkClientActivation() {
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            const isUnlockedNow = Boolean(data.is_active || (data.qr_unlocked && isTabUnlocked) || (isTabUnlocked && data.free_access_mode === false));
+            const isDeleted = (data.status === 'deleted' || data.is_deleted === true);
+            const isExpired = (data.status === 'expired' || data.license_status === 'expired' || data.is_expired === true);
+            const isUnlockedNow = !isExpired && !isDeleted && (data.is_active === true);
             currentClientVerified = Boolean(data.verified || isUnlockedNow || savedPhone);
 
             const wasActive = currentClientActive;
 
             currentClientActive = isUnlockedNow;
 
-            if (currentClientActive) {
+            if (isDeleted) {
+                localStorage.setItem('app_client_deleted', 'true');
+                localStorage.removeItem('app_client_phone');
+                localStorage.removeItem('app_client_session_id');
+                sessionStorage.removeItem('tab_qr_unlocked');
+                localStorage.setItem('app_client_active', 'false');
+                document.cookie = "qr_tab_unlocked=0; path=/; max-age=0; SameSite=Lax";
+                const lockEl = document.getElementById('app-activation-lock');
+                if (lockEl) {
+                    lockEl.style.display = 'flex';
+                    const msgEl = lockEl.querySelector('.activation-desc') || lockEl.querySelector('p');
+                    if (msgEl) msgEl.innerText = 'আপনাকে এডমিন প্যানেল থেকে ডিলিট করে দেওয়া হয়েছে। দয়া করে এডমিনের সাথে যোগাযোগ করুন।';
+                }
+            } else if (isExpired) {
+                localStorage.removeItem('app_client_deleted');
+                localStorage.setItem('app_client_expired', 'true');
+                sessionStorage.removeItem('tab_qr_unlocked');
+                localStorage.setItem('app_client_active', 'false');
+                document.cookie = "qr_tab_unlocked=0; path=/; max-age=0; SameSite=Lax";
+                const lockEl = document.getElementById('app-activation-lock');
+                if (lockEl) {
+                    lockEl.style.display = 'flex';
+                    const msgEl = lockEl.querySelector('.activation-desc') || lockEl.querySelector('p');
+                    if (msgEl) msgEl.innerText = 'আপনার লাইসেন্স কি-র মেয়াদ শেষ, দয়া করে আবার নবায়ন করেন (এডমিনের সাথে কথা বলে আবার একটিভ করে নেন)।';
+                }
+            } else if (currentClientActive) {
+                localStorage.removeItem('app_client_deleted');
+                localStorage.removeItem('app_client_expired');
                 sessionStorage.setItem('tab_qr_unlocked', 'true');
                 localStorage.setItem('app_client_active', 'true');
                 document.cookie = "qr_tab_unlocked=1; path=/; SameSite=Lax";
+            } else {
+                sessionStorage.removeItem('tab_qr_unlocked');
+                localStorage.setItem('app_client_active', 'false');
+                document.cookie = "qr_tab_unlocked=0; path=/; max-age=0; SameSite=Lax";
             }
 
             if (data.phone) {
@@ -159,10 +192,15 @@ function submitClientVerification() {
                         currentClientPhone = data.client.phone;
                         localStorage.setItem('app_client_phone', data.client.phone);
                     }
-                    if (data.client.session_id) {
-                        currentClientSessionId = data.client.session_id;
-                        localStorage.setItem('app_client_session_id', data.client.session_id);
+                    if (data.client.first_name || firstName) {
+                        localStorage.setItem('app_client_first_name', data.client.first_name || firstName);
                     }
+                    if (data.client.last_name || lastName) {
+                        localStorage.setItem('app_client_last_name', data.client.last_name || lastName);
+                    }
+                } else {
+                    if (firstName) localStorage.setItem('app_client_first_name', firstName);
+                    if (lastName) localStorage.setItem('app_client_last_name', lastName);
                 }
 
                 currentClientVerified = true;
@@ -684,21 +722,31 @@ function loadCorrectMcqsList() {
     const selectedPage = document.getElementById('correct-filter-page')?.value;
     const searchQuery = document.getElementById('correct-search-input')?.value?.toLowerCase()?.trim() || '';
 
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande corrette...</div>`;
+    if (!container.children.length) container.innerHTML = '';
 
     const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const userFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const userLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     const correctQueryParams = new URLSearchParams({
         chapter_id: selectedChapter || '',
         page_id: selectedPage || '',
         search: searchQuery || '',
         phone: userPhone,
-        session_id: userSessionId
+        session_id: userSessionId,
+        first_name: userFirstName,
+        last_name: userLastName
     });
 
     fetch(`/api/v1/correct-mcqs?${correctQueryParams.toString()}`, {
-        headers: { 'X-Client-Phone': userPhone }
+        headers: { 
+            'X-Client-Phone': userPhone,
+            'X-Session-ID': userSessionId,
+            'X-Client-Session-ID': userSessionId,
+            'X-Client-First-Name': encodeURIComponent(userFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(userLastName || '')
+        }
     })
         .then(res => res.json())
         .then(resData => {
@@ -832,8 +880,8 @@ function loadCorrectMcqsList() {
                 const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
                 const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
                 const record = userStatsMap[statKey] || {};
-                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
-                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+                const correctCount = (typeof q.correct_count === 'number' && q.correct_count > 0) ? q.correct_count : (typeof record.correct === 'number' ? record.correct : 0);
+                const wrongCount = (typeof q.wrong_count === 'number' && q.wrong_count > 0) ? q.wrong_count : (typeof record.wrong === 'number' ? record.wrong : 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
                     const statsDiv = document.createElement('div');
@@ -993,10 +1041,12 @@ function loadWrongMcqsList() {
     const selectedDate = document.getElementById('wrong-filter-date')?.value || '';
     const searchQuery = document.getElementById('wrong-search-input')?.value?.toLowerCase()?.trim() || '';
 
-    container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 45px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento domande errate...</div>`;
+    if (!container.children.length) container.innerHTML = '';
 
     const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const userFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const userLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     const queryParams = new URLSearchParams({
         chapter_id: selectedChapter,
@@ -1004,11 +1054,19 @@ function loadWrongMcqsList() {
         date: selectedDate,
         search: searchQuery,
         phone: userPhone,
-        session_id: userSessionId
+        session_id: userSessionId,
+        first_name: userFirstName,
+        last_name: userLastName
     });
 
     fetch(`/api/v1/wrong-mcqs?${queryParams.toString()}`, {
-        headers: { 'X-Client-Phone': userPhone }
+        headers: { 
+            'X-Client-Phone': userPhone,
+            'X-Session-ID': userSessionId,
+            'X-Client-Session-ID': userSessionId,
+            'X-Client-First-Name': encodeURIComponent(userFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(userLastName || '')
+        }
     })
         .then(res => res.json())
         .then(resData => {
@@ -1138,8 +1196,8 @@ function loadWrongMcqsList() {
                 const qType = q.type || (q.cartello_id !== undefined ? 'cartelli' : (q.correct_answer ? 'cartelli' : 'argomenti'));
                 const statKey = (qType === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
                 const record = userStatsMap[statKey] || {};
-                const correctCount = typeof record.correct === 'number' ? record.correct : (q.correct_count || 0);
-                const wrongCount = typeof record.wrong === 'number' ? record.wrong : (q.wrong_count || 0);
+                const correctCount = (typeof q.correct_count === 'number' && q.correct_count > 0) ? q.correct_count : (typeof record.correct === 'number' ? record.correct : 0);
+                const wrongCount = (typeof q.wrong_count === 'number' && q.wrong_count > 0) ? q.wrong_count : (typeof record.wrong === 'number' ? record.wrong : 0);
 
                 if (correctCount > 0 || wrongCount > 0) {
                     const statsDiv = document.createElement('div');
@@ -1535,8 +1593,8 @@ let allManualeTopics = [];
 
 function loadManualeTopics() {
     const container = document.getElementById('manuale-topics-container');
-    if (container) {
-        container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i><br>ম্যানুয়াল লোড হচ্ছে...</div>';
+    if (allManualeTopics && allManualeTopics.length > 0) {
+        renderManualeTopics(allManualeTopics);
     }
     fetch('/api/v1/manuale/chapters')
         .then(res => res.json())

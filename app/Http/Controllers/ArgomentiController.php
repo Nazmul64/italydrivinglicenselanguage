@@ -41,10 +41,7 @@ class ArgomentiController extends Controller
     // ==========================================
 
     /**
-     * Get all active chapters list.
-     */
-    /**
-     * Get all active chapters list.
+     * Get all active chapters list with high-performance bulk queries (zero lag).
      */
     public function getChapters(Request $request)
     {
@@ -54,47 +51,113 @@ class ArgomentiController extends Controller
         $hasUser = !empty($userIds) || !empty($sessionIds);
 
         $categoryId = $request->query('category_id');
-        $query = Chapter::where('status', true);
-        if ($categoryId) {
+        $query = Chapter::where(function($q) {
+            $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+        });
+
+        if ($categoryId && $categoryId !== 'all' && $categoryId != 0) {
             $query->where('category_id', $categoryId);
         }
+
         $chapters = $query->withCount(['pages'])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
-        foreach ($chapters as $ch) {
-            $pageIds = Page::where('chapter_id', $ch->id)->pluck('id');
-            $questionIds = Question::where(function ($q) use ($ch, $pageIds) {
-                $q->where('chapter', $ch->id)
-                  ->orWhere('chapter', $ch->chapter_number)
-                  ->orWhereIn('page_id', $pageIds);
-            })->pluck('id')->toArray();
+        // Fallback to all chapters if category returned empty so screen never gets stuck
+        if ($chapters->isEmpty() && $categoryId) {
+            $chapters = Chapter::where(function($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })->withCount(['pages'])
+              ->orderBy('sort_order', 'asc')
+              ->orderBy('id', 'asc')
+              ->get();
+        }
 
-            $total = count($questionIds);
+        // 1. Bulk pre-fetch all pages grouped by chapter_id in ONE query
+        $chapterIds = $chapters->pluck('id')->toArray();
+        $pagesByChapter = Page::whereIn('chapter_id', $chapterIds)
+            ->select('id', 'chapter_id')
+            ->get()
+            ->groupBy('chapter_id');
+
+        // 2. Bulk pre-fetch all questions in ONE query
+        $allQuestions = Question::select('id', 'chapter', 'page_id')->get();
+
+        // Map chapter_number and id to chapters
+        $chapterIdMap = [];
+        foreach ($chapters as $ch) {
+            $chapterIdMap[$ch->id] = $ch;
+            if ($ch->chapter_number) {
+                $chapterIdMap['num_' . $ch->chapter_number] = $ch;
+            }
+        }
+
+        // 3. If user context exists, bulk fetch user results in ONE fast query
+        $userResults = [];
+        if ($hasUser) {
+            $userResults = UserMcqResult::where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('session_id', $sessionIds);
+                    } else {
+                        $q->whereIn('session_id', $sessionIds);
+                    }
+                }
+            })
+            ->select('question_id', 'is_correct')
+            ->orderBy('id', 'desc')
+            ->get()
+            ->unique('question_id')
+            ->keyBy('question_id');
+        }
+
+        // 4. In-memory mapping of questions to chapters (0ms)
+        $questionsByChapter = [];
+        foreach ($chapters as $ch) {
+            $questionsByChapter[$ch->id] = [];
+        }
+
+        foreach ($allQuestions as $q) {
+            $assigned = false;
+            if ($q->page_id) {
+                foreach ($pagesByChapter as $chId => $pages) {
+                    if ($pages->contains('id', $q->page_id)) {
+                        $questionsByChapter[$chId][] = $q->id;
+                        $assigned = true;
+                        break;
+                    }
+                }
+            }
+            if (!$assigned && $q->chapter) {
+                if (isset($questionsByChapter[$q->chapter])) {
+                    $questionsByChapter[$q->chapter][] = $q->id;
+                } elseif (isset($chapterIdMap['num_' . $q->chapter])) {
+                    $ch = $chapterIdMap['num_' . $q->chapter];
+                    $questionsByChapter[$ch->id][] = $q->id;
+                }
+            }
+        }
+
+        foreach ($chapters as $ch) {
+            $qIds = array_unique($questionsByChapter[$ch->id] ?? []);
+            $total = count($qIds);
             $correct = 0;
             $wrong = 0;
 
-            if ($hasUser && $total > 0) {
-                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
-                    ->where(function ($q) use ($userIds, $sessionIds) {
-                        if (!empty($userIds)) {
-                            $q->whereIn('user_id', $userIds);
+            if ($hasUser && $total > 0 && !empty($userResults)) {
+                foreach ($qIds as $qid) {
+                    if (isset($userResults[$qid])) {
+                        if ($userResults[$qid]->is_correct) {
+                            $correct++;
+                        } else {
+                            $wrong++;
                         }
-                        if (!empty($sessionIds)) {
-                            if (!empty($userIds)) {
-                                $q->orWhereIn('session_id', $sessionIds);
-                            } else {
-                                $q->whereIn('session_id', $sessionIds);
-                            }
-                        }
-                    })
-                    ->orderBy('updated_at', 'desc')
-                    ->get()
-                    ->unique('question_id');
-
-                $correct = $latestResults->where('is_correct', 1)->count();
-                $wrong = $latestResults->where('is_correct', 0)->count();
+                    }
+                }
             }
 
             $unanswered = max(0, $total - $correct - $wrong);
@@ -111,7 +174,7 @@ class ArgomentiController extends Controller
     }
 
     /**
-     * Get active pages list for a specific chapter.
+     * Get active pages list for a specific chapter with zero loading lag.
      */
     public function getChapterPages(Request $request, $chapterId = null)
     {
@@ -125,7 +188,9 @@ class ArgomentiController extends Controller
         $sessionIds = $context['session_ids'];
         $hasUser = !empty($userIds) || !empty($sessionIds);
 
-        $pages = Page::where('status', true)
+        $pages = Page::where(function($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })
             ->where(function ($query) use ($chapterId) {
                 $query->where('chapter_id', $chapterId)
                     ->orWhereHas('chapter', function ($q) use ($chapterId) {
@@ -137,32 +202,53 @@ class ArgomentiController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
+        $pageIds = $pages->pluck('id')->toArray();
+        $questionsByPage = Question::whereIn('page_id', $pageIds)
+            ->select('id', 'page_id')
+            ->get()
+            ->groupBy('page_id');
+
+        $allQIds = Question::whereIn('page_id', $pageIds)->pluck('id')->toArray();
+
+        $userResults = [];
+        if ($hasUser && !empty($allQIds)) {
+            $userResults = UserMcqResult::whereIn('question_id', $allQIds)
+                ->where(function ($q) use ($userIds, $sessionIds) {
+                    if (!empty($userIds)) {
+                        $q->whereIn('user_id', $userIds);
+                    }
+                    if (!empty($sessionIds)) {
+                        if (!empty($userIds)) {
+                            $q->orWhereIn('session_id', $sessionIds);
+                        } else {
+                            $q->whereIn('session_id', $sessionIds);
+                        }
+                    }
+                })
+                ->select('question_id', 'is_correct')
+                ->orderBy('id', 'desc')
+                ->get()
+                ->unique('question_id')
+                ->keyBy('question_id');
+        }
+
         foreach ($pages as $p) {
-            $questionIds = Question::where('page_id', $p->id)->pluck('id')->toArray();
-            $total = count($questionIds);
+            $pageQuestions = $questionsByPage->get($p->id, collect());
+            $qIds = $pageQuestions->pluck('id')->toArray();
+            $total = count($qIds);
             $correct = 0;
             $wrong = 0;
 
-            if ($hasUser && $total > 0) {
-                $latestResults = UserMcqResult::whereIn('question_id', $questionIds)
-                    ->where(function ($q) use ($userIds, $sessionIds) {
-                        if (!empty($userIds)) {
-                            $q->whereIn('user_id', $userIds);
+            if ($hasUser && $total > 0 && !empty($userResults)) {
+                foreach ($qIds as $qid) {
+                    if (isset($userResults[$qid])) {
+                        if ($userResults[$qid]->is_correct) {
+                            $correct++;
+                        } else {
+                            $wrong++;
                         }
-                        if (!empty($sessionIds)) {
-                            if (!empty($userIds)) {
-                                $q->orWhereIn('session_id', $sessionIds);
-                            } else {
-                                $q->whereIn('session_id', $sessionIds);
-                            }
-                        }
-                    })
-                    ->orderBy('updated_at', 'desc')
-                    ->get()
-                    ->unique('question_id');
-
-                $correct = $latestResults->where('is_correct', 1)->count();
-                $wrong = $latestResults->where('is_correct', 0)->count();
+                    }
+                }
             }
 
             $unanswered = max(0, $total - $correct - $wrong);
@@ -193,6 +279,20 @@ class ArgomentiController extends Controller
                 'message' => 'Page not found',
                 'data' => null
             ], 404);
+        }
+
+        if ($page->questions->isEmpty()) {
+            $fallbackQ = Question::where(function($q) use ($page, $pageId) {
+                $q->where('page_id', $pageId);
+                if ($page->chapter_id) {
+                    $q->orWhere(function($sub) use ($page) {
+                        $sub->where('chapter', $page->chapter_id)->whereNull('page_id');
+                    });
+                }
+            })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
+            if ($fallbackQ->isNotEmpty()) {
+                $page->setRelation('questions', $fallbackQ);
+            }
         }
 
         $context = $this->resolveUserContext($request);
@@ -1151,13 +1251,6 @@ class ArgomentiController extends Controller
             }
         }
 
-        if (!$phone && !$userId) {
-            $activeClient = \App\Models\AppClient::where("is_active", true)->latest()->first();
-            if ($activeClient && $activeClient->phone) {
-                $phone = $activeClient->phone;
-            }
-        }
-
         $context = $this->resolveUserContext($request);
         $userId = $context['user_id'];
         $userIds = $context['user_ids'];
@@ -1229,21 +1322,28 @@ class ArgomentiController extends Controller
                 });
             }
 
-            if (!empty($userIds) || !empty($sessionIds)) {
-                $query->where(function($q) use ($userIds, $sessionIds) {
+            $userContextSessionIds = $sessionIds;
+            if (empty($userIds) && empty($userContextSessionIds)) {
+                if ($sessionId) $userContextSessionIds = [$sessionId];
+            }
+
+            if (!empty($userIds) || !empty($userContextSessionIds)) {
+                $query->where(function($q) use ($userIds, $userContextSessionIds) {
                     if (!empty($userIds)) {
                         $q->whereIn('user_id', $userIds);
                     }
-                    if (!empty($sessionIds)) {
+                    if (!empty($userContextSessionIds)) {
                         if (!empty($userIds)) {
-                            $q->orWhereIn('session_id', $sessionIds);
+                            $q->orWhereIn('session_id', $userContextSessionIds);
                         } else {
-                            $q->whereIn('session_id', $sessionIds);
+                            $q->whereIn('session_id', $userContextSessionIds);
                         }
                     }
                 });
+                $existing = $query->first();
+            } else {
+                $existing = null;
             }
-            $existing = $query->first();
 
             $data = [
                 'session_id' => $sessionId,
@@ -1258,12 +1358,19 @@ class ArgomentiController extends Controller
             ];
 
             if ($existing) {
-                if ($isCorrect) {
-                    $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
-                    $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                $recentlyUpdated = $existing->updated_at && $existing->updated_at->diffInSeconds(now()) < 10;
+                if ($recentlyUpdated && (int)$existing->is_correct === ($isCorrect ? 1 : 0) && (string)$existing->user_answer === (string)$userAns) {
+                    // Duplicate/concurrent submission protection: do not double-increment
+                    $data['correct_count'] = $existing->correct_count ?: ($isCorrect ? 1 : 0);
+                    $data['wrong_count'] = $existing->wrong_count ?: ($isCorrect ? 0 : 1);
                 } else {
-                    $data['correct_count'] = ($existing->correct_count ?: 0);
-                    $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                    if ($isCorrect) {
+                        $data['correct_count'] = ($existing->correct_count ?: 0) + 1;
+                        $data['wrong_count'] = ($existing->wrong_count ?: 0);
+                    } else {
+                        $data['correct_count'] = ($existing->correct_count ?: 0);
+                        $data['wrong_count'] = ($existing->wrong_count ?: 0) + 1;
+                    }
                 }
                 $existing->update($data);
                 $logged[] = $existing;
@@ -1316,20 +1423,23 @@ class ArgomentiController extends Controller
             'category'
         ]);
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function($q) use ($userIds, $sessionIds) {
-                if (!empty($userIds)) {
-                    $q->whereIn('user_id', $userIds);
-                }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn('session_id', $sessionIds);
-                    } else {
-                        $q->whereIn('session_id', $sessionIds);
-                    }
-                }
-            });
+        $perPage = (int)$request->query('per_page', 10);
+        if (empty($userIds) && empty($sessionIds)) {
+            return response()->json(new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage));
         }
+
+        $query->where(function($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn('user_id', $userIds);
+            }
+            if (!empty($sessionIds)) {
+                if (!empty($userIds)) {
+                    $q->orWhereIn('session_id', $sessionIds);
+                } else {
+                    $q->whereIn('session_id', $sessionIds);
+                }
+            }
+        });
 
         $query->where(function($sq) {
             $sq->whereHas('question')->orWhereHas('cartelloQuestion');

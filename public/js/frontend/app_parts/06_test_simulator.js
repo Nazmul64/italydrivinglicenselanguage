@@ -74,9 +74,9 @@ function initRandomTestQuiz() {
     const testBn = document.getElementById('test-question-bn');
     const optBar = document.getElementById('test-options-bar');
 
-    if (testIt) testIt.innerText = 'Caricamento delle domande...';
+    if (testIt) testIt.innerText = '';
     if (testBn) {
-        testBn.innerText = 'প্রশ্ন লোড হচ্ছে...';
+        testBn.innerText = '';
         testBn.style.display = 'none';
     }
     if (optBar) optBar.style.display = 'none';
@@ -134,20 +134,27 @@ function switchTestQuestionTab(tab) {
     currentTestTab = tab;
 
     // Update active tab button highlight
+    // Update active tab button highlight and visibility based on testQuestions.length
     for (let t = 1; t <= 3; t++) {
         const tabBtn = document.getElementById(`test-tab-btn-${t}`);
         if (tabBtn) {
-            if (t === tab) {
-                tabBtn.classList.add('active');
+            const minRequiredQuestions = (t - 1) * 10 + 1;
+            if (testQuestions.length < minRequiredQuestions && t > 1) {
+                tabBtn.style.display = 'none';
             } else {
-                tabBtn.classList.remove('active');
+                tabBtn.style.display = '';
+                if (t === tab) {
+                    tabBtn.classList.add('active');
+                } else {
+                    tabBtn.classList.remove('active');
+                }
             }
         }
     }
 
     const tabHeader = document.querySelector('.test-pagination-tabs');
     if (tabHeader) {
-        tabHeader.style.display = 'flex';
+        tabHeader.style.display = testQuestions.length > 10 ? 'flex' : 'none';
     }
 
     let startNum = (tab - 1) * 10 + 1;
@@ -200,7 +207,7 @@ function renderAll30MiniGrid() {
     if (!container) return;
     container.innerHTML = '';
 
-    const totalCount = Math.max(30, testQuestions.length || 30);
+    const totalCount = Math.min(30, testQuestions.length);
     const userStats = getUserQuestionStats();
 
     for (let i = 0; i < totalCount; i++) {
@@ -811,6 +818,8 @@ function submitTestExam() {
     try {
         const savedPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
         const savedSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+        const savedFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+        const savedLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
         const loggedAnswers = [];
@@ -851,7 +860,9 @@ function submitTestExam() {
             answers: loggedAnswers,
             results: loggedAnswers,
             phone: savedPhone,
-            session_id: savedSessionId
+            session_id: savedSessionId,
+            first_name: savedFirstName,
+            last_name: savedLastName
         };
 
         fetch('/api/v1/scheda-esame/submit', {
@@ -861,27 +872,13 @@ function submitTestExam() {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'X-Client-Phone': savedPhone,
-                'X-Session-ID': savedSessionId
+                'X-Session-ID': savedSessionId,
+                'X-Client-Session-ID': savedSessionId,
+                'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
+                'X-Client-Last-Name': encodeURIComponent(savedLastName || '')
             },
             body: JSON.stringify(examPayload)
         }).catch(err => console.warn('Scheda submit sync error:', err));
-
-        fetch('/api/v1/user-mcq-results/log', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Client-Phone': savedPhone,
-                'X-Session-ID': savedSessionId
-            },
-            body: JSON.stringify({
-                results: loggedAnswers,
-                answers: loggedAnswers,
-                phone: savedPhone,
-                session_id: savedSessionId
-            })
-        }).catch(err => console.warn('MCQ results log sync error:', err));
     } catch (e) {
         console.warn('Error syncing exam test results to server:', e);
     }
@@ -923,50 +920,18 @@ function openTestDetailsView() {
     let unansweredAnswers = 0;
     const totalQuestions = testQuestions.length;
 
-    const stats = (typeof getUserQuestionStats === 'function') ? getUserQuestionStats() : {};
-    const logBatchPayload = [];
-
     for (let i = 0; i < totalQuestions; i++) {
         const q = testQuestions[i];
         const userAnswer = testAnswers[i];
         const databaseIsVero = q.is_vero === 1 || q.is_vero === true || q.is_vero === '1' || q.correct_answer === 'vero' || q.correct_answer === '1' || q.correct_answer === 1;
-        const statKey = (q.type === 'cartelli' || String(q.id).startsWith('cartelli_')) ? `cartelli_${q.id}` : q.id;
 
         if (userAnswer === null) {
             unansweredAnswers++;
         } else if (userAnswer === databaseIsVero) {
             correctAnswers++;
-            if (q && q.id) {
-                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'correct' };
-                stats[statKey].correct = (stats[statKey].correct || 0) + 1;
-                stats[statKey].state = 'correct';
-                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: true });
-            }
         } else {
             wrongAnswers++;
-            if (q && q.id) {
-                if (!stats[statKey]) stats[statKey] = { correct: 0, wrong: 0, state: 'wrong' };
-                stats[statKey].wrong = (stats[statKey].wrong || 0) + 1;
-                stats[statKey].state = 'wrong';
-                logBatchPayload.push({ question_id: q.id, question_type: q.type || 'argomenti', is_correct: false });
-            }
         }
-    }
-
-    if (typeof saveUserQuestionStats === 'function') {
-        saveUserQuestionStats(stats);
-    }
-
-    if (logBatchPayload.length > 0) {
-        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
-        const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
-
-        fetch('/api/user-mcq-results/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Client-Phone': userPhone },
-            body: JSON.stringify({ phone: userPhone, session_id: userSessionId, results: logBatchPayload })
-        }).catch(err => console.error("Error logging exam results: ", err));
     }
 
     try {

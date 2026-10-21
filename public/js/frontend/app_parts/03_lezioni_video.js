@@ -48,7 +48,6 @@ let quizData = [];
 let currentQuizIndex = 0;
 
 function startChapterQuiz(chapterId, chapterName) {
-    showToast('প্রশ্ন লোড হচ্ছে...');
     activeChapterId = chapterId;
 
     fetch(`/api/questions/chapter/${chapterId}`)
@@ -138,7 +137,6 @@ let examTimerInterval;
 let examTimeRemaining = 30 * 60;
 
 function initExam() {
-    showToast('পরীক্ষার প্রশ্ন লোড হচ্ছে...');
     examQuestions = [];
     userExamAnswers = Array(30).fill(null);
     currentExamIndex = 0;

@@ -374,6 +374,45 @@ function submitSchedaQuiz() {
         }
     });
 
+    const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+    const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    const resultsPayload = [];
+    questions.forEach(q => {
+        const userAns = schedaUserAnswers[q.id];
+        if (userAns !== undefined && userAns !== null) {
+            const isVero = (q.is_vero === true || q.is_vero == 1 || q.is_vero == '1');
+            resultsPayload.push({
+                question_id: q.id,
+                user_answer: userAns ? 'V' : 'F',
+                is_correct: (userAns === isVero) ? 1 : 0,
+                question_type: 'argomenti'
+            });
+        }
+    });
+
+    if (resultsPayload.length > 0) {
+        fetch('/api/v1/user-mcq-results/log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token,
+                'X-Client-Phone': curPhone,
+                'X-Session-ID': curSessionId
+            },
+            body: JSON.stringify({
+                results: resultsPayload,
+                phone: curPhone,
+                user_phone: curPhone,
+                session_id: curSessionId
+            })
+        }).then(() => {
+            window.dispatchEvent(new CustomEvent('user-stats-updated'));
+            if (typeof loadUserProfileStats === 'function') loadUserProfileStats();
+        }).catch(e => console.error("Error logging scheda quiz results:", e));
+    }
+
     const total = questions.length;
     const passed = wrong <= 3;
 

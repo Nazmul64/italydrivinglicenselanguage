@@ -22,8 +22,6 @@ function loadSfidaModule(limit = 15) {
 }
 
 function startSfidaChallenge() {
-    if (typeof showToast === 'function') showToast('চ্যালেঞ্জ লোড হচ্ছে...');
-
     loadSfidaModule(20).then(questions => {
         if (!questions || questions.length === 0) {
             if (typeof showToast === 'function') showToast('চ্যালেঞ্জ প্রশ্ন পাওয়া যায়নি');

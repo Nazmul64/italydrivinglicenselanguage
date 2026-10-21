@@ -58,6 +58,27 @@ class LicenseApiController extends Controller
             $appClient = AppClient::where('session_id', $userId)->first();
         }
 
+        $cleanPhone = $phone ? preg_replace('/\D/', '', $phone) : null;
+        $isExplicitlyDeleted = ($phone && \Illuminate\Support\Facades\Cache::get('user_deleted_phone_' . $phone))
+            || ($cleanPhone && \Illuminate\Support\Facades\Cache::get('user_deleted_phone_' . $cleanPhone))
+            || ($userId && \Illuminate\Support\Facades\Cache::get('user_deleted_' . $userId));
+
+        // Check if user was deleted from admin panel
+        if ($isExplicitlyDeleted || (!$user && !$appClient && !$license && ($phone || $userId))) {
+            return response()->json([
+                'success'            => true,
+                'status'             => 'deleted',
+                'is_active'          => false,
+                'is_deleted'         => true,
+                'is_expired'         => false,
+                'license_status'     => 'deleted',
+                'message'            => 'Already deleted your account. Please contact admin.',
+                'protection_enabled' => $isProtectionEnabled,
+                'license'            => null,
+                'client'             => null,
+            ]);
+        }
+
         $status = 'inactive';
 
         if ($license) {
@@ -83,13 +104,25 @@ class LicenseApiController extends Controller
             }
         }
 
-        $isActive = ($status === 'active');
+        $isUninstalled = ($user && $user->is_uninstalled) || ($appClient && $appClient->is_uninstalled);
+        if ($isUninstalled) {
+            $status = 'inactive';
+        }
+
+        $isActive = ($status === 'active') && !$isUninstalled;
 
         return response()->json([
-            'success'        => true,
-            'status'         => $status,
-            'is_active'      => $isActive,
-            'license_status' => $status,
+            'success'            => true,
+            'status'             => $status,
+            'is_active'          => $isActive,
+            'is_deleted'         => false,
+            'is_expired'         => ($status === 'expired'),
+            'license_status'     => $status,
+            'expires_at'         => $license ? ($license->expires_at ? $license->expires_at->toIso8601String() : null) : ($appClient && $appClient->expires_at ? $appClient->expires_at->toIso8601String() : null),
+            'message'            => ($status === 'expired')
+                ? 'Please renew your license key. Support admin.'
+                : (($isActive) ? 'লাইসেন্স সক্রিয় রয়েছে।' : 'লাইসেন্স আবশ্যক।'),
+            'is_uninstalled'     => (bool)$isUninstalled,
             'protection_enabled' => $isProtectionEnabled,
             'license' => $license ? [
                 'license_key'      => $license->license_key,
@@ -133,31 +166,33 @@ class LicenseApiController extends Controller
             $user = User::where('uuid', $sessionId)->first();
         }
 
-        $validator = Validator::make($request->all(), [
-            'license_key' => 'required|string',
-        ]);
+        $licenseKey = trim($request->input('license_key') ?: $request->input('key') ?: '');
+        $license = null;
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'status'  => 'error',
-                'message' => 'লাইসেন্স কি দেওয়া আবশ্যক।',
-                'errors'  => $validator->errors()
-            ], 422);
+        if (!empty($licenseKey)) {
+            $license = License::where('license_key', $licenseKey)->first();
         }
 
-        $licenseKey = trim($request->input('license_key'));
-        $license = License::where('license_key', $licenseKey)->first();
-
-        if (!$license) {
-            return response()->json([
-                'success' => false,
-                'status'  => 'error',
-                'message' => 'অকার্যকর লাইসেন্স কি! সঠিক লাইসেন্স কি দিয়ে পুনরায় চেষ্টা করুন অথবা অ্যাডমিনের সাথে যোগাযোগ করুন।',
-            ], 404);
+        // If not found by key, search by user, phone or session
+        if (!$license && $user) {
+            $license = License::where('user_id', $user->uuid)
+                ->orWhere('user_id', (string)$user->id)
+                ->orWhere('user_id', $user->phone)
+                ->latest()
+                ->first();
+        }
+        if (!$license && $phone) {
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            $license = License::where('user_id', $phone)
+                ->orWhere('user_id', $cleanPhone)
+                ->latest()
+                ->first();
+        }
+        if (!$license && $sessionId) {
+            $license = License::where('user_id', $sessionId)->latest()->first();
         }
 
-        if ($license->status === 'revoked') {
+        if ($license && $license->status === 'revoked') {
             return response()->json([
                 'success' => false,
                 'status'  => 'revoked',
@@ -165,18 +200,21 @@ class LicenseApiController extends Controller
             ], 403);
         }
 
-        if ($license->user_id && $user && $license->user_id !== $user->uuid && $license->user_id !== (string)$user->id && $license->user_id !== $user->phone) {
-            return response()->json([
-                'success' => false,
-                'status'  => 'forbidden',
-                'message' => 'এই লাইসেন্স কি অন্য ব্যবহারকারীর জন্য সংরক্ষিত।',
-            ], 403);
-        }
-
-        // Determine duration in seconds: preset or requested or default
-        $durationSeconds = $license->duration_seconds ?: (
+        // Determine duration in seconds: preset or requested or default (1 year)
+        $durationSeconds = ($license && $license->duration_seconds) ? $license->duration_seconds : (
             $request->input('seconds') ?: ($request->input('days') ? ((int)$request->input('days') * 86400) : 31536000)
         );
+
+        if (!$license) {
+            $license = License::create([
+                'user_id'          => $user ? $user->uuid : ($phone ?: $sessionId),
+                'license_key'      => !empty($licenseKey) ? $licenseKey : (string) rand(100000, 999999),
+                'status'           => 'active',
+                'duration_seconds' => $durationSeconds,
+                'activated_at'     => now(),
+                'expires_at'       => now()->addSeconds($durationSeconds),
+            ]);
+        }
 
         $activatedAt = now();
         $expiresAt   = now()->addSeconds($durationSeconds);
@@ -190,6 +228,12 @@ class LicenseApiController extends Controller
             'activated_at'     => $activatedAt,
             'expires_at'       => $expiresAt,
         ]);
+
+        if ($user) {
+            $user->update(['is_uninstalled' => false]);
+        } elseif ($userIdentifier) {
+            User::where('uuid', $userIdentifier)->orWhere('phone', $userIdentifier)->update(['is_uninstalled' => false]);
+        }
 
         // Synchronize AppClient state
         $appClientQuery = AppClient::query();
@@ -213,8 +257,9 @@ class LicenseApiController extends Controller
 
         if ($hasClientFilter) {
             $appClientQuery->update([
-                'is_active'  => true,
-                'expires_at' => $expiresAt,
+                'is_active'      => true,
+                'is_uninstalled' => false,
+                'expires_at'     => $expiresAt,
             ]);
         }
 

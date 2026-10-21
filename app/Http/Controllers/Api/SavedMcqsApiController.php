@@ -23,22 +23,27 @@ class SavedMcqsApiController extends Controller
         $userIds = $context['user_ids'];
         $sessionIds = $context['session_ids'];
 
+        if (empty($userIds) && empty($sessionIds)) {
+            return response()->json([
+                "status" => "success",
+                "data" => []
+            ]);
+        }
+
         $query = SavedMcq::with(["question.page.chapter", "cartelloQuestion.page.chapter"]);
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userIds, $sessionIds) {
+        $query->where(function ($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn("user_id", $userIds);
+            }
+            if (!empty($sessionIds)) {
                 if (!empty($userIds)) {
-                    $q->whereIn("user_id", $userIds);
+                    $q->orWhereIn("session_id", $sessionIds);
+                } else {
+                    $q->whereIn("session_id", $sessionIds);
                 }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn("session_id", $sessionIds);
-                    } else {
-                        $q->whereIn("session_id", $sessionIds);
-                    }
-                }
-            });
-        }
+            }
+        });
 
         $savedList = $query->orderBy("created_at", "desc")->get();
 
@@ -133,47 +138,36 @@ class SavedMcqsApiController extends Controller
 
         $type = $request->input("type", "argomenti");
 
-        if ($phone && $sessionId) {
-            $client = AppClient::where("session_id", $sessionId)->orWhere("phone", $phone)->first();
-            if (!$client) {
-                AppClient::create([
-                    "session_id" => $sessionId,
-                    "phone" => $phone,
-                    "first_name" => $request->input("first_name", "App"),
-                    "last_name" => $request->input("last_name", "User"),
-                    "is_active" => true,
-                ]);
-            } else {
-                $client->session_id = $sessionId;
-                $client->phone = $phone;
-                if ($request->filled("first_name")) $client->first_name = $request->input("first_name");
-                if ($request->filled("last_name")) $client->last_name = $request->input("last_name");
-                $client->save();
-            }
-        }
-
         if (!$request->has("type")) {
             if (CartelloMcq::where("id", $questionId)->exists() && !Question::where("id", $questionId)->exists()) {
                 $type = "cartelli";
             }
         }
 
+        if (empty($userIds) && empty($sessionIds)) {
+            if (!$sessionId) {
+                return response()->json([
+                    "status" => "error",
+                    "message" => "Session or User context is required to bookmark questions."
+                ], 400);
+            }
+            $sessionIds = [$sessionId];
+        }
+
         $query = SavedMcq::where("question_id", $questionId)->where("type", $type);
 
-        if (!empty($userIds) || !empty($sessionIds)) {
-            $query->where(function ($q) use ($userIds, $sessionIds) {
+        $query->where(function ($q) use ($userIds, $sessionIds) {
+            if (!empty($userIds)) {
+                $q->whereIn("user_id", $userIds);
+            }
+            if (!empty($sessionIds)) {
                 if (!empty($userIds)) {
-                    $q->whereIn("user_id", $userIds);
+                    $q->orWhereIn("session_id", $sessionIds);
+                } else {
+                    $q->whereIn("session_id", $sessionIds);
                 }
-                if (!empty($sessionIds)) {
-                    if (!empty($userIds)) {
-                        $q->orWhereIn("session_id", $sessionIds);
-                    } else {
-                        $q->whereIn("session_id", $sessionIds);
-                    }
-                }
-            });
-        }
+            }
+        });
 
         $existing = $query->first();
 

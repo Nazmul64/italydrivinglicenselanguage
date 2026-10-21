@@ -1,23 +1,68 @@
 // --- Global Fetch Interceptor for Client License Headers ---
 (function () {
     const originalFetch = window.fetch;
+
+    function safeAsciiHeader(val) {
+        if (val === null || val === undefined) return '';
+        const str = String(val).trim();
+        if (/[^\x00-\x7F]/.test(str)) {
+            try {
+                return encodeURIComponent(str);
+            } catch (e) {
+                return '';
+            }
+        }
+        return str;
+    }
+
     window.fetch = function (resource, init = {}) {
+        init = init || {};
         const phone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : null);
         const sessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : null);
+        const firstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : null);
+        const lastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : null);
 
-        if (phone || sessionId) {
-            init = init || {};
-            init.headers = init.headers || {};
-
+        // Sanitize any existing headers to guarantee 0 fetch exceptions
+        if (init.headers) {
             if (init.headers instanceof Headers) {
-                if (phone && !init.headers.has('X-Client-Phone')) init.headers.append('X-Client-Phone', phone);
-                if (sessionId && !init.headers.has('X-Client-Session-ID')) init.headers.append('X-Client-Session-ID', sessionId);
+                const pairs = [];
+                init.headers.forEach((v, k) => {
+                    pairs.push([k, safeAsciiHeader(v)]);
+                });
+                init.headers = new Headers();
+                pairs.forEach(([k, v]) => init.headers.set(k, v));
             } else if (Array.isArray(init.headers)) {
-                if (phone) init.headers.push(['X-Client-Phone', phone]);
-                if (sessionId) init.headers.push(['X-Client-Session-ID', sessionId]);
+                init.headers = init.headers.map(([k, v]) => [k, safeAsciiHeader(v)]);
+            } else if (typeof init.headers === 'object') {
+                for (const k of Object.keys(init.headers)) {
+                    init.headers[k] = safeAsciiHeader(init.headers[k]);
+                }
+            }
+        } else {
+            init.headers = {};
+        }
+
+        const safePhone = safeAsciiHeader(phone);
+        const safeSession = safeAsciiHeader(sessionId);
+        const safeFirst = safeAsciiHeader(firstName);
+        const safeLast = safeAsciiHeader(lastName);
+
+        if (safePhone || safeSession || safeFirst || safeLast) {
+            if (init.headers instanceof Headers) {
+                if (safePhone && !init.headers.has('X-Client-Phone')) init.headers.append('X-Client-Phone', safePhone);
+                if (safeSession && !init.headers.has('X-Client-Session-ID')) init.headers.append('X-Client-Session-ID', safeSession);
+                if (safeFirst && !init.headers.has('X-Client-First-Name')) init.headers.append('X-Client-First-Name', safeFirst);
+                if (safeLast && !init.headers.has('X-Client-Last-Name')) init.headers.append('X-Client-Last-Name', safeLast);
+            } else if (Array.isArray(init.headers)) {
+                if (safePhone) init.headers.push(['X-Client-Phone', safePhone]);
+                if (safeSession) init.headers.push(['X-Client-Session-ID', safeSession]);
+                if (safeFirst) init.headers.push(['X-Client-First-Name', safeFirst]);
+                if (safeLast) init.headers.push(['X-Client-Last-Name', safeLast]);
             } else {
-                if (phone && !init.headers['X-Client-Phone']) init.headers['X-Client-Phone'] = phone;
-                if (sessionId && !init.headers['X-Client-Session-ID']) init.headers['X-Client-Session-ID'] = sessionId;
+                if (safePhone && !init.headers['X-Client-Phone']) init.headers['X-Client-Phone'] = safePhone;
+                if (safeSession && !init.headers['X-Client-Session-ID']) init.headers['X-Client-Session-ID'] = safeSession;
+                if (safeFirst && !init.headers['X-Client-First-Name']) init.headers['X-Client-First-Name'] = safeFirst;
+                if (safeLast && !init.headers['X-Client-Last-Name']) init.headers['X-Client-Last-Name'] = safeLast;
             }
         }
         return originalFetch.call(this, resource, init);
