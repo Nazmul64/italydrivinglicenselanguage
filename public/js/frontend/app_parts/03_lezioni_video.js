@@ -101,12 +101,10 @@ function checkQuizAnswer(userSelection) {
     if (isCorrect) {
         feedback.className = 'feedback-box correct';
         feedback.innerHTML = '<i class="fa-solid fa-circle-check"></i> সঠিক উত্তর!';
-        playAppSound(true);
         updateChapterProgressLocally();
     } else {
         feedback.className = 'feedback-box incorrect';
         feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ভুল উত্তর! সঠিক উত্তর: ${databaseIsVero ? 'VERO' : 'FALSO'}`;
-        playAppSound(false);
     }
     feedback.style.display = 'block';
     nextBtn.style.display = 'block';
@@ -274,14 +272,12 @@ function submitExam() {
             statusBadge.innerText = 'উত্তীর্ণ (IDONEO)';
         }
         if (resultMsg) resultMsg.innerHTML = `অভিনন্দন! আপনি ডেমো পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
-        playAppSound(true);
     } else {
         if (statusBadge) {
             statusBadge.className = 'result-badge failed';
             statusBadge.innerText = 'অকৃতকার্য (RESPINTO)';
         }
         if (resultMsg) resultMsg.innerHTML = `দুঃখিত! আপনি পরীক্ষায় পাস করতে পারেননি। সর্বোচ্চ ৪টি ভুল গ্রহণযোগ্য ছিল।<br><small>মোট ভুল: ${errors}টি (অনুত্তরিত সহ)</small>`;
-        playAppSound(false);
     }
 
     if (modal) modal.style.display = 'flex';

@@ -2167,34 +2167,8 @@ function toggleSound(checked) {
 }
 
 function playAppSound(isCorrect) {
-    if (!soundEnabled) return;
-    try {
-        const context = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = context.createOscillator();
-        const gain = context.createGain();
-
-        osc.connect(gain);
-        gain.connect(context.destination);
-
-        if (isCorrect) {
-            osc.frequency.setValueAtTime(523.25, context.currentTime);
-            osc.frequency.setValueAtTime(659.25, context.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.1, context.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.3);
-            osc.start();
-            osc.stop(context.currentTime + 0.3);
-        } else {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(150, context.currentTime);
-            osc.frequency.setValueAtTime(110, context.currentTime + 0.15);
-            gain.gain.setValueAtTime(0.15, context.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
-            osc.start();
-            osc.stop(context.currentTime + 0.4);
-        }
-    } catch (e) {
-        console.error("Audio error: ", e);
-    }
+    // Sound effect completely removed as requested
+    return;
 }
 
 function resetAppData() {

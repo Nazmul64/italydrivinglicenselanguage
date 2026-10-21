@@ -378,7 +378,6 @@ function selectTestAnswer(ans) {
 
         if (isCorrect) {
             sfidaStreak++;
-            playAppSound(true);
             const currentHighScore = parseInt(localStorage.getItem('sfida_high_score') || '0');
             if (sfidaStreak > currentHighScore) {
                 localStorage.setItem('sfida_high_score', sfidaStreak);
@@ -391,7 +390,6 @@ function selectTestAnswer(ans) {
                 }
             }, 700);
         } else {
-            playAppSound(false);
             const currentHighScore = parseInt(localStorage.getItem('sfida_high_score') || '0');
             if (sfidaStreak > currentHighScore) {
                 localStorage.setItem('sfida_high_score', sfidaStreak);
@@ -409,7 +407,6 @@ function selectTestAnswer(ans) {
 
     if (isImmediateCorrectionActive) {
         saveQuestionAnswerStat(q.id, q.chapter, isCorrect ? 'correct' : 'wrong', q.type || 'argomenti');
-        playAppSound(isCorrect);
 
         const veroBtn = document.getElementById('test-vero-btn');
         const falsoBtn = document.getElementById('test-falso-btn');
