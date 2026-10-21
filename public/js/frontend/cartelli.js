@@ -37,7 +37,7 @@ function renderCartelliChaptersGrid() {
     }
 
     // Dynamic fetch fallback if container has no cards
-    fetch('/api/cartelli/chapters')
+    fetch('/api/cartelli/chapters?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
             const chapters = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
@@ -286,7 +286,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
     };
 
     if (!cartelliAllChapters || cartelliAllChapters.length === 0) {
-        fetch('/api/cartelli/chapters')
+        fetch('/api/cartelli/chapters?_t=' + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 cartelliAllChapters = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
@@ -304,7 +304,7 @@ function openCartelliSchedeScreen(chapterId, preserveSelection = false) {
 
     openScreen('cartelli-schede', 'Scegli Scheda');
 
-    fetch(`/api/cartelli/pages/${chapterId}`)
+    fetch(`/api/cartelli/pages/${chapterId}?_t=` + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
             const pages = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
@@ -552,7 +552,7 @@ function startCartelliSchedeQuiz() {
     }
 
     Promise.all(targetPages.map(pageId =>
-        fetch(`/api/cartelli/page-mcqs/${pageId}`)
+        fetch(`/api/cartelli/page-mcqs/${pageId}?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : (data && Array.isArray(data.mcqs) ? data.mcqs : [])))
             .catch(() => [])

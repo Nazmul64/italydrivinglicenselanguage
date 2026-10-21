@@ -31,7 +31,7 @@ function loadSchedaEsameModule() {
         showSchedaInfoModal();
     }
 
-    fetch('/api/v1/scheda-esame/generate')
+    fetch('/api/v1/scheda-esame/generate?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
             const questions = resData.data || resData || [];
@@ -39,7 +39,7 @@ function loadSchedaEsameModule() {
             renderSchedaExamCards();
         })
         .catch(err => {
-            fetch('/api/exams')
+            fetch('/api/exams?_t=' + Date.now(), { cache: 'no-store' })
                 .then(res => res.json())
                 .then(data => {
                     allSchedaExamsData = Array.isArray(data) ? data : (data.data || []);

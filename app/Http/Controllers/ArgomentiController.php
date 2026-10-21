@@ -171,7 +171,10 @@ class ArgomentiController extends Controller
             $ch->totale = $total;
             $ch->total = $total;
         }
-        return response()->json($chapters);
+        return response()->json($chapters)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**
@@ -262,7 +265,10 @@ class ArgomentiController extends Controller
             $p->totale = $total;
             $p->total = $total;
         }
-        return response()->json($pages);
+        return response()->json($pages)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**
@@ -368,7 +374,10 @@ class ArgomentiController extends Controller
             }
         }
         
-        return response()->json($page);
+        return response()->json($page)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**
@@ -381,7 +390,10 @@ class ArgomentiController extends Controller
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
-        return response()->json($pages);
+        return response()->json($pages)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**

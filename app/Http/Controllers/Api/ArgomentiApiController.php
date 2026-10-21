@@ -115,7 +115,10 @@ class ArgomentiApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $chapters
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -199,7 +202,10 @@ class ArgomentiApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $pages
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -216,7 +222,10 @@ class ArgomentiApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $pages
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -311,6 +320,9 @@ class ArgomentiApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $page
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 }

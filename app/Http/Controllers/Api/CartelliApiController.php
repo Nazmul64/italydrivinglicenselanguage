@@ -26,7 +26,10 @@ class CartelliApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $categories
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -42,7 +45,10 @@ class CartelliApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $chapters
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -54,7 +60,10 @@ class CartelliApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $pages
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -68,7 +77,10 @@ class CartelliApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $mcqs
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
@@ -83,7 +95,10 @@ class CartelliApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $mcqs
-        ]);
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**

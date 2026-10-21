@@ -152,7 +152,7 @@ if (!function_exists('getFrontendViewData')) {
         if (request()->has('nocache')) {
             \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
         }
-        return \Illuminate\Support\Facades\Cache::remember('frontend_cached_view_data', 3600, function () {
+        return \Illuminate\Support\Facades\Cache::remember('frontend_cached_view_data', 3, function () {
             $sliders = \App\Models\Slider::where('status', 1)->orderBy('order_index', 'asc')->orderBy('id', 'asc')->get();
             $homeCards = getFrontendHomeCards();
             $lectureClasses = \App\Models\LectureClass::orderBy('id', 'asc')->get();
@@ -258,7 +258,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
         });
 
         $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
-        return response()->json($combined);
+        return response()->json($combined)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/documentation.php', function() {
@@ -477,7 +480,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
             ];
         });
 
-        return response()->json($argomenti->concat($cartelli));
+        return response()->json($argomenti->concat($cartelli))
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/api/questions/chapter/{chapter}', function ($chapter) {
@@ -493,7 +499,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
                 $q->orWhereIn('page_id', $pageIds);
             }
         })->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
-        return response()->json($questions);
+        return response()->json($questions)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/api/questions/page/{page}', function ($page) {
@@ -507,7 +516,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
                 ->orderBy('id', 'asc')
                 ->get();
         }
-        return response()->json($questions);
+        return response()->json($questions)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/api/cartelli/questions/chapter/{chapterId}', function ($chapterId) {
@@ -530,7 +542,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
                 'vocabulary' => $q->vocabulary ?? []
             ];
         });
-        return response()->json($questions);
+        return response()->json($questions)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/api/questions/custom-quiz', function (Request $request) {
@@ -543,7 +558,10 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
             ->inRandomOrder()
             ->limit(30)
             ->get();
-        return response()->json($questions);
+        return response()->json($questions)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     });
 
     Route::get('/api/questions/random-test', function () {

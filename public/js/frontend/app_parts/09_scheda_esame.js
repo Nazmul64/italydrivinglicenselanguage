@@ -16,7 +16,7 @@ function loadExamSheets() {
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
     }
 
-    fetch('/api/exams')
+    fetch('/api/exams?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
             allExamsData = data;
@@ -162,7 +162,7 @@ function startSchedaExamSimulation(examId) {
             container.innerHTML = '';
         }
 
-        fetch(`/api/exams/${examId}`)
+        fetch(`/api/exams/${examId}?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(exam => {
                 activeExamSession = exam;

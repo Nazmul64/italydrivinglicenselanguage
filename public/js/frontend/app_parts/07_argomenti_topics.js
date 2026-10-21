@@ -162,7 +162,7 @@ function openPageDetailsScreen(pageId) {
     }
 
     // 2. Fast single-endpoint fetch for page data
-    fetch(`/api/pages/${pageId}`)
+    fetch(`/api/pages/${pageId}?_t=` + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
             const page = (resData && resData.data) ? resData.data : resData;
@@ -707,7 +707,7 @@ function togglePageDetailsChapterDropdown() {
 
     if (isHidden) {
         dropdown.innerHTML = '';
-        fetch('/api/chapters')
+        fetch('/api/chapters?_t=' + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(chapters => {
                 chapters.forEach(ch => {
@@ -715,7 +715,7 @@ function togglePageDetailsChapterDropdown() {
                     item.className = `chapter-dropdown-item ${ch.id === activePageDetails.chapter_id ? 'active' : ''}`;
                     item.onclick = () => {
                         dropdown.style.display = 'none';
-                        fetch(`/api/chapters/${ch.id}/pages`)
+                        fetch(`/api/chapters/${ch.id}/pages?_t=` + Date.now(), { cache: 'no-store' })
                             .then(r => r.json())
                             .then(pages => {
                                 if (pages.length > 0) {
@@ -742,7 +742,7 @@ function togglePageDetailsPageDropdown() {
 
     if (isHidden) {
         dropdown.innerHTML = '';
-        fetch(`/api/chapters/${activePageDetails.chapter_id}/pages`)
+        fetch(`/api/chapters/${activePageDetails.chapter_id}/pages?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(pages => {
                 pages.forEach(p => {

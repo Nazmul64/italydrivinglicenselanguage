@@ -656,7 +656,7 @@ function startCustomSheetsQuiz() {
     showToast('à¦•à§à¦‡à¦œ à¦ªà§à¦°à¦¶à§à¦¨ à¦²à§‹à¦¡ à¦¹à¦šà§à¦›à§‡...');
 
     Promise.all(targetSheets.map(pageId =>
-        fetch(`/api/questions/page/${pageId}`)
+        fetch(`/api/questions/page/${pageId}?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
             .catch(() => [])
@@ -847,7 +847,7 @@ function startArgomentiCategoryQuiz() {
     showToast('à¦•à§à¦‡à¦œ à¦ªà§à¦°à¦¶à§à¦¨ à¦²à§‹à¦¡ à¦¹à¦šà§à¦›à§‡...');
 
     Promise.all(targetChapters.map(chapId =>
-        fetch(`/api/questions/chapter/${chapId}`)
+        fetch(`/api/questions/chapter/${chapId}?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(data => Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []))
             .catch(() => [])
@@ -931,7 +931,7 @@ function renderArgomentiList() {
 
     const userStats = getUserQuestionStats();
 
-    fetch('/api/chapters')
+    fetch('/api/chapters?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
             const chapters = Array.isArray(resData) ? resData : (resData && Array.isArray(resData.data) ? resData.data : []);
@@ -1082,22 +1082,20 @@ function openChapterSheetsScreen(chapterId) {
         const hasBoxes = document.getElementById(`argomenti-chapter-schede-${chapterId}`);
         if (hasBoxes) {
             updateArgomentiPillStates();
-            return;
-        }
-
-        // 1. Instant Fast-Path: Use in-memory cache if available
-        if (window.chapterPagesCache[chapterId] && window.chapterPagesCache[chapterId].length > 0) {
+        } else if (window.chapterPagesCache[chapterId] && window.chapterPagesCache[chapterId].length > 0) {
+            // 1. Instant Fast-Path: Render immediately from cache (0ms delay)
             activeChapterPages = window.chapterPagesCache[chapterId];
             selectedSheets = [];
             isSchedeSelectMode = false;
             updateSheetsQuizButtonVisibility();
             updateArgomentiPillStates();
             renderSheetsList();
-            return;
+        } else if (container) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px;"></i><br>Caricamento schede...</div>`;
         }
 
-        // 2. Fetch only chapter's pages directly (lightweight & ultra-fast)
-        fetch(`/api/chapters/${chapterId}/pages`)
+        // 2. Fetch fresh chapter pages directly with cache-busting
+        fetch(`/api/chapters/${chapterId}/pages?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(pagesData => {
                 const pages = Array.isArray(pagesData) ? pagesData : (pagesData && Array.isArray(pagesData.data) ? pagesData.data : []);
@@ -1109,16 +1107,17 @@ function openChapterSheetsScreen(chapterId) {
                     return;
                 }
 
-                selectedSheets = [];
-                isSchedeSelectMode = false;
+                if (!isSchedeSelectMode) {
+                    selectedSheets = [];
+                }
                 updateSheetsQuizButtonVisibility();
                 updateArgomentiPillStates();
                 renderSheetsList();
             })
             .catch(err => {
                 console.error("Error loading chapter pages: ", err);
-                if (container) {
-                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si Ã¨ verificato un errore nel caricamento delle pagine.</div>`;
+                if (container && !window.chapterPagesCache[chapterId] && !hasBoxes) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 30px;">Si è verificato un errore nel caricamento delle pagine.</div>`;
                 }
             });
     } finally {
@@ -1238,7 +1237,7 @@ function populateChapterDropdownOptions() {
     if (!panel) return;
     panel.innerHTML = '';
 
-    fetch('/api/chapters')
+    fetch('/api/chapters?_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(chapters => {
             chapters.forEach(ch => {
@@ -1416,7 +1415,7 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (!testQuestions || testQuestions.length === 0) {
             const testIt = document.getElementById('test-question-it');
             if (testIt) testIt.innerText = 'Caricamento delle domande...';
-            fetch('/api/questions/random-test')
+            fetch('/api/questions/random-test?_t=' + Date.now(), { cache: 'no-store' })
                 .then(r => r.json())
                 .then(data => {
                     if (data && data.length > 0) {
@@ -1687,7 +1686,7 @@ function restoreScreenFromUrl() {
             if (savedChapId) {
                 openChapterSheetsScreen(parseInt(savedChapId));
             } else {
-                fetch('/api/chapters')
+                fetch('/api/chapters?_t=' + Date.now(), { cache: 'no-store' })
                     .then(res => res.json())
                     .then(chapters => {
                         if (chapters && chapters.length > 0) {
@@ -1704,7 +1703,7 @@ function restoreScreenFromUrl() {
             if (savedCartelliChapId && typeof openCartelliSchedeScreen === 'function') {
                 openCartelliSchedeScreen(parseInt(savedCartelliChapId));
             } else {
-                fetch('/api/cartelli/chapters')
+                fetch('/api/cartelli/chapters?_t=' + Date.now(), { cache: 'no-store' })
                     .then(res => res.json())
                     .then(chapters => {
                         if (chapters && chapters.length > 0 && typeof openCartelliSchedeScreen === 'function') {
@@ -4242,7 +4241,7 @@ function openPageDetailsScreen(pageId) {
     }
 
     // 2. Fast single-endpoint fetch for page data
-    fetch(`/api/pages/${pageId}`)
+    fetch(`/api/pages/${pageId}?_t=` + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
             const page = (resData && resData.data) ? resData.data : resData;
@@ -4787,7 +4786,7 @@ function togglePageDetailsChapterDropdown() {
 
     if (isHidden) {
         dropdown.innerHTML = '';
-        fetch('/api/chapters')
+        fetch('/api/chapters?_t=' + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(chapters => {
                 chapters.forEach(ch => {
@@ -4795,7 +4794,7 @@ function togglePageDetailsChapterDropdown() {
                     item.className = `chapter-dropdown-item ${ch.id === activePageDetails.chapter_id ? 'active' : ''}`;
                     item.onclick = () => {
                         dropdown.style.display = 'none';
-                        fetch(`/api/chapters/${ch.id}/pages`)
+                        fetch(`/api/chapters/${ch.id}/pages?_t=` + Date.now(), { cache: 'no-store' })
                             .then(r => r.json())
                             .then(pages => {
                                 if (pages.length > 0) {
@@ -4822,7 +4821,7 @@ function togglePageDetailsPageDropdown() {
 
     if (isHidden) {
         dropdown.innerHTML = '';
-        fetch(`/api/chapters/${activePageDetails.chapter_id}/pages`)
+        fetch(`/api/chapters/${activePageDetails.chapter_id}/pages?_t=` + Date.now(), { cache: 'no-store' })
             .then(res => res.json())
             .then(pages => {
                 pages.forEach(p => {

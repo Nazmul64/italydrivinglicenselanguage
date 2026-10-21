@@ -525,7 +525,10 @@ class CartelloController extends Controller
         }
 
         $pages = $query->orderBy('sort_order', 'asc')->get();
-        return response()->json($pages);
+        return response()->json($pages)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     public function publicGetPageMcqs(Request $request, $pageId)
@@ -604,7 +607,10 @@ class CartelloController extends Controller
             $mcq->user_note = $notes->has($mcq->id) ? $notes->get($mcq->id)->note_text : null;
         }
 
-        return response()->json($mcqs);
+        return response()->json($mcqs)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     // =================================================
