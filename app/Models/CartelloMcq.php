@@ -56,10 +56,20 @@ class CartelloMcq extends Model
 
     protected static function booted()
     {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+
         static::deleting(function ($mcq) {
             Note::where('question_id', $mcq->id)->where('type', 'cartelli')->delete();
             SavedMcq::where('question_id', $mcq->id)->where('type', 'cartelli')->delete();
             UserMcqResult::where('question_id', $mcq->id)->where('question_type', 'cartelli')->delete();
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
         });
     }
 }

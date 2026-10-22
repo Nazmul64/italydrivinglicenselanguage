@@ -376,6 +376,8 @@ function submitSchedaQuiz() {
 
     const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
     const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
+    const curFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '') || '';
+    const curLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '') || '';
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     const resultsPayload = [];
@@ -399,13 +401,18 @@ function submitSchedaQuiz() {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': token,
                 'X-Client-Phone': curPhone,
-                'X-Session-ID': curSessionId
+                'X-Session-ID': curSessionId,
+                'X-Client-Session-ID': curSessionId,
+                'X-Client-First-Name': encodeURIComponent(curFirstName || ''),
+                'X-Client-Last-Name': encodeURIComponent(curLastName || '')
             },
             body: JSON.stringify({
                 results: resultsPayload,
                 phone: curPhone,
                 user_phone: curPhone,
-                session_id: curSessionId
+                session_id: curSessionId,
+                first_name: curFirstName,
+                last_name: curLastName
             })
         }).then(() => {
             window.dispatchEvent(new CustomEvent('user-stats-updated'));

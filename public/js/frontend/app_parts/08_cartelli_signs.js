@@ -705,6 +705,8 @@ function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'ar
     // Save/log to Database via API
     const userPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '');
     const userSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '');
+    const userFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '');
+    const userLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '');
 
     fetch('/api/user-mcq-results/log', {
         method: 'POST',
@@ -712,11 +714,17 @@ function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'ar
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-            'X-Client-Phone': userPhone
+            'X-Client-Phone': userPhone,
+            'X-Session-ID': userSessionId,
+            'X-Client-Session-ID': userSessionId,
+            'X-Client-First-Name': encodeURIComponent(userFirstName || ''),
+            'X-Client-Last-Name': encodeURIComponent(userLastName || '')
         },
         body: JSON.stringify({
             phone: userPhone,
             session_id: userSessionId,
+            first_name: userFirstName,
+            last_name: userLastName,
             results: [{
                 question_id: qIdNum,
                 question_type: questionType,

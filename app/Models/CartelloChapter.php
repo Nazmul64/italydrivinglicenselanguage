@@ -36,4 +36,17 @@ class CartelloChapter extends Model
     {
         return $this->hasMany(CartelloPage::class, 'chapter_id')->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
     }
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+    }
 }

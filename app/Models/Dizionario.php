@@ -32,4 +32,17 @@ class Dizionario extends Model
     {
         return \App\Helpers\ImageHelper::formatMediaUrl($value);
     }
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('frontend_cached_view_data');
+            \Illuminate\Support\Facades\Cache::forget('all_compiled_mcq_vocabulary');
+        });
+    }
 }
