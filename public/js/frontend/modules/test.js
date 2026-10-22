@@ -32,7 +32,7 @@ function submitTestResult(totalQuestions, correctCount, wrongCount, answersObj =
     const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
     const curFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '') || '';
     const curLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '') || '';
-    
+
     return fetch('/api/v1/test/submit', {
         method: 'POST',
         headers: {
@@ -56,12 +56,12 @@ function submitTestResult(totalQuestions, correctCount, wrongCount, answersObj =
             answers: answersObj
         })
     })
-    .then(res => res.json())
-    .then(data => {
-        console.log('Practice test result saved successfully:', data);
-        return data;
-    })
-    .catch(err => {
-        console.error('Error submitting practice test result:', err);
-    });
+        .then(res => res.json())
+        .then(data => {
+            console.log('Practice test result saved successfully:', data);
+            return data;
+        })
+        .catch(err => {
+            console.error('Error submitting practice test result:', err);
+        });
 }

@@ -25,3 +25,5 @@ Thumbs.db
 /scratch
 scratch_test.php
 /flutter_app
+*.zip
+*.apk
