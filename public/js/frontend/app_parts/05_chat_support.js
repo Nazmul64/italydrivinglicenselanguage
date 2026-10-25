@@ -119,11 +119,11 @@ function renderGuestChatMessages(messages) {
     messages.forEach(msg => {
         const bubble = document.createElement('div');
 
-        if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
-            const matchSec = msg.message.match(/seconds=(\d+)/);
+        if (msg.is_license_card || (msg.message && msg.message.includes('[LICENSE_CARD:'))) {
+            const matchSec = msg.message.match(/(?:seconds|sec)=(\d+)/);
             const matchDays = msg.message.match(/days=(\d+)/);
-            const matchKey = msg.message.match(/key=(\d+)/);
-            const key = matchKey ? matchKey[1] : '';
+            const matchKey = msg.message.match(/key=([0-9a-zA-Z_-]+)/);
+            const key = (matchKey ? matchKey[1] : (msg.license_key || '')).trim();
 
             let durationStr = '';
             let days = 365;
@@ -148,15 +148,15 @@ function renderGuestChatMessages(messages) {
             }
 
             bubble.className = `license-card-bubble`;
-            let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days})">Attiva Licenza (এক্টিভ করুন)</button>`;
+            let buttonHTML = `<button class="license-card-btn" onclick="activateLicenseFromCard(${days}, '${key}')">Attiva Licenza (এক্টিভ করুন)</button>`;
             if (currentClientActive) {
                 buttonHTML = `<div style="text-align:center; padding: 6px; background:#dcfce7; color:#15803d; border-radius:8px; font-weight:bold; font-size:12px;">Licenza Attivata ✓ (এক্টিভ করা হয়েছে)</div>`;
             }
 
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
-                    <i class="fa-solid fa-clock"></i> মেয়াদ: ${durationStr}
+                <div class="license-card-duration" style="font-weight: 700; color: #ffffff; background: rgba(0, 0, 0, 0.25); padding: 7px 12px; border-radius: 8px; margin: 10px 0; font-size: 13.5px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.28); display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">
+                    <i class="fa-solid fa-clock" style="color: #fde047; font-size: 14px;"></i> <span>মেয়াদ: <strong>${durationStr}</strong></span>
                 </div>
                 ${buttonHTML}
             `;
@@ -202,7 +202,7 @@ function renderGuestChatMessages(messages) {
     }
 }
 
-function activateLicenseFromCard(days) {
+function activateLicenseFromCard(days, key) {
     showToast('লাইসেন্স সক্রিয় করা হচ্ছে...');
 
     const savedPhone = localStorage.getItem('app_client_phone') || currentClientPhone;
@@ -216,15 +216,19 @@ function activateLicenseFromCard(days) {
         },
         body: JSON.stringify({
             days: days,
+            license_key: key || '',
+            key: key || '',
             phone: savedPhone,
             session_id: savedSessionId
         })
     })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
+            if (data.success || data.is_active) {
                 currentClientActive = true;
                 localStorage.setItem('app_client_active', 'true');
+                localStorage.setItem('tab_qr_unlocked', 'true');
+                if (key) localStorage.setItem('app_client_license_key', key);
 
                 const lockEl = document.getElementById('app-activation-lock');
                 if (lockEl) {
@@ -239,7 +243,7 @@ function activateLicenseFromCard(days) {
                 checkClientActivation();
                 fetchGuestChatMessages();
             } else {
-                showToast('লাইসেন্স সক্রিয় করতে সমস্যা হয়েছে');
+                showToast(data.message || 'লাইসেন্স সক্রিয় করতে সমস্যা হয়েছে');
             }
         })
         .catch(err => {

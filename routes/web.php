@@ -684,67 +684,9 @@ Route::get('/api/client/status', [\App\Http\Controllers\DynamicContentController
 Route::get('/api/v1/client/status', [\App\Http\Controllers\DynamicContentController::class, 'getClientStatus']);
 Route::post('/api/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
 Route::post('/api/v1/client/verify', [\App\Http\Controllers\DynamicContentController::class, 'submitVerification']);
-Route::post('/api/client/activate', function (\Illuminate\Http\Request $request) {
-    $sessionId = $request->query('session_id') 
-              ?: $request->input('session_id') 
-              ?: $request->header('X-Client-Session-ID') 
-              ?: session()->getId();
-    $days = intval($request->input('days', $request->query('days', 365)));
-    
-    $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-    if (!$client) {
-        $client = new \App\Models\AppClient();
-        $client->session_id = $sessionId;
-        $client->first_name = 'Guest';
-        $client->last_name = 'User';
-        $client->phone = 'N/A';
-        $client->stars = 4;
-        $client->progress = 55;
-    }
-    // Check if the client already has the welcome message in their chat history
-    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)->get()->contains(function ($msg) {
-        return str_contains($msg->message, '🎉 ধন্যবাদ!');
-    });
-    dump("sessionId: {$sessionId}", "hasWelcome: " . ($hasWelcome ? 'true' : 'false'));
-
-    $client->is_active = true;
-    $client->expires_at = now()->addDays($days);
-    $client->save();
-
-    $user = \App\Models\User::where('uuid', $sessionId)->first();
-    if ($user) {
-        \App\Models\License::updateOrCreate(
-            ['user_id' => $user->uuid],
-            [
-                'license_key'  => rand(100000, 999999),
-                'status'       => 'active',
-                'activated_at' => now(),
-                'expires_at'   => now()->addDays($days),
-            ]
-        );
-    }
-
-    if (!$hasWelcome) {
-        $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা।\n"
-                     . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন।\n"
-                     . "নিয়মিত পড়াশোনা করুন, মনোযোগ দিয়ে পরীক্ষা দিন।\n"
-                     . "আশা করি আপনার সফলতার যাত্রায় আমাদের এই Platform গুরুত্বপূর্ণ ভূমিকা রাখবে।\n"
-                     . "আপনার জন্য রইল অনেক শুভকামনা।";
-        
-        \App\Models\Message::create([
-            'session_id'  => $sessionId,
-            'sender'      => 'admin',
-            'sender_name' => 'Admin',
-            'message'     => $welcomeText
-        ]);
-    }
-
-    return response()->json([
-        'success'   => true,
-        'is_active' => true,
-        'client'    => $client
-    ]);
-});
+Route::post('/api/client/activate', [\App\Http\Controllers\Api\LicenseApiController::class, 'activate']);
+Route::post('/api/v1/client/activate', [\App\Http\Controllers\Api\LicenseApiController::class, 'activate']);
+Route::post('/api/client/activate-license', [\App\Http\Controllers\Api\LicenseApiController::class, 'activate']);
 
 
 
@@ -1064,31 +1006,31 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             $phone = $data['phone'] ?: ($client ? $client->phone : ($user ? $user->phone : null));
             if ($phone === 'N/A') $phone = null;
 
-            // Ignore dummy or test phones (e.g. 00000000000, 300 000, etc.)
+            // Only allow legitimate registered customers with a valid phone number.
+            // NEVER allow 'Guest User', phone-less, or test entries.
             $cleanPhDigits = preg_replace('/\D/', '', $phone ?: '');
-            if ($phone && (
+            if (
+                empty($phone) || 
+                $phone === 'N/A' || 
+                empty($cleanPhDigits) || 
+                strlen($cleanPhDigits) < 7 ||
                 str_contains($phone, '300 000') || 
                 str_contains($phone, '300000') ||
                 preg_match('/^0+$/', $cleanPhDigits) ||
                 $cleanPhDigits === '00000000000' ||
                 $cleanPhDigits === '0000000000'
-            )) {
+            ) {
                 continue;
             }
 
             $firstName = $user ? ($user->first_name ?: ($user->name !== 'admin' ? $user->name : '')) : ($client ? $client->first_name : '');
             $lastName  = $user ? $user->last_name : ($client ? $client->last_name : '');
-            if (empty($firstName) || in_array(strtolower($firstName), ['customer', 'guest', 'admin'])) {
-                if ($client && $client->first_name && !in_array(strtolower($client->first_name), ['guest', 'customer', 'admin'])) {
-                    $firstName = $client->first_name;
-                    $lastName = $client->last_name;
-                }
-            }
-
-            // Skip admin users, test/dummy users
             $fullNameLower = strtolower(trim(($firstName ?: '') . ' ' . ($lastName ?: '')));
+
+            // Skip guest users, admin users, test/dummy users
             if (
-                in_array(strtolower($firstName), ['user a', 'user b', 'driving', 'admin']) ||
+                in_array(strtolower($firstName), ['guest', 'guest user', 'customer', 'user a', 'user b', 'driving', 'admin']) ||
+                str_contains($fullNameLower, 'guest') ||
                 str_contains($fullNameLower, 'admin') ||
                 str_contains($fullNameLower, 'driving license') ||
                 str_contains($fullNameLower, 'dummy') ||
@@ -1279,13 +1221,10 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
         }
 
         if (!$client) {
-            $client = \App\Models\AppClient::create([
-                'session_id' => $identifier,
-                'first_name' => 'Guest',
-                'last_name'  => 'User',
-                'phone'      => 'N/A',
-                'is_active'  => false,
-            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'কাস্টমার পাওয়া যায়নি। কোনো গেস্ট অ্যাকাউন্ট তৈরি করা হবে না।'
+            ], 404);
         }
 
         $newStatus = !$client->is_active;
@@ -1765,7 +1704,7 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             );
 
             // 1. Create License Card Message with exact seconds and days
-            $cardMsg = "[LICENSE_CARD:seconds={$seconds},days={$days},key={$keyNum}]";
+            $cardMsg = "[LICENSE_CARD:days={$days},seconds={$seconds},key={$keyNum}]";
             \App\Models\Message::create([
                 'conversation_id' => $conversationId,
                 'session_id'      => $sessionId,
@@ -1988,6 +1927,40 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
             'is_active' => true,
             'message'   => $lastMsg,
             'client'    => $client
+        ]);
+    });
+
+    Route::match(['get', 'post'], '/admin/api/chat/cleanup-guests', function () {
+        // Delete all guest/dummy AppClients
+        $guestClients = \App\Models\AppClient::where('first_name', 'like', '%Guest%')
+            ->orWhere('first_name', 'like', '%guest%')
+            ->orWhere('phone', 'N/A')
+            ->orWhereNull('phone')
+            ->orWhere('phone', '')
+            ->get();
+
+        $guestSessionIds = $guestClients->pluck('session_id')->filter()->all();
+        $guestIds = $guestClients->pluck('id')->filter()->all();
+
+        $allGuestIdentifiers = array_unique(array_merge($guestSessionIds, $guestIds, ['test_session_123', 'sess_pending_client']));
+
+        // Delete guest clients
+        \App\Models\AppClient::whereIn('id', $guestIds)
+            ->orWhereIn('session_id', $allGuestIdentifiers)
+            ->delete();
+
+        // Delete orphan guest messages
+        \App\Models\Message::whereIn('session_id', $allGuestIdentifiers)
+            ->orWhereIn('sender_id', $allGuestIdentifiers)
+            ->delete();
+
+        // Delete guest licenses
+        \App\Models\License::whereIn('user_id', $allGuestIdentifiers)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'সকল গেস্ট ইউজার এবং ডামি চ্যাট সফলভাবে মুছে ফেলা হয়েছে।',
+            'removed_count' => count($guestClients),
         ]);
     });
 
@@ -3099,93 +3072,8 @@ Route::post('/api/chat/messages', function (Request $request) {
 });
 
 // 4. Activate License (when customer clicks "Attiva Licenza" on License Card)
-$activateLicenseHandler = function (Request $request) {
-    $sessionId = $request->input('session_id') ?: session()->getId();
-    $phone     = $request->input('phone');
-    $days      = (int)($request->input('days', 365));
+Route::post('/api/client/activate-license', [\App\Http\Controllers\Api\LicenseApiController::class, 'activate']);
 
-    $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-    if (!$client && $phone) {
-        $cleanPhone = preg_replace('/\D/', '', $phone);
-        $clientQuery = \App\Models\AppClient::where('phone', $phone);
-        if (!empty($cleanPhone)) {
-            $clientQuery->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-        }
-        $client = $clientQuery->first();
-    }
-
-    if ($client) {
-        $client->update([
-            'is_active'  => true,
-            'expires_at' => now()->addDays($days),
-        ]);
-        if ($client->phone) {
-            $cleanPhone = preg_replace('/\D/', '', $client->phone);
-            \App\Models\AppClient::where(function($q) use ($client, $cleanPhone) {
-                $q->where('phone', $client->phone);
-                if ($cleanPhone) {
-                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
-                }
-            })->update([
-                'is_active'  => true,
-                'expires_at' => now()->addDays($days),
-            ]);
-        }
-        $sessionId = $client->session_id;
-    }
-
-    $user = \App\Models\User::where('uuid', $sessionId)->first();
-    if (!$user && $phone) {
-        $user = \App\Models\User::where('phone', $phone)->first();
-    }
-    if ($user) {
-        \App\Models\License::updateOrCreate(
-            ['user_id' => $user->uuid],
-            [
-                'license_key'  => (string) rand(100000, 999999),
-                'status'       => 'active',
-                'activated_at' => now(),
-                'expires_at'   => now()->addDays($days),
-            ]
-        );
-    }
-
-    // Mark session as unlocked
-    session(['qr_unlocked' => true]);
-    \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, 86400 * $days);
-    if ($phone) {
-        \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, 86400 * $days);
-    }
-
-    // Check if the client already has the welcome message in their chat history
-    $hasWelcome = \App\Models\Message::where('session_id', $sessionId)->get()->contains(function ($msg) {
-        return str_contains($msg->message, 'ধন্যবাদ') || str_contains($msg->message, 'Package Activate');
-    });
-
-    if (!$hasWelcome) {
-        $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা。\n"
-                     . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন。\n"
-                     . "নিয়মিত পড়াশোনা করুন, মনোযোগ দিয়ে পরীক্ষা দিন。\n"
-                     . "আশা করি আপনার সফলতার যাত্রায় আমাদের এই Platform গুরুত্বপূর্ণ ভূমিকা রাখবে。\n"
-                     . "আপনার জন্য রইল অনেক শুভকামনা。";
-        
-        \App\Models\Message::create([
-            'session_id'  => $sessionId,
-            'sender'      => 'admin',
-            'sender_name' => 'Admin',
-            'message'     => $welcomeText
-        ]);
-    }
-
-    return response()->json([
-        'success'   => true,
-        'is_active' => true,
-        'message'   => 'Licenza Attivata ✓',
-    ]);
-};
-
-Route::post('/api/client/activate-license', $activateLicenseHandler);
-Route::post('/api/client/activate', $activateLicenseHandler);
 
 // Admin Customer & License Management Routes
 Route::get('/admin/customers', [\App\Http\Controllers\Admin\CustomerAdminController::class, 'index'])->name('admin.customers.index');

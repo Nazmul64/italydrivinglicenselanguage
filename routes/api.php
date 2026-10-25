@@ -44,9 +44,12 @@ Route::prefix('v1')->group(function () {
     // 🔑 1. SUPPORT REGISTRATION & UNPROTECTED INITIAL AUTH
     Route::post('/support/register', [SupportRegistrationApiController::class, 'register']);
 
-    // 🔑 PUBLIC LICENSE & CLIENT STATUS CHECK
+    // 🔑 PUBLIC LICENSE & CLIENT STATUS CHECK AND ACTIVATION
     Route::get('/license/status', [LicenseApiController::class, 'getStatus']);
     Route::get('/client/status', [LicenseApiController::class, 'getStatus']);
+    Route::post('/license/activate', [LicenseApiController::class, 'activate']);
+    Route::post('/client/activate', [LicenseApiController::class, 'activate']);
+    Route::post('/client/activate-license', [LicenseApiController::class, 'activate']);
 
     // 💬 PUBLIC / FALLBACK SUPPORT ENDPOINTS
     Route::get('/support/messages', [SupportApiController::class, 'index']);
@@ -158,6 +161,14 @@ Route::prefix('v1')->group(function () {
     Route::get('/v1/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
     Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
     Route::match(['get', 'post'], '/v1/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+    Route::get('/scheda-esame/passed-list', [SchedaEsameApiController::class, 'getPassedExams']);
+    Route::get('/v1/scheda-esame/passed-list', [SchedaEsameApiController::class, 'getPassedExams']);
+    Route::get('/scheda-esame/sheet/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+    Route::get('/v1/scheda-esame/sheet/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+    Route::get('/exams', [SchedaEsameApiController::class, 'getPassedExams']);
+    Route::get('/v1/exams', [SchedaEsameApiController::class, 'getPassedExams']);
+    Route::get('/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+    Route::get('/v1/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
 
     Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
     Route::get('/v1/sfida/questions', [SfidaApiController::class, 'getQuestions']);
@@ -173,9 +184,6 @@ Route::prefix('v1')->group(function () {
         // User Profile & Status
         Route::get('/user', [SupportRegistrationApiController::class, 'getUser']);
 
-        // License Status & Activation
-        Route::get('/license/status', [LicenseApiController::class, 'getStatus']);
-        Route::post('/license/activate', [LicenseApiController::class, 'activate']);
 
         // Support Conversation & Messages
         Route::get('/support/conversation', [SupportApiController::class, 'getConversation']);
@@ -329,47 +337,9 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
-    Route::post('/client/activate', function (Request $request) {
-        $sessionId = $request->input('session_id') ?: $request->header('X-Session-ID');
-        $phone = $request->input('phone') ?: $request->header('X-Client-Phone');
-        $days = (int) ($request->input('days') ?: 365);
-
-        $client = null;
-        if ($phone) {
-            $client = \App\Models\AppClient::where('phone', $phone)->first();
-        }
-        if (!$client && $sessionId) {
-            $client = \App\Models\AppClient::where('session_id', $sessionId)->first();
-        }
-
-        if ($client) {
-            $client->is_active = true;
-            $client->expires_at = now()->addDays($days);
-            $client->save();
-        }
-
-        if ($phone) {
-            $user = \App\Models\User::where('phone', $phone)->first();
-            if ($user) {
-                \App\Models\License::updateOrCreate(
-                    ['user_id' => $user->uuid],
-                    [
-                        'license_key'  => (string) rand(100000, 999999),
-                        'status'       => 'active',
-                        'activated_at' => now(),
-                        'expires_at'   => now()->addDays($days),
-                    ]
-                );
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'success' => true,
-            'message' => 'License activated successfully for ' . $days . ' days.',
-            'expires_at' => now()->addDays($days)->toIso8601String()
-        ]);
-    });
+    Route::post('/client/activate', [LicenseApiController::class, 'activate']);
+    Route::post('/client/activate-license', [LicenseApiController::class, 'activate']);
+    Route::post('/license/activate', [LicenseApiController::class, 'activate']);
 
     Route::get('/quiz/exam', [SchedaEsameApiController::class, 'generateSheet']);
     Route::get('/classes', [DynamicContentController::class, 'getLectureClasses']);
@@ -558,6 +528,10 @@ Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController:
 Route::match(['get', 'post'], '/test/submit', [TestApiController::class, 'submitResult']);
 Route::get('/license/status', [LicenseApiController::class, 'getStatus']);
 Route::get('/client/status', [LicenseApiController::class, 'getStatus']);
+Route::post('/license/activate', [LicenseApiController::class, 'activate']);
+Route::post('/client/activate', [LicenseApiController::class, 'activate']);
+Route::post('/client/activate-license', [LicenseApiController::class, 'activate']);
+
 
 
 

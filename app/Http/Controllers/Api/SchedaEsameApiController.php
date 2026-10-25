@@ -7,6 +7,9 @@ use App\Models\Question;
 use App\Models\CartelloMcq;
 use App\Models\Chapter;
 use App\Models\UserMcqResult;
+use App\Models\ExamSheet;
+use App\Models\User;
+use App\Models\AppClient;
 use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
@@ -16,10 +19,74 @@ class SchedaEsameApiController extends Controller
 
     /**
      * Generate an official 30-question Scheda Esame simulation paper.
+     * Smart Question Exclusion: Excludes questions previously answered correctly by this user.
+     * Prioritizes unseen questions and previously incorrect questions.
+     * When all questions have been correctly answered or the candidate pool is exhausted (<30),
+     * automatically cycles/resets so all questions become available again!
      */
-    public function generateSheet()
+    public function generateSheet(Request $request)
     {
-        $argomentiQuestions = Question::inRandomOrder()->limit(30)->get()->map(function ($q) {
+        $context = $this->resolveUserContext($request);
+        $userId = $context['user_id'];
+        $userIds = $context['user_ids'];
+        $sessionId = $context['session_id'];
+        $sessionIds = $context['session_ids'];
+
+        // Get IDs of questions that this user has answered correctly
+        $correctQuestionIds = [];
+        $correctCartelliIds = [];
+
+        if (!empty($userIds) || !empty($sessionIds) || $sessionId) {
+            $userResultsQuery = UserMcqResult::where('is_correct', 1);
+            $userResultsQuery->where(function($q) use ($userIds, $sessionIds, $sessionId) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                $effectiveSessions = !empty($sessionIds) ? $sessionIds : ($sessionId ? [$sessionId] : []);
+                if (!empty($effectiveSessions)) {
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('session_id', $effectiveSessions);
+                    } else {
+                        $q->whereIn('session_id', $effectiveSessions);
+                    }
+                }
+            });
+
+            $userResults = $userResultsQuery->get(['question_id', 'question_type']);
+            foreach ($userResults as $res) {
+                if ($res->question_type === 'cartelli') {
+                    $correctCartelliIds[] = (int)$res->question_id;
+                } else {
+                    $correctQuestionIds[] = (int)$res->question_id;
+                }
+            }
+        }
+
+        // Available candidate questions in Argomenti (excluding correctly answered ones)
+        $argomentiQuery = Question::query();
+        if (!empty($correctQuestionIds)) {
+            $argomentiQuery->whereNotIn('id', $correctQuestionIds);
+        }
+        $argomentiCount = (clone $argomentiQuery)->count();
+
+        // Available candidate questions in Cartelli (excluding correctly answered ones)
+        $cartelliQuery = CartelloMcq::where('status', true);
+        if (!empty($correctCartelliIds)) {
+            $cartelliQuery->whereNotIn('id', $correctCartelliIds);
+        }
+        $cartelliCount = (clone $cartelliQuery)->count();
+
+        // If remaining questions in pool is less than 30 (user answered all questions correctly or pool exhausted),
+        // automatically cycle/reset so all questions become available again!
+        $totalRemaining = $argomentiCount + $cartelliCount;
+        $poolReset = false;
+        if ($totalRemaining < 30) {
+            $poolReset = true;
+            $argomentiQuery = Question::query();
+            $cartelliQuery = CartelloMcq::where('status', true);
+        }
+
+        $argomentiQuestions = $argomentiQuery->inRandomOrder()->limit(30)->get()->map(function ($q) {
             return [
                 'id' => $q->id,
                 'type' => 'argomenti',
@@ -34,7 +101,7 @@ class SchedaEsameApiController extends Controller
             ];
         });
 
-        $cartelliQuestions = CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function ($q) {
+        $cartelliQuestions = $cartelliQuery->inRandomOrder()->limit(30)->get()->map(function ($q) {
             return [
                 'id' => $q->id,
                 'type' => 'cartelli',
@@ -56,6 +123,7 @@ class SchedaEsameApiController extends Controller
             'duration_minutes' => 20,
             'max_allowed_errors' => 3,
             'total_questions' => min(30, $combined->count()),
+            'pool_reset' => $poolReset,
             'data' => $combined
         ])
         ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -247,7 +315,78 @@ class SchedaEsameApiController extends Controller
 
         $finalCorrect = $rawCorrectCount !== null ? (int)$rawCorrectCount : $calculatedCorrect;
         $finalWrong = $rawWrongCount !== null ? (int)$rawWrongCount : $calculatedWrong;
-        $isPassed = $finalWrong <= 3;
+        // User Rule: 27+ correct (out of 30) is Promosso (Passed). 26 or less is Bocciato (Failed).
+        $isPassed = $finalCorrect >= 27;
+
+        // If passed, record this student's exam sheet into ExamSheet so it shows on the Passed List!
+        if ($isPassed) {
+            try {
+                $studentName = $request->input('student_name') ?: $request->input('name');
+                $avatar = $request->input('avatar');
+                $motorizzazione = $request->input('motorizzazione') ?: 'Motorizzazione Civile';
+
+                if (!$studentName || $studentName === 'Candidato Patente B') {
+                    if ($userId) {
+                        $u = User::find($userId);
+                        if ($u) {
+                            $studentName = trim($u->name ?: ($u->first_name . ' ' . $u->last_name));
+                            if (!$avatar) $avatar = $u->avatar;
+                        }
+                    }
+                    if (!$studentName || $studentName === 'Candidato Patente B') {
+                        $appClient = AppClient::where('session_id', $sessionId)->orWhere('phone', $request->input('phone'))->first();
+                        if ($appClient) {
+                            $studentName = trim($appClient->name ?: $studentName);
+                            if (!$avatar) $avatar = $appClient->avatar;
+                            if (!empty($appClient->city)) $motorizzazione = 'Motorizzazione di ' . $appClient->city;
+                        }
+                    }
+                }
+
+                if (!$studentName) {
+                    $studentName = 'Candidato #' . rand(1000, 9999);
+                }
+
+                // Format answers for ExamSheet questions list
+                $formattedSheetAnswers = [];
+                if (is_array($answers)) {
+                    foreach ($answers as $idx => $ans) {
+                        if (is_array($ans)) {
+                            $formattedSheetAnswers[] = [
+                                'id' => $ans['question_id'] ?? ($ans['id'] ?? ($idx + 1)),
+                                'type' => $ans['question_type'] ?? ($ans['type'] ?? 'argomenti'),
+                                'italian' => $ans['italian'] ?? ($ans['statement'] ?? ''),
+                                'bangla' => $ans['bangla'] ?? ($ans['translation'] ?? ''),
+                                'is_vero' => isset($ans['is_vero']) ? ($ans['is_vero'] === true || $ans['is_vero'] === 1 || $ans['is_vero'] === '1') : true,
+                                'user_answer' => $ans['user_answer'] ?? null,
+                                'is_correct' => $ans['is_correct'] ?? false,
+                                'image' => $ans['image'] ?? null,
+                                'audio' => $ans['audio'] ?? null,
+                                'vocabulary' => $ans['vocabulary'] ?? [],
+                            ];
+                        }
+                    }
+                }
+
+                ExamSheet::create([
+                    'student_name' => $studentName,
+                    'avatar' => $avatar,
+                    'motorizzazione' => $motorizzazione,
+                    'exam_date' => now()->format('d/m/Y'),
+                    'status' => 'completed',
+                    'is_passed' => true,
+                    'correct_count' => $finalCorrect,
+                    'wrong_count' => $finalWrong,
+                    'unanswered_count' => max(0, $totalQuestions - ($finalCorrect + $finalWrong)),
+                    'total_count' => $totalQuestions,
+                    'answers' => $formattedSheetAnswers,
+                    'user_id' => $userId,
+                    'session_id' => $sessionId,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::error("Failed to store passed ExamSheet: " . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'status' => 'success',
@@ -258,7 +397,104 @@ class SchedaEsameApiController extends Controller
             'correct_count' => $finalCorrect,
             'wrong_count' => $finalWrong,
             'processed_answers' => count($logged),
-            'message' => $isPassed ? 'Complimenti! Hai superato la Scheda Esame.' : 'Esame non superato. Massimo 3 errori consentiti.'
+            'message' => $isPassed ? 'Complimenti! Hai superato la Scheda Esame.' : 'Esame non superato. Minimo 27 risposte corrette richieste.'
+        ]);
+    }
+
+    /**
+     * Get list of passed exams for display in mobile app and web.
+     */
+    public function getPassedExams(Request $request)
+    {
+        $search = $request->query('search') ?: $request->query('query');
+        $query = ExamSheet::where(function($q) {
+            $q->where('is_passed', true)
+              ->orWhere('status', 'completed');
+        });
+
+        if ($search) {
+            $query->where(function($sq) use ($search) {
+                $sq->where('student_name', 'like', "%{$search}%")
+                   ->orWhere('motorizzazione', 'like', "%{$search}%")
+                   ->orWhere('id', 'like', "%{$search}%");
+            });
+        }
+
+        $exams = $query->orderBy('id', 'desc')->get()->map(function($ex) {
+            return [
+                'id' => $ex->id,
+                'student_name' => $ex->student_name,
+                'avatar' => !empty($ex->avatar) ? \App\Helpers\ImageHelper::formatImageUrl($ex->avatar) : null,
+                'motorizzazione' => $ex->motorizzazione,
+                'exam_date' => $ex->exam_date,
+                'status' => $ex->status,
+                'is_passed' => (bool)$ex->is_passed,
+                'correct_count' => $ex->correct_count,
+                'wrong_count' => $ex->wrong_count,
+                'unanswered_count' => $ex->unanswered_count,
+                'total_count' => $ex->total_count ?: 30,
+                'created_at' => $ex->created_at ? $ex->created_at->toIso8601String() : null,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $exams->count(),
+            'data' => $exams
+        ]);
+    }
+
+    /**
+     * Get detailed questions of a single passed exam sheet.
+     */
+    public function getExamSheetDetails($id)
+    {
+        $exam = ExamSheet::find($id);
+        if (!$exam) {
+            return response()->json(['status' => 'error', 'message' => 'Scheda non trovata'], 404);
+        }
+
+        $answers = $exam->answers;
+        // If answers are empty, populate from random questions if needed
+        if (empty($answers) || !is_array($answers) || count($answers) === 0) {
+            $questions = Question::inRandomOrder()->limit(30)->get();
+            $answers = [];
+            foreach ($questions as $q) {
+                $answers[] = [
+                    'id' => $q->id,
+                    'type' => 'argomenti',
+                    'italian' => $q->italian,
+                    'bangla' => $q->bangla,
+                    'is_vero' => ($q->is_vero == 1 || $q->is_vero === true || $q->is_vero == '1' || strtolower((string)$q->correct_answer) === 'vero'),
+                    'user_answer' => null,
+                    'image' => !empty($q->image) ? \App\Helpers\ImageHelper::formatImageUrl($q->image) : null,
+                    'audio' => $q->audio,
+                    'video' => $q->video,
+                    'vocabulary' => $q->vocabulary ?? []
+                ];
+            }
+            $exam->update(['answers' => $answers]);
+        } else {
+            // Ensure image URLs are formatted
+            foreach ($answers as &$a) {
+                if (!empty($a['image'])) {
+                    $a['image'] = \App\Helpers\ImageHelper::formatImageUrl($a['image']);
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'id' => $exam->id,
+            'student_name' => $exam->student_name,
+            'avatar' => !empty($exam->avatar) ? \App\Helpers\ImageHelper::formatImageUrl($exam->avatar) : null,
+            'motorizzazione' => $exam->motorizzazione,
+            'exam_date' => $exam->exam_date,
+            'correct_count' => $exam->correct_count,
+            'wrong_count' => $exam->wrong_count,
+            'unanswered_count' => $exam->unanswered_count,
+            'total_count' => $exam->total_count ?: count($answers),
+            'questions' => $answers
         ]);
     }
 }

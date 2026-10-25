@@ -27,7 +27,10 @@ class ExamSheetController extends Controller
                   ->orWhere('id', 'like', "%{$search}%");
         }
 
-        $exams = $query->orderBy('id', 'desc')->get();
+        $exams = $query->orderBy('id', 'desc')->get()->map(function($ex) {
+            $ex->avatar = !empty($ex->avatar) ? \App\Helpers\ImageHelper::formatImageUrl($ex->avatar) : null;
+            return $ex;
+        });
         return response()->json($exams);
     }
 
@@ -192,8 +195,10 @@ class ExamSheetController extends Controller
             $updatedQuestions[] = $q;
         }
 
+        $isPassed = $correct >= 27;
         $exam->update([
             'status' => 'completed',
+            'is_passed' => $isPassed,
             'correct_count' => $correct,
             'wrong_count' => $wrong,
             'unanswered_count' => $unanswered,
@@ -203,6 +208,7 @@ class ExamSheetController extends Controller
 
         return response()->json([
             'success' => true,
+            'is_passed' => $isPassed,
             'correct' => $correct,
             'wrong' => $wrong,
             'unanswered' => $unanswered,

@@ -18,7 +18,11 @@ class ExamSheet extends Model
         'wrong_count',
         'unanswered_count',
         'total_count',
-        'answers'
+        'answers',
+        'avatar',
+        'user_id',
+        'session_id',
+        'is_passed',
     ];
 
     protected $casts = [

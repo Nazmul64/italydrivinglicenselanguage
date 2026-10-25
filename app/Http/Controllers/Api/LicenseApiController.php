@@ -42,6 +42,8 @@ class LicenseApiController extends Controller
                 ->first();
         } elseif ($phone) {
             $license = License::where('user_id', $phone)->latest()->first();
+        } elseif ($userId) {
+            $license = License::where('user_id', $userId)->latest()->first();
         }
 
         $appClient = null;
@@ -64,7 +66,7 @@ class LicenseApiController extends Controller
             || ($userId && \Illuminate\Support\Facades\Cache::get('user_deleted_' . $userId));
 
         // Check if user was deleted from admin panel
-        if ($isExplicitlyDeleted || (!$user && !$appClient && !$license && ($phone || $userId))) {
+        if ($isExplicitlyDeleted) {
             return response()->json([
                 'success'            => true,
                 'status'             => 'deleted',
@@ -81,27 +83,20 @@ class LicenseApiController extends Controller
 
         $status = 'inactive';
 
-        if ($license) {
-            if ($license->status === 'active') {
-                if ($license->expires_at && now()->gt($license->expires_at)) {
-                    $license->update(['status' => 'expired']);
-                    $status = 'expired';
-                    if ($appClient) {
-                        $appClient->update(['is_active' => false, 'expires_at' => $license->expires_at]);
-                    }
-                } else {
-                    $status = 'active';
-                }
-            } else {
-                $status = $license->status;
-            }
-        } elseif ($appClient && $appClient->is_active) {
-            if ($appClient->expires_at && now()->gt($appClient->expires_at)) {
+        if ($license && $license->status === 'active') {
+            if ($license->expires_at && now()->gt($license->expires_at)) {
+                $license->update(['status' => 'expired']);
                 $status = 'expired';
-                $appClient->update(['is_active' => false]);
+                if ($appClient) {
+                    $appClient->update(['is_active' => false, 'expires_at' => $license->expires_at]);
+                }
             } else {
                 $status = 'active';
             }
+        } elseif ($appClient && $appClient->is_active && (!$appClient->expires_at || $appClient->expires_at->isFuture())) {
+            $status = 'active';
+        } elseif ($license) {
+            $status = $license->status;
         }
 
         $isUninstalled = ($user && $user->is_uninstalled) || ($appClient && $appClient->is_uninstalled);
@@ -149,32 +144,65 @@ class LicenseApiController extends Controller
 
     public function activate(Request $request)
     {
-        $user = $request->user();
         $phone = $request->input('phone') ?: $request->header('X-Client-Phone');
         $sessionId = $request->input('session_id') ?: $request->input('sessionId') ?: $request->header('X-Session-ID');
+        $licenseKey = trim($request->input('license_key') ?: $request->input('key') ?: '');
 
-        if (!$user && $phone) {
+        $user = null;
+        if ($phone) {
             $cleanPhone = preg_replace('/\D/', '', $phone);
-            $user = User::where(function($q) use ($phone, $cleanPhone) {
+            $last10 = (strlen($cleanPhone) >= 7) ? substr($cleanPhone, -10) : $cleanPhone;
+            $user = User::where(function($q) use ($phone, $cleanPhone, $last10) {
                 $q->where('phone', $phone);
                 if (!empty($cleanPhone)) {
                     $q->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhone]);
+                    if (!empty($last10)) {
+                        $q->orWhereRaw("SUBSTR(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), -" . strlen($last10) . ") = ?", [$last10]);
+                    }
                 }
             })->first();
         }
         if (!$user && $sessionId) {
             $user = User::where('uuid', $sessionId)->first();
         }
+        $authUser = $request->user() ?: auth('sanctum')->user();
+        if (!$user && $authUser && $authUser->role !== 'admin' && $authUser->role !== 'super_admin') {
+            $user = $authUser;
+        }
+        if ($user && empty($user->uuid)) {
+            $user->uuid = (string) \Illuminate\Support\Str::uuid();
+            $user->save();
+        }
 
-        $licenseKey = trim($request->input('license_key') ?: $request->input('key') ?: '');
         $license = null;
-
         if (!empty($licenseKey)) {
             $license = License::where('license_key', $licenseKey)->first();
+            if ($license) {
+                if ($user && $license->user_id) {
+                    $licenseUserMatches = in_array((string)$license->user_id, [
+                        (string)$user->uuid,
+                        (string)$user->id,
+                        (string)$user->phone,
+                    ]);
+                    if (!$licenseUserMatches) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'This license does not belong to this account.',
+                        ], 403);
+                    }
+                }
+                if (!$user && $license->user_id) {
+                    $user = User::where('uuid', $license->user_id)->orWhere('id', $license->user_id)->orWhere('phone', $license->user_id)->first();
+                    if ($user && empty($user->uuid)) {
+                        $user->uuid = (string) \Illuminate\Support\Str::uuid();
+                        $user->save();
+                    }
+                }
+            }
         }
 
         // If not found by key, search by user, phone or session
-        if (!$license && $user) {
+        if (!$license && $user && !empty($user->uuid)) {
             $license = License::where('user_id', $user->uuid)
                 ->orWhere('user_id', (string)$user->id)
                 ->orWhere('user_id', $user->phone)
@@ -205,32 +233,38 @@ class LicenseApiController extends Controller
             $request->input('seconds') ?: ($request->input('days') ? ((int)$request->input('days') * 86400) : 31536000)
         );
 
-        if (!$license) {
-            $license = License::create([
-                'user_id'          => $user ? $user->uuid : ($phone ?: $sessionId),
-                'license_key'      => !empty($licenseKey) ? $licenseKey : (string) rand(100000, 999999),
-                'status'           => 'active',
-                'duration_seconds' => $durationSeconds,
-                'activated_at'     => now(),
-                'expires_at'       => now()->addSeconds($durationSeconds),
-            ]);
-        }
-
         $activatedAt = now();
         $expiresAt   = now()->addSeconds($durationSeconds);
 
-        $userIdentifier = $user ? $user->uuid : ($license->user_id ?: ($phone ?: $sessionId));
+        $userIdentifier = ($user && !empty($user->uuid))
+            ? $user->uuid
+            : ($sessionId ?: ($phone ?: (string) \Illuminate\Support\Str::uuid()));
 
-        $license->update([
-            'user_id'          => $userIdentifier,
-            'status'           => 'active',
-            'duration_seconds' => $durationSeconds,
-            'activated_at'     => $activatedAt,
-            'expires_at'       => $expiresAt,
-        ]);
+        if (!$license) {
+            $license = License::create([
+                'user_id'          => $userIdentifier,
+                'license_key'      => !empty($licenseKey) ? $licenseKey : (string) rand(100000, 999999),
+                'status'           => 'active',
+                'duration_seconds' => $durationSeconds,
+                'activated_at'     => $activatedAt,
+                'expires_at'       => $expiresAt,
+            ]);
+        } else {
+            $userIdentifier = ($user && !empty($user->uuid)) ? $user->uuid : ($license->user_id ?: $userIdentifier);
+            $license->update([
+                'user_id'          => $userIdentifier,
+                'status'           => 'active',
+                'duration_seconds' => $durationSeconds,
+                'activated_at'     => $activatedAt,
+                'expires_at'       => $expiresAt,
+            ]);
+        }
 
         if ($user) {
             $user->update(['is_uninstalled' => false]);
+            if ($phone && !$user->phone) {
+                $user->update(['phone' => $phone]);
+            }
         } elseif ($userIdentifier) {
             User::where('uuid', $userIdentifier)->orWhere('phone', $userIdentifier)->update(['is_uninstalled' => false]);
         }
@@ -239,11 +273,19 @@ class LicenseApiController extends Controller
         $appClientQuery = AppClient::query();
         $hasClientFilter = false;
         if ($user && $user->phone) {
+            $cleanP = preg_replace('/\D/', '', $user->phone);
             $appClientQuery->orWhere('phone', $user->phone);
+            if ($cleanP) {
+                $appClientQuery->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanP]);
+            }
             $hasClientFilter = true;
         }
         if ($phone) {
+            $cleanP = preg_replace('/\D/', '', $phone);
             $appClientQuery->orWhere('phone', $phone);
+            if ($cleanP) {
+                $appClientQuery->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanP]);
+            }
             $hasClientFilter = true;
         }
         if ($user && $user->uuid) {
@@ -261,6 +303,90 @@ class LicenseApiController extends Controller
                 'is_uninstalled' => false,
                 'expires_at'     => $expiresAt,
             ]);
+        }
+
+        // Only create or link an AppClient record if a valid registered customer identity exists (valid phone or user).
+        // NEVER create a dummy "Guest User" with phone 'N/A'.
+        $validPhone = $phone ?: ($user ? $user->phone : null);
+        $cleanPhoneDigits = preg_replace('/\D/', '', $validPhone ?: '');
+
+        if ($validPhone && $validPhone !== 'N/A' && strlen($cleanPhoneDigits) >= 7) {
+            $existingClient = AppClient::where('phone', $validPhone);
+            if ($cleanPhoneDigits) {
+                $existingClient->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?", [$cleanPhoneDigits]);
+            }
+            if ($sessionId) {
+                $existingClient->orWhere('session_id', $sessionId);
+            }
+            $targetClient = $existingClient->first();
+
+            if ($targetClient) {
+                $targetClient->update([
+                    'is_active'      => true,
+                    'is_uninstalled' => false,
+                    'expires_at'     => $expiresAt,
+                    'session_id'     => $sessionId ?: $targetClient->session_id,
+                ]);
+            } else {
+                AppClient::create([
+                    'session_id'     => $sessionId ?: ($user ? $user->uuid : (string) \Illuminate\Support\Str::uuid()),
+                    'first_name'     => $user ? ($user->first_name ?: $user->name) : 'User',
+                    'last_name'      => $user ? $user->last_name : '',
+                    'phone'          => $validPhone,
+                    'is_active'      => true,
+                    'is_uninstalled' => false,
+                    'expires_at'     => $expiresAt,
+                    'stars'          => 4,
+                    'progress'       => 55,
+                ]);
+            }
+        }
+
+        // Mark session & cache as unlocked for web and mobile
+        session(['qr_unlocked' => true]);
+        if ($phone) session(['app_client_phone' => $phone]);
+        session()->save();
+
+        if ($userIdentifier) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $userIdentifier, true, $durationSeconds);
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $userIdentifier);
+        }
+
+        if ($sessionId) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $sessionId, true, $durationSeconds);
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_' . $sessionId);
+        }
+        if ($phone) {
+            \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $phone, true, $durationSeconds);
+            \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $phone);
+            $cleanPhone = preg_replace('/\D/', '', $phone);
+            if ($cleanPhone) {
+                \Illuminate\Support\Facades\Cache::put('qr_unlocked_' . $cleanPhone, true, $durationSeconds);
+                \Illuminate\Support\Facades\Cache::forget('user_deleted_phone_' . $cleanPhone);
+            }
+        }
+
+        // Only post welcome message if there is a real registered customer (has user or valid phone)
+        if (($user || ($validPhone && strlen($cleanPhoneDigits) >= 7)) && $sessionId) {
+            $chatIds = array_filter([$sessionId, $userIdentifier, $user ? $user->uuid : null]);
+            $hasWelcome = \App\Models\Message::whereIn('session_id', $chatIds)->get()->contains(function ($msg) {
+                return str_contains($msg->message, 'ধন্যবাদ') || str_contains($msg->message, 'Package Activate');
+            });
+
+            if (!$hasWelcome) {
+                $welcomeText = "🎉 ধন্যবাদ! আমাদের Package Activate করার জন্য আপনাকে আন্তরিক শুভেচ্ছা。\n"
+                             . "এখন থেকে আপনি সকল Premium Feature ব্যবহার করতে পারবেন。\n"
+                             . "নিয়মিত পড়াশোনা করুন, মনোযোগ দিয়ে পরীক্ষা দিন。\n"
+                             . "আশা করি আপনার সফলতার যাত্রায় আমাদের এই Platform গুরুত্বপূর্ণ ভূমিকা রাখবে。\n"
+                             . "আপনার জন্য রইল অনেক শুভকামনা。";
+
+                \App\Models\Message::create([
+                    'session_id'  => $sessionId ?: $userIdentifier,
+                    'sender'      => 'admin',
+                    'sender_name' => 'Admin',
+                    'message'     => $welcomeText
+                ]);
+            }
         }
 
         return response()->json([

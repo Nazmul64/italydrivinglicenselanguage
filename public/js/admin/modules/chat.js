@@ -100,6 +100,19 @@ function renderConversationsList(conversations) {
     if (!listContainer) return;
     listContainer.innerHTML = '';
 
+    // Strictly exclude any guest or phone-less entry from admin conversations
+    if (Array.isArray(conversations)) {
+        conversations = conversations.filter(convo => {
+            const client = convo.client || {};
+            const phone = (client.phone || '').trim();
+            const cleanPhone = phone.replace(/\D/g, '');
+            const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase().trim();
+            if (!phone || phone === 'N/A' || cleanPhone.length < 7) return false;
+            if (fullName === 'guest user' || fullName.startsWith('guest')) return false;
+            return true;
+        });
+    }
+
     // Update summary counts
     const totalCount = Array.isArray(conversations) ? conversations.length : 0;
     const activeCount = Array.isArray(conversations) ? conversations.filter(c => c.client && c.client.is_active).length : 0;
@@ -325,11 +338,11 @@ function renderConversationMessages(messages, forceScroll) {
 
         const bubble = document.createElement('div');
 
-        if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
-            const matchSec = msg.message.match(/seconds=(\d+)/);
+        if (msg.is_license_card || (msg.message && msg.message.includes('[LICENSE_CARD:'))) {
+            const matchSec = msg.message.match(/(?:seconds|sec)=(\d+)/);
             const matchDays = msg.message.match(/days=(\d+)/);
-            const matchKey = msg.message.match(/key=(\d+)/);
-            const key = matchKey ? matchKey[1] : '';
+            const matchKey = msg.message.match(/key=([0-9a-zA-Z_-]+)/);
+            const key = matchKey ? matchKey[1] : (msg.license_key || '');
 
             let durationStr = '';
             if (matchSec) {
@@ -355,8 +368,8 @@ function renderConversationMessages(messages, forceScroll) {
             bubble.style.alignSelf = 'flex-end';
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
-                    <i class="fa-solid fa-clock"></i> মেয়াদ: ${durationStr}
+                <div class="license-card-duration" style="font-weight: 700; color: #ffffff; background: rgba(0, 0, 0, 0.25); padding: 7px 12px; border-radius: 8px; margin: 10px 0; font-size: 13.5px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.28); display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">
+                    <i class="fa-solid fa-clock" style="color: #fde047; font-size: 14px;"></i> <span>মেয়াদ: <strong>${durationStr}</strong></span>
                 </div>
                 <button class="license-card-btn" disabled style="opacity: 0.7; cursor: not-allowed;">Attiva Licenza (Inviata)</button>
             `;

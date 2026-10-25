@@ -2309,11 +2309,11 @@ function renderGuestChatMessages(messages) {
     messages.forEach(msg => {
         const bubble = document.createElement('div');
 
-        if (msg.message && msg.message.startsWith('[LICENSE_CARD:') && msg.message.endsWith(']')) {
-            const matchSec = msg.message.match(/seconds=(\d+)/);
+        if (msg.is_license_card || (msg.message && msg.message.includes('[LICENSE_CARD:'))) {
+            const matchSec = msg.message.match(/(?:seconds|sec)=(\d+)/);
             const matchDays = msg.message.match(/days=(\d+)/);
-            const matchKey = msg.message.match(/key=(\d+)/);
-            const key = matchKey ? matchKey[1] : '';
+            const matchKey = msg.message.match(/key=([0-9a-zA-Z_-]+)/);
+            const key = (matchKey ? matchKey[1] : (msg.license_key || '')).trim();
 
             let durationStr = '';
             let days = 365;
@@ -2345,8 +2345,8 @@ function renderGuestChatMessages(messages) {
 
             bubble.innerHTML = `
                 <div class="license-card-title">Chiave Licenza ${key}</div>
-                <div class="license-card-duration" style="font-weight: 700; color: #16a34a; margin: 10px 0; font-size: 13px; text-align: center;">
-                    <i class="fa-solid fa-clock"></i> à¦®à§‡à¦¯à¦¼à¦¾à¦¦: ${durationStr}
+                <div class="license-card-duration" style="font-weight: 700; color: #ffffff; background: rgba(0, 0, 0, 0.25); padding: 7px 12px; border-radius: 8px; margin: 10px 0; font-size: 13.5px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.28); display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">
+                    <i class="fa-solid fa-clock" style="color: #fde047; font-size: 14px;"></i> <span>মেয়াদ: <strong>${durationStr}</strong></span>
                 </div>
                 ${buttonHTML}
             `;
@@ -5637,7 +5637,9 @@ let examTimeLeft = 1800; // 30 minutes in seconds
 
 function loadExamSheets() {
     const container = document.getElementById('exam-cards-list');
-    if (container) {
+    if (allExamsData && allExamsData.length > 0) {
+        renderExamSheets();
+    } else if (container) {
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
     }
 

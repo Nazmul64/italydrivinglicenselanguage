@@ -12,7 +12,9 @@ let examTimeLeft = 1800; // 30 minutes in seconds
 
 function loadExamSheets() {
     const container = document.getElementById('exam-cards-list');
-    if (container) {
+    if (allExamsData && allExamsData.length > 0) {
+        renderExamSheets();
+    } else if (container) {
         container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
     }
 
