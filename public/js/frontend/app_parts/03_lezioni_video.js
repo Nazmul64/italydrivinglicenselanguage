@@ -245,6 +245,7 @@ function submitExam() {
     if (examQuestions.length === 0) return;
     clearInterval(examTimerInterval);
 
+    let correct = 0;
     let errors = 0;
     let unanswered = 0;
 
@@ -255,29 +256,32 @@ function submitExam() {
             unanswered++;
         } else if (userExamAnswers[i] !== databaseIsVero) {
             errors++;
+        } else {
+            correct++;
         }
     }
 
-    const passed = errors <= 4;
+    // User Rule: 27, 28, 29, 30 correct = PASS (IDONEO). 26 or less = FAIL (RESPINTO).
+    const passed = correct >= 27;
     const modal = document.getElementById('exam-result-modal');
     const statusBadge = document.getElementById('result-badge-status');
     const errorsCount = document.getElementById('result-errors-count');
     const resultMsg = document.getElementById('result-message');
 
-    if (errorsCount) errorsCount.innerText = `${errors} টি ভুল`;
+    if (errorsCount) errorsCount.innerText = `${errors} টি ভুল/অনুত্তরিত (সঠিক: ${correct})`;
 
     if (passed) {
         if (statusBadge) {
             statusBadge.className = 'result-badge passed';
             statusBadge.innerText = 'উত্তীর্ণ (IDONEO)';
         }
-        if (resultMsg) resultMsg.innerHTML = `অভিনন্দন! আপনি ডেমো পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • অনুত্তরিত: ${unanswered}টি</small>`;
+        if (resultMsg) resultMsg.innerHTML = `অভিনন্দন! আপনি পরীক্ষায় উত্তীর্ণ হয়েছেন।<br><small>মোট প্রশ্ন ৩০টি • সঠিক: ${correct}টি • অনুত্তরিত: ${unanswered}টি</small>`;
     } else {
         if (statusBadge) {
             statusBadge.className = 'result-badge failed';
             statusBadge.innerText = 'অকৃতকার্য (RESPINTO)';
         }
-        if (resultMsg) resultMsg.innerHTML = `দুঃখিত! আপনি পরীক্ষায় পাস করতে পারেননি। সর্বোচ্চ ৪টি ভুল গ্রহণযোগ্য ছিল।<br><small>মোট ভুল: ${errors}টি (অনুত্তরিত সহ)</small>`;
+        if (resultMsg) resultMsg.innerHTML = `দুঃখিত! আপনি পরীক্ষায় পাস করতে পারেননি। পাস করার জন্য কমপক্ষে ২৭টি সঠিক উত্তর প্রয়োজন ছিল।<br><small>সঠিক: ${correct}টি • ভুল ও অনুত্তরিত: ${errors}টি</small>`;
     }
 
     if (modal) modal.style.display = 'flex';

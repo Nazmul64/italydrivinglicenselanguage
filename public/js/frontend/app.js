@@ -1423,7 +1423,16 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (!testQuestions || testQuestions.length === 0) {
             const testIt = document.getElementById('test-question-it');
             if (testIt) testIt.innerText = 'Caricamento delle domande...';
-            fetch('/api/questions/random-test?_t=' + Date.now(), { cache: 'no-store' })
+            const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+            const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
+
+            fetch(`/api/questions/random-test?phone=${encodeURIComponent(curPhone)}&session_id=${encodeURIComponent(curSessionId)}&_t=` + Date.now(), {
+                cache: 'no-store',
+                headers: {
+                    'X-Client-Phone': curPhone,
+                    'X-Session-ID': curSessionId
+                }
+            })
                 .then(r => r.json())
                 .then(data => {
                     if (data && data.length > 0) {
@@ -2032,6 +2041,7 @@ function submitExam() {
     if (examQuestions.length === 0) return;
     clearInterval(examTimerInterval);
 
+    let correct = 0;
     let errors = 0;
     let unanswered = 0;
 
@@ -2042,10 +2052,13 @@ function submitExam() {
             unanswered++;
         } else if (userExamAnswers[i] !== databaseIsVero) {
             errors++;
+        } else {
+            correct++;
         }
     }
 
-    const passed = errors <= 4;
+    // Rule: 27, 28, 29, 30 correct = PASS (IDONEO). 26 or less = FAIL (RESPINTO).
+    const passed = (typeof correct !== 'undefined') ? (correct >= 27) : (errors <= 3);
     const modal = document.getElementById('exam-result-modal');
     const statusBadge = document.getElementById('result-badge-status');
     const errorsCount = document.getElementById('result-errors-count');
@@ -2608,7 +2621,16 @@ function initRandomTestQuiz() {
     }
     if (optBar) optBar.style.display = 'none';
 
-    fetch('/api/questions/random-test?_t=' + Date.now(), { cache: 'no-store' })
+    const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+    const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
+
+    fetch(`/api/questions/random-test?phone=${encodeURIComponent(curPhone)}&session_id=${encodeURIComponent(curSessionId)}&_t=` + Date.now(), {
+        cache: 'no-store',
+        headers: {
+            'X-Client-Phone': curPhone,
+            'X-Session-ID': curSessionId
+        }
+    })
         .then(res => res.json())
         .then(data => {
             const rawList = Array.isArray(data) ? data : (data.data || []);
@@ -3299,8 +3321,8 @@ function submitTestExam() {
         }
     }
 
-    const maxAllowedErrors = totalQuestions >= 30 ? 3 : Math.floor(totalQuestions * 0.1);
-    const passed = (wrongAnswers <= maxAllowedErrors) && (correctAnswers > 0 || totalQuestions === 0);
+    // Rule: 27, 28, 29, 30 correct = PASS (Idoneo). 26 or less = FAIL (Bocciato).
+    const passed = totalQuestions >= 30 ? (correctAnswers >= 27) : (correctAnswers >= Math.ceil(totalQuestions * 0.9));
 
     const txtGiusto = document.getElementById('txt-giusto');
     const txtSbagliato = document.getElementById('txt-sbagliato');
@@ -3541,7 +3563,8 @@ function loadTestResultsDetailScreen() {
         }
     }
 
-    const passed = wrongAnswers <= 4;
+    // Rule: 27, 28, 29, 30 correct = PASS (Idoneo). 26 or less = FAIL (Bocciato).
+    const passed = totalQuestions >= 30 ? (correctAnswers >= 27) : (correctAnswers >= Math.ceil(totalQuestions * 0.9));
     const emojiEl = document.getElementById('detail-outcome-emoji');
     const titleEl = document.getElementById('detail-outcome-title');
     const statusEl = document.getElementById('detail-outcome-status');
@@ -6441,7 +6464,8 @@ function submitSchedaExam() {
 }
 
 function showSchedaExamResultModal(correct, wrong, unanswered, total) {
-    const passed = wrong <= 4;
+    // Rule: 27, 28, 29, 30 correct = PASS (Idoneo). 26 or less = FAIL (Bocciato).
+    const passed = total >= 30 ? (correct >= 27) : (correct >= Math.ceil(total * 0.9));
 
     const txtGiusto = document.getElementById('txt-giusto');
     const txtSbagliato = document.getElementById('txt-sbagliato');

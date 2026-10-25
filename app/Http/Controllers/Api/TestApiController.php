@@ -14,21 +14,59 @@ class TestApiController extends Controller
 {
     use ResolvesUserSession;
 
+use App\Models\ExamSheet;
+use App\Models\User;
+use App\Models\AppClient;
+
     /**
      * Get random practice questions or chapter questions.
+     * Excludes correctly answered questions for the user; auto-resets when pool has < limit remaining.
      */
     public function getQuestions(Request $request)
     {
-        $limit = $request->get('limit', 30);
+        $limit = (int)($request->get('limit', 30));
         $chapter = $request->get('chapter') ?: $request->get('chapter_id');
+
+        $context = $this->resolveUserContext($request);
+        $userIds = $context['user_ids'];
+        $sessionIds = $context['session_ids'];
 
         $query = Question::query();
         if ($chapter) {
-            $query->where('chapter', $chapter)->orWhere('chapter_id', $chapter);
-        } else {
-            $query->inRandomOrder();
+            $query->where(function($q) use ($chapter) {
+                $q->where('chapter', $chapter)->orWhere('chapter_id', $chapter);
+            });
         }
 
+        // Exclude correctly answered questions for this user/session
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $correctQuery = UserMcqResult::where('is_correct', 1)
+                ->where(function($q) {
+                    $q->where('question_type', 'argomenti')->orWhereNull('question_type');
+                });
+
+            $correctQuery->where(function($sq) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $sq->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    $sq->orWhereIn('session_id', $sessionIds);
+                }
+            });
+
+            $correctIds = $correctQuery->pluck('question_id')->toArray();
+
+            // Check remaining pool count
+            $countQuery = clone $query;
+            $remaining = $countQuery->whereNotIn('id', $correctIds)->count();
+
+            // Only exclude if at least $limit questions remain, otherwise auto-cycle/reset
+            if ($remaining >= $limit) {
+                $query->whereNotIn('id', $correctIds);
+            }
+        }
+
+        $query->inRandomOrder();
         $questions = $query->limit($limit)->get();
 
         return response()->json([
@@ -224,7 +262,76 @@ class TestApiController extends Controller
 
         $finalCorrect = $rawCorrectCount !== null ? (int)$rawCorrectCount : $calculatedCorrect;
         $finalWrong = $rawWrongCount !== null ? (int)$rawWrongCount : $calculatedWrong;
-        $isPassed = $finalWrong <= 3;
+        // User Rule: 27, 28, 29, 30 correct = Pass (Promosso/Idoneo). 26 or less = Fail (Bocciato).
+        $isPassed = ($totalQuestions >= 30) ? ($finalCorrect >= 27) : ($finalCorrect >= ceil($totalQuestions * 0.9));
+
+        if ($isPassed && $totalQuestions >= 30) {
+            try {
+                $studentName = $request->input('student_name') ?: $request->input('name');
+                $avatar = $request->input('avatar');
+                $motorizzazione = $request->input('motorizzazione') ?: 'Motorizzazione Civile';
+
+                if (!$studentName || $studentName === 'Candidato Patente B') {
+                    if ($userId) {
+                        $u = User::find($userId);
+                        if ($u) {
+                            $studentName = trim($u->name ?: ($u->first_name . ' ' . $u->last_name));
+                            if (!$avatar) $avatar = $u->avatar;
+                        }
+                    }
+                    if (!$studentName || $studentName === 'Candidato Patente B') {
+                        $appClient = AppClient::where('session_id', $sessionId)->orWhere('phone', $request->input('phone'))->first();
+                        if ($appClient) {
+                            $studentName = trim($appClient->name ?: $studentName);
+                            if (!$avatar) $avatar = $appClient->avatar;
+                            if (!empty($appClient->city)) $motorizzazione = 'Motorizzazione di ' . $appClient->city;
+                        }
+                    }
+                }
+
+                if (!$studentName) {
+                    $studentName = 'Candidato #' . rand(1000, 9999);
+                }
+
+                $formattedSheetAnswers = [];
+                if (is_array($answers)) {
+                    foreach ($answers as $idx => $ans) {
+                        if (is_array($ans)) {
+                            $formattedSheetAnswers[] = [
+                                'id' => $ans['question_id'] ?? ($ans['id'] ?? ($idx + 1)),
+                                'type' => $ans['question_type'] ?? ($ans['type'] ?? 'argomenti'),
+                                'italian' => $ans['italian'] ?? ($ans['statement'] ?? ''),
+                                'bangla' => $ans['bangla'] ?? ($ans['translation'] ?? ''),
+                                'is_vero' => isset($ans['is_vero']) ? ($ans['is_vero'] === true || $ans['is_vero'] === 1 || $ans['is_vero'] === '1') : true,
+                                'user_answer' => $ans['user_answer'] ?? null,
+                                'is_correct' => $ans['is_correct'] ?? false,
+                                'image' => $ans['image'] ?? null,
+                                'audio' => $ans['audio'] ?? null,
+                                'vocabulary' => $ans['vocabulary'] ?? [],
+                            ];
+                        }
+                    }
+                }
+
+                ExamSheet::create([
+                    'student_name' => $studentName,
+                    'avatar' => $avatar,
+                    'motorizzazione' => $motorizzazione,
+                    'exam_date' => now()->format('d/m/Y'),
+                    'status' => 'completed',
+                    'is_passed' => true,
+                    'user_id' => $userId,
+                    'session_id' => $sessionId,
+                    'correct_count' => $finalCorrect,
+                    'wrong_count' => $finalWrong,
+                    'unanswered_count' => max(0, $totalQuestions - $finalCorrect - $finalWrong),
+                    'total_count' => $totalQuestions,
+                    'answers' => $formattedSheetAnswers
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning("Could not auto-record passed exam in submitResult: " . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'status' => 'success',

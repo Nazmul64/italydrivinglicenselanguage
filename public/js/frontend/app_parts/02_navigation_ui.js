@@ -1014,7 +1014,16 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (!testQuestions || testQuestions.length === 0) {
             const testIt = document.getElementById('test-question-it');
             if (testIt) testIt.innerText = 'Caricamento delle domande...';
-            fetch('/api/questions/random-test?_t=' + Date.now(), { cache: 'no-store' })
+            const curPhone = localStorage.getItem('app_client_phone') || (typeof currentClientPhone !== 'undefined' ? currentClientPhone : '') || '';
+            const curSessionId = localStorage.getItem('app_client_session_id') || (typeof currentClientSessionId !== 'undefined' ? currentClientSessionId : '') || '';
+
+            fetch(`/api/questions/random-test?phone=${encodeURIComponent(curPhone)}&session_id=${encodeURIComponent(curSessionId)}&_t=` + Date.now(), {
+                cache: 'no-store',
+                headers: {
+                    'X-Client-Phone': curPhone,
+                    'X-Session-ID': curSessionId
+                }
+            })
                 .then(r => r.json())
                 .then(data => {
                     if (data && data.length > 0) {

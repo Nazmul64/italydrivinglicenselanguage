@@ -564,8 +564,66 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
             ->header('Expires', '0');
     });
 
-    Route::get('/api/questions/random-test', function () {
-        $argomentiQuestions = \App\Models\Question::inRandomOrder()->limit(30)->get()->map(function($q) {
+    Route::get('/api/questions/random-test', function (\Illuminate\Http\Request $request) {
+        $userId = auth('sanctum')->id() ?: (auth()->check() ? auth()->id() : $request->get('user_id'));
+        $sessionId = $request->header('X-Session-ID') 
+            ?: $request->header('X-Client-Session-ID') 
+            ?: $request->get('session_id') 
+            ?: session()->getId();
+        $phone = $request->header('X-Client-Phone') ?: $request->get('phone');
+
+        $userIds = $userId ? [$userId] : [];
+        $sessionIds = $sessionId ? [$sessionId] : [];
+
+        if ($phone) {
+            $userByPhone = \App\Models\User::where('phone', $phone)->first();
+            if ($userByPhone && !in_array($userByPhone->id, $userIds)) {
+                $userIds[] = $userByPhone->id;
+            }
+            $clients = \App\Models\AppClient::where('phone', $phone)->get();
+            foreach ($clients as $client) {
+                if ($client->session_id && !in_array($client->session_id, $sessionIds)) {
+                    $sessionIds[] = $client->session_id;
+                }
+                if ($client->user_id && !in_array($client->user_id, $userIds)) {
+                    $userIds[] = $client->user_id;
+                }
+            }
+        }
+
+        // Query questions already answered correctly
+        $correctQuery = \App\Models\UserMcqResult::query()->where('is_correct', 1);
+        if (!empty($userIds) || !empty($sessionIds)) {
+            $correctQuery->where(function ($q) use ($userIds, $sessionIds) {
+                if (!empty($userIds)) {
+                    $q->whereIn('user_id', $userIds);
+                }
+                if (!empty($sessionIds)) {
+                    $q->orWhereIn('session_id', $sessionIds);
+                }
+            });
+        }
+        $correctArgomentiIds = (clone $correctQuery)->where(function($q) {
+            $q->where('question_type', 'argomenti')->orWhereNull('question_type');
+        })->pluck('question_id')->toArray();
+
+        $correctCartelliIds = (clone $correctQuery)->where('question_type', 'cartelli')
+            ->pluck('question_id')->toArray();
+
+        $remainingArgomenti = \App\Models\Question::whereNotIn('id', $correctArgomentiIds)->count();
+        $remainingCartelli = \App\Models\CartelloMcq::where('status', true)->whereNotIn('id', $correctCartelliIds)->count();
+
+        // If pool is exhausted or fewer than 30 total remaining, cycle/reset
+        if (($remainingArgomenti + $remainingCartelli) < 30) {
+            $correctArgomentiIds = [];
+            $correctCartelliIds = [];
+        }
+
+        $argomentiQuery = \App\Models\Question::query();
+        if (!empty($correctArgomentiIds)) {
+            $argomentiQuery->whereNotIn('id', $correctArgomentiIds);
+        }
+        $argomentiQuestions = $argomentiQuery->inRandomOrder()->limit(30)->get()->map(function($q) {
             return [
                 'id' => $q->id,
                 'type' => 'argomenti',
@@ -579,7 +637,11 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
             ];
         });
 
-        $cartelliQuestions = \App\Models\CartelloMcq::where('status', true)->inRandomOrder()->limit(30)->get()->map(function($q) {
+        $cartelliQuery = \App\Models\CartelloMcq::where('status', true);
+        if (!empty($correctCartelliIds)) {
+            $cartelliQuery->whereNotIn('id', $correctCartelliIds);
+        }
+        $cartelliQuestions = $cartelliQuery->inRandomOrder()->limit(30)->get()->map(function($q) {
             return [
                 'id' => $q->id,
                 'type' => 'cartelli',
@@ -594,6 +656,23 @@ Route::middleware(\App\Http\Middleware\EnsureLicenseIsActive::class)->group(func
         });
 
         $combined = $argomentiQuestions->concat($cartelliQuestions)->shuffle()->take(30)->values();
+        if ($combined->count() < 30) {
+            $fallback = \App\Models\Question::inRandomOrder()->limit(30)->get()->map(function($q) {
+                return [
+                    'id' => $q->id,
+                    'type' => 'argomenti',
+                    'italian' => $q->italian,
+                    'bangla' => $q->bangla,
+                    'is_vero' => $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1,
+                    'image' => $q->image,
+                    'audio' => $q->audio,
+                    'video' => $q->video,
+                    'vocabulary' => $q->vocabulary ?? []
+                ];
+            });
+            $combined = $combined->concat($fallback)->unique('id')->take(30)->values();
+        }
+
         return response()->json($combined)
             ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
             ->header('Pragma', 'no-cache')

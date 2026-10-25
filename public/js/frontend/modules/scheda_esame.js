@@ -421,7 +421,8 @@ function submitSchedaQuiz() {
     }
 
     const total = questions.length;
-    const passed = wrong <= 3;
+    // User Rule: 27, 28, 29, 30 correct = PASS (Promosso). 26 or less = FAIL (Bocciato).
+    const passed = total >= 30 ? (correct >= 27) : (correct >= Math.ceil(total * 0.9));
 
     alert(`ফলাফল:\nসঠিক: ${correct}\nভুল: ${wrong}\nউত্তর না দেওয়া: ${unanswered}\nমোট: ${total}\nস্ট্যাটাস: ${passed ? '✅ পাস করেছেন (PROMOSSO)' : '❌ ফেল করেছেন (BOCCIATO)'}`);
     exitSchedaQuizView();

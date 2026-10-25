@@ -817,7 +817,8 @@ function submitSchedaExam() {
 }
 
 function showSchedaExamResultModal(correct, wrong, unanswered, total) {
-    const passed = wrong <= 4;
+    // User Rule: 27, 28, 29, 30 correct = PASS (Idoneo). 26 or less = FAIL (Bocciato).
+    const passed = total >= 30 ? (correct >= 27) : (correct >= Math.ceil(total * 0.9));
 
     const txtGiusto = document.getElementById('txt-giusto');
     const txtSbagliato = document.getElementById('txt-sbagliato');
