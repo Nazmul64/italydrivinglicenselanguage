@@ -7,16 +7,15 @@ use App\Models\Question;
 use App\Models\CartelloMcq;
 use App\Models\Chapter;
 use App\Models\UserMcqResult;
+use App\Models\ExamSheet;
+use App\Models\User;
+use App\Models\AppClient;
 use App\Traits\ResolvesUserSession;
 use Illuminate\Http\Request;
 
 class TestApiController extends Controller
 {
     use ResolvesUserSession;
-
-use App\Models\ExamSheet;
-use App\Models\User;
-use App\Models\AppClient;
 
     /**
      * Get random practice questions or chapter questions.

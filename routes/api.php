@@ -381,6 +381,10 @@ Route::get('/test/questions', [TestApiController::class, 'getQuestions']);
 Route::match(['get', 'post'], '/test/submit', [TestApiController::class, 'submitResult']);
 Route::get('/scheda-esame/generate', [SchedaEsameApiController::class, 'generateSheet']);
 Route::match(['get', 'post'], '/scheda-esame/submit', [SchedaEsameApiController::class, 'submitExam']);
+Route::get('/scheda-esame/passed-list', [SchedaEsameApiController::class, 'getPassedExams']);
+Route::get('/scheda-esame/sheet/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+Route::get('/exams', [SchedaEsameApiController::class, 'getPassedExams']);
+Route::get('/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
 Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
 
 Route::get('/home-cards', function () {

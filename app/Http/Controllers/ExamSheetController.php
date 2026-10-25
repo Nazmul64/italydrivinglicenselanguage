@@ -19,12 +19,19 @@ class ExamSheetController extends Controller
     public function getExams(Request $request)
     {
         $search = $request->query('search');
-        $query = ExamSheet::query();
+        $query = ExamSheet::whereNotIn('student_name', [
+            'MD. Nazmul Hassan',
+            'Farhana Akter',
+            'Rashidul Islam',
+            'Tanvir Ahmed',
+        ]);
 
         if ($search) {
-            $query->where('student_name', 'like', "%{$search}%")
-                  ->orWhere('motorizzazione', 'like', "%{$search}%")
-                  ->orWhere('id', 'like', "%{$search}%");
+            $query->where(function($sq) use ($search) {
+                $sq->where('student_name', 'like', "%{$search}%")
+                   ->orWhere('motorizzazione', 'like', "%{$search}%")
+                   ->orWhere('id', 'like', "%{$search}%");
+            });
         }
 
         $exams = $query->orderBy('id', 'desc')->get()->map(function($ex) {
@@ -35,7 +42,7 @@ class ExamSheetController extends Controller
     }
 
     /**
-     * Get single exam details (Initializes questions if new).
+     * Get single exam details (Initializes questions if new, enriches text if empty).
      */
     public function getExamDetails($id)
     {
@@ -43,17 +50,21 @@ class ExamSheetController extends Controller
 
         // If it's a new exam and questions are not yet populated in the JSON
         if ($exam->status === 'new' && (empty($exam->answers) || count($exam->answers) === 0)) {
-            // Fetch 30 random questions
             $questions = Question::inRandomOrder()->limit(30)->get();
             
             $questionsArray = [];
             foreach ($questions as $q) {
                 $questionsArray[] = [
                     'id' => $q->id,
+                    'type' => 'argomenti',
                     'italian' => $q->italian,
                     'bangla' => $q->bangla,
                     'is_vero' => ($q->is_vero == 1 || $q->is_vero == '1' || $q->is_vero === true),
-                    'user_answer' => null
+                    'user_answer' => null,
+                    'image' => !empty($q->image) ? \App\Helpers\ImageHelper::formatImageUrl($q->image) : null,
+                    'audio' => $q->audio,
+                    'video' => $q->video,
+                    'vocabulary' => $q->vocabulary ?? []
                 ];
             }
 
@@ -62,9 +73,54 @@ class ExamSheetController extends Controller
                 'unanswered_count' => count($questionsArray),
                 'answers' => $questionsArray
             ]);
+        } else {
+            // Enrich answers if text is empty
+            $answers = $exam->answers;
+            if (is_array($answers)) {
+                $needsUpdate = false;
+                foreach ($answers as &$a) {
+                    $qId = $a['id'] ?? ($a['question_id'] ?? null);
+                    $qType = $a['type'] ?? ($a['question_type'] ?? 'argomenti');
+
+                    if (empty($a['italian']) || empty($a['bangla'])) {
+                        if ($qType === 'cartelli') {
+                            $c = \App\Models\CartelloMcq::find($qId);
+                            if ($c) {
+                                if (empty($a['italian'])) $a['italian'] = $c->question;
+                                if (empty($a['bangla'])) $a['bangla'] = $c->bn_question;
+                                if (empty($a['image'])) $a['image'] = $c->image;
+                                if (empty($a['audio'])) $a['audio'] = $c->voice;
+                                $needsUpdate = true;
+                            }
+                        }
+                        if (empty($a['italian']) || empty($a['bangla'])) {
+                            $q = Question::find($qId);
+                            if ($q) {
+                                if (empty($a['italian'])) $a['italian'] = $q->italian;
+                                if (empty($a['bangla'])) $a['bangla'] = $q->bangla;
+                                if (empty($a['image'])) $a['image'] = $q->image;
+                                if (empty($a['audio'])) $a['audio'] = $q->audio;
+                                if (empty($a['vocabulary'])) $a['vocabulary'] = $q->vocabulary ?? [];
+                                $needsUpdate = true;
+                            }
+                        }
+                    }
+
+                    if (!empty($a['image'])) {
+                        $a['image'] = \App\Helpers\ImageHelper::formatImageUrl($a['image']);
+                    }
+                }
+                unset($a);
+
+                if ($needsUpdate) {
+                    $exam->update(['answers' => $answers]);
+                }
+            }
         }
 
-        return response()->json($exam);
+        $resData = $exam->toArray();
+        $resData['questions'] = $exam->answers;
+        return response()->json($resData);
     }
 
     /**

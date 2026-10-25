@@ -347,22 +347,52 @@ class SchedaEsameApiController extends Controller
                     $studentName = 'Candidato #' . rand(1000, 9999);
                 }
 
-                // Format answers for ExamSheet questions list
+                // Format answers for ExamSheet questions list with fallback DB lookup if text was omitted by client
                 $formattedSheetAnswers = [];
                 if (is_array($answers)) {
                     foreach ($answers as $idx => $ans) {
                         if (is_array($ans)) {
+                            $qId = $ans['question_id'] ?? ($ans['id'] ?? ($idx + 1));
+                            $qType = $ans['question_type'] ?? ($ans['type'] ?? 'argomenti');
+                            $itemItalian = $ans['italian'] ?? ($ans['statement'] ?? '');
+                            $itemBangla = $ans['bangla'] ?? ($ans['translation'] ?? '');
+                            $itemImage = $ans['image'] ?? null;
+                            $itemAudio = $ans['audio'] ?? ($ans['voice'] ?? null);
+                            $itemVocab = $ans['vocabulary'] ?? [];
+
+                            if (empty($itemItalian) || empty($itemBangla)) {
+                                if ($qType === 'cartelli') {
+                                    $c = CartelloMcq::find($qId);
+                                    if ($c) {
+                                        if (empty($itemItalian)) $itemItalian = $c->question;
+                                        if (empty($itemBangla)) $itemBangla = $c->bn_question;
+                                        if (empty($itemImage)) $itemImage = $c->image;
+                                        if (empty($itemAudio)) $itemAudio = $c->voice;
+                                    }
+                                }
+                                if (empty($itemItalian) || empty($itemBangla)) {
+                                    $q = Question::find($qId);
+                                    if ($q) {
+                                        if (empty($itemItalian)) $itemItalian = $q->italian;
+                                        if (empty($itemBangla)) $itemBangla = $q->bangla;
+                                        if (empty($itemImage)) $itemImage = $q->image;
+                                        if (empty($itemAudio)) $itemAudio = $q->audio;
+                                        if (empty($itemVocab)) $itemVocab = $q->vocabulary ?? [];
+                                    }
+                                }
+                            }
+
                             $formattedSheetAnswers[] = [
-                                'id' => $ans['question_id'] ?? ($ans['id'] ?? ($idx + 1)),
-                                'type' => $ans['question_type'] ?? ($ans['type'] ?? 'argomenti'),
-                                'italian' => $ans['italian'] ?? ($ans['statement'] ?? ''),
-                                'bangla' => $ans['bangla'] ?? ($ans['translation'] ?? ''),
+                                'id' => $qId,
+                                'type' => $qType,
+                                'italian' => $itemItalian,
+                                'bangla' => $itemBangla,
                                 'is_vero' => isset($ans['is_vero']) ? ($ans['is_vero'] === true || $ans['is_vero'] === 1 || $ans['is_vero'] === '1') : true,
                                 'user_answer' => $ans['user_answer'] ?? null,
                                 'is_correct' => $ans['is_correct'] ?? false,
-                                'image' => $ans['image'] ?? null,
-                                'audio' => $ans['audio'] ?? null,
-                                'vocabulary' => $ans['vocabulary'] ?? [],
+                                'image' => $itemImage,
+                                'audio' => $itemAudio,
+                                'vocabulary' => $itemVocab,
                             ];
                         }
                     }
@@ -410,7 +440,12 @@ class SchedaEsameApiController extends Controller
         $query = ExamSheet::where(function($q) {
             $q->where('is_passed', true)
               ->orWhere('status', 'completed');
-        });
+        })->whereNotIn('student_name', [
+            'MD. Nazmul Hassan',
+            'Farhana Akter',
+            'Rashidul Islam',
+            'Tanvir Ahmed',
+        ]);
 
         if ($search) {
             $query->where(function($sq) use ($search) {
@@ -455,7 +490,7 @@ class SchedaEsameApiController extends Controller
         }
 
         $answers = $exam->answers;
-        // If answers are empty, populate from random questions if needed
+        // If answers are empty, populate from random questions
         if (empty($answers) || !is_array($answers) || count($answers) === 0) {
             $questions = Question::inRandomOrder()->limit(30)->get();
             $answers = [];
@@ -475,11 +510,44 @@ class SchedaEsameApiController extends Controller
             }
             $exam->update(['answers' => $answers]);
         } else {
-            // Ensure image URLs are formatted
+            // Enrich any missing question details (e.g. for exam 6244)
+            $needsUpdate = false;
             foreach ($answers as &$a) {
+                $qId = $a['id'] ?? ($a['question_id'] ?? null);
+                $qType = $a['type'] ?? ($a['question_type'] ?? 'argomenti');
+
+                if (empty($a['italian']) || empty($a['bangla'])) {
+                    if ($qType === 'cartelli') {
+                        $c = CartelloMcq::find($qId);
+                        if ($c) {
+                            if (empty($a['italian'])) $a['italian'] = $c->question;
+                            if (empty($a['bangla'])) $a['bangla'] = $c->bn_question;
+                            if (empty($a['image'])) $a['image'] = $c->image;
+                            if (empty($a['audio'])) $a['audio'] = $c->voice;
+                            $needsUpdate = true;
+                        }
+                    }
+                    if (empty($a['italian']) || empty($a['bangla'])) {
+                        $q = Question::find($qId);
+                        if ($q) {
+                            if (empty($a['italian'])) $a['italian'] = $q->italian;
+                            if (empty($a['bangla'])) $a['bangla'] = $q->bangla;
+                            if (empty($a['image'])) $a['image'] = $q->image;
+                            if (empty($a['audio'])) $a['audio'] = $q->audio;
+                            if (empty($a['vocabulary'])) $a['vocabulary'] = $q->vocabulary ?? [];
+                            $needsUpdate = true;
+                        }
+                    }
+                }
+
                 if (!empty($a['image'])) {
                     $a['image'] = \App\Helpers\ImageHelper::formatImageUrl($a['image']);
                 }
+            }
+            unset($a);
+
+            if ($needsUpdate) {
+                $exam->update(['answers' => $answers]);
             }
         }
 
@@ -494,7 +562,9 @@ class SchedaEsameApiController extends Controller
             'wrong_count' => $exam->wrong_count,
             'unanswered_count' => $exam->unanswered_count,
             'total_count' => $exam->total_count ?: count($answers),
-            'questions' => $answers
+            'questions' => $answers,
+            'answers' => $answers,
+            'data' => $answers
         ]);
     }
 }
