@@ -17,6 +17,11 @@
         </div>
 
         <div style="display: flex; gap: 12px; align-items: center;">
+            <!-- Live Passed Exam Header Button -->
+            <div onclick="openScreen('scheda-esame', 'Scheda Live Exam')" title="Live Passed Exams (লাইভ এক্সাম পাস)" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #16A34A, #22C55E); color: #ffffff; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35); transition: transform 0.2s ease;">
+                <i class="fa-solid fa-file-circle-check" style="font-size: 17px;"></i>
+            </div>
+
             <!-- Live Support Chat Button with Unread Badge -->
             <div class="chat-header-btn-wrapper" id="chat-header-btn" onclick="toggleGuestChat(true)" title="Live Chat Support" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: #4CAF50; color: #ffffff; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.35); transition: transform 0.2s ease;">
                 <i class="fa-solid fa-headset" style="font-size: 18px;"></i>

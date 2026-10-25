@@ -23,7 +23,7 @@
   <!-- Top Header Bar -->
   <rect x="165" y="40" width="270" height="60" rx="20" fill="url(#headerGrad)"/>
   <rect x="165" y="80" width="270" height="20" fill="url(#headerGrad)"/>
-  <text x="300" y="78" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="19" fill="#FFFFFF" letter-spacing="2">SCHEDA ESAME</text>
+  <text x="300" y="78" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="18" fill="#FFFFFF" letter-spacing="1">LIVE EXAM PASS</text>
   
   <!-- Question Checkboxes -->
   <g transform="translate(195, 125)">
