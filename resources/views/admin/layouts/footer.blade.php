@@ -7,6 +7,7 @@
 <script src="{{ asset('js/admin/modules/manuales.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/dizionario.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/exams.js') }}?v={{ time() }}"></script>
+<script src="{{ asset('js/admin/modules/live_passed_exams.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/chat.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/content.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/admin/modules/system.js') }}?v={{ time() }}"></script>

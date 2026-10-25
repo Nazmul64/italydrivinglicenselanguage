@@ -21,21 +21,32 @@
         </div>
     </div>
 
-    <!-- 2. SCHEDA ESAME LIST VIEW (Matching Screenshot 3) -->
+    <!-- 2. SCHEDA ESAME LIST VIEW (Matching Screenshot 1 & 3) -->
     <div id="scheda-list-view" style="display: block; padding: 16px;">
-        <!-- Top Header Bar -->
-        <div style="background: linear-gradient(135deg, #DC2626, #B91C1C); padding: 14px 16px; margin: -16px -16px 16px -16px; color: white; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(220,38,38,0.25);">
-            <i class="fa-solid fa-arrow-left" onclick="openScreen('screen-home')" style="cursor: pointer; font-size: 18px;"></i>
-            <h2 style="margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.3px;">Scheda Esame</h2>
+        <!-- Top Green Header Bar Matching App & Screenshot 1 -->
+        <div style="background: linear-gradient(135deg, #22C55E, #16A34A); padding: 14px 16px 0 16px; margin: -16px -16px 16px -16px; color: white; box-shadow: 0 4px 12px rgba(34,197,94,0.25);">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                <i class="fa-solid fa-arrow-left" onclick="openScreen('home')" style="cursor: pointer; font-size: 18px;"></i>
+                <h2 style="margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.3px;">Scheda Esame</h2>
+            </div>
+            
+            <!-- Tabs Matching Screenshot 1: Nuove | Completato -->
+            <div style="display: flex; gap: 32px; padding: 0 10px;">
+                <div id="tab-scheda-nuove" onclick="switchSchedaTab('nuove')" style="padding: 8px 4px; font-weight: 800; font-size: 14px; color: #ffffff; cursor: pointer; border-bottom: 3px solid #6366F1; transition: all 0.2s;">
+                    Nuove
+                </div>
+                <div id="tab-scheda-completato" onclick="switchSchedaTab('completato')" style="padding: 8px 4px; font-weight: 800; font-size: 14px; color: rgba(255,255,255,0.75); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;">
+                    Completato
+                </div>
+            </div>
         </div>
 
-        <!-- Search Bar -->
-        <div style="position: relative; margin-bottom: 20px;">
-            <input type="text" id="scheda-search-input" oninput="filterSchedaCards()" placeholder="Search here" style="width: 100%; padding: 12px 16px 12px 42px; border-radius: 28px; border: 1.5 solid #cbd5e1; background-color: #f8fafc; color: #0f172a; font-size: 14px; font-weight: 600; outline: none; box-sizing: border-box; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
+        <!-- Search Bar Matching Screenshot 1 -->
+        <div style="position: relative; margin-bottom: 18px;">
+            <input type="text" id="scheda-search-input" oninput="filterSchedaCards()" placeholder="Search here" style="width: 100%; padding: 12px 20px; border-radius: 28px; border: 1.5px solid #e2e8f0; background-color: #ffffff; color: #0f172a; font-size: 14px; font-weight: 500; outline: none; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
         </div>
 
-        <!-- Exam Cards List Container -->
+        <!-- Exam Cards List Container Matching Screenshot 1 & 3 -->
         <div id="scheda-cards-container" style="display: flex; flex-direction: column; gap: 16px; padding-bottom: 80px;">
             <!-- Dynamic Exam Cards Loaded via JS -->
         </div>

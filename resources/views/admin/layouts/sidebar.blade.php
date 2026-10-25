@@ -54,6 +54,13 @@
             </span>
         </div>
 
+        <div class="menu-item" onclick="switchPanel('live-passed-exams')" id="menu-live-passed-exams">
+            <span class="menu-link-group">
+                <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
+                <span>Scheda Live Exam (Pass)</span>
+            </span>
+        </div>
+
         <div class="menu-item" onclick="switchPanel('file-manager')" id="menu-file-manager">
             <span class="menu-link-group">
                 <i class="fa-solid fa-folder-open"></i>

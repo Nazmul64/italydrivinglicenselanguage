@@ -1244,6 +1244,79 @@
         </div>
     </div>
 
+    <!-- Live Passed Exam (PDF Sheet) Modal -->
+    <div class="modal-overlay" id="live-passed-exam-modal" style="display: none;">
+        <div class="modal-card modal-md">
+            <div class="modal-header-row">
+                <h3 class="modal-title" id="live-passed-exam-modal-title">Add Live Passed Exam</h3>
+                <i class="fa-solid fa-xmark modal-close-btn" onclick="closeLivePassedExamModal()"></i>
+            </div>
+            
+            <form id="live-passed-exam-form" onsubmit="saveLivePassedExam(event)" enctype="multipart/form-data">
+                <input type="hidden" id="form-live-exam-id">
+                
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label class="form-label" for="form-live-exam-nome">Nome (Serial Number & Candidate Name) <span style="color:red;">*</span></label>
+                    <input type="text" class="form-control" id="form-live-exam-nome" placeholder="e.g. 6731 GOFUR A" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label class="form-label" for="form-live-exam-motorizzazione">Motorizzazione / Exam Center</label>
+                    <input type="text" class="form-control" id="form-live-exam-motorizzazione" placeholder="e.g. MODENA" value="MODENA">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="form-live-exam-date">Exam Date</label>
+                        <input type="text" class="form-control" id="form-live-exam-date" placeholder="DD/MM/YYYY" value="{{ date('d/m/Y') }}">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="form-live-exam-status">Status</label>
+                        <select class="form-control" id="form-live-exam-status">
+                            <option value="completato" selected>Completato (Passed)</option>
+                            <option value="nuove">Nuove (Scheduled)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px;">Corrette</label>
+                        <input type="number" class="form-control" id="form-live-exam-corrette" value="29" min="0" max="30">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px;">Errori</label>
+                        <input type="number" class="form-control" id="form-live-exam-errori" value="1" min="0" max="30">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px;">Non risposte</label>
+                        <input type="number" class="form-control" id="form-live-exam-non-risposte" value="0" min="0" max="30">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 11px;">Totale</label>
+                        <input type="number" class="form-control" id="form-live-exam-totale" value="30" min="1" max="50">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" for="form-live-exam-pdf">Official Exam Sheet PDF (Upload .pdf)</label>
+                    <input type="file" class="form-control" id="form-live-exam-pdf" accept="application/pdf">
+                    <div id="form-live-exam-pdf-preview" style="display: none; margin-top: 6px; font-size: 12px;">
+                        <a id="form-live-exam-pdf-link" href="#" target="_blank" style="color: #ef4444; font-weight: bold;">
+                            <i class="fa-solid fa-file-pdf"></i> View Current PDF
+                        </a>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeLivePassedExamModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-live-exam">Save Passed Exam</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- SweetAlert2 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- CKEditor 5 CDN -->

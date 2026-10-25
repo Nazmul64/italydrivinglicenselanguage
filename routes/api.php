@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\TestApiController;
 use App\Http\Controllers\Api\CartelliApiController;
 use App\Http\Controllers\Api\DizionarioApiController;
 use App\Http\Controllers\Api\SchedaEsameApiController;
+use App\Http\Controllers\Api\LivePassedExamApiController;
 use App\Http\Controllers\Api\SfidaApiController;
 use App\Http\Controllers\Api\SupportApiController;
 use App\Http\Controllers\Api\WrongMcqsApiController;
@@ -169,6 +170,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/v1/exams', [SchedaEsameApiController::class, 'getPassedExams']);
     Route::get('/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
     Route::get('/v1/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+
+    // 🎓 LIVE PASSED EXAMS (OFFICIAL STUDENT SHEETS - PDF)
+    Route::get('/live-passed-exams', [LivePassedExamApiController::class, 'index']);
+    Route::get('/v1/live-passed-exams', [LivePassedExamApiController::class, 'index']);
+    Route::get('/live-passed-exams/{id}', [LivePassedExamApiController::class, 'show']);
+    Route::get('/v1/live-passed-exams/{id}', [LivePassedExamApiController::class, 'show']);
 
     Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
     Route::get('/v1/sfida/questions', [SfidaApiController::class, 'getQuestions']);
@@ -385,6 +392,8 @@ Route::get('/scheda-esame/passed-list', [SchedaEsameApiController::class, 'getPa
 Route::get('/scheda-esame/sheet/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
 Route::get('/exams', [SchedaEsameApiController::class, 'getPassedExams']);
 Route::get('/exams/{id}', [SchedaEsameApiController::class, 'getExamSheetDetails']);
+Route::get('/live-passed-exams', [LivePassedExamApiController::class, 'index']);
+Route::get('/live-passed-exams/{id}', [LivePassedExamApiController::class, 'show']);
 Route::get('/sfida/questions', [SfidaApiController::class, 'getQuestions']);
 
 Route::get('/home-cards', function () {

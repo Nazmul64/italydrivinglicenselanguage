@@ -193,7 +193,7 @@ Route::get('/', function () {
 
 Route::get('/{screen}/{sub?}', function ($screen) {
     return view('frontend.home', getFrontendViewData());
-})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|exam-simulation|dizionario|dictionary|words|word|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
+})->where('screen', 'home|lezioni|test|argomenti|argomenti-schede|page-details|eclass|sfida|scheda-esame|scheda-live-exam|live-passed-exams|exam-simulation|dizionario|dictionary|words|word|cartelli|cartelli-schede|cartelli-page|saved-mcqs|noted-mcqs|correct-mcqs|wrong-mcqs|social|profilo|manuale|translation|test-results-detail');
 
 Route::get('/app', function () {
     return view('frontend.mobile_app', getFrontendViewData());
@@ -2496,6 +2496,13 @@ Route::middleware([\App\Http\Middleware\AdminAuth::class])->group(function () {
     Route::get('/admin/api/exams', [\App\Http\Controllers\ExamSheetController::class, 'getExams']);
     Route::post('/admin/api/exams/store', [\App\Http\Controllers\ExamSheetController::class, 'storeExam']);
     Route::post('/admin/api/exams/delete/{id}', [\App\Http\Controllers\ExamSheetController::class, 'deleteExam']);
+
+    // Admin Live Passed Exams (Official PDF Sheets) CRUD Endpoints
+    Route::get('/admin/api/live-passed-exams', [\App\Http\Controllers\LivePassedExamController::class, 'adminIndex']);
+    Route::post('/admin/api/live-passed-exams/store', [\App\Http\Controllers\LivePassedExamController::class, 'store']);
+    Route::post('/admin/api/live-passed-exams/update/{id}', [\App\Http\Controllers\LivePassedExamController::class, 'update']);
+    Route::post('/admin/api/live-passed-exams/delete/{id}', [\App\Http\Controllers\LivePassedExamController::class, 'destroy']);
+    Route::delete('/admin/api/live-passed-exams/{id}', [\App\Http\Controllers\LivePassedExamController::class, 'destroy']);
 
     // Admin Home Cards CRUD
     Route::get('/admin/api/home-cards', [\App\Http\Controllers\DynamicContentController::class, 'getHomeCards']);

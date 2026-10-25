@@ -678,6 +678,48 @@
             </table>
         </div>
     </div>
+
+    <!-- PANEL: Live Passed Exams CRUD (Official Student PDF Sheets) -->
+    <div id="panel-live-passed-exams" class="crud-panel">
+        <div class="welcome-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h2 class="welcome-title">Live Pass Exams (PDF Sheets)</h2>
+                    <p class="welcome-subtitle">Upload official Italian driving license passed exam sheets (PDF) and manage candidate scores.</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAddLivePassedExamModal()">
+                    <i class="fa-solid fa-plus"></i> Add Live Passed Exam
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Live Passed Exams -->
+        <div style="margin-bottom: 20px; max-width: 380px; position: relative;">
+            <input type="text" class="form-control" id="admin-live-exam-search-input" oninput="loadLivePassedExamsList()" placeholder="Search candidates, ID, Motorizzazione..." style="padding-left: 36px;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 13px;"></i>
+        </div>
+
+        <div class="data-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">ID</th>
+                        <th>Nome (Serial & Candidate)</th>
+                        <th>Motorizzazione</th>
+                        <th style="width: 130px;">Exam Date</th>
+                        <th style="width: 100px; text-align: center;">Status</th>
+                        <th style="width: 180px; text-align: center;">Risultato (C/E/N/T)</th>
+                        <th style="width: 120px; text-align: center;">PDF Sheet</th>
+                        <th style="width: 140px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-live-exams-table-body">
+                    <!-- Injected dynamically via live_passed_exams.js -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- PANEL 7: Admin Sliders CRUD -->
     <!-- PANEL 7: Banner Sliders CRUD -->
     <div id="panel-sliders" class="crud-panel">

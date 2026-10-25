@@ -117,6 +117,8 @@ function switchPanel(panelId) {
         if (typeof fetchCategories === 'function') fetchCategories();
     } else if (panelId === 'mcq-exams') {
         if (typeof loadAdminExamsList === 'function') loadAdminExamsList();
+    } else if (panelId === 'live-passed-exams') {
+        if (typeof loadLivePassedExamsList === 'function') loadLivePassedExamsList();
     } else if (panelId === 'dizionario') {
         if (typeof fetchDizionario === 'function') fetchDizionario(1);
     } else if (panelId === 'manuale') {

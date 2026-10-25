@@ -1375,18 +1375,23 @@ const SCREEN_TITLES = {
 };
 
 function openScreen(screenId, headerTitle, skipPushState = false) {
-    if (!currentClientActive && screenId !== 'home') {
+    let mappedScreenId = screenId;
+    if (screenId === 'scheda-live-exam' || screenId === 'live-passed-exams' || screenId === 'scheda_esame') {
+        mappedScreenId = 'scheda-esame';
+    }
+
+    if (!currentClientActive && mappedScreenId !== 'home' && mappedScreenId !== 'scheda-esame') {
         const lockEl = document.getElementById('app-activation-lock');
         if (lockEl) lockEl.style.display = 'flex';
         return;
     }
 
-    const resolvedTitle = headerTitle || SCREEN_TITLES[screenId] || 'mbanglapatenteb';
+    const resolvedTitle = headerTitle || SCREEN_TITLES[screenId] || SCREEN_TITLES[mappedScreenId] || 'mbanglapatenteb';
 
     const screens = document.querySelectorAll('.screen');
     screens.forEach(s => s.classList.remove('active'));
 
-    const targetScreen = document.getElementById(`screen-${screenId}`);
+    const targetScreen = document.getElementById(`screen-${mappedScreenId}`);
     if (targetScreen) {
         targetScreen.classList.add('active');
     }
@@ -1475,7 +1480,7 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (typeof initSocialModule === 'function') initSocialModule();
     } else if (screenId === 'translation') {
         if (typeof initTranslationModule === 'function') initTranslationModule();
-    } else if (screenId === 'scheda-esame') {
+    } else if (screenId === 'scheda-esame' || mappedScreenId === 'scheda-esame') {
         if (typeof loadSchedaEsameModule === 'function') loadSchedaEsameModule();
     } else if (screenId === 'dizionario') {
         if (typeof initDictionary === 'function') initDictionary();

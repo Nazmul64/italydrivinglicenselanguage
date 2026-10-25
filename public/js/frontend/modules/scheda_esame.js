@@ -20,29 +20,47 @@ function closeSchedaInfoModal() {
     localStorage.setItem('scheda_info_seen', 'true');
 }
 
+let currentSchedaTab = 'nuove'; // 'nuove' or 'completato'
+
+function switchSchedaTab(tab) {
+    currentSchedaTab = tab;
+    const tabNuove = document.getElementById('tab-scheda-nuove');
+    const tabComp = document.getElementById('tab-scheda-completato');
+    if (tabNuove && tabComp) {
+        if (tab === 'nuove') {
+            tabNuove.style.color = '#ffffff';
+            tabNuove.style.borderBottom = '3px solid #6366F1';
+            tabComp.style.color = 'rgba(255,255,255,0.75)';
+            tabComp.style.borderBottom = '3px solid transparent';
+        } else {
+            tabComp.style.color = '#ffffff';
+            tabComp.style.borderBottom = '3px solid #6366F1';
+            tabNuove.style.color = 'rgba(255,255,255,0.75)';
+            tabNuove.style.borderBottom = '3px solid transparent';
+        }
+    }
+    loadSchedaEsameModule();
+}
+
 function loadSchedaEsameModule() {
     const container = document.getElementById('scheda-cards-container');
     if (container) {
-        container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i><br>Caricamento schede esame...</div>`;
+        container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px; color: #22c55e;"></i><br>Caricamento schede esame superati...</div>`;
     }
 
-    // Check if user has seen info modal, otherwise show automatically
-    if (!localStorage.getItem('scheda_info_seen')) {
-        showSchedaInfoModal();
-    }
-
-    fetch('/api/v1/scheda-esame/generate?_t=' + Date.now(), { cache: 'no-store' })
+    fetch('/api/v1/live-passed-exams?status=' + encodeURIComponent(currentSchedaTab) + '&_t=' + Date.now(), { cache: 'no-store' })
         .then(res => res.json())
         .then(resData => {
-            const questions = resData.data || resData || [];
-            allSchedaExamsData = Array.isArray(questions) ? questions : [];
+            const list = Array.isArray(resData.data) ? resData.data : (Array.isArray(resData) ? resData : []);
+            allSchedaExamsData = list;
             renderSchedaExamCards();
         })
         .catch(err => {
-            fetch('/api/exams?_t=' + Date.now(), { cache: 'no-store' })
+            console.warn("Live passed exams fetch error, trying fallback:", err);
+            fetch('/api/live-passed-exams?_t=' + Date.now(), { cache: 'no-store' })
                 .then(res => res.json())
                 .then(data => {
-                    allSchedaExamsData = Array.isArray(data) ? data : (data.data || []);
+                    allSchedaExamsData = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
                     renderSchedaExamCards();
                 })
                 .catch(err2 => {
@@ -68,13 +86,14 @@ function renderSchedaExamCards() {
 
     const filtered = allSchedaExamsData.filter(ex => {
         if (!searchVal) return true;
-        const name = (ex.student_name || '').toLowerCase();
+        const name = (ex.nome || ex.student_name || '').toLowerCase();
         const moto = (ex.motorizzazione || '').toLowerCase();
-        return name.includes(searchVal) || moto.includes(searchVal);
+        const dateStr = (ex.exam_date || '').toLowerCase();
+        return name.includes(searchVal) || moto.includes(searchVal) || dateStr.includes(searchVal);
     });
 
     if (filtered.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px; font-weight: bold; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0;">Nessuna scheda trovata.</div>`;
+        container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px; font-weight: bold; background: #ffffff; border-radius: 20px; border: 1.5px solid #e2e8f0;">Nessuna scheda trovata per "${searchVal || currentSchedaTab}".</div>`;
         return;
     }
 
@@ -82,45 +101,58 @@ function renderSchedaExamCards() {
         const card = document.createElement('div');
         card.style.backgroundColor = '#ffffff';
         card.style.border = '1.5px solid #e2e8f0';
-        card.style.borderRadius = '20px';
-        card.style.padding = '18px';
+        card.style.borderRadius = '24px';
+        card.style.padding = '18px 20px';
         card.style.display = 'flex';
         card.style.alignItems = 'center';
-        card.style.gap = '14px';
-        card.style.boxShadow = '0 4px 14px rgba(0,0,0,0.04)';
+        card.style.gap = '16px';
+        card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.04)';
         card.style.cursor = 'pointer';
-        card.style.transition = 'transform 0.15s ease';
+        card.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
 
-        card.onclick = () => openSchedaQuizSheet(ex.id);
+        card.onmouseenter = () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'; };
+        card.onmouseleave = () => { card.style.transform = 'translateY(0)'; card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.04)'; };
 
-        const correct = ex.correct_count || 29;
-        const wrong = ex.wrong_count || 1;
-        const unanswered = ex.unanswered_count || 0;
-        const total = ex.total_count || 30;
-        const quizPercent = Math.round((correct / total) * 100);
+        const displayName = ex.nome || ex.student_name || 'Candidato';
+        const displayMoto = ex.motorizzazione || 'Motorizzazione Civile';
+        const displayDate = ex.exam_date || 'N/A';
 
-        // Circular Icon matching Screenshot 3
+        const correct = ex.corrette ?? (ex.correct_count ?? 29);
+        const wrong = ex.errori ?? (ex.wrong_count ?? 1);
+        const unanswered = ex.non_risposte ?? (ex.unanswered_count ?? 0);
+        const total = ex.totale ?? (ex.total_count ?? 30);
+
+        // On Click: Open PDF if available, otherwise launch quiz
+        card.onclick = () => {
+            if (ex.pdf_url) {
+                window.open(ex.pdf_url, '_blank');
+            } else if (ex.id) {
+                openSchedaQuizSheet(ex.id);
+            }
+        };
+
+        // Circular Icon matching Screenshot 1 & 3 (Cyan circle with clipboard & pencil)
         const circleIcon = `
-            <div style="width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, #0EA5E9, #0284C7); display: flex; align-items: center; justify-content: center; color: #ffffff; flex-shrink: 0; box-shadow: 0 4px 10px rgba(14,165,233,0.3);">
-                <i class="fa-solid fa-file-signature" style="font-size: 22px;"></i>
+            <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #0284C7, #0369A1); display: flex; align-items: center; justify-content: center; color: #ffffff; flex-shrink: 0; box-shadow: 0 4px 14px rgba(2,132,199,0.35); position: relative;">
+                <i class="fa-solid fa-clipboard-check" style="font-size: 24px; color: #ffffff;"></i>
+                <i class="fa-solid fa-pencil" style="font-size: 14px; color: #FACC15; position: absolute; right: 8px; bottom: 8px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));"></i>
             </div>
         `;
 
+        const correctPercent = Math.min(100, Math.max(0, (correct / total) * 100));
+        const wrongPercent = Math.min(100, Math.max(0, (wrong / total) * 100));
+
         const scoreBarHtml = `
-            <div style="margin-top: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-size: 10px; font-weight: 800; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 8px;">Quiz ${quizPercent}%</span>
+            <div style="margin-top: 6px;">
+                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 5px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span>Corrette: ${correct}</span>
+                    <span>Errori: ${wrong}</span>
+                    <span>Non risposte: ${unanswered}</span>
+                    <span>Totale: ${total}</span>
                 </div>
-                <div style="height: 7px; background-color: #e2e8f0; border-radius: 4px; display: flex; overflow: hidden;">
-                    <div style="background-color: #22c55e; width: ${(correct / total) * 100}%;"></div>
-                    <div style="background-color: #ef4444; width: ${(wrong / total) * 100}%;"></div>
-                    <div style="background-color: #f59e0b; width: ${(unanswered / total) * 100}%;"></div>
-                </div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 6px; display: flex; justify-content: space-between; gap: 4px;">
-                    <span>Corrette:${correct}</span>
-                    <span>Sbagliate:${wrong}</span>
-                    <span>Non risposte:${unanswered}</span>
-                    <span>Totale:${total}</span>
+                <div style="height: 8px; background-color: #cbd5e1; border-radius: 6px; display: flex; overflow: hidden; max-width: 220px;">
+                    <div style="background-color: #22c55e; width: ${correctPercent}%;"></div>
+                    <div style="background-color: #ef4444; width: ${wrongPercent}%;"></div>
                 </div>
             </div>
         `;
@@ -128,14 +160,14 @@ function renderSchedaExamCards() {
         card.innerHTML = `
             ${circleIcon}
             <div style="flex: 1; min-width: 0;">
-                <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.3;">Name: ${ex.student_name}</h4>
-                <div style="font-size: 12px; color: #475569; margin-top: 3px; font-weight: 700;">
-                    <div>Motorizzazione: ${ex.motorizzazione}</div>
-                    <div style="margin-top: 1px;">Exam date: ${ex.exam_date}</div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.3;">Nome: ${displayName}</h3>
+                <div style="font-size: 13px; color: #334155; margin-top: 3px; font-weight: 700;">
+                    <div>Motorizzazione: ${displayMoto}</div>
+                    <div style="margin-top: 1px;">Exam date: ${displayDate}</div>
                 </div>
                 ${scoreBarHtml}
             </div>
-            <i class="fa-solid fa-chevron-right" style="color: #94a3b8; font-size: 16px; margin-left: 4px;"></i>
+            <i class="fa-solid fa-chevron-right" style="color: #0f172a; font-size: 20px; font-weight: 900; margin-left: 6px;"></i>
         `;
         container.appendChild(card);
     });
