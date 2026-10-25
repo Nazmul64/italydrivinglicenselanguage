@@ -24,26 +24,6 @@
     </div>
     @endif
 
-    <!-- Live Exam Pass Featured Quick Action Banner -->
-    <div onclick="openScreen('scheda-esame', 'Scheda Live Exam')" style="margin: 0 0 22px 0; background: linear-gradient(135deg, #16A34A, #22C55E); border-radius: 20px; padding: 14px 22px; display: flex; align-items: center; justify-content: space-between; color: #ffffff; cursor: pointer; box-shadow: 0 8px 24px rgba(34, 197, 94, 0.22); transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform='translateY(0)'">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            <div style="width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
-                <i class="fa-solid fa-file-circle-check"></i>
-            </div>
-            <div>
-                <div style="font-size: 16px; font-weight: 800; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">
-                    <span>SCHEDA LIVE EXAM</span>
-                    <span style="font-size: 11px; background: #ffffff; color: #16a34a; font-weight: 900; padding: 2px 8px; border-radius: 12px; text-transform: uppercase;">লাইভ এক্সাম পাস</span>
-                </div>
-                <div style="font-size: 13px; opacity: 0.92; font-weight: 500; margin-top: 2px;">ইতালিতে ড্রাইভিং লাইসেন্স পাস করা শিক্ষার্থীদের অফিসিয়াল রেজাল্ট শিট ও PDF দেখুন</div>
-            </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 800; background: rgba(255, 255, 255, 0.22); padding: 8px 18px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;">
-            <span>শিট দেখুন</span>
-            <i class="fa-solid fa-arrow-right"></i>
-        </div>
-    </div>
-
     <!-- Grid of Services: Dynamic Cards -->
     <section class="services-grid">
         @foreach($homeCards as $card)
