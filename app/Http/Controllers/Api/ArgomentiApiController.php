@@ -26,14 +26,20 @@ class ArgomentiApiController extends Controller
         $sessionIds = $context['session_ids'];
         $hasUser = !empty($userIds) || !empty($sessionIds);
 
-        $chapters = Chapter::where('status', true)
-            ->withCount(['pages'])
+        $chapters = Chapter::where(function($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })
+            ->withCount(['pages' => function($pq) {
+                $pq->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            }])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
         // Pre-fetch all pages and questions in 2 queries instead of 75 queries
-        $pages = Page::where('status', true)->select('id', 'chapter_id')->get();
+        $pages = Page::where(function($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })->select('id', 'chapter_id')->get();
         $pagesByChapter = $pages->groupBy('chapter_id');
 
         $allQuestions = Question::select('id', 'chapter', 'page_id')->get();
@@ -131,7 +137,9 @@ class ArgomentiApiController extends Controller
         $sessionIds = $context['session_ids'];
         $hasUser = !empty($userIds) || !empty($sessionIds);
 
-        $pages = Page::where('status', true)
+        $pages = Page::where(function ($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })
             ->where(function ($query) use ($id) {
                 $query->where('chapter_id', $id)
                     ->orWhereHas('chapter', function ($q) use ($id) {
@@ -213,7 +221,9 @@ class ArgomentiApiController extends Controller
      */
     public function getAllPages()
     {
-        $pages = Page::where('status', true)
+        $pages = Page::where(function ($q) {
+                $q->where('status', true)->orWhere('status', 1)->orWhereNull('status');
+            })
             ->withCount('questions')
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')

@@ -33,6 +33,7 @@
             @include('frontend.screens.eclass')
             @include('frontend.screens.sfida')
             @include('frontend.screens.scheda_esame')
+            @include('frontend.screens.scheda_live_exam')
             @include('frontend.screens.exam_simulation')
             @include('frontend.screens.dizionario')
             @include('frontend.screens.dictionary')

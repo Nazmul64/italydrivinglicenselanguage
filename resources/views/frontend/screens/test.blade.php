@@ -29,8 +29,8 @@
 
         <!-- Right Side: Question Statement Text & Bangla -->
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-            <div class="test-question-it" id="test-question-it" style="font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--text-primary);">Caricamento delle domande...</div>
-            <div class="test-question-bn" id="test-question-bn" style="display: none; margin-top: 10px; font-size: 14px; color: var(--text-secondary);">প্রশ্ন লোড হচ্ছে...</div>
+            <div class="test-question-it" id="test-question-it" style="font-size: clamp(20px, 2.2vw, 25px); font-weight: 700; line-height: 1.55; color: var(--text-primary); letter-spacing: -0.2px;">Caricamento delle domande...</div>
+            <div class="test-question-bn" id="test-question-bn" style="display: none; margin-top: 14px; font-size: 18px; font-weight: 600; color: var(--text-secondary); line-height: 1.5;">প্রশ্ন লোড হচ্ছে...</div>
         </div>
     </div>
 

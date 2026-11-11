@@ -857,6 +857,9 @@ function submitTestExam() {
         const durationTotal = typeof getExamDurationSeconds === 'function' ? getExamDurationSeconds() : 1200;
         const timeSpent = Math.max(0, durationTotal - (testTimerSeconds || 0));
 
+        const savedAvatar = localStorage.getItem('app_client_avatar') || (typeof currentClientAvatar !== 'undefined' ? currentClientAvatar : '') || '';
+        const clientFullName = (savedFirstName ? (savedFirstName + ' ' + (savedLastName || '')).trim() : '') || (typeof currentClientName !== 'undefined' ? currentClientName : '');
+
         const examPayload = {
             total_questions: totalQuestions,
             correct_count: correctAnswers,
@@ -869,7 +872,9 @@ function submitTestExam() {
             phone: savedPhone,
             session_id: savedSessionId,
             first_name: savedFirstName,
-            last_name: savedLastName
+            last_name: savedLastName,
+            student_name: clientFullName || 'Candidato Patente B',
+            avatar: savedAvatar || '/images/avatar-candidate.png'
         };
 
         fetch('/api/v1/scheda-esame/submit', {
@@ -882,9 +887,14 @@ function submitTestExam() {
                 'X-Session-ID': savedSessionId,
                 'X-Client-Session-ID': savedSessionId,
                 'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
-                'X-Client-Last-Name': encodeURIComponent(savedLastName || '')
+                'X-Client-Last-Name': encodeURIComponent(savedLastName || ''),
+                'X-Client-Avatar': savedAvatar || ''
             },
             body: JSON.stringify(examPayload)
+        }).then(() => {
+            if (typeof loadSchedaEsameCards === 'function') {
+                loadSchedaEsameCards();
+            }
         }).catch(err => console.warn('Scheda submit sync error:', err));
     } catch (e) {
         console.warn('Error syncing exam test results to server:', e);

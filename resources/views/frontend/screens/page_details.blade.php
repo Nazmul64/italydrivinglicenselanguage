@@ -2,40 +2,49 @@
 <div id="screen-page-details" class="screen" style="max-width: 100%; margin: 0 auto; padding-left: 12px; padding-right: 12px;">
     <!-- Top dropdown navigation bar matching screenshot 4 -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-        <!-- Chapter Dropdown Select -->
-        <div style="position: relative;">
-            <div class="chapter-selector-trigger" onclick="toggleArgomentiPageChapterDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                <span id="page-details-chapter-label" style="font-weight: 800; color: var(--text-primary);">Capitolo...</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
-            </div>
-            <div class="chapter-dropdown-list-panel" id="page-details-chapter-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100;">
-                @if(isset($argomentiChapters))
-                    @foreach($argomentiChapters as $ch)
-                        <div class="chapter-dropdown-item" onclick="selectArgomentiPageChapter({{ $ch->id }})">
-                            Capitolo {{ $ch->chapter_number ?: $ch->id }}) {{ $ch->name }}
-                        </div>
-                    @endforeach
-                @endif
-            </div>
-        </div>
+        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+                <!-- Chapter Dropdown Select -->
+                <div style="position: relative;">
+                    <div class="chapter-selector-trigger" onclick="toggleArgomentiPageChapterDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span id="page-details-chapter-label" style="font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Capitolo...</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;"></i>
+                    </div>
+                    <div class="chapter-dropdown-list-panel" id="page-details-chapter-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100;">
+                        @if(isset($argomentiChapters))
+                            @foreach($argomentiChapters as $ch)
+                                <div class="chapter-dropdown-item" onclick="selectArgomentiPageChapter({{ $ch->id }})">
+                                    Capitolo {{ $ch->chapter_number ?: $ch->id }}) {{ $ch->name }}
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
 
-        <!-- Page Dropdown Select -->
-        <div style="position: relative;">
-            <div class="chapter-selector-trigger" onclick="toggleArgomentiPageDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                <span id="page-details-page-label" style="font-weight: 800; color: var(--text-primary);">Pagina...</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
+                <!-- Page Dropdown Select -->
+                <div style="position: relative;">
+                    <div class="chapter-selector-trigger" onclick="toggleArgomentiPageDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span id="page-details-page-label" style="font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Pagina...</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;"></i>
+                    </div>
+                    <div class="chapter-dropdown-list-panel" id="page-details-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;">
+                        @if(isset($argomentiChapters))
+                            @foreach($argomentiChapters as $ch)
+                                @foreach($ch->pages as $p)
+                                    <div class="chapter-dropdown-item argomenti-page-dropdown-opt" data-chap-parent="{{ $ch->id }}" data-page-id="{{ $p->id }}" onclick="openPageDetailsScreen({{ $ch->id }}, {{ $p->id }})" style="display: none;">
+                                        Pagina {{ $p->sort_order ?: ($p->id) }}) {{ $p->title }}
+                                    </div>
+                                @endforeach
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
             </div>
-            <div class="chapter-dropdown-list-panel" id="page-details-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;">
-                @if(isset($argomentiChapters))
-                    @foreach($argomentiChapters as $ch)
-                        @foreach($ch->pages as $p)
-                            <div class="chapter-dropdown-item argomenti-page-dropdown-opt" data-chap-parent="{{ $ch->id }}" onclick="openPageDetailsScreen({{ $ch->id }}, {{ $p->id }})" style="display: none;">
-                                Pagina {{ $p->sort_order ?: ($p->id) }}) {{ $p->title }}
-                            </div>
-                        @endforeach
-                    @endforeach
-                @endif
-            </div>
+
+            <!-- Close Cross Button (X) requested by user beside dropdowns -->
+            <button type="button" class="page-details-close-btn" onclick="closePageDetailsScreen()" title="Chiudi / Close" style="width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: 1.5px solid var(--border-card); background: var(--bg-card); color: var(--text-primary); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s ease;">
+                <i class="fa-solid fa-xmark" style="font-size: 20px; font-weight: 900;"></i>
+            </button>
         </div>
 
         <!-- Page selection controls -->
@@ -145,32 +154,110 @@
 
 <script>
     let currentArgomentiPageId = null;
+    let currentArgomentiChapId = null;
 
-    function openPageDetailsScreen(chId, pageId) {
-        if (typeof pageId === 'undefined') {
-            pageId = chId;
+    function updateArgomentiPageDropdownOptions(targetChapId) {
+        const dropdown = document.getElementById('page-details-page-dropdown');
+        if (!dropdown) return;
+        let activeChap = targetChapId || window.currentArgomentiChapId || currentArgomentiChapId;
+        if (!activeChap) {
+            const firstOpt = dropdown.querySelector('.argomenti-page-dropdown-opt');
+            if (firstOpt) activeChap = parseInt(firstOpt.getAttribute('data-chap-parent'));
+            window.currentArgomentiChapId = activeChap;
+            currentArgomentiChapId = activeChap;
         }
+        dropdown.querySelectorAll('.argomenti-page-dropdown-opt').forEach(opt => {
+            const pChap = opt.getAttribute('data-chap-parent');
+            opt.style.display = (!activeChap || pChap == activeChap) ? 'block' : 'none';
+        });
+    }
+
+    function syncChapterPagesDropdown(chapId) {
+        if (!chapId) return;
+        fetch(`/api/v1/chapters/${chapId}/pages?_t=` + Date.now(), { cache: 'no-store' })
+            .then(res => res.json())
+            .then(resData => {
+                const pages = resData.data || resData || [];
+                if (!Array.isArray(pages) || pages.length === 0) return;
+                const dropdown = document.getElementById('page-details-page-dropdown');
+                if (!dropdown) return;
+                pages.forEach(p => {
+                    const pId = p.id;
+                    let opt = dropdown.querySelector(`.argomenti-page-dropdown-opt[data-page-id="${pId}"]`);
+                    if (!opt) {
+                        opt = document.createElement('div');
+                        opt.className = 'chapter-dropdown-item argomenti-page-dropdown-opt';
+                        opt.setAttribute('data-chap-parent', chapId);
+                        opt.setAttribute('data-page-id', pId);
+                        opt.onclick = () => openPageDetailsScreen(chapId, pId);
+                        dropdown.appendChild(opt);
+                    }
+                    const pNum = p.sort_order || pId;
+                    const pTitle = p.title || p.name || '';
+                    opt.innerText = `Pagina ${pNum}) ${pTitle}`;
+                    const curChap = window.currentArgomentiChapId || currentArgomentiChapId;
+                    if (curChap == chapId) {
+                        opt.style.display = 'block';
+                    }
+                });
+            })
+            .catch(() => {});
+    }
+
+    function openPageDetailsScreen(arg1, arg2) {
+        let chId = null;
+        let pageId = null;
+
+        if (typeof arg2 !== 'undefined' && arg2 !== null) {
+            chId = parseInt(arg1);
+            pageId = parseInt(arg2);
+        } else if (typeof arg1 !== 'undefined' && arg1 !== null) {
+            pageId = parseInt(arg1);
+        }
+
+        if (!pageId && !chId) return;
+
+        if (!chId && pageId) {
+            const box = document.getElementById(`argomenti-page-container-${pageId}`);
+            if (box) {
+                chId = parseInt(box.getAttribute('data-chapter-id'));
+            }
+            if (!chId) {
+                const opt = document.querySelector(`.argomenti-page-dropdown-opt[data-page-id="${pageId}"]`);
+                if (opt) chId = parseInt(opt.getAttribute('data-chap-parent'));
+            }
+        }
+
+        window.currentArgomentiChapId = chId;
         currentArgomentiChapId = chId;
+        window.currentArgomentiPageId = pageId;
         currentArgomentiPageId = pageId;
+
+        try { if (chId) sessionStorage.setItem('activeArgomentiChapId', chId); } catch(e) {}
+        try { if (pageId) sessionStorage.setItem('activePageDetailsId', pageId); } catch(e) {}
+
+        const d1 = document.getElementById('page-details-chapter-dropdown');
+        if (d1) d1.style.display = 'none';
+        const d2 = document.getElementById('page-details-page-dropdown');
+        if (d2) d2.style.display = 'none';
+
         if (typeof unselectAllPagesInDetails === 'function') unselectAllPagesInDetails();
 
-        // Hide all page boxes
-        document.querySelectorAll('.argomenti-page-box').forEach(b => b.style.display = 'none');
-
-        // Show target page box
+        // 1. Check if pre-rendered box exists
         const targetBox = document.getElementById(`argomenti-page-container-${pageId}`);
         if (targetBox) {
+            document.querySelectorAll('.argomenti-page-box').forEach(b => b.style.display = 'none');
             targetBox.style.display = 'flex';
             syncArgomentiBookmarkStates(targetBox);
 
             const chName = targetBox.getAttribute('data-chapter-name') || '';
-            const chNum = targetBox.getAttribute('data-chapter-num') || chId;
+            const chNum = targetBox.getAttribute('data-chapter-num') || chId || '';
             const pTitle = targetBox.getAttribute('data-page-title') || '';
             const pNum = targetBox.getAttribute('data-page-num') || pageId;
             const pImg = targetBox.getAttribute('data-page-image') || '';
 
             const chLabel = document.getElementById('page-details-chapter-label');
-            if (chLabel) chLabel.innerText = `Capitolo ${chNum}) ${chName}`;
+            if (chLabel) chLabel.innerText = chName ? `Capitolo ${chNum}) ${chName}` : `Capitolo ${chNum}`;
 
             const pLabel = document.getElementById('page-details-page-label');
             if (pLabel) pLabel.innerText = `Pagina ${pNum}) ${pTitle}`;
@@ -186,6 +273,16 @@
                 } else {
                     mediaCont.style.display = 'none';
                 }
+            }
+
+            if (chId) {
+                updateArgomentiPageDropdownOptions(chId);
+                syncChapterPagesDropdown(chId);
+            }
+        } else {
+            // Dynamic fallback
+            if (typeof renderDynamicPageDetails === 'function') {
+                renderDynamicPageDetails(pageId);
             }
         }
 
@@ -224,26 +321,45 @@
         const dropdown = document.getElementById('page-details-page-dropdown');
         if (!dropdown) return;
 
-        const isHidden = dropdown.style.display === 'none';
-        if (isHidden && currentArgomentiChapId) {
-            dropdown.querySelectorAll('.argomenti-page-dropdown-opt').forEach(opt => {
-                const parentChap = opt.getAttribute('data-chap-parent');
-                opt.style.display = (parentChap == currentArgomentiChapId) ? 'block' : 'none';
-            });
+        const isHidden = (dropdown.style.display === 'none' || !dropdown.style.display);
+        if (isHidden) {
+            let activeChap = window.currentArgomentiChapId || currentArgomentiChapId;
+            if (!activeChap) {
+                const firstBox = document.querySelector('.argomenti-page-box:not([style*="display: none"])') || document.querySelector('.argomenti-page-box');
+                if (firstBox) activeChap = parseInt(firstBox.getAttribute('data-chapter-id'));
+                if (!activeChap) {
+                    const firstOpt = dropdown.querySelector('.argomenti-page-dropdown-opt');
+                    if (firstOpt) activeChap = parseInt(firstOpt.getAttribute('data-chap-parent'));
+                }
+                window.currentArgomentiChapId = activeChap;
+                currentArgomentiChapId = activeChap;
+            }
+            updateArgomentiPageDropdownOptions(activeChap);
+            dropdown.style.display = 'block';
+            if (activeChap) syncChapterPagesDropdown(activeChap);
+        } else {
+            dropdown.style.display = 'none';
         }
-        dropdown.style.display = isHidden ? 'block' : 'none';
     }
 
     function selectArgomentiPageChapter(chId) {
         const dropdown = document.getElementById('page-details-chapter-dropdown');
         if (dropdown) dropdown.style.display = 'none';
+        window.currentArgomentiChapId = chId;
+        currentArgomentiChapId = chId;
 
         const firstBox = document.querySelector(`.argomenti-page-box[data-chapter-id="${chId}"]`);
         if (firstBox) {
             const pageId = firstBox.getAttribute('data-page-id');
             openPageDetailsScreen(chId, pageId);
         } else {
-            openChapterSheetsScreen(chId);
+            const firstOpt = document.querySelector(`.argomenti-page-dropdown-opt[data-chap-parent="${chId}"]`);
+            if (firstOpt) {
+                const pageId = firstOpt.getAttribute('data-page-id');
+                openPageDetailsScreen(chId, pageId);
+            } else if (typeof openChapterSheetsScreen === 'function') {
+                openChapterSheetsScreen(chId);
+            }
         }
     }
 
@@ -382,6 +498,18 @@
         });
     }
 
+    function closePageDetailsScreen() {
+        const d1 = document.getElementById('page-details-chapter-dropdown');
+        const d2 = document.getElementById('page-details-page-dropdown');
+        if (d1) d1.style.display = 'none';
+        if (d2) d2.style.display = 'none';
+        if (typeof navigateBack === 'function') {
+            navigateBack();
+        } else if (typeof openScreen === 'function') {
+            openScreen('argomenti', 'Argomenti');
+        }
+    }
+
     // Close dropdowns on outside click
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.chapter-selector-trigger')) {
@@ -395,5 +523,18 @@
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof syncArgomentiBookmarkStates === 'function') syncArgomentiBookmarkStates();
         syncArgomentiNoteStates();
+
+        const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+        if (path === 'page-details' || window.location.hash.includes('page-details')) {
+            const savedPageId = sessionStorage.getItem('activePageDetailsId');
+            if (savedPageId) {
+                openPageDetailsScreen(parseInt(savedPageId));
+            } else {
+                const firstBox = document.querySelector('.argomenti-page-box');
+                if (firstBox) {
+                    openPageDetailsScreen(firstBox.getAttribute('data-chapter-id'), firstBox.getAttribute('data-page-id'));
+                }
+            }
+        }
     });
 </script>

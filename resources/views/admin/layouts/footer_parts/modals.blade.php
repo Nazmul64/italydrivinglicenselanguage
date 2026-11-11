@@ -403,7 +403,8 @@
                         <option value="argomenti">argomenti (Topics)</option>
                         <option value="eclass">eclass (E-Class)</option>
                         <option value="sfida">sfida (Challenge)</option>
-                        <option value="scheda-esame">scheda-esame (Exam Simulation)</option>
+                        <option value="scheda-esame">scheda-esame (Exam Simulation - পরীক্ষার শিট)</option>
+                        <option value="scheda-live-exam">scheda-live-exam (Scheda Live Exam - লাইভ এক্সাম পাস)</option>
                         <option value="dizionario">dizionario (Dictionary)</option>
                         <option value="cartelli">cartelli (Traffic Signs)</option>
                         <option value="saved-mcqs">saved-mcqs (Bookmarks)</option>

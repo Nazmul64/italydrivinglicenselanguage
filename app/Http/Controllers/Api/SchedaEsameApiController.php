@@ -230,10 +230,11 @@ class SchedaEsameApiController extends Controller
                     }
                 }
 
-                if ($isCorrectRaw !== null) {
+                $isUserMatch = ($userAns && $correctDatabaseAnswer && strtoupper($userAns) === strtoupper($correctDatabaseAnswer));
+                if ($isUserMatch) {
+                    $isCorrect = true;
+                } elseif ($isCorrectRaw !== null) {
                     $isCorrect = ($isCorrectRaw === true || $isCorrectRaw === 1 || $isCorrectRaw === '1' || $isCorrectRaw === 'true' || strtolower((string)$isCorrectRaw) === 'vero');
-                } elseif ($userAns && $correctDatabaseAnswer) {
-                    $isCorrect = (strtoupper($userAns) === strtoupper($correctDatabaseAnswer));
                 } else {
                     $isCorrect = false;
                 }
@@ -313,7 +314,7 @@ class SchedaEsameApiController extends Controller
             }
         }
 
-        $finalCorrect = $rawCorrectCount !== null ? (int)$rawCorrectCount : $calculatedCorrect;
+        $finalCorrect = max($rawCorrectCount !== null ? (int)$rawCorrectCount : 0, $calculatedCorrect);
         $finalWrong = $rawWrongCount !== null ? (int)$rawWrongCount : $calculatedWrong;
         // User Rule: 27+ correct (out of 30) is Promosso (Passed). 26 or less is Bocciato (Failed).
         $isPassed = $finalCorrect >= 27;
@@ -322,21 +323,33 @@ class SchedaEsameApiController extends Controller
         if ($isPassed) {
             try {
                 $studentName = $request->input('student_name') ?: $request->input('name');
-                $avatar = $request->input('avatar');
+                if (!$studentName && ($request->input('first_name') || $request->input('last_name'))) {
+                    $studentName = trim($request->input('first_name') . ' ' . $request->input('last_name'));
+                }
+                if (!$studentName && $request->header('X-Client-First-Name')) {
+                    $fn = urldecode($request->header('X-Client-First-Name'));
+                    $ln = urldecode($request->header('X-Client-Last-Name') ?: '');
+                    $studentName = trim("$fn $ln");
+                }
+
+                $avatar = $request->input('avatar') ?: $request->header('X-Client-Avatar');
                 $motorizzazione = $request->input('motorizzazione') ?: 'Motorizzazione Civile';
 
                 if (!$studentName || $studentName === 'Candidato Patente B') {
                     if ($userId) {
                         $u = User::find($userId);
                         if ($u) {
-                            $studentName = trim($u->name ?: ($u->first_name . ' ' . $u->last_name));
+                            $uName = trim($u->name ?: ($u->first_name . ' ' . $u->last_name));
+                            if (!empty($uName)) $studentName = $uName;
                             if (!$avatar) $avatar = $u->avatar;
                         }
                     }
                     if (!$studentName || $studentName === 'Candidato Patente B') {
-                        $appClient = AppClient::where('session_id', $sessionId)->orWhere('phone', $request->input('phone'))->first();
+                        $appClient = AppClient::where('session_id', $sessionId)
+                            ->orWhere('phone', $request->input('phone') ?: $request->header('X-Client-Phone'))
+                            ->first();
                         if ($appClient) {
-                            $studentName = trim($appClient->name ?: $studentName);
+                            if (!empty($appClient->name)) $studentName = trim($appClient->name);
                             if (!$avatar) $avatar = $appClient->avatar;
                             if (!empty($appClient->city)) $motorizzazione = 'Motorizzazione di ' . $appClient->city;
                         }
@@ -344,7 +357,11 @@ class SchedaEsameApiController extends Controller
                 }
 
                 if (!$studentName) {
-                    $studentName = 'Candidato #' . rand(1000, 9999);
+                    $studentName = 'Candidato Patente B';
+                }
+
+                if (empty($avatar)) {
+                    $avatar = '/images/avatar-candidate.png';
                 }
 
                 // Format answers for ExamSheet questions list with fallback DB lookup if text was omitted by client
@@ -439,13 +456,9 @@ class SchedaEsameApiController extends Controller
         $search = $request->query('search') ?: $request->query('query');
         $query = ExamSheet::where(function($q) {
             $q->where('is_passed', true)
-              ->orWhere('status', 'completed');
-        })->whereNotIn('student_name', [
-            'MD. Nazmul Hassan',
-            'Farhana Akter',
-            'Rashidul Islam',
-            'Tanvir Ahmed',
-        ]);
+              ->orWhere('status', 'completed')
+              ->orWhere('correct_count', '>=', 27);
+        });
 
         if ($search) {
             $query->where(function($sq) use ($search) {
@@ -458,8 +471,8 @@ class SchedaEsameApiController extends Controller
         $exams = $query->orderBy('id', 'desc')->get()->map(function($ex) {
             return [
                 'id' => $ex->id,
-                'student_name' => $ex->student_name,
-                'avatar' => !empty($ex->avatar) ? \App\Helpers\ImageHelper::formatImageUrl($ex->avatar) : null,
+                'student_name' => $ex->student_name ?: 'Candidato Patente B',
+                'avatar' => !empty($ex->avatar) ? \App\Helpers\ImageHelper::formatImageUrl($ex->avatar) : url('/images/avatar-candidate.png'),
                 'motorizzazione' => $ex->motorizzazione,
                 'exam_date' => $ex->exam_date,
                 'status' => $ex->status,

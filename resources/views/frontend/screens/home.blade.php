@@ -44,6 +44,10 @@
                     $onClickAttr = "openScreen('saved-mcqs', 'Saved MCQs')";
                 } elseif ($sk == 'patente-social' || $sk == 'patente_social' || $sk == 'social') {
                     $onClickAttr = "openScreen('social', 'Patente Social')";
+                } elseif ($sk == 'scheda-live-exam' || $sk == 'live-passed-exams') {
+                    $onClickAttr = "openScreen('scheda-live-exam', 'Scheda Live Exam')";
+                } elseif ($sk == 'scheda-esame' || $sk == 'scheda_esame') {
+                    $onClickAttr = "openScreen('scheda-esame', 'Scheda Esame')";
                 } elseif ($sk == 'dictionary' || $sk == 'dizionario-search') {
                     $onClickAttr = "openScreen('dictionary', 'Dizionario')";
                 } elseif ($sk == 'dizionario' || $sk == 'word' || $sk == 'words') {
@@ -162,6 +166,24 @@
                           <circle cx="72" cy="76" r="12" fill="#FFD95A" class="float-anim"/>
                           <circle cx="72" cy="76" r="9" fill="none" stroke="#FF9800" stroke-width="2" stroke-dasharray="4,2"/>
                           <text x="72" y="80" text-anchor="middle" fill="#FF9800" font-size="9" font-weight="bold">✓</text>
+                        </svg>
+
+                    @elseif($sk == 'scheda-live-exam' || $sk == 'live-passed-exams')
+                        {{-- Official PDF Live Exam Sheet --}}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="160" height="160" class="card-svg">
+                          <rect x="18" y="10" width="64" height="80" rx="6" fill="#fff" stroke="#fee2e2" stroke-width="2"/>
+                          <rect x="18" y="10" width="64" height="18" rx="6" fill="#EF4444"/>
+                          <rect x="18" y="22" width="64" height="6" fill="#EF4444"/>
+                          <text x="50" y="22" text-anchor="middle" fill="#fff" font-size="7" font-weight="bold">LIVE PDF</text>
+                          <rect x="24" y="34" width="16" height="10" rx="2" fill="#EF4444"/>
+                          <text x="32" y="42" text-anchor="middle" fill="#fff" font-size="6" font-weight="900">PDF</text>
+                          <rect x="44" y="37" width="30" height="4" rx="2" fill="#cbd5e1"/>
+                          <rect x="24" y="50" width="50" height="4" rx="2" fill="#e2e8f0"/>
+                          <rect x="24" y="58" width="44" height="4" rx="2" fill="#e2e8f0"/>
+                          <rect x="24" y="66" width="48" height="4" rx="2" fill="#e2e8f0"/>
+                          <circle cx="72" cy="76" r="12" fill="#10B981" class="float-anim"/>
+                          <circle cx="72" cy="76" r="9" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="3,2"/>
+                          <text x="72" y="80" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">✓</text>
                         </svg>
 
                     @elseif($sk == 'dizionario' || $sk == 'word' || $sk == 'words')

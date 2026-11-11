@@ -946,8 +946,8 @@ const SCREEN_TITLES = {
     'eclass': 'E-Class',
     'sfida': 'Sfida Challenge',
     'scheda-esame': 'Scheda Esame',
-    'scheda-live-exam': 'Scheda Esame',
-    'live-passed-exams': 'Scheda Esame',
+    'scheda-live-exam': 'Scheda Live Exam',
+    'live-passed-exams': 'Scheda Live Exam',
     'exam-simulation': 'Exam Simulation',
     'dizionario': 'Dizionario',
     'dictionary': 'Dizionario',
@@ -969,11 +969,13 @@ const SCREEN_TITLES = {
 
 function openScreen(screenId, headerTitle, skipPushState = false) {
     let mappedScreenId = screenId;
-    if (screenId === 'scheda-live-exam' || screenId === 'live-passed-exams' || screenId === 'scheda_esame') {
+    if (screenId === 'scheda_esame') {
         mappedScreenId = 'scheda-esame';
+    } else if (screenId === 'live-passed-exams') {
+        mappedScreenId = 'scheda-live-exam';
     }
 
-    if (!currentClientActive && mappedScreenId !== 'home' && mappedScreenId !== 'scheda-esame') {
+    if (!currentClientActive && mappedScreenId !== 'home' && mappedScreenId !== 'scheda-esame' && mappedScreenId !== 'scheda-live-exam') {
         const lockEl = document.getElementById('app-activation-lock');
         if (lockEl) lockEl.style.display = 'flex';
         return;
@@ -1075,6 +1077,8 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (typeof initTranslationModule === 'function') initTranslationModule();
     } else if (screenId === 'scheda-esame' || mappedScreenId === 'scheda-esame') {
         if (typeof loadSchedaEsameModule === 'function') loadSchedaEsameModule();
+    } else if (screenId === 'scheda-live-exam' || mappedScreenId === 'scheda-live-exam') {
+        if (typeof loadSchedaLiveExamModule === 'function') loadSchedaLiveExamModule();
     } else if (screenId === 'dizionario') {
         if (typeof initDictionary === 'function') initDictionary();
     } else if (screenId === 'dictionary') {
@@ -1264,10 +1268,16 @@ window.addEventListener('popstate', function (event) {
         }
     } else if (screenId === 'page-details') {
         const savedPageId = sessionStorage.getItem('activePageDetailsId');
+        const savedChapId = sessionStorage.getItem('activeArgomentiChapId');
         if (savedPageId && typeof openPageDetailsScreen === 'function') {
-            openPageDetailsScreen(parseInt(savedPageId));
+            openPageDetailsScreen(savedChapId ? parseInt(savedChapId) : null, parseInt(savedPageId));
         } else {
-            openScreen('argomenti', 'Argomenti');
+            const firstBox = document.querySelector('.argomenti-page-box');
+            if (firstBox && typeof openPageDetailsScreen === 'function') {
+                openPageDetailsScreen(parseInt(firstBox.getAttribute('data-chapter-id')), parseInt(firstBox.getAttribute('data-page-id')));
+            } else {
+                openScreen('page-details', 'Vere e False');
+            }
         }
     } else {
         openScreen(screenId, headerTitle, true);
@@ -1286,10 +1296,16 @@ function restoreScreenFromUrl() {
             }
         } else if (path === 'page-details') {
             const savedPageId = sessionStorage.getItem('activePageDetailsId');
+            const savedChapId = sessionStorage.getItem('activeArgomentiChapId');
             if (savedPageId && typeof openPageDetailsScreen === 'function') {
-                openPageDetailsScreen(parseInt(savedPageId));
+                openPageDetailsScreen(savedChapId ? parseInt(savedChapId) : null, parseInt(savedPageId));
             } else {
-                openScreen('argomenti', 'Argomenti');
+                const firstBox = document.querySelector('.argomenti-page-box');
+                if (firstBox && typeof openPageDetailsScreen === 'function') {
+                    openPageDetailsScreen(parseInt(firstBox.getAttribute('data-chapter-id')), parseInt(firstBox.getAttribute('data-page-id')));
+                } else {
+                    openScreen('page-details', 'Vere e False');
+                }
             }
         } else if (path === 'dictionary' || path === 'dizionario') {
             openScreen('dictionary', 'Dizionario', true);
@@ -1331,10 +1347,15 @@ function restoreScreenFromUrl() {
             }
         } else if (path === 'words' || path === 'word') {
             openScreen('dizionario', 'Word', true);
-        } else if (path === 'scheda-esame' || path === 'scheda-live-exam' || path === 'live-passed-exams') {
+        } else if (path === 'scheda-esame') {
             openScreen('scheda-esame', 'Scheda Esame', true);
             if (typeof loadSchedaEsameModule === 'function') {
                 loadSchedaEsameModule();
+            }
+        } else if (path === 'scheda-live-exam' || path === 'live-passed-exams') {
+            openScreen('scheda-live-exam', 'Scheda Live Exam', true);
+            if (typeof loadSchedaLiveExamModule === 'function') {
+                loadSchedaLiveExamModule();
             }
         } else {
             const activeScreen = document.querySelector('.screen.active');

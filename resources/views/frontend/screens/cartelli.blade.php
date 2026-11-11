@@ -152,39 +152,48 @@
 <div id="screen-cartelli-page" class="screen" style="max-width: 100%; width: 100%; margin: 0 auto; padding-left: 12px; padding-right: 12px;">
     <!-- Top Dropdowns -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; width: 100%;">
-        <!-- Chapter Dropdown -->
-        <div style="position: relative; width: 100%;">
-            <div class="chapter-selector-trigger" onclick="toggleCartelliPageChapterDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
-                <span id="cartelli-page-chapter-label" style="font-weight: 800; color: var(--text-primary);">Capitolo...</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
+        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+                <!-- Chapter Dropdown -->
+                <div style="position: relative; width: 100%;">
+                    <div class="chapter-selector-trigger" onclick="toggleCartelliPageChapterDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
+                        <span id="cartelli-page-chapter-label" style="font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Capitolo...</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;"></i>
+                    </div>
+                    <div class="chapter-dropdown-list-panel" id="cartelli-page-chapter-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100;">
+                        @if(isset($cartelliChapters))
+                            @foreach($cartelliChapters as $ch)
+                                <div class="chapter-dropdown-item" onclick="selectCartelliPageChapter({{ $ch->id }})">
+                                    Capitolo {{ $ch->chapter_number ?: $ch->id }}) {{ $ch->name }}
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+                <!-- Page Dropdown -->
+                <div style="position: relative; width: 100%;">
+                    <div class="chapter-selector-trigger" onclick="toggleCartelliPageDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
+                        <span id="cartelli-page-label" style="font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Pagina...</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;"></i>
+                    </div>
+                    <div class="chapter-dropdown-list-panel" id="cartelli-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;">
+                        @if(isset($cartelliChapters))
+                            @foreach($cartelliChapters as $ch)
+                                @foreach($ch->pages as $p)
+                                    <div class="chapter-dropdown-item cartelli-page-dropdown-opt" data-chap-parent="{{ $ch->id }}" onclick="openCartelliPageScreen({{ $ch->id }}, {{ $p->id }})" style="display: none;">
+                                        Pagina {{ $p->sort_order ?: ($p->page_number ?: $p->id) }}) {{ $p->title }}
+                                    </div>
+                                @endforeach
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
             </div>
-            <div class="chapter-dropdown-list-panel" id="cartelli-page-chapter-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100;">
-                @if(isset($cartelliChapters))
-                    @foreach($cartelliChapters as $ch)
-                        <div class="chapter-dropdown-item" onclick="selectCartelliPageChapter({{ $ch->id }})">
-                            Capitolo {{ $ch->chapter_number ?: $ch->id }}) {{ $ch->name }}
-                        </div>
-                    @endforeach
-                @endif
-            </div>
-        </div>
-        <!-- Page Dropdown -->
-        <div style="position: relative; width: 100%;">
-            <div class="chapter-selector-trigger" onclick="toggleCartelliPageDropdown()" style="padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; width: 100%;">
-                <span id="cartelli-page-label" style="font-weight: 800; color: var(--text-primary);">Pagina...</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 11px; color: var(--text-secondary);"></i>
-            </div>
-            <div class="chapter-dropdown-list-panel" id="cartelli-page-dropdown" style="display: none; position: absolute; width: 100%; z-index: 100; max-height: 250px; overflow-y: auto;">
-                @if(isset($cartelliChapters))
-                    @foreach($cartelliChapters as $ch)
-                        @foreach($ch->pages as $p)
-                            <div class="chapter-dropdown-item cartelli-page-dropdown-opt" data-chap-parent="{{ $ch->id }}" onclick="openCartelliPageScreen({{ $ch->id }}, {{ $p->id }})" style="display: none;">
-                                Pagina {{ $p->sort_order ?: ($p->page_number ?: $p->id) }}) {{ $p->title }}
-                            </div>
-                        @endforeach
-                    @endforeach
-                @endif
-            </div>
+
+            <!-- Close Cross Button (X) requested by user beside dropdowns -->
+            <button type="button" class="cartelli-page-close-btn" onclick="closeCartelliPageScreen()" title="Chiudi / Close" style="width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: 1.5px solid var(--border-card); background: var(--bg-card); color: var(--text-primary); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s ease;">
+                <i class="fa-solid fa-xmark" style="font-size: 20px; font-weight: 900;"></i>
+            </button>
         </div>
         <!-- Select controls -->
         <div class="pill-btn-group" style="margin-top: 4px; margin-bottom: 8px;">
@@ -487,6 +496,18 @@
                 }
             }
         });
+    }
+
+    function closeCartelliPageScreen() {
+        const d1 = document.getElementById('cartelli-page-chapter-dropdown');
+        const d2 = document.getElementById('cartelli-page-dropdown');
+        if (d1) d1.style.display = 'none';
+        if (d2) d2.style.display = 'none';
+        if (typeof navigateBack === 'function') {
+            navigateBack();
+        } else if (typeof openScreen === 'function') {
+            openScreen('cartelli-schede', 'Cartelli');
+        }
     }
 
     // Close dropdowns on outside click

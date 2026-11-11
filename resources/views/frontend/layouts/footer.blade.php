@@ -548,6 +548,44 @@
             </div>
         </div>
 
+        <!-- Global Live Exam PDF Viewer Modal Overlay -->
+        <div id="live-exam-pdf-modal" onclick="if(event.target===this) closeLiveExamPdfModal()">
+            <div class="live-pdf-card">
+                
+                <!-- Modal Header Bar (Solid dark with high contrast) -->
+                <div class="live-pdf-header">
+                    <!-- Left: PDF Badge & Candidate Info -->
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                        <div style="width: 42px; height: 42px; border-radius: 12px; background: #EF4444; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(239,68,68,0.4);">
+                            <i class="fa-solid fa-file-pdf" style="font-size: 22px; color: #ffffff;"></i>
+                        </div>
+                        <div style="min-width: 0;">
+                            <h3 id="pdf-modal-title" style="margin: 0; font-size: 15px; font-weight: 800; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px;">Scheda Live Exam PDF</h3>
+                            <div id="pdf-modal-sub" style="font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Official Motorizzazione Passed Sheet</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Apri PDF External Link & Prominent Close Button -->
+                    <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                        <!-- External Link / Open PDF Button -->
+                        <a id="pdf-modal-external-link" href="#" target="_blank" style="background: rgba(255,255,255,0.12); color: #ffffff; border: 1.5px solid rgba(255,255,255,0.25); padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 13px; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'" title="Apri in nuova scheda">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>Apri PDF</span>
+                        </a>
+
+                        <!-- Prominent, High-Contrast Red Close Button -->
+                        <button type="button" class="live-pdf-close-btn" onclick="closeLiveExamPdfModal()" title="Chiudi (Close)">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PDF Embed Frame -->
+                <div style="flex: 1; background: #334155; position: relative; width: 100%; height: 100%; min-height: 0;">
+                    <iframe id="live-exam-pdf-frame" src="" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- External JavaScript Separated Asset -->

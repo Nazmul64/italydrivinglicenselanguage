@@ -1376,11 +1376,13 @@ const SCREEN_TITLES = {
 
 function openScreen(screenId, headerTitle, skipPushState = false) {
     let mappedScreenId = screenId;
-    if (screenId === 'scheda-live-exam' || screenId === 'live-passed-exams' || screenId === 'scheda_esame') {
+    if (screenId === 'scheda_esame') {
         mappedScreenId = 'scheda-esame';
+    } else if (screenId === 'live-passed-exams') {
+        mappedScreenId = 'scheda-live-exam';
     }
 
-    if (!currentClientActive && mappedScreenId !== 'home' && mappedScreenId !== 'scheda-esame') {
+    if (!currentClientActive && mappedScreenId !== 'home' && mappedScreenId !== 'scheda-esame' && mappedScreenId !== 'scheda-live-exam') {
         const lockEl = document.getElementById('app-activation-lock');
         if (lockEl) lockEl.style.display = 'flex';
         return;
@@ -1482,6 +1484,8 @@ function openScreen(screenId, headerTitle, skipPushState = false) {
         if (typeof initTranslationModule === 'function') initTranslationModule();
     } else if (screenId === 'scheda-esame' || mappedScreenId === 'scheda-esame') {
         if (typeof loadSchedaEsameModule === 'function') loadSchedaEsameModule();
+    } else if (screenId === 'scheda-live-exam' || mappedScreenId === 'scheda-live-exam') {
+        if (typeof loadSchedaLiveExamModule === 'function') loadSchedaLiveExamModule();
     } else if (screenId === 'dizionario') {
         if (typeof initDictionary === 'function') initDictionary();
     } else if (screenId === 'dictionary') {
@@ -3396,6 +3400,11 @@ function submitTestExam() {
         const durationTotal = typeof getExamDurationSeconds === 'function' ? getExamDurationSeconds() : 1200;
         const timeSpent = Math.max(0, durationTotal - (testTimerSeconds || 0));
 
+        const savedFirstName = localStorage.getItem('app_client_first_name') || (typeof currentClientFirstName !== 'undefined' ? currentClientFirstName : '') || '';
+        const savedLastName = localStorage.getItem('app_client_last_name') || (typeof currentClientLastName !== 'undefined' ? currentClientLastName : '') || '';
+        const savedAvatar = localStorage.getItem('app_client_avatar') || (typeof currentClientAvatar !== 'undefined' ? currentClientAvatar : '') || '';
+        const clientFullName = (savedFirstName ? (savedFirstName + ' ' + (savedLastName || '')).trim() : '') || (typeof currentClientName !== 'undefined' ? currentClientName : '');
+
         const examPayload = {
             total_questions: totalQuestions,
             correct_count: correctAnswers,
@@ -3406,7 +3415,11 @@ function submitTestExam() {
             answers: loggedAnswers,
             results: loggedAnswers,
             phone: savedPhone,
-            session_id: savedSessionId
+            session_id: savedSessionId,
+            first_name: savedFirstName,
+            last_name: savedLastName,
+            student_name: clientFullName || 'Candidato Patente B',
+            avatar: savedAvatar || '/images/avatar-candidate.png'
         };
 
         fetch('/api/v1/scheda-esame/submit', {
@@ -3416,9 +3429,17 @@ function submitTestExam() {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'X-Client-Phone': savedPhone,
-                'X-Session-ID': savedSessionId
+                'X-Session-ID': savedSessionId,
+                'X-Client-Session-ID': savedSessionId,
+                'X-Client-First-Name': encodeURIComponent(savedFirstName || ''),
+                'X-Client-Last-Name': encodeURIComponent(savedLastName || ''),
+                'X-Client-Avatar': savedAvatar || ''
             },
             body: JSON.stringify(examPayload)
+        }).then(() => {
+            if (typeof loadSchedaEsameCards === 'function') {
+                loadSchedaEsameCards();
+            }
         }).catch(err => console.warn('Scheda submit sync error:', err));
     } catch (e) {
         console.warn('Error syncing exam test results to server:', e);
@@ -4323,7 +4344,15 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             wrongCount = (typeof record.wrong === 'number') ? record.wrong : 0;
         }
 
-        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
+        let isAnswered = false;
+        if (hasDbStats) {
+            isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
+            if (!isAnswered && record) {
+                delete userStats[q.id];
+            }
+        } else {
+            isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
+        }
 
         const card = document.createElement('div');
         const isCorrect = isAnswered && ((record && record.state === 'correct') || q.is_correct === true || correctCount > wrongCount);
@@ -8158,3 +8187,29 @@ window.filterManualeTopics = filterManualeTopics;
 window.loadLeaderboardData = typeof loadLeaderboardData === 'function' ? loadLeaderboardData : undefined;
 window.loadCorrectMcqsList = typeof loadCorrectMcqsList === 'function' ? loadCorrectMcqsList : undefined;
 window.loadWrongMcqsList = typeof loadWrongMcqsList === 'function' ? loadWrongMcqsList : undefined;
+
+function closePageDetailsScreen() {
+    const d1 = document.getElementById('page-details-chapter-dropdown');
+    const d2 = document.getElementById('page-details-page-dropdown');
+    if (d1) d1.style.display = 'none';
+    if (d2) d2.style.display = 'none';
+    if (typeof navigateBack === 'function') {
+        navigateBack();
+    } else if (typeof openScreen === 'function') {
+        openScreen('argomenti', 'Argomenti');
+    }
+}
+window.closePageDetailsScreen = closePageDetailsScreen;
+
+function closeCartelliPageScreen() {
+    const d1 = document.getElementById('cartelli-page-chapter-dropdown');
+    const d2 = document.getElementById('cartelli-page-dropdown');
+    if (d1) d1.style.display = 'none';
+    if (d2) d2.style.display = 'none';
+    if (typeof navigateBack === 'function') {
+        navigateBack();
+    } else if (typeof openScreen === 'function') {
+        openScreen('cartelli-schede', 'Cartelli');
+    }
+}
+window.closeCartelliPageScreen = closeCartelliPageScreen;

@@ -320,7 +320,7 @@ body {
 }
 
 .screen.active {
-    display: block;
+    display: block !important;
 }
 
 @keyframes fadeIn {
@@ -858,16 +858,16 @@ body.dark-mode .illustration-box.illustration-box-lottie {
 }
 
 .question-text {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: clamp(19px, 2vw, 23px);
+    font-weight: 700;
     color: var(--text-primary);
     line-height: 1.5;
 }
 
 .question-bangla {
-    font-size: 15px;
+    font-size: 17px;
     color: #4CAF50;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.4;
     border-top: 1px dashed var(--border-card);
     padding-top: 12px;
@@ -1765,7 +1765,13 @@ body.dark-mode .test-num-box {
     }
 
     .test-question-it {
+        font-size: 19px !important;
+        line-height: 1.5 !important;
         text-align: center !important;
+    }
+
+    .test-question-bn {
+        font-size: 16px !important;
     }
 }
 
@@ -1791,19 +1797,21 @@ body.dark-mode .test-num-box {
 }
 
 .test-question-it {
-    font-size: 17px;
-    font-weight: 600;
+    font-size: clamp(20px, 2.2vw, 25px);
+    font-weight: 700;
     color: var(--text-primary);
-    line-height: 1.5;
+    line-height: 1.55;
+    letter-spacing: -0.2px;
 }
 
 .test-question-bn {
-    font-size: 13px;
+    font-size: 18px;
+    font-weight: 600;
     color: var(--text-secondary);
     margin-top: 16px;
     border-top: 1px dashed var(--border-card);
     padding-top: 14px;
-    line-height: 1.4;
+    line-height: 1.5;
 }
 
 .test-bottom-section {
@@ -3715,4 +3723,155 @@ body.dark-mode .bottom-nav .nav-item.active {
         object-fit: contain !important;
         border-radius: 8px !important;
     }
+}
+
+/* ==========================================================================
+   Global Live Exam Official PDF Viewer Modal (Web & Mobile App Unified)
+   ========================================================================== */
+#live-exam-pdf-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    z-index: 9999999 !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    backdrop-filter: blur(8px);
+}
+
+#live-exam-pdf-modal .live-pdf-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 1100px;
+    height: 96vh;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    border: 2px solid #334155;
+    position: relative;
+    box-sizing: border-box;
+    animation: popIn 0.2s ease-out;
+}
+
+#live-exam-pdf-modal .live-pdf-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    min-height: 64px;
+    border-bottom: 2px solid #334155;
+    gap: 12px;
+}
+
+#live-exam-pdf-modal .live-pdf-close-btn {
+    background: #EF4444 !important;
+    border: 3px solid #ffffff !important;
+    color: #ffffff !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.6) !important;
+    transition: transform 0.15s ease, background-color 0.15s ease !important;
+    flex-shrink: 0 !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#live-exam-pdf-modal .live-pdf-close-btn:hover {
+    transform: scale(1.1) !important;
+    background-color: #DC2626 !important;
+}
+
+@media (max-width: 768px) {
+    #live-exam-pdf-modal {
+        padding: 0 !important;
+    }
+    #live-exam-pdf-modal .live-pdf-card {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
+    #live-exam-pdf-modal .live-pdf-header {
+        padding: 10px 14px !important;
+        min-height: 56px !important;
+    }
+    #live-exam-pdf-modal .live-pdf-close-btn {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+        font-size: 19px !important;
+    }
+}
+
+/* ==========================================================================
+   Scheda Exam & Scheda Live Exam Cards (Matching Mobile App Exactly)
+   ========================================================================== */
+.scheda-exam-card {
+    background-color: #ffffff;
+    border: 1.5px solid #edf2f7;
+    border-radius: 24px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+}
+
+.scheda-exam-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    border-color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+    .hide-on-mobile {
+        display: none !important;
+    }
+    .scheda-exam-card {
+        padding: 14px 16px !important;
+        border-radius: 20px !important;
+        gap: 12px !important;
+    }
+    .scheda-exam-icon-box {
+        width: 60px !important;
+        height: 60px !important;
+        min-width: 60px !important;
+        min-height: 60px !important;
+    }
+}
+
+.page-details-close-btn:hover,
+.cartelli-page-close-btn:hover {
+    background-color: var(--border-card) !important;
+    transform: scale(1.05);
+}
+.page-details-close-btn:active,
+.cartelli-page-close-btn:active {
+    transform: scale(0.95);
 }

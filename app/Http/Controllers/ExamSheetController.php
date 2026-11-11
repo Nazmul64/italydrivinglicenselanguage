@@ -19,12 +19,7 @@ class ExamSheetController extends Controller
     public function getExams(Request $request)
     {
         $search = $request->query('search');
-        $query = ExamSheet::whereNotIn('student_name', [
-            'MD. Nazmul Hassan',
-            'Farhana Akter',
-            'Rashidul Islam',
-            'Tanvir Ahmed',
-        ]);
+        $query = ExamSheet::query();
 
         if ($search) {
             $query->where(function($sq) use ($search) {
@@ -164,8 +159,9 @@ class ExamSheetController extends Controller
 
             if ($userAns === null) {
                 $unanswered++;
-            } else {
-                $isCorrect = ($userAns === $q['is_vero']);
+                $userAnsBool = ($userAns === true || $userAns === 1 || $userAns === '1' || strtolower((string)$userAns) === 'true' || strtoupper((string)$userAns) === 'V');
+                $qVeroBool = ($q['is_vero'] === true || $q['is_vero'] === 1 || $q['is_vero'] === '1' || strtolower((string)$q['is_vero']) === 'true' || strtoupper((string)$q['is_vero']) === 'V');
+                $isCorrect = ($userAnsBool === $qVeroBool);
                 if ($isCorrect) {
                     $correct++;
                 } else {

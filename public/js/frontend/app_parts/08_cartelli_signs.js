@@ -734,3 +734,16 @@ function saveQuestionAnswerStat(questionId, chapterId, state, questionType = 'ar
         })
     }).catch(err => console.error("Error logging MCQ result to database:", err));
 }
+
+function closeCartelliPageScreen() {
+    const d1 = document.getElementById('cartelli-page-chapter-dropdown');
+    const d2 = document.getElementById('cartelli-page-dropdown');
+    if (d1) d1.style.display = 'none';
+    if (d2) d2.style.display = 'none';
+    if (typeof navigateBack === 'function') {
+        navigateBack();
+    } else if (typeof openScreen === 'function') {
+        openScreen('cartelli-schede', 'Cartelli');
+    }
+}
+window.closeCartelliPageScreen = closeCartelliPageScreen;

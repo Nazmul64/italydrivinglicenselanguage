@@ -124,7 +124,88 @@ function renderPageDetailsUI(page) {
     renderPageQuestionsList(page.questions || [], window.cachedSavedIds || [], window.cachedNotesList || []);
 }
 
-function openPageDetailsScreen(pageId) {
+function openPageDetailsScreen(arg1, arg2) {
+    let chId = null;
+    let pageId = null;
+
+    if (typeof arg2 !== 'undefined' && arg2 !== null) {
+        chId = parseInt(arg1);
+        pageId = parseInt(arg2);
+    } else if (typeof arg1 !== 'undefined' && arg1 !== null) {
+        pageId = parseInt(arg1);
+    }
+
+    if (!pageId && !chId) return;
+
+    if (!chId && pageId) {
+        const box = document.getElementById(`argomenti-page-container-${pageId}`);
+        if (box) {
+            chId = parseInt(box.getAttribute('data-chapter-id'));
+        }
+        if (!chId) {
+            const opt = document.querySelector(`.argomenti-page-dropdown-opt[data-page-id="${pageId}"]`);
+            if (opt) chId = parseInt(opt.getAttribute('data-chap-parent'));
+        }
+    }
+
+    if (chId) {
+        window.currentArgomentiChapId = chId;
+        try { sessionStorage.setItem('activeArgomentiChapId', chId); } catch(e) {}
+    }
+    if (pageId) {
+        window.currentArgomentiPageId = pageId;
+        try { sessionStorage.setItem('activePageDetailsId', pageId); } catch(e) {}
+    }
+
+    const d1 = document.getElementById('page-details-chapter-dropdown');
+    if (d1) d1.style.display = 'none';
+    const d2 = document.getElementById('page-details-page-dropdown');
+    if (d2) d2.style.display = 'none';
+
+    // If pre-rendered box exists in DOM
+    const targetBox = document.getElementById(`argomenti-page-container-${pageId}`);
+    if (targetBox) {
+        document.querySelectorAll('.argomenti-page-box').forEach(b => b.style.display = 'none');
+        targetBox.style.display = 'flex';
+        if (typeof syncArgomentiBookmarkStates === 'function') syncArgomentiBookmarkStates(targetBox);
+
+        const chName = targetBox.getAttribute('data-chapter-name') || '';
+        const chNum = targetBox.getAttribute('data-chapter-num') || chId || '';
+        const pTitle = targetBox.getAttribute('data-page-title') || '';
+        const pNum = targetBox.getAttribute('data-page-num') || pageId;
+        const pImg = targetBox.getAttribute('data-page-image') || '';
+
+        const chLabel = document.getElementById('page-details-chapter-label');
+        if (chLabel) chLabel.innerText = chName ? `Capitolo ${chNum}) ${chName}` : `Capitolo ${chNum}`;
+
+        const pLabel = document.getElementById('page-details-page-label');
+        if (pLabel) pLabel.innerText = `Pagina ${pNum}) ${pTitle}`;
+
+        const mediaCont = document.getElementById('page-details-media-container');
+        const imgEl = document.getElementById('page-details-image');
+        if (mediaCont && imgEl) {
+            const cleanImg = typeof sanitizeAppImageUrl === 'function' ? sanitizeAppImageUrl(pImg) : (pImg && !pImg.includes('/data/user/') ? pImg : '');
+            if (cleanImg) {
+                imgEl.src = cleanImg;
+                mediaCont.style.display = 'block';
+            } else {
+                mediaCont.style.display = 'none';
+            }
+        }
+
+        if (chId && typeof updateArgomentiPageDropdownOptions === 'function') {
+            updateArgomentiPageDropdownOptions(chId);
+        }
+        if (chId && typeof syncChapterPagesDropdown === 'function') {
+            syncChapterPagesDropdown(chId);
+        }
+
+        if (typeof openScreen === 'function') {
+            openScreen('page-details', 'Vere e False');
+        }
+        return;
+    }
+
     const container = document.getElementById('page-questions-list-container');
 
     if ('speechSynthesis' in window) {
@@ -234,7 +315,15 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
             wrongCount = (typeof record.wrong === 'number') ? record.wrong : 0;
         }
 
-        let isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
+        let isAnswered = false;
+        if (hasDbStats) {
+            isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== ''));
+            if (!isAnswered && record) {
+                delete userStats[q.id];
+            }
+        } else {
+            isAnswered = (correctCount > 0 || wrongCount > 0 || (q.user_answer !== null && q.user_answer !== undefined && q.user_answer !== '') || (record && record.state));
+        }
 
         const card = document.createElement('div');
         const isCorrect = isAnswered && ((record && record.state === 'correct') || q.is_correct === true || correctCount > wrongCount);
@@ -813,6 +902,19 @@ function unselectAllPagesInDetails() {
     showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
 }
 
+function closePageDetailsScreen() {
+    const d1 = document.getElementById('page-details-chapter-dropdown');
+    const d2 = document.getElementById('page-details-page-dropdown');
+    if (d1) d1.style.display = 'none';
+    if (d2) d2.style.display = 'none';
+    if (typeof navigateBack === 'function') {
+        navigateBack();
+    } else if (typeof openScreen === 'function') {
+        openScreen('argomenti', 'Argomenti');
+    }
+}
+
+window.closePageDetailsScreen = closePageDetailsScreen;
 window.openPageDetailsScreen = openPageDetailsScreen;
 window.renderPageQuestionsList = renderPageQuestionsList;
 window.toggleArgomentiQuestionAnswer = toggleArgomentiQuestionAnswer;
