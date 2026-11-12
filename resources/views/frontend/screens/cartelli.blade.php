@@ -465,8 +465,17 @@
 
     function toggleCartelliTranslation(qId) {
         const bnEl = document.getElementById(`cartelli-mcq-bn-${qId}`);
+        const card = document.getElementById(`cartelli-mcq-card-${qId}`);
         if (bnEl) {
-            bnEl.style.display = (bnEl.style.display === 'none' || !bnEl.style.display) ? 'block' : 'none';
+            const isHidden = (bnEl.style.display === 'none' || !bnEl.style.display || getComputedStyle(bnEl).display === 'none');
+            bnEl.style.display = isHidden ? 'block' : 'none';
+        }
+        if (typeof openQuestionTranslationModal === 'function') {
+            const itEl = card ? card.querySelector('.detail-q-text-it') : null;
+            const itText = itEl ? itEl.innerText.trim() : '';
+            const bnText = bnEl ? bnEl.innerText.trim() : '';
+            const imgEl = card ? card.querySelector('img') : null;
+            openQuestionTranslationModal(itText, bnText, [], imgEl ? imgEl.src : '');
         }
     }
 

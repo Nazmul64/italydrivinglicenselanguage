@@ -4463,20 +4463,37 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
 }
 
 function toggleArgomentiQuestionAnswer(qId) {
-    const textEl = document.getElementById(`page-ans-text-${qId}`);
-    const iconEl = document.getElementById(`page-eye-icon-${qId}`);
-    if (!textEl || !iconEl) return;
+    const textEl = document.getElementById(`argomenti-ans-text-${qId}`) || document.getElementById(`page-ans-text-${qId}`);
+    const iconEl = document.getElementById(`argomenti-eye-icon-${qId}`) || document.getElementById(`page-eye-icon-${qId}`);
+    const btnEl = document.getElementById(`argomenti-eye-btn-${qId}`) || document.getElementById(`page-eye-btn-${qId}`);
+    if (!textEl) return;
 
-    if (textEl.style.display === 'none') {
-        textEl.style.display = 'inline';
-        iconEl.className = 'fa-regular fa-eye-slash';
-        iconEl.style.color = 'var(--accent-green)';
+    const isHidden = (textEl.style.display === 'none' || !textEl.style.display || getComputedStyle(textEl).display === 'none');
+    if (isHidden) {
+        textEl.style.display = 'inline-block';
+        if (iconEl) {
+            iconEl.className = 'fa-regular fa-eye-slash';
+            iconEl.style.color = 'var(--accent-green, #4CAF50)';
+        }
+        const labelEl = btnEl ? btnEl.querySelector('span') : null;
+        if (labelEl) {
+            labelEl.innerText = 'লুকান';
+            labelEl.style.color = 'var(--accent-green, #4CAF50)';
+        }
     } else {
         textEl.style.display = 'none';
-        iconEl.className = 'fa-regular fa-eye';
-        iconEl.style.color = 'var(--text-secondary)';
+        if (iconEl) {
+            iconEl.className = 'fa-regular fa-eye';
+            iconEl.style.color = 'var(--text-secondary, #64748b)';
+        }
+        const labelEl = btnEl ? btnEl.querySelector('span') : null;
+        if (labelEl) {
+            labelEl.innerText = 'দেখুন';
+            labelEl.style.color = 'var(--text-secondary, #64748b)';
+        }
     }
 }
+window.toggleArgomentiQuestionAnswer = toggleArgomentiQuestionAnswer;
 
 // ðŸŽ¤ Microphone (TTS Only) - Pronunciation of displayed question text
 function readQuestionSpeechOnPage(index) {
@@ -4694,22 +4711,29 @@ function togglePlayAllPageQuestions() {
     }
 }
 
-function togglePageTranslation(qId) {
-    if (!currentClientActive) {
-        const lockEl = document.getElementById('app-activation-lock');
-        if (lockEl) lockEl.style.display = 'flex';
+function togglePageTranslation(qId, btn) {
+    if (typeof window.openPageDetailsQuestionTranslation === 'function') {
+        window.openPageDetailsQuestionTranslation(qId, btn);
         return;
     }
-    if (!activePageDetails || !activePageDetails.questions) return;
-    const q = activePageDetails.questions.find(item => item.id === qId);
-    if (!q) return;
+    const card = (btn && btn.closest) ? btn.closest('.detail-q-card') : document.getElementById(`argomenti-q-card-${qId}`);
+    const itEl = document.getElementById(`argomenti-q-it-${qId}`) || (card ? card.querySelector('.detail-q-text-it') : null);
+    const itText = itEl ? itEl.innerText.trim() : '';
+
+    const bnEl = document.getElementById(`argomenti-q-bn-${qId}`) || document.getElementById(`page-bn-${qId}`) || (card ? card.querySelector('.detail-q-text-bn') : null);
+    const bnText = bnEl ? bnEl.innerText.trim() : '';
+
+    if (bnEl) {
+        const isHidden = (bnEl.style.display === 'none' || !bnEl.style.display || getComputedStyle(bnEl).display === 'none');
+        bnEl.style.display = isHidden ? 'block' : 'none';
+    }
 
     if (typeof openQuestionTranslationModal === 'function') {
-        const rawQImage = q.image || q.img || '';
-        const cleanQImage = typeof window.sanitizeAppImageUrl === 'function' ? window.sanitizeAppImageUrl(rawQImage) : rawQImage;
-        openQuestionTranslationModal(q.italian || q.question || '', q.bangla || q.bn_question || '', q.vocabulary || [], cleanQImage);
+        const imgEl = card ? card.querySelector('img') : null;
+        openQuestionTranslationModal(itText, bnText, [], imgEl ? imgEl.src : '');
     }
 }
+window.togglePageTranslation = togglePageTranslation;
 
 function startPageQuiz() {
     if (!activePageDetails || !activePageDetails.questions || activePageDetails.questions.length === 0) {

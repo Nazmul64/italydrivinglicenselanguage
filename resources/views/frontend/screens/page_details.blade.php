@@ -73,7 +73,8 @@
                             @if($page->questions && $page->questions->count() > 0)
                                 @foreach($page->questions as $qIndex => $q)
                                     @php
-                                        $databaseIsVero = $q->is_vero === 1 || $q->is_vero === true || $q->is_vero === '1' || strtolower((string)$q->correct_answer) === 'vero' || $q->correct_answer === '1' || $q->correct_answer === 1;
+                                        $rawAns = strtolower(trim((string)($q->correct_answer ?? '')));
+                                        $databaseIsVero = ($q->is_vero === true || $q->is_vero === 1 || $q->is_vero === '1' || $rawAns === 'vero' || $rawAns === 'v' || $rawAns === '1');
                                     @endphp
                                     <div class="detail-q-card unanswered" id="argomenti-q-card-{{ $q->id }}" onclick="handleArgomentiCardClick(this, event)" style="position: relative; cursor: pointer; padding: 16px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-card);">
                                         <!-- Header Row -->
@@ -107,20 +108,21 @@
                                                 @endif
                                             </div>
                                             <div style="flex: 1; min-width: 0;">
-                                                <div class="detail-q-text-it" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5;">{!! $q->italian !!}</div>
-                                                @if($q->bangla)
-                                                    <div class="detail-q-text-bn" id="argomenti-q-bn-{{ $q->id }}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">{{ $q->bangla }}</div>
+                                                <div class="detail-q-text-it" id="argomenti-q-it-{{ $q->id }}" style="font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.5;">{!! $q->italian !!}</div>
+                                                <div class="detail-q-text-bn" id="argomenti-q-bn-{{ $q->id }}" style="display: none; font-size: 13px; margin-top: 8px; color: var(--text-secondary); font-weight: 600;">{{ $q->bangla ?: 'কোনো অনুবাদ পাওয়া যায়নি' }}</div>
+                                                @if(!empty($q->vocabulary))
+                                                    <script type="application/json" id="argomenti-vocab-{{ $q->id }}">{!! json_encode($q->vocabulary) !!}</script>
                                                 @endif
                                             </div>
                                         </div>
 
                                         <!-- Buttons -->
                                         <div style="display: flex; gap: 6px; margin-top: 14px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                                            <button type="button" class="test-speaker-btn" onclick="speakArgomentiItalian('{{ addslashes(strip_tags($q->italian)) }}')" style="padding: 5px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Italiano">
+                                            <button type="button" class="test-speaker-btn" onclick="speakArgomentiQuestion({{ $q->id }})" style="padding: 5px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background-color: var(--bg-page); border: 1px solid var(--border-card); cursor: pointer;" title="Italiano">
                                                 <i class="fa-solid fa-microphone" style="font-size: 13px; color: var(--accent-green);"></i>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">Italiano</span>
                                             </button>
-                                            <button type="button" class="test-ctrl-btn" onclick="openPageDetailsQuestionTranslation({{ $q->id }}, '{{ addslashes($q->italian) }}', '{{ addslashes($q->bangla ?? '') }}', {{ json_encode($q->vocabulary ?? []) }}, '{{ addslashes($q->image ?? '') }}')" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
+                                            <button type="button" class="test-ctrl-btn" onclick="openPageDetailsQuestionTranslation({{ $q->id }}, this)" style="padding: 5px 8px; font-size: 11px; background-color: var(--bg-page); border: 1px solid var(--border-card); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;" title="Translate">
                                                 <div style="border: 2px solid var(--accent-green); border-radius: 4px; padding: 1px 3px; font-size: 8px; font-weight: 900; color: var(--accent-green); line-height: 1;">A Z</div>
                                                 <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary);">অনুবাদ</span>
                                             </button>
@@ -364,25 +366,37 @@
     }
 
     function toggleArgomentiQuestionAnswer(qId) {
-        const textEl = document.getElementById(`argomenti-ans-text-${qId}`);
-        const iconEl = document.getElementById(`argomenti-eye-icon-${qId}`);
-        const btnEl = document.getElementById(`argomenti-eye-btn-${qId}`);
-        if (!textEl || !iconEl) return;
+        const textEl = document.getElementById(`argomenti-ans-text-${qId}`) || document.getElementById(`page-ans-text-${qId}`);
+        const iconEl = document.getElementById(`argomenti-eye-icon-${qId}`) || document.getElementById(`page-eye-icon-${qId}`);
+        const btnEl = document.getElementById(`argomenti-eye-btn-${qId}`) || document.getElementById(`page-eye-btn-${qId}`);
+        if (!textEl) return;
 
-        if (textEl.style.display === 'none') {
-            textEl.style.display = 'inline';
-            iconEl.className = 'fa-regular fa-eye-slash';
-            iconEl.style.color = 'var(--accent-green)';
+        const isHidden = (textEl.style.display === 'none' || !textEl.style.display || getComputedStyle(textEl).display === 'none');
+        if (isHidden) {
+            textEl.style.display = 'inline-block';
+            if (iconEl) {
+                iconEl.className = 'fa-regular fa-eye-slash';
+                iconEl.style.color = 'var(--accent-green, #4CAF50)';
+            }
             const labelEl = btnEl ? btnEl.querySelector('span') : null;
-            if (labelEl) { labelEl.innerText = 'লুকান'; labelEl.style.color = 'var(--accent-green)'; }
+            if (labelEl) {
+                labelEl.innerText = 'লুকান';
+                labelEl.style.color = 'var(--accent-green, #4CAF50)';
+            }
         } else {
             textEl.style.display = 'none';
-            iconEl.className = 'fa-regular fa-eye';
-            iconEl.style.color = 'var(--text-secondary)';
+            if (iconEl) {
+                iconEl.className = 'fa-regular fa-eye';
+                iconEl.style.color = 'var(--text-secondary, #64748b)';
+            }
             const labelEl = btnEl ? btnEl.querySelector('span') : null;
-            if (labelEl) { labelEl.innerText = 'দেখুন'; labelEl.style.color = 'var(--text-secondary)'; }
+            if (labelEl) {
+                labelEl.innerText = 'দেখুন';
+                labelEl.style.color = 'var(--text-secondary, #64748b)';
+            }
         }
     }
+    window.toggleArgomentiQuestionAnswer = toggleArgomentiQuestionAnswer;
 
     window.isArgomentiSelectionMode = window.isArgomentiSelectionMode || false;
 
@@ -452,23 +466,60 @@
         if (typeof showToast === 'function') showToast('সব প্রশ্ন আনসিলেক্ট করা হয়েছে');
     }
 
-    function openPageDetailsQuestionTranslation(qId, itText, bnText, vocab, img) {
-        if (typeof openQuestionTranslationModal === 'function') {
-            openQuestionTranslationModal(itText, bnText, vocab, img);
-        } else {
-            const bnEl = document.getElementById(`argomenti-q-bn-${qId}`);
-            if (bnEl) {
-                bnEl.style.display = (bnEl.style.display === 'none' || !bnEl.style.display) ? 'block' : 'none';
-            }
-        }
-    }
+    function openPageDetailsQuestionTranslation(qId, btnOrItText, bnText, vocab, img) {
+        let itText = '';
+        let targetBnText = '';
+        let targetVocab = [];
+        let targetImg = '';
 
-    function toggleArgomentiTranslation(qId) {
-        const bnEl = document.getElementById(`argomenti-q-bn-${qId}`);
-        if (bnEl) {
-            bnEl.style.display = (bnEl.style.display === 'none' || !bnEl.style.display) ? 'block' : 'none';
+        if (typeof btnOrItText === 'string') {
+            itText = btnOrItText;
+            targetBnText = bnText || '';
+            targetVocab = vocab || [];
+            targetImg = img || '';
+        } else {
+            const btn = btnOrItText;
+            const card = (btn && btn.closest) ? btn.closest('.detail-q-card') : document.getElementById(`argomenti-q-card-${qId}`);
+            const itEl = document.getElementById(`argomenti-q-it-${qId}`) || (card ? card.querySelector('.detail-q-text-it') : null);
+            itText = itEl ? itEl.innerText.trim() : '';
+
+            const bnEl = document.getElementById(`argomenti-q-bn-${qId}`) || (card ? card.querySelector('.detail-q-text-bn') : null);
+            targetBnText = bnEl ? bnEl.innerText.trim() : '';
+
+            const vocabScript = document.getElementById(`argomenti-vocab-${qId}`);
+            if (vocabScript) {
+                try { targetVocab = JSON.parse(vocabScript.textContent); } catch(e) {}
+            }
+
+            const imgEl = card ? card.querySelector('img') : null;
+            targetImg = imgEl ? imgEl.src : '';
+        }
+
+        // 1. Toggle inline Bangla translation directly under the question card
+        const cardBnEl = document.getElementById(`argomenti-q-bn-${qId}`) || document.getElementById(`page-bn-${qId}`);
+        if (cardBnEl) {
+            const isHidden = (cardBnEl.style.display === 'none' || !cardBnEl.style.display || getComputedStyle(cardBnEl).display === 'none');
+            cardBnEl.style.display = isHidden ? 'block' : 'none';
+        }
+
+        // 2. Open full Translation Modal popup if available
+        if (typeof openQuestionTranslationModal === 'function') {
+            openQuestionTranslationModal(itText, targetBnText, targetVocab, targetImg);
         }
     }
+    window.openPageDetailsQuestionTranslation = openPageDetailsQuestionTranslation;
+
+    function toggleArgomentiTranslation(qId, btn) {
+        openPageDetailsQuestionTranslation(qId, btn);
+    }
+    window.toggleArgomentiTranslation = toggleArgomentiTranslation;
+
+    function speakArgomentiQuestion(qId) {
+        const itEl = document.getElementById(`argomenti-q-it-${qId}`) || (document.getElementById(`argomenti-q-card-${qId}`)?.querySelector('.detail-q-text-it'));
+        const text = itEl ? itEl.innerText.replace(/<[^>]*>/g, '').trim() : '';
+        speakArgomentiItalian(text);
+    }
+    window.speakArgomentiQuestion = speakArgomentiQuestion;
 
     function speakArgomentiItalian(text) {
         if ('speechSynthesis' in window && text) {
@@ -479,6 +530,7 @@
             window.speechSynthesis.speak(utterance);
         }
     }
+    window.speakArgomentiItalian = speakArgomentiItalian;
 
     function syncArgomentiNoteStates() {
         const aNotes = JSON.parse(localStorage.getItem('argomenti_notes') || '{}');
