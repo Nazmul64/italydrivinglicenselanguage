@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "checkJs": false,
+    "allowJs": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "vendor",
+    "public/build",
+    "public/js/frontend/app.js"
+  ]
+}

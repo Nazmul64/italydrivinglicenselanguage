@@ -3482,9 +3482,9 @@ function goHomeFromTestModal() {
     }
 }
 
-function closeResultModal() {
+window.closeResultModal = function() {
     goHomeFromTestModal();
-}
+};
 
 function restartCurrentQuiz() {
     restartCurrentTest();
@@ -4234,7 +4234,7 @@ function renderPageDetailsUI(page) {
     renderPageQuestionsList(page.questions || [], window.cachedSavedIds || [], window.cachedNotesList || []);
 }
 
-function openPageDetailsScreen(pageId) {
+var openPageDetailsScreen = window.openPageDetailsScreen = function(pageId) {
     const container = document.getElementById('page-questions-list-container');
 
     if ('speechSynthesis' in window) {
@@ -4462,7 +4462,7 @@ function renderPageQuestionsList(questions, savedIds, notesList) {
     });
 }
 
-function toggleArgomentiQuestionAnswer(qId) {
+window.toggleArgomentiQuestionAnswer = function(qId) {
     const textEl = document.getElementById(`argomenti-ans-text-${qId}`) || document.getElementById(`page-ans-text-${qId}`);
     const iconEl = document.getElementById(`argomenti-eye-icon-${qId}`) || document.getElementById(`page-eye-icon-${qId}`);
     const btnEl = document.getElementById(`argomenti-eye-btn-${qId}`) || document.getElementById(`page-eye-btn-${qId}`);
@@ -4492,8 +4492,7 @@ function toggleArgomentiQuestionAnswer(qId) {
             labelEl.style.color = 'var(--text-secondary, #64748b)';
         }
     }
-}
-window.toggleArgomentiQuestionAnswer = toggleArgomentiQuestionAnswer;
+};
 
 // ðŸŽ¤ Microphone (TTS Only) - Pronunciation of displayed question text
 function readQuestionSpeechOnPage(index) {
@@ -4711,7 +4710,7 @@ function togglePlayAllPageQuestions() {
     }
 }
 
-function togglePageTranslation(qId, btn) {
+window.togglePageTranslation = function(qId, btn) {
     if (typeof window.openPageDetailsQuestionTranslation === 'function') {
         window.openPageDetailsQuestionTranslation(qId, btn);
         return;
@@ -4732,8 +4731,7 @@ function togglePageTranslation(qId, btn) {
         const imgEl = card ? card.querySelector('img') : null;
         openQuestionTranslationModal(itText, bnText, [], imgEl ? imgEl.src : '');
     }
-}
-window.togglePageTranslation = togglePageTranslation;
+};
 
 function startPageQuiz() {
     if (!activePageDetails || !activePageDetails.questions || activePageDetails.questions.length === 0) {
@@ -8212,7 +8210,7 @@ window.loadLeaderboardData = typeof loadLeaderboardData === 'function' ? loadLea
 window.loadCorrectMcqsList = typeof loadCorrectMcqsList === 'function' ? loadCorrectMcqsList : undefined;
 window.loadWrongMcqsList = typeof loadWrongMcqsList === 'function' ? loadWrongMcqsList : undefined;
 
-function closePageDetailsScreen() {
+window.closePageDetailsScreen = function() {
     const d1 = document.getElementById('page-details-chapter-dropdown');
     const d2 = document.getElementById('page-details-page-dropdown');
     if (d1) d1.style.display = 'none';
@@ -8222,10 +8220,9 @@ function closePageDetailsScreen() {
     } else if (typeof openScreen === 'function') {
         openScreen('argomenti', 'Argomenti');
     }
-}
-window.closePageDetailsScreen = closePageDetailsScreen;
+};
 
-function closeCartelliPageScreen() {
+window.closeCartelliPageScreen = function() {
     const d1 = document.getElementById('cartelli-page-chapter-dropdown');
     const d2 = document.getElementById('cartelli-page-dropdown');
     if (d1) d1.style.display = 'none';
@@ -8235,5 +8232,4 @@ function closeCartelliPageScreen() {
     } else if (typeof openScreen === 'function') {
         openScreen('cartelli-schede', 'Cartelli');
     }
-}
-window.closeCartelliPageScreen = closeCartelliPageScreen;
+};
